@@ -1,0 +1,3007 @@
+# Supplex - UX Design Specification
+
+**Document Version:** 1.0  
+**Date:** October 12, 2025  
+**Status:** Design Specification  
+**UX Lead:** [TBD]  
+**Product Owner:** [TBD]
+
+---
+
+## Table of Contents
+
+1. [Design Principles & Vision](#1-design-principles--vision)
+2. [Design System](#2-design-system)
+3. [Component Library](#3-component-library)
+4. [Screen Specifications](#4-screen-specifications)
+5. [Interaction Patterns](#5-interaction-patterns)
+6. [User Flows](#6-user-flows)
+7. [Responsive Design](#7-responsive-design)
+8. [Accessibility](#8-accessibility)
+9. [Usability Testing](#9-usability-testing)
+
+---
+
+## 1. Design Principles & Vision
+
+### 1.1 Design Philosophy
+
+**Core Principle:** "Enterprise power, consumer simplicity"
+
+Supplex should feel like a modern consumer app (Notion, Airtable) while delivering enterprise-grade supplier management capabilities.
+
+### 1.2 Design Pillars
+
+#### **1. Clarity Over Complexity**
+
+- Show only what users need in context
+- Progressive disclosure for advanced features
+- Clear visual hierarchy on every screen
+
+#### **2. Speed & Efficiency**
+
+- Reduce clicks to complete tasks
+- Keyboard shortcuts for power users
+- Instant feedback on all actions
+
+#### **3. Consistent & Predictable**
+
+- Same patterns across modules
+- Familiar interactions (industry standards)
+- Consistent visual language
+
+#### **4. Data-Driven Insights**
+
+- Visualize performance trends
+- Highlight actionable items
+- Clear status indicators
+
+#### **5. Accessible to All**
+
+- WCAG 2.1 Level AA compliance
+- Keyboard navigation throughout
+- Clear contrast and readable typography
+
+### 1.3 Target Experience
+
+**What Supplex Should Feel Like:**
+
+- ✅ Modern, clean, professional
+- ✅ Fast and responsive
+- ✅ Intuitive without training
+- ✅ Confidence-inspiring (audit trails, security)
+- ✅ Delightful micro-interactions
+
+**What Supplex Should NOT Feel Like:**
+
+- ❌ Cluttered ERP interfaces
+- ❌ Overwhelming spreadsheets
+- ❌ Slow, clunky enterprise software
+- ❌ Generic admin templates
+
+### 1.4 Design References
+
+**Inspiration (not copy):**
+
+- **Airtable:** Data organization, table views
+- **Linear:** Clean UI, keyboard shortcuts, command palette
+- **Notion:** Information hierarchy, nested structures
+- **Stripe Dashboard:** Data visualization, clarity
+- **Vercel Dashboard:** Modern SaaS aesthetic
+
+---
+
+## 2. Design System
+
+### 2.1 Foundation
+
+**Framework:** Tailwind CSS v3.4+ with shadcn/ui components  
+**CSS Strategy:** Utility-first with custom components  
+**Icon Library:** Lucide React (consistent with shadcn/ui)  
+**Charts:** Recharts (React + SVG, responsive)
+
+### 2.2 Color System
+
+#### **Brand Colors**
+
+```css
+/* Primary - Blue (Trust, Professionalism) */
+--primary-50: #eff6ff;
+--primary-100: #dbeafe;
+--primary-200: #bfdbfe;
+--primary-300: #93c5fd;
+--primary-400: #60a5fa;
+--primary-500: #3b82f6; /* Main brand */
+--primary-600: #2563eb;
+--primary-700: #1d4ed8;
+--primary-800: #1e40af;
+--primary-900: #1e3a8a;
+
+/* Secondary - Slate (Neutral, Professional) */
+--slate-50: #f8fafc;
+--slate-100: #f1f5f9;
+--slate-200: #e2e8f0;
+--slate-300: #cbd5e1;
+--slate-400: #94a3b8;
+--slate-500: #64748b;
+--slate-600: #475569;
+--slate-700: #334155;
+--slate-800: #1e293b;
+--slate-900: #0f172a;
+```
+
+#### **Semantic Colors**
+
+```css
+/* Success - Green */
+--success-50: #f0fdf4;
+--success-500: #10b981;
+--success-600: #059669;
+--success-700: #047857;
+
+/* Warning - Amber */
+--warning-50: #fffbeb;
+--warning-500: #f59e0b;
+--warning-600: #d97706;
+--warning-700: #b45309;
+
+/* Error - Red */
+--error-50: #fef2f2;
+--error-500: #ef4444;
+--error-600: #dc2626;
+--error-700: #b91c1c;
+
+/* Info - Blue */
+--info-50: #eff6ff;
+--info-500: #3b82f6;
+--info-600: #2563eb;
+```
+
+#### **Status Colors**
+
+```css
+/* Supplier Status */
+--status-prospect: #94a3b8; /* Slate-400 */
+--status-qualified: #60a5fa; /* Blue-400 */
+--status-approved: #10b981; /* Green-500 */
+--status-blocked: #ef4444; /* Red-500 */
+
+/* Risk Levels */
+--risk-low: #10b981; /* Green */
+--risk-medium: #f59e0b; /* Amber */
+--risk-high: #f97316; /* Orange */
+--risk-critical: #ef4444; /* Red */
+
+/* Performance Scores */
+--score-excellent: #10b981; /* Green - 4.5-5.0 */
+--score-good: #84cc16; /* Lime - 3.5-4.49 */
+--score-acceptable: #f59e0b; /* Amber - 2.5-3.49 */
+--score-poor: #f97316; /* Orange - 1.5-2.49 */
+--score-unacceptable: #ef4444; /* Red - <1.5 */
+```
+
+### 2.3 Typography
+
+#### **Font Family**
+
+```css
+--font-sans: "Inter", system-ui, -apple-system, sans-serif;
+--font-mono: "JetBrains Mono", "Fira Code", monospace;
+```
+
+**Font Weights:**
+
+- Regular: 400 (body text)
+- Medium: 500 (labels, UI elements)
+- Semibold: 600 (headings, emphasis)
+- Bold: 700 (only for marketing, not in app)
+
+#### **Type Scale**
+
+```css
+/* Headings */
+--text-6xl: 60px / 72px (60/1.2) /* Hero - marketing only */
+--text-5xl: 48px / 60px (48/1.25) /* H1 - page titles */
+--text-4xl: 36px / 44px (36/1.22) /* H2 - section titles */
+--text-3xl: 30px / 36px (30/1.2) /* H3 - card titles */
+--text-2xl: 24px / 32px (24/1.33) /* H4 - subsections */
+--text-xl:  20px / 28px (20/1.4) /* H5 - small headings */
+
+/* Body */
+--text-lg:   18px / 28px (18/1.56) /* Large body */
+--text-base: 16px / 24px (16/1.5) /* Default body */
+--text-sm:   14px / 20px (14/1.43) /* Small text, labels */
+--text-xs:   12px / 16px (12/1.33) /* Captions, metadata */
+```
+
+#### **Usage Guidelines**
+
+- **Page titles:** text-5xl (48px) semibold
+- **Section headings:** text-2xl (24px) semibold
+- **Card titles:** text-lg (18px) semibold
+- **Body text:** text-base (16px) regular
+- **Form labels:** text-sm (14px) medium
+- **Helper text:** text-sm (14px) regular, slate-600
+- **Metadata:** text-xs (12px) regular, slate-500
+
+### 2.4 Spacing System
+
+**Base unit:** 4px (Tailwind default)
+
+```css
+/* Spacing Scale (in px) */
+0: 0px
+0.5: 2px
+1: 4px
+2: 8px
+3: 12px
+4: 16px
+5: 20px
+6: 24px
+8: 32px
+10: 40px
+12: 48px
+16: 64px
+20: 80px
+24: 96px
+
+/* Common Usage */
+--space-component-padding: 24px (p-6)
+--space-card-gap: 16px (gap-4)
+--space-section-gap: 32px (gap-8)
+--space-page-padding: 32px (p-8)
+```
+
+**Spacing Conventions:**
+
+- **Within components:** 4px, 8px, 12px
+- **Between components:** 16px, 24px
+- **Between sections:** 32px, 48px
+- **Page margins:** 32px desktop, 16px mobile
+
+### 2.5 Layout Grid
+
+#### **Breakpoints**
+
+```css
+sm: 640px   /* Mobile landscape */
+md: 768px   /* Tablet portrait */
+lg: 1024px  /* Tablet landscape, small desktop */
+xl: 1280px  /* Desktop */
+2xl: 1536px /* Large desktop */
+```
+
+#### **Container**
+
+```css
+max-width: 1400px (desktop)
+padding: 32px (desktop), 16px (mobile)
+margin: 0 auto (centered)
+```
+
+#### **Grid System**
+
+- **12-column grid** for complex layouts
+- **Flexbox** for simpler layouts (preferred)
+- **CSS Grid** for dashboards and card layouts
+
+### 2.6 Elevation (Shadows)
+
+```css
+/* Shadows */
+--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+--shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+/* Usage */
+Cards: shadow-sm (default), shadow-md (hover)
+Modals: shadow-xl
+Dropdowns: shadow-lg
+Buttons: shadow-sm (hover)
+```
+
+### 2.7 Border Radius
+
+```css
+--radius-sm: 4px (rounded-sm)
+--radius: 6px (rounded) /* Default */
+--radius-md: 8px (rounded-md)
+--radius-lg: 12px (rounded-lg)
+--radius-full: 9999px (rounded-full)
+
+/* Usage */
+Buttons, inputs: 6px
+Cards: 8px
+Modals: 12px
+Avatars, badges: 9999px (full)
+```
+
+### 2.8 Animation & Transitions
+
+```css
+/* Duration */
+--duration-fast: 150ms
+--duration-base: 200ms
+--duration-slow: 300ms
+
+/* Easing */
+--ease-in: cubic-bezier(0.4, 0, 1, 1)
+--ease-out: cubic-bezier(0, 0, 0.2, 1)
+--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1)
+
+/* Standard Transition */
+transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+```
+
+**Animation Principles:**
+
+- Fast: 150ms for micro-interactions (hover, focus)
+- Base: 200ms for most transitions (color, scale)
+- Slow: 300ms for layout changes (expand/collapse)
+- Use ease-out for entering elements
+- Use ease-in for exiting elements
+
+---
+
+## 3. Component Library
+
+### 3.1 Buttons
+
+#### **Primary Button**
+
+```tsx
+<button
+  className="
+  inline-flex items-center justify-center gap-2
+  px-4 py-2 
+  text-sm font-medium text-white
+  bg-primary-600 hover:bg-primary-700
+  rounded-md
+  shadow-sm
+  transition-colors duration-200
+  focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+  disabled:opacity-50 disabled:cursor-not-allowed
+"
+>
+  <Icon className="w-4 h-4" />
+  Button Text
+</button>
+```
+
+**Variants:**
+
+- **Primary:** Blue background, white text (main actions)
+- **Secondary:** White background, slate border, slate text (secondary actions)
+- **Destructive:** Red background, white text (delete, reject)
+- **Ghost:** Transparent background, slate text (tertiary actions)
+- **Link:** No background, blue text, underline on hover
+
+**Sizes:**
+
+- **Small:** px-3 py-1.5 text-xs (32px height)
+- **Default:** px-4 py-2 text-sm (40px height)
+- **Large:** px-6 py-3 text-base (48px height)
+
+#### **Button States**
+
+- **Default:** Primary color
+- **Hover:** Darker shade, slight shadow
+- **Active:** Pressed effect, scale(0.98)
+- **Focus:** Ring outline (accessibility)
+- **Disabled:** 50% opacity, cursor-not-allowed
+- **Loading:** Spinner icon, disabled state
+
+### 3.2 Form Inputs
+
+#### **Text Input**
+
+```tsx
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-700">
+    Label Text
+    <span className="text-error-500">*</span> {/* Required */}
+  </label>
+  <input
+    type="text"
+    className="
+      w-full px-3 py-2
+      text-base text-slate-900
+      bg-white border border-slate-300 rounded-md
+      placeholder:text-slate-400
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+      disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed
+    "
+    placeholder="Enter value..."
+  />
+  <p className="text-sm text-slate-600">Helper text goes here</p>
+</div>
+```
+
+**Input States:**
+
+- **Default:** Border slate-300
+- **Focus:** Ring primary-500, border transparent
+- **Error:** Border error-500, ring error-500
+- **Disabled:** Background slate-50, cursor not-allowed
+- **Read-only:** Background slate-50, no border change on focus
+
+#### **Error State**
+
+```tsx
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-700">Email</label>
+  <input
+    className="... border-error-500 focus:ring-error-500"
+    aria-invalid="true"
+  />
+  <p className="text-sm text-error-600 flex items-center gap-1">
+    <AlertCircle className="w-4 h-4" />
+    Email is required
+  </p>
+</div>
+```
+
+#### **Select / Dropdown**
+
+```tsx
+<select
+  className="
+  w-full px-3 py-2
+  text-base text-slate-900
+  bg-white border border-slate-300 rounded-md
+  focus:outline-none focus:ring-2 focus:ring-primary-500
+"
+>
+  <option value="">Select an option...</option>
+  <option value="1">Option 1</option>
+</select>
+```
+
+**Enhanced Select (shadcn/ui):**
+
+- Searchable dropdown
+- Multi-select capability
+- Custom option rendering
+- Keyboard navigation
+
+#### **Checkbox**
+
+```tsx
+<label className="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    className="
+      w-4 h-4
+      text-primary-600 bg-white border-slate-300 rounded
+      focus:ring-2 focus:ring-primary-500
+    "
+  />
+  <span className="text-sm text-slate-700">Checkbox label</span>
+</label>
+```
+
+#### **Radio Button**
+
+```tsx
+<label className="flex items-center gap-2 cursor-pointer">
+  <input
+    type="radio"
+    name="group"
+    className="
+      w-4 h-4
+      text-primary-600 bg-white border-slate-300
+      focus:ring-2 focus:ring-primary-500
+    "
+  />
+  <span className="text-sm text-slate-700">Radio label</span>
+</label>
+```
+
+#### **Textarea**
+
+```tsx
+<textarea
+  rows={4}
+  className="
+    w-full px-3 py-2
+    text-base text-slate-900
+    bg-white border border-slate-300 rounded-md
+    focus:outline-none focus:ring-2 focus:ring-primary-500
+    resize-y
+  "
+  placeholder="Enter description..."
+/>
+```
+
+### 3.3 Cards
+
+#### **Standard Card**
+
+```tsx
+<div
+  className="
+  bg-white
+  border border-slate-200
+  rounded-lg
+  shadow-sm
+  hover:shadow-md transition-shadow duration-200
+  p-6
+"
+>
+  <h3 className="text-lg font-semibold text-slate-900 mb-2">Card Title</h3>
+  <p className="text-sm text-slate-600">Card content goes here...</p>
+</div>
+```
+
+**Card Variants:**
+
+- **Default:** White bg, subtle border, shadow on hover
+- **Highlighted:** Primary-50 background, primary-200 border
+- **Interactive:** Cursor-pointer, stronger hover shadow, scale(1.01)
+- **Flat:** No shadow, just border
+
+### 3.4 Badges / Status Indicators
+
+#### **Badge Component**
+
+```tsx
+<span
+  className="
+  inline-flex items-center gap-1
+  px-2.5 py-0.5
+  text-xs font-medium
+  rounded-full
+  bg-{color}-100 text-{color}-700
+  border border-{color}-200
+"
+>
+  <div className="w-1.5 h-1.5 rounded-full bg-{color}-500" />
+  Badge Text
+</span>
+```
+
+**Status Badges:**
+
+```tsx
+/* Supplier Status */
+<Badge variant="prospect">Prospect</Badge> // Slate
+<Badge variant="qualified">Qualified</Badge> // Blue
+<Badge variant="approved">Approved</Badge> // Green
+<Badge variant="blocked">Blocked</Badge> // Red
+
+/* Risk Levels */
+<Badge variant="low">Low Risk</Badge> // Green
+<Badge variant="medium">Medium Risk</Badge> // Amber
+<Badge variant="high">High Risk</Badge> // Orange
+<Badge variant="critical">Critical Risk</Badge> // Red
+
+/* Complaint Severity */
+<Badge variant="low">Low</Badge>
+<Badge variant="medium">Medium</Badge>
+<Badge variant="high">High</Badge>
+<Badge variant="critical">Critical</Badge>
+```
+
+### 3.5 Tables
+
+#### **Data Table Structure**
+
+```tsx
+<div className="overflow-x-auto border border-slate-200 rounded-lg">
+  <table className="w-full">
+    <thead className="bg-slate-50 border-b border-slate-200">
+      <tr>
+        <th
+          className="
+          px-4 py-3
+          text-left text-xs font-medium text-slate-700 uppercase tracking-wider
+        "
+        >
+          Column Header
+        </th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-slate-200">
+      <tr className="hover:bg-slate-50 transition-colors">
+        <td className="px-4 py-3 text-sm text-slate-900">Cell Content</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+**Table Features:**
+
+- Sticky header on scroll
+- Sortable columns (up/down chevron icons)
+- Row hover state
+- Striped rows (optional: even rows bg-slate-50)
+- Action column (right-aligned, dropdown menu)
+- Empty state (centered message + CTA)
+- Loading state (skeleton rows)
+
+#### **Table Pagination**
+
+```tsx
+<div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
+  <div className="text-sm text-slate-700">
+    Showing <span className="font-medium">1-25</span> of{" "}
+    <span className="font-medium">97</span> results
+  </div>
+  <div className="flex items-center gap-2">
+    <Button size="sm" variant="secondary" disabled>
+      Previous
+    </Button>
+    <div className="flex gap-1">
+      <Button size="sm" variant="primary">
+        1
+      </Button>
+      <Button size="sm" variant="secondary">
+        2
+      </Button>
+      <Button size="sm" variant="secondary">
+        3
+      </Button>
+      <span className="px-2 py-1 text-sm text-slate-600">...</span>
+      <Button size="sm" variant="secondary">
+        10
+      </Button>
+    </div>
+    <Button size="sm" variant="secondary">
+      Next
+    </Button>
+  </div>
+</div>
+```
+
+### 3.6 Modals / Dialogs
+
+#### **Modal Structure**
+
+```tsx
+{
+  /* Overlay */
+}
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" />;
+
+{
+  /* Modal */
+}
+<div
+  className="
+  fixed inset-0 z-50
+  flex items-center justify-center p-4
+"
+>
+  <div
+    className="
+    bg-white
+    rounded-lg shadow-xl
+    max-w-lg w-full
+    max-h-[90vh] overflow-y-auto
+  "
+  >
+    {/* Header */}
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <h2 className="text-xl font-semibold text-slate-900">Modal Title</h2>
+      <button className="text-slate-400 hover:text-slate-600">
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+
+    {/* Body */}
+    <div className="px-6 py-4">Modal content...</div>
+
+    {/* Footer */}
+    <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200">
+      <Button variant="secondary">Cancel</Button>
+      <Button variant="primary">Confirm</Button>
+    </div>
+  </div>
+</div>;
+```
+
+**Modal Sizes:**
+
+- **Small:** max-w-sm (384px)
+- **Default:** max-w-lg (512px)
+- **Large:** max-w-2xl (672px)
+- **XLarge:** max-w-4xl (896px)
+- **Full:** max-w-7xl (1280px)
+
+### 3.7 Toast Notifications
+
+```tsx
+<div
+  className="
+  fixed top-4 right-4 z-50
+  flex flex-col gap-2
+  max-w-sm
+"
+>
+  <div
+    className="
+    flex items-start gap-3
+    bg-white
+    border border-slate-200 rounded-lg shadow-lg
+    p-4
+  "
+  >
+    {/* Icon */}
+    <div className="flex-shrink-0">
+      <CheckCircle2 className="w-5 h-5 text-success-500" />
+    </div>
+
+    {/* Content */}
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-slate-900">Success!</p>
+      <p className="text-sm text-slate-600 mt-1">
+        Supplier created successfully
+      </p>
+    </div>
+
+    {/* Close */}
+    <button className="flex-shrink-0 text-slate-400 hover:text-slate-600">
+      <X className="w-4 h-4" />
+    </button>
+  </div>
+</div>
+```
+
+**Toast Variants:**
+
+- **Success:** Green icon, green accent
+- **Error:** Red icon, red accent
+- **Warning:** Amber icon, amber accent
+- **Info:** Blue icon, blue accent
+
+**Behavior:**
+
+- Auto-dismiss after 5 seconds
+- Can be manually dismissed (X button)
+- Stack vertically (newest on top)
+- Slide-in animation from right
+- Slide-out animation on dismiss
+
+### 3.8 Dropdowns / Menus
+
+```tsx
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="secondary">
+      Actions
+      <ChevronDown className="w-4 h-4" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end" className="w-48">
+    <DropdownMenuItem>
+      <Edit className="w-4 h-4 mr-2" />
+      Edit
+    </DropdownMenuItem>
+    <DropdownMenuItem>
+      <Eye className="w-4 h-4 mr-2" />
+      View Details
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem className="text-error-600">
+      <Trash2 className="w-4 h-4 mr-2" />
+      Delete
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+---
+
+## 4. Screen Specifications
+
+### 4.1 Global Layout
+
+#### **Top Navigation Bar**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ [Logo] Supplex    [Nav Items]              [User] [Notify] │
+│                                                             │
+└────────────────────────────────────────────────────────────┘
+
+Height: 64px
+Background: White
+Border-bottom: 1px slate-200
+Position: Sticky top
+
+Components:
+├── Logo (left): 32px height, clickable → Dashboard
+├── Navigation (center):
+│   ├── Suppliers
+│   ├── Qualifications
+│   ├── Evaluations
+│   ├── Complaints
+│   └── Dashboard
+├── Notifications (right): Bell icon with badge count
+└── User Menu (right): Avatar + name + dropdown
+```
+
+**Navigation Item States:**
+
+- Default: text-slate-600, hover:text-slate-900
+- Active: text-primary-600, border-b-2 border-primary-600
+- Focus: ring outline
+
+#### **Breadcrumb Navigation**
+
+```
+Home > Suppliers > Acme Manufacturing
+
+Position: Below top nav, inside page container
+Height: 40px
+Typography: text-sm text-slate-600
+Separator: ChevronRight icon
+Last item: font-medium text-slate-900 (not clickable)
+```
+
+#### **Page Container**
+
+```
+max-width: 1400px
+padding: 32px (desktop), 16px (mobile)
+margin: 0 auto
+background: slate-50 (global app background)
+```
+
+### 4.2 Authentication Screens
+
+#### **Login Page**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│                    [Supplex Logo]                       │
+│                                                         │
+│              Welcome to Supplex                         │
+│         Modern Supplier Management                      │
+│                                                         │
+│    ┌───────────────────────────────────────┐          │
+│    │  Email                                │          │
+│    │  [_________________________]          │          │
+│    │                                       │          │
+│    │  Password                            │          │
+│    │  [_________________________] [eye]   │          │
+│    │                                       │          │
+│    │  [ ] Remember me   Forgot password?  │          │
+│    │                                       │          │
+│    │  [        Sign In        ]           │          │
+│    │                                       │          │
+│    │  Don't have an account? Contact us   │          │
+│    └───────────────────────────────────────┘          │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+Layout: Centered card on gradient background
+Card: 480px width, white bg, shadow-xl, p-8
+Logo: 48px height
+Title: text-3xl font-semibold
+Subtitle: text-base text-slate-600
+Input spacing: gap-4
+Button: Full width, primary
+Links: text-primary-600 hover:underline
+```
+
+**Password Reset Page:**
+Similar layout, single email field, "Send Reset Link" button
+
+---
+
+### 4.3 Dashboard Screen
+
+#### **Executive Dashboard Layout**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Dashboard                                    [Date Range ▼] │
+│                                                             │
+│ ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│ │ [Icon]   │  │ [Icon]   │  │ [Icon]   │  │ [Icon]   │   │
+│ │ 97       │  │ 23       │  │ 4.2/5.0  │  │ 12       │   │
+│ │ Suppliers│  │ Qualified│  │ Avg Score│  │ Open     │   │
+│ └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+│                                                             │
+│ ┌─────────────────────────────┐  ┌──────────────────────┐ │
+│ │ Performance Distribution    │  │ Complaint Trend      │ │
+│ │                            │  │                      │ │
+│ │   [Pie Chart]             │  │   [Line Chart]       │ │
+│ │                            │  │                      │ │
+│ │ Excellent: 45%            │  │                      │ │
+│ │ Good: 35%                 │  │                      │ │
+│ │ Acceptable: 15%           │  │                      │ │
+│ │ Poor: 5%                  │  │                      │ │
+│ └─────────────────────────────┘  └──────────────────────┘ │
+│                                                             │
+│ ┌───────────────────────────────────────────────────────┐ │
+│ │ Top Suppliers by Score                                │ │
+│ │                                                       │ │
+│ │ [Horizontal Bar Chart - Top 10]                      │ │
+│ │                                                       │ │
+│ └───────────────────────────────────────────────────────┘ │
+│                                                             │
+│ ┌───────────────────────────────────────────────────────┐ │
+│ │ ⚠️ Alerts & Notifications                             │ │
+│ │                                                       │ │
+│ │ • 2 suppliers with poor performance (<2.5)           │ │
+│ │ • 1 critical complaint overdue                       │ │
+│ │ • 3 certifications expiring in 30 days               │ │
+│ │                                                       │ │
+│ └───────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+
+Grid: CSS Grid, responsive
+├── Row 1: 4 KPI cards (grid-cols-4 → grid-cols-2 → grid-cols-1)
+├── Row 2: 2 charts (grid-cols-2 → grid-cols-1)
+├── Row 3: Bar chart (full width)
+└── Row 4: Alerts card (full width)
+
+KPI Cards:
+├── Size: Equal width, auto height
+├── Background: White
+├── Border: slate-200
+├── Padding: p-6
+├── Icon: 32px, primary-600
+├── Value: text-3xl font-semibold
+├── Label: text-sm text-slate-600
+└── Trend: Small badge (+12% from last month)
+
+Charts:
+├── Height: 320px
+├── Responsive: Maintain aspect ratio
+└── Colors: Use semantic colors
+
+Alerts Card:
+├── Background: warning-50
+├── Border: warning-200
+├── Icon: AlertTriangle, warning-600
+└── Items: Clickable links to detail pages
+```
+
+**Date Range Selector:**
+
+- Dropdown menu aligned right
+- Presets: Last 7 days, Last 30 days, Last quarter, Last year, Custom
+- Custom opens date picker modal
+- Selected range displayed in button
+
+---
+
+### 4.4 Supplier List Screen
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Home > Suppliers                                           │
+│                                                             │
+│ Suppliers (97)                        [+ Add New Supplier] │
+│                                                             │
+│ ┌─────────┬─────────────────────────────────────────────┐ │
+│ │ FILTERS │  [🔍 Search suppliers...]                   │ │
+│ │         │                                             │ │
+│ │ Status  │  [Active filters: Status: Approved]        │ │
+│ │ ☑Apprvd │                                             │ │
+│ │ ☐Qulfd  │  ┌──────────────────────────────────────┐ │ │
+│ │ ☐Prospct│  │Code│Name│Status│Category│Risk│Score  │ │ │
+│ │ ☐Blockd │  ├────┼────┼──────┼────────┼────┼──────┤ │ │
+│ │         │  │SUP-│Acme│[Aprvd│Metal   │[Low│4.2   │ │ │
+│ │ Risk    │  │0001│Mfg │Green]│Fabrc   │Grn]│⭐⭐⭐⭐│ │ │
+│ │ ☑ Low   │  ├────┼────┼──────┼────────┼────┼──────┤ │ │
+│ │ ☐Medium │  │SUP-│Beta│[Qlfid│Electr. │[Med│3.8   │ │ │
+│ │ ☐ High  │  │0002│Inc │Blue] │        │Ylw]│⭐⭐⭐  │ │ │
+│ │         │  └──────────────────────────────────────┘ │ │
+│ │Category │                                             │ │
+│ │ [All ▼] │  Showing 1-25 of 48          [◀] 1 2 [▶] │ │
+│ │         │                                             │ │
+│ │ [Clear] │                                             │ │
+│ └─────────┴─────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+
+Layout: 2-column (sidebar + main)
+├── Sidebar: 280px width (fixed), bg-white, border-r
+└── Main: flex-1, p-6
+
+Search:
+├── Full-width input
+├── Search icon left
+├── Placeholder: "Search by name, code, contact..."
+└── Real-time search (debounced 300ms)
+
+Active Filters:
+├── Tag chips with X to remove
+└── "Clear all" button if multiple
+
+Table:
+├── Sticky header
+├── Sortable columns (click header)
+├── Row hover: bg-slate-50
+├── Status badge: Color-coded
+├── Risk badge: Color-coded
+├── Score: Stars + numeric
+├── Actions column: Dropdown menu (⋮)
+│   ├── View Details
+│   ├── Edit
+│   ├── Evaluate
+│   ├── Report Complaint
+│   └── Delete
+└── Empty state: "No suppliers found" + CTA
+
+Pagination:
+├── Left: Result count
+├── Center: Page numbers (1, 2, 3, ..., 10)
+└── Right: Previous/Next buttons
+```
+
+**Responsive Behavior:**
+
+- Desktop: 2-column layout
+- Tablet: Filters collapse to dropdown at top
+- Mobile: Full-width table, horizontal scroll
+
+---
+
+### 4.5 Supplier Detail Screen
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Home > Suppliers > Acme Manufacturing                      │
+│                                                             │
+│ Acme Manufacturing                [Edit] [Actions ▼]       │
+│ [Approved] SUP-2025-0001                                   │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ [Overview] [Performance] [Complaints] [Documents] [History]│
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌──────────────────────┐  ┌─────────────────────────────┐ │
+│ │ Basic Information    │  │ Performance Summary         │ │
+│ │                      │  │                             │ │
+│ │ Status: [Approved ✓] │  │ Overall Score               │ │
+│ │ Risk Level: [Low]    │  │     4.2 / 5.0               │ │
+│ │ Category: Metal Fab  │  │     ⭐⭐⭐⭐☆                   │ │
+│ │ Qualified: Jan 2025  │  │                             │ │
+│ │                      │  │ Quality:   4.5 ⬆            │ │
+│ │ Contact              │  │ Delivery:  4.0 →            │ │
+│ │ Jane Smith           │  │ Service:   4.0 ⬆            │ │
+│ │ jane@acme.com        │  │ Cost:      4.3 →            │ │
+│ │ +1-555-0100         │  │                             │ │
+│ │                      │  │ Last Evaluation             │ │
+│ │ Address              │  │ Q3 2025 (Sep 30)            │ │
+│ │ 123 Main St          │  │                             │ │
+│ │ Detroit, MI 48201    │  │ [View Full History]         │ │
+│ └──────────────────────┘  └─────────────────────────────┘ │
+│                                                             │
+│ ┌──────────────────────┐  ┌─────────────────────────────┐ │
+│ │ Recent Activity      │  │ Quick Actions               │ │
+│ │                      │  │                             │ │
+│ │ • Evaluation Q3 ✓    │  │ [Create Evaluation]         │ │
+│ │   Sep 30, 2025       │  │                             │ │
+│ │ • Complaint resolved │  │ [Report Complaint]          │ │
+│ │   Sep 15, 2025       │  │                             │ │
+│ │ • Document updated   │  │ [Upload Document]           │ │
+│ │   Aug 20, 2025       │  │                             │ │
+│ │                      │  │ [Generate Scorecard]        │ │
+│ └──────────────────────┘  └─────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+
+Header:
+├── Title: Supplier name (text-4xl font-semibold)
+├── Status badge: Color-coded, large
+├── Supplier code: text-sm text-slate-600
+├── Actions: Edit button + Actions dropdown
+└── Breadcrumb above
+
+Tabs:
+├── Overview (default)
+├── Performance (evaluations history)
+├── Complaints (complaint list)
+├── Documents (document list)
+└── History (audit log)
+
+Grid: 2-column responsive layout
+└── Cards with consistent padding, borders
+
+Performance Summary Card:
+├── Large score display (center)
+├── Stars visualization
+├── Dimension scores with trend arrows
+└── Link to detailed performance
+
+Recent Activity:
+├── Timeline style list
+├── Icon + description + timestamp
+└── Limited to last 5 items
+
+Quick Actions:
+├── Full-width buttons
+└── Primary actions for supplier
+```
+
+**Tab Content Examples:**
+
+**Performance Tab:**
+
+- Line chart showing overall score trend (last 4 quarters)
+- Table of all evaluations (date, score, evaluator, status)
+- Click evaluation → Modal with full details
+
+**Complaints Tab:**
+
+- List of complaints (complaint number, date, severity, status)
+- Filter by status, severity
+- Click complaint → Navigate to complaint detail
+
+**Documents Tab:**
+
+- Table: Document name, type, uploaded date, expiry date
+- Upload new document button
+- Download/view actions per document
+
+**History Tab:**
+
+- Audit log table: Date, User, Action, Details
+- Filterable by date range, action type
+
+---
+
+### 4.6 Add/Edit Supplier Form
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Home > Suppliers > Add New Supplier                        │
+│                                                             │
+│ Add New Supplier                           [Cancel] [Save] │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Basic Information                                       │ │
+│ │                                                         │ │
+│ │ Supplier Code                                           │ │
+│ │ [SUP-2025-0099____________________] Auto-generated      │ │
+│ │                                                         │ │
+│ │ Supplier Name *                                         │ │
+│ │ [_________________________________________]             │ │
+│ │                                                         │ │
+│ │ Status *                       Risk Level               │ │
+│ │ [Prospect        ▼]            [Medium       ▼]        │ │
+│ │                                                         │ │
+│ │ Category *                                              │ │
+│ │ [Select category...          ▼]                        │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Contact Information                                     │ │
+│ │                                                         │ │
+│ │ Primary Contact Name *                                  │ │
+│ │ [_________________________________________]             │ │
+│ │                                                         │ │
+│ │ Email *                          Phone                  │ │
+│ │ [________________@_____]         [________________]     │ │
+│ │                                                         │ │
+│ │ Website                                                 │ │
+│ │ [https://_____________________________]                │ │
+│ │                                                         │ │
+│ │ [+ Add Secondary Contact]                               │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Address                                                 │ │
+│ │                                                         │ │
+│ │ Street Address *                                        │ │
+│ │ [_________________________________________]             │ │
+│ │                                                         │ │
+│ │ City *                  State/Province *                │ │
+│ │ [________________]      [________________]              │ │
+│ │                                                         │ │
+│ │ Postal Code *           Country *                       │ │
+│ │ [________________]      [United States  ▼]             │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Business Information (Optional)                         │ │
+│ │                                                         │ │
+│ │ Tax ID / VAT Number      Industry                       │ │
+│ │ [________________]       [Manufacturing  ▼]            │ │
+│ │                                                         │ │
+│ │ Employee Count           Annual Revenue                 │ │
+│ │ [100-500        ▼]      [$10M-$50M      ▼]            │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                                    [Cancel] [Save Supplier]│
+└────────────────────────────────────────────────────────────┘
+
+Layout: Single column, max-width 800px, centered
+Section cards: White bg, border, p-6, gap-6
+Form groups: gap-4
+Required fields: Red asterisk, validated on blur
+Buttons: Fixed at bottom (sticky on scroll)
+
+Validation:
+├── Real-time validation on blur
+├── Email format check
+├── Phone number format (flexible international)
+├── Required field checks
+├── Duplicate name warning (not blocking)
+└── Error messages below fields
+
+Save Behavior:
+├── Success → Toast + redirect to supplier detail
+├── Validation errors → Scroll to first error
+└── API error → Error toast, stay on form
+```
+
+**Edit Supplier:**
+
+- Same layout
+- Pre-populated fields
+- "Save Changes" button
+- "Unsaved changes" warning if navigating away
+
+---
+
+### 4.7 Qualification Workflow
+
+#### **Start Qualification**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Acme Manufacturing > Start Qualification                   │
+│                                                             │
+│ New Supplier Qualification                                 │
+│                                                             │
+│ You are starting a qualification process for:              │
+│ Acme Manufacturing (SUP-2025-0001)                         │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Qualification Details                                   │ │
+│ │                                                         │ │
+│ │ Qualification Number                                    │ │
+│ │ QUAL-2025-0001 (Auto-generated)                        │ │
+│ │                                                         │ │
+│ │ Requestor *                                             │ │
+│ │ [John Doe (You)                          ]             │ │
+│ │                                                         │ │
+│ │ Qualification Template                                  │ │
+│ │ [Standard Qualification                  ▼]            │ │
+│ │ 15 questions across 5 sections                         │ │
+│ │                                                         │ │
+│ │ Notes (Optional)                                        │ │
+│ │ [___________________________________________]           │ │
+│ │ [___________________________________________]           │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                            [Cancel] [Start Qualification]  │
+└────────────────────────────────────────────────────────────┘
+
+Modal: max-width 600px
+```
+
+#### **Qualification Questionnaire (Stage 1)**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Qualification: QUAL-2025-0001                              │
+│ Acme Manufacturing                                         │
+│                                                             │
+│ Stage 1: Requestor Review              [Save Draft] [Submit│
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Progress: 60% Complete (9 of 15 questions)             │ │
+│ │ [████████████░░░░░░░░░░░░░░░░]                         │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 📋 Section 1: Quality Management System                │ │
+│ │                                                         │ │
+│ │ 1. Does the supplier have ISO 9001 certification? *    │ │
+│ │    ⦿ Yes    ○ No                                       │ │
+│ │                                                         │ │
+│ │ 2. Rate the supplier's quality documentation (1-5) *   │ │
+│ │    ☆ ☆ ☆ ☆ ☆  (Click to rate)                         │ │
+│ │                                                         │ │
+│ │ 3. Upload ISO 9001 certificate *                       │ │
+│ │    [📎 iso-9001-cert.pdf] [View] [Remove]             │ │
+│ │    or [Drop files here / Click to upload]             │ │
+│ │                                                         │ │
+│ │ 4. Describe the supplier's quality processes *         │ │
+│ │    [___________________________________________]        │ │
+│ │    [___________________________________________]        │ │
+│ │    [___________________________________________]        │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 🏭 Section 2: Production Capabilities                  │ │
+│ │ [Collapsed - Click to expand]                          │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 💰 Section 3: Financial Stability                      │ │
+│ │ [Collapsed]                                             │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ ✅ Section 4: References                               │ │
+│ │ [Collapsed]                                             │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 📜 Section 5: Compliance & Certifications              │ │
+│ │ [Collapsed]                                             │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Risk Score: 35 (Medium Risk) ⚠️                         │ │
+│ │ Based on current answers                                │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                        [Save Draft] [Submit for Review] │
+└────────────────────────────────────────────────────────────┘
+
+Layout: Single column, max-width 900px
+Sections: Collapsible accordion cards
+Progress: Sticky bar at top
+Actions: Sticky at bottom
+Auto-save: Every 30 seconds (draft)
+
+Question Types:
+├── Yes/No: Radio buttons
+├── Rating: Star component (1-5)
+├── Text: Textarea
+└── File: Drag-drop upload zone
+
+Risk Score:
+├── Auto-calculated as questions answered
+├── Updates in real-time
+├── Color-coded badge
+└── Shows methodology on hover
+```
+
+#### **Qualification Review (Stage 2 & 3)**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Qualification: QUAL-2025-0001                              │
+│ Acme Manufacturing                                         │
+│                                                             │
+│ Stage 2: Procurement Review          [Request Changes]    │
+│                                      [Approve]             │
+│                                                             │
+│ [Stage 1: Complete ✓] → [Stage 2: In Review] → [Stage 3]  │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Submission Summary                                      │ │
+│ │                                                         │ │
+│ │ Submitted by: John Doe                                  │ │
+│ │ Submitted on: Oct 12, 2025 10:30 AM                    │ │
+│ │ Risk Score: 35 (Medium Risk)                            │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ [View All Sections] [Expand All]                           │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 📋 Quality Management System                            │ │
+│ │                                                         │ │
+│ │ 1. Does the supplier have ISO 9001 certification?      │ │
+│ │    ✓ Yes                                                │ │
+│ │                                                         │ │
+│ │ 2. Rate the supplier's quality documentation           │ │
+│ │    ⭐⭐⭐⭐☆ (4/5)                                        │ │
+│ │                                                         │ │
+│ │ 3. ISO 9001 certificate                                 │ │
+│ │    [📎 iso-9001-cert.pdf] [Download] [Preview]        │ │
+│ │                                                         │ │
+│ │ 4. Quality processes description                        │ │
+│ │    "The supplier has documented procedures for..."      │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Procurement Notes                                       │ │
+│ │ [Add your review notes here...]                        │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                    [Request Changes] [Approve for Stage 3] │
+└────────────────────────────────────────────────────────────┘
+
+Read-only view of questionnaire
+Notes section for reviewer comments
+Action buttons at bottom
+Stage progress indicator at top
+```
+
+**Request Changes Modal:**
+
+```
+┌────────────────────────────────┐
+│ Request Changes                │
+│                                │
+│ Why are changes needed?        │
+│ [___________________________]  │
+│ [___________________________]  │
+│                                │
+│ This will send the             │
+│ qualification back to Stage 1. │
+│                                │
+│    [Cancel] [Request Changes]  │
+└────────────────────────────────┘
+```
+
+---
+
+### 4.8 Performance Evaluation
+
+#### **Create Evaluation**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Acme Manufacturing > Create Evaluation                     │
+│                                                             │
+│ New Performance Evaluation                                 │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Evaluation Details                                      │ │
+│ │                                                         │ │
+│ │ Evaluation Number                                       │ │
+│ │ EVAL-2025-Q4-0001 (Auto-generated)                     │ │
+│ │                                                         │ │
+│ │ Evaluation Period *                                     │ │
+│ │ Start Date            End Date                          │ │
+│ │ [Oct 1, 2025]        [Dec 31, 2025]                    │ │
+│ │                                                         │ │
+│ │ Evaluator *                                             │ │
+│ │ [John Doe (You)                          ]             │ │
+│ │                                                         │ │
+│ │ Template                                                │ │
+│ │ [Standard Quarterly Evaluation           ▼]            │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                            [Cancel] [Create Evaluation]    │
+└────────────────────────────────────────────────────────────┘
+```
+
+#### **Evaluation Form**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Evaluation: EVAL-2025-Q4-0001                              │
+│ Acme Manufacturing · Q4 2025                               │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Overall Score                                           │ │
+│ │                                                         │ │
+│ │          4.2 / 5.0                                      │ │
+│ │       ⭐⭐⭐⭐☆                                             │ │
+│ │          Good                                           │ │
+│ │                                                         │ │
+│ │  Quality (30%): 4.5  Delivery (30%): 4.0               │ │
+│ │  Service (20%): 4.0  Cost (20%): 4.3                   │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 📊 Quality (Weight: 30%)                                │ │
+│ │                                                         │ │
+│ │ Rating * (Click stars to rate)                          │ │
+│ │ ★★★★☆ (4.5/5)                                          │ │
+│ │                                                         │ │
+│ │ Defect Rate (%)                                         │ │
+│ │ [2.3___]%                                               │ │
+│ │                                                         │ │
+│ │ Complaints in Period                                    │ │
+│ │ [1___] complaints                                       │ │
+│ │                                                         │ │
+│ │ Certificate Compliance                                  │ │
+│ │ ⦿ Up to date    ○ Expiring soon    ○ Expired          │ │
+│ │                                                         │ │
+│ │ Comments                                                │ │
+│ │ [Quality has been excellent this quarter.               │ │
+│ │  Only one minor defect issue that was resolved quickly.]│ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 🚚 Delivery (Weight: 30%)                               │ │
+│ │                                                         │ │
+│ │ Rating *                                                │ │
+│ │ ★★★★☆ (4.0/5)                                          │ │
+│ │                                                         │ │
+│ │ On-Time Delivery Rate (%)                               │ │
+│ │ [95___]%                                                │ │
+│ │                                                         │ │
+│ │ Lead Time Accuracy                                      │ │
+│ │ ⦿ Always accurate    ○ Mostly    ○ Sometimes ○ Rarely  │ │
+│ │                                                         │ │
+│ │ Comments                                                │ │
+│ │ [Two late deliveries this quarter but...]              │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 💬 Service (Weight: 20%)                                │ │
+│ │ [Collapsed - Click to expand]                          │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 💰 Cost (Weight: 20%)                                   │ │
+│ │ [Collapsed]                                             │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                        [Save Draft] [Finalize Evaluation]  │
+└────────────────────────────────────────────────────────────┘
+
+Overall Score Card:
+├── Prominent display at top
+├── Large numeric score
+├── Star visualization
+├── Text label (Excellent/Good/Acceptable/Poor)
+├── Color-coded background
+└── Updates in real-time as sections scored
+
+Dimension Sections:
+├── Collapsible cards
+├── Required: Star rating (1-5)
+├── Optional: Metric inputs
+├── Required: Comments (textarea)
+└── Weight display in header
+
+Star Rating:
+├── Interactive (click to rate, hover preview)
+├── Large size (32px per star)
+├── Yellow filled, gray outline
+└── Shows numeric value
+
+Auto-calculation:
+Overall = (Quality * 0.3) + (Delivery * 0.3) + (Service * 0.2) + (Cost * 0.2)
+
+Finalize:
+├── Validation: All required fields
+├── Confirmation modal
+├── Locks evaluation (no further edits)
+└── Sends notifications
+```
+
+---
+
+### 4.9 Complaint Management
+
+#### **Register Complaint**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Register New Complaint                                     │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Basic Information                                       │ │
+│ │                                                         │ │
+│ │ Complaint Number                                        │ │
+│ │ CPL-2025-0001 (Auto-generated)                         │ │
+│ │                                                         │ │
+│ │ Supplier *                                              │ │
+│ │ [Search supplier...                       ▼]           │ │
+│ │                                                         │ │
+│ │ Category *                  Severity *                  │ │
+│ │ [Defective material ▼]     [● High]                    │ │
+│ │                             ○ Critical                  │ │
+│ │                             ● High                      │ │
+│ │                             ○ Medium                    │ │
+│ │                             ○ Low                       │ │
+│ │                                                         │ │
+│ │ Due Date: Oct 15, 2025 (Auto-calculated: 3 days)      │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Problem Description *                                   │ │
+│ │ [Received 100 units with defective coating...]         │ │
+│ │ [                                                      ] │ │
+│ │ [                                                      ] │ │
+│ │                                          0 / 2000 chars │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Additional Details (Optional)                           │ │
+│ │                                                         │ │
+│ │ Part Number            Quantity Affected                │ │
+│ │ [PART-001____]        [100__] units                    │ │
+│ │                                                         │ │
+│ │ PO Number              Financial Impact                 │ │
+│ │ [PO-2025-0500]        [$5,000] USD                     │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Attachments                                             │ │
+│ │                                                         │ │
+│ │ ┌─────────────────────────────────────────────────┐   │ │
+│ │ │  📎 Drop files here or click to upload          │   │ │
+│ │ │     (Photos, inspection reports, etc.)           │   │ │
+│ │ │     Max 25MB per file                            │   │ │
+│ │ └─────────────────────────────────────────────────┘   │ │
+│ │                                                         │ │
+│ │ [📄 defect-photo-1.jpg] [Remove]                       │ │
+│ │ [📄 inspection-report.pdf] [Remove]                    │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Assignment                                              │ │
+│ │                                                         │ │
+│ │ Assign To *                                             │ │
+│ │ [John Doe (You)                          ▼]            │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│                            [Cancel] [Register Complaint]   │
+└────────────────────────────────────────────────────────────┘
+
+Severity Selector:
+├── Large radio buttons with color coding
+├── Critical: Red badge
+├── High: Orange badge
+├── Medium: Amber badge
+└── Low: Slate badge
+
+Due Date:
+├── Auto-calculated based on severity
+├── Displayed prominently
+├── Can be manually adjusted
+
+File Upload:
+├── Drag-and-drop zone
+├── Multiple files supported
+├── Show file name + size + remove button
+└── Upload progress bar for large files
+```
+
+#### **Complaint Detail**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Home > Complaints > CPL-2025-0001                          │
+│                                                             │
+│ CPL-2025-0001                          [Edit] [Close]      │
+│ [High Severity] [Investigating]                            │
+│                                                             │
+│ ┌──────────────────────┐  ┌─────────────────────────────┐ │
+│ │ Complaint Details    │  │ Timeline                    │ │
+│ │                      │  │                             │ │
+│ │ Supplier             │  │ ● Registered                │ │
+│ │ Acme Manufacturing   │  │   Oct 12, 10:00 AM          │ │
+│ │                      │  │   by John Doe               │ │
+│ │ Category             │  │                             │ │
+│ │ Defective material   │  │ ● Investigating             │ │
+│ │                      │  │   Oct 12, 2:00 PM           │ │
+│ │ Severity             │  │   Status changed            │ │
+│ │ [High]               │  │                             │ │
+│ │                      │  │ ● Root cause added          │ │
+│ │ Reported By          │  │   Oct 13, 9:00 AM           │ │
+│ │ John Doe             │  │   by Jane Smith             │ │
+│ │ Oct 12, 2025         │  │                             │ │
+│ │                      │  │ ○ Awaiting Supplier         │ │
+│ │ Assigned To          │  │                             │ │
+│ │ Jane Smith (Quality) │  │ ○ Resolved                  │ │
+│ │                      │  │                             │ │
+│ │ Due Date             │  │ ○ Closed                    │ │
+│ │ Oct 15, 2025         │  │                             │ │
+│ │ [2 days remaining]   │  │                             │ │
+│ └──────────────────────┘  └─────────────────────────────┘ │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ Problem Description                                     │ │
+│ │                                                         │ │
+│ │ Received 100 units with defective coating. The coating │ │
+│ │ is peeling off and does not meet specification...      │ │
+│ │                                                         │ │
+│ │ Part Number: PART-001                                   │ │
+│ │ Quantity: 100 units                                     │ │
+│ │ PO Number: PO-2025-0500                                 │ │
+│ │ Financial Impact: $5,000                                │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 📎 Attachments (2)                                      │ │
+│ │                                                         │ │
+│ │ [🖼️ defect-photo-1.jpg] [View] [Download]              │ │
+│ │ [📄 inspection-report.pdf] [View] [Download]           │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 🔍 Root Cause Analysis                   [Add Analysis] │ │
+│ │                                                         │ │
+│ │ Method: 5 Why                                           │ │
+│ │ Determined: Oct 13, 2025                                │ │
+│ │                                                         │ │
+│ │ Inadequate process controls during coating application. │ │
+│ │ Temperature and humidity not properly monitored.        │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ ✅ Corrective Actions (2)              [Add CAPA]       │ │
+│ │                                                         │ │
+│ │ ┌───────────────────────────────────────────────────┐ │ │
+│ │ │ CAPA #1                    [In Progress]           │ │ │
+│ │ │ Implement environmental monitoring in coating bay  │ │ │
+│ │ │ Responsible: Supplier                              │ │ │
+│ │ │ Due: Oct 20, 2025                                  │ │ │
+│ │ │ [Mark Complete]                                    │ │ │
+│ │ └───────────────────────────────────────────────────┘ │ │
+│ │                                                         │ │
+│ │ ┌───────────────────────────────────────────────────┐ │ │
+│ │ │ CAPA #2                    [Pending]               │ │ │
+│ │ │ Provide updated process documentation             │ │ │
+│ │ │ Responsible: Supplier                              │ │ │
+│ │ │ Due: Oct 27, 2025                                  │ │ │
+│ │ └───────────────────────────────────────────────────┘ │ │
+│ └─────────────────────────────────────────────────────────┘
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐
+│ │ 💬 Communication                                        │ │
+│ │                                                         │ │
+│ │ [Internal Notes] [Supplier Communication]              │ │
+│ │                                                         │ │
+│ │ Oct 12, 10:00 AM - John Doe                            │ │
+│ │ "Contacted supplier immediately. They acknowledge..."   │ │
+│ │                                                         │ │
+│ │ Oct 13, 9:00 AM - Jane Smith                           │ │
+│ │ "Supplier provided root cause analysis. Implementing..." │ │
+│ │                                                         │ │
+│ │ [Add Note_____________________________________]  [Post] │ │
+│ └─────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────┘
+
+Timeline:
+├── Vertical progress indicator
+├── Completed steps: Filled circle, green
+├── Current step: Filled circle, blue
+├── Future steps: Empty circle, gray
+└── Shows date, time, and user
+
+CAPA Cards:
+├── Status badge (Pending/In Progress/Complete)
+├── Description
+├── Responsible party
+├── Due date with countdown
+└── Action button (Mark Complete)
+
+Cannot close complaint until all CAPAs complete
+```
+
+---
+
+## 5. Interaction Patterns
+
+### 5.1 Loading States
+
+#### **Page Loading**
+
+```tsx
+<div className="flex items-center justify-center min-h-screen">
+  <div className="text-center">
+    <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto" />
+    <p className="mt-4 text-sm text-slate-600">Loading...</p>
+  </div>
+</div>
+```
+
+#### **Button Loading**
+
+```tsx
+<Button disabled>
+  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+  Saving...
+</Button>
+```
+
+#### **Table Loading (Skeleton)**
+
+```tsx
+<tr>
+  <td>
+    <Skeleton className="h-4 w-24" />
+  </td>
+  <td>
+    <Skeleton className="h-4 w-32" />
+  </td>
+  <td>
+    <Skeleton className="h-4 w-16" />
+  </td>
+</tr>
+```
+
+### 5.2 Empty States
+
+```tsx
+<div className="text-center py-12">
+  <FileQuestion className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+    No suppliers found
+  </h3>
+  <p className="text-sm text-slate-600 mb-6">
+    Get started by adding your first supplier
+  </p>
+  <Button variant="primary">
+    <Plus className="w-4 h-4 mr-2" />
+    Add Supplier
+  </Button>
+</div>
+```
+
+### 5.3 Error States
+
+#### **Inline Form Error**
+
+```tsx
+<div>
+  <input className="border-error-500" aria-invalid="true" />
+  <p className="mt-1 text-sm text-error-600 flex items-center gap-1">
+    <AlertCircle className="w-4 h-4" />
+    This field is required
+  </p>
+</div>
+```
+
+#### **Page-Level Error**
+
+```tsx
+<div className="flex items-center justify-center min-h-screen">
+  <div className="text-center max-w-md">
+    <AlertTriangle className="w-16 h-16 text-error-500 mx-auto mb-4" />
+    <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+      Something went wrong
+    </h2>
+    <p className="text-sm text-slate-600 mb-6">
+      We couldn't load this page. Please try again.
+    </p>
+    <Button variant="primary" onClick={() => window.location.reload()}>
+      Reload Page
+    </Button>
+  </div>
+</div>
+```
+
+### 5.4 Confirmation Dialogs
+
+```tsx
+<AlertDialog>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Delete Supplier?</AlertDialogTitle>
+      <AlertDialogDescription>
+        This action cannot be undone. This will permanently delete the supplier
+        "Acme Manufacturing" and all associated data.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### 5.5 Keyboard Shortcuts
+
+**Global:**
+
+- `Cmd/Ctrl + K`: Command palette (search anything)
+- `Cmd/Ctrl + /`: Show keyboard shortcuts
+- `Esc`: Close modal/dropdown
+
+**Navigation:**
+
+- `G then S`: Go to Suppliers
+- `G then Q`: Go to Qualifications
+- `G then E`: Go to Evaluations
+- `G then C`: Go to Complaints
+- `G then D`: Go to Dashboard
+
+**Actions:**
+
+- `C`: Create new (context-aware)
+- `E`: Edit (when item selected)
+- `Delete`: Delete (with confirmation)
+
+### 5.6 Hover States
+
+- **Links:** Underline appears
+- **Buttons:** Slightly darker shade, subtle shadow
+- **Table rows:** Background changes to slate-50
+- **Cards:** Shadow intensifies (shadow-sm → shadow-md)
+- **Icons:** Color brightens (slate-600 → slate-900)
+
+### 5.7 Focus States
+
+All interactive elements must have visible focus indicators:
+
+```css
+focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+```
+
+---
+
+## 6. User Flows
+
+### 6.1 Complete Supplier Qualification Flow
+
+```mermaid
+Start
+  ↓
+Add Supplier (basic info)
+  ↓
+Supplier Detail Page
+  ↓
+Click "Start Qualification"
+  ↓
+[Modal] Confirm qualification details
+  ↓
+Qualification Questionnaire (Stage 1)
+  ├→ Answer questions (15)
+  ├→ Upload documents (3-5 required)
+  ├→ View risk score (auto-calculated)
+  └→ Save as draft OR Submit
+  ↓
+[Notification] Procurement Manager receives email
+  ↓
+Procurement Review (Stage 2)
+  ├→ Review all answers
+  ├→ Review documents
+  ├→ Add notes
+  └→ Decision:
+      ├→ Request Changes → Back to Stage 1
+      ├→ Reject → Supplier status = Blocked
+      └→ Approve → Continue
+  ↓
+[Notification] Quality Manager receives email
+  ↓
+Quality/Management Approval (Stage 3)
+  ├→ Final review
+  ├→ Add final notes
+  └→ Decision:
+      ├→ Reject → Supplier status = Blocked
+      └→ Approve → Supplier status = Qualified
+  ↓
+[Notification] All stakeholders notified
+  ↓
+Supplier Status Updated
+  ↓
+End
+```
+
+**Key UI Touchpoints:**
+
+1. Supplier List → Add New Supplier button
+2. Supplier Detail → Start Qualification button
+3. Qualification Form → Progress bar, collapsible sections
+4. Review Pages → Read-only view, action buttons
+5. Email Notifications → Links back to qualification
+
+**Error Paths:**
+
+- Incomplete questionnaire → Cannot submit
+- Missing required documents → Validation error
+- Network error → Toast notification, auto-retry
+
+---
+
+### 6.2 Register and Resolve Complaint Flow
+
+```mermaid
+Start
+  ↓
+Discover Issue
+  ↓
+Navigate: Complaints → New Complaint
+  ↓
+Register Complaint Form
+  ├→ Select supplier
+  ├→ Choose category, severity
+  ├→ Describe problem
+  ├→ Upload photos/documents
+  ├→ Assign to user
+  └→ Submit
+  ↓
+Complaint Created (Status: Open)
+  ↓
+[Notification] Assigned user + supplier contact
+  ↓
+Complaint Detail Page
+  ↓
+Investigation Phase
+  ├→ Add internal notes
+  ├→ Change status to "Investigating"
+  ├→ Document root cause
+  └→ Add root cause analysis
+  ↓
+Create Corrective Actions
+  ├→ CAPA #1: Supplier action
+  ├→ CAPA #2: Process update
+  └→ Set due dates
+  ↓
+Status → "Awaiting Supplier"
+  ↓
+Monitor CAPA Completion
+  ├→ Supplier completes actions
+  ├→ Mark CAPAs as complete
+  └→ Verify effectiveness
+  ↓
+All CAPAs Complete
+  ↓
+Change Status → "Resolved"
+  ↓
+Close Complaint
+  ├→ Add closure notes
+  ├→ Rate effectiveness (1-5)
+  └→ Confirm closure
+  ↓
+Status → "Closed"
+  ↓
+[Notification] All parties notified
+  ↓
+End
+```
+
+**UI Flow Details:**
+
+**Registration:**
+
+- Form validation prevents submission without required fields
+- Severity auto-calculates due date
+- File upload shows progress for large files
+
+**Investigation:**
+
+- Timeline shows all status changes
+- Internal notes vs. supplier communication tabs
+- Root cause modal with template selection
+
+**CAPA Tracking:**
+
+- Each CAPA is a card with status badge
+- Due date countdown prominently displayed
+- Cannot mark resolved until all CAPAs complete
+
+**Closure:**
+
+- Final modal requires verification
+- Effectiveness rating impacts supplier score
+- Closed complaints are locked (read-only)
+
+---
+
+## 7. Responsive Design
+
+### 7.1 Breakpoint Strategy
+
+```css
+Mobile First Approach
+
+Base (0px): Mobile portrait
+└→ Single column layouts
+└→ Full-width elements
+└→ Stacked navigation
+└→ Bottom sheet modals
+
+sm (640px): Mobile landscape, small tablets
+└→ 2-column cards grid
+└→ Horizontal form layouts
+└→ Side-by-side buttons
+
+md (768px): Tablet portrait
+└→ Sidebar layouts appear
+└→ 3-column grids
+└→ Table becomes scrollable (not stacked)
+
+lg (1024px): Tablet landscape, small desktops
+└→ Full desktop layouts
+└→ 4-column grids
+└→ All features visible
+
+xl (1280px): Desktop
+└→ Max content width enforced
+└→ Optimal spacing
+
+2xl (1536px): Large desktop
+└→ Same as xl (no changes)
+```
+
+### 7.2 Component Adaptations
+
+#### **Navigation**
+
+```
+Mobile (< 768px):
+└→ Hamburger menu (top left)
+└→ Slide-out drawer navigation
+└→ Full-screen overlay
+
+Tablet/Desktop (>= 768px):
+└→ Top navigation bar
+└→ All items visible
+└→ Dropdowns for sub-items
+```
+
+#### **Tables**
+
+```
+Mobile (< 768px):
+└→ Horizontal scroll
+└→ Fixed first column (supplier name)
+└→ Swipe indicator
+
+Desktop (>= 768px):
+└→ Full table visible
+└→ All columns shown
+└→ Hover actions appear
+```
+
+#### **Forms**
+
+```
+Mobile:
+└→ Single column
+└→ Full-width inputs
+└→ Stacked buttons
+
+Tablet+:
+└→ 2-column for short fields
+└→ Side-by-side related fields
+└→ Inline buttons (right-aligned)
+```
+
+#### **Dashboards**
+
+```
+Mobile:
+└→ KPI cards: 1 column
+└→ Charts: 1 column, vertical scroll
+└→ Touch-friendly chart interactions
+
+Tablet:
+└→ KPI cards: 2 columns
+└→ Charts: 2 columns
+└→ Larger touch targets
+
+Desktop:
+└→ KPI cards: 4 columns
+└→ Charts: 2-3 columns grid
+└→ Hover interactions
+```
+
+### 7.3 Touch Targets
+
+**Minimum touch target size:**
+
+- Buttons: 44x44px (iOS HIG)
+- Icons: 40x40px clickable area
+- Links: 32px min height with padding
+- Table rows: 56px min height
+
+**Spacing between touch targets:**
+
+- Minimum 8px gap between interactive elements
+- 16px preferred for better usability
+
+---
+
+## 8. Accessibility
+
+### 8.1 WCAG 2.1 Level AA Compliance
+
+#### **Color Contrast**
+
+**Text Contrast Ratios:**
+
+- Normal text (16px+): 4.5:1 minimum
+- Large text (24px+): 3:1 minimum
+- UI components: 3:1 minimum
+
+**Verified Combinations:**
+
+- slate-900 on white: 19.4:1 ✓
+- slate-700 on white: 12.6:1 ✓
+- slate-600 on white: 7.9:1 ✓
+- primary-600 on white: 8.6:1 ✓
+- error-600 on white: 9.1:1 ✓
+
+#### **Keyboard Navigation**
+
+**All interactive elements accessible via keyboard:**
+
+- Tab order follows visual order
+- Skip to main content link (first tab)
+- Focus visible on all elements
+- No keyboard traps
+
+**Custom Keyboard Shortcuts:**
+
+- All shortcuts include modifier key (Cmd/Ctrl)
+- Shortcuts documented in help menu
+- Can be disabled in settings
+
+#### **Screen Reader Support**
+
+**ARIA Labels:**
+
+```tsx
+<button aria-label="Close dialog">
+  <X className="w-4 h-4" />
+</button>
+
+<input
+  type="text"
+  aria-label="Search suppliers"
+  aria-describedby="search-help"
+/>
+<span id="search-help" className="sr-only">
+  Search by name, code, or contact
+</span>
+
+<div role="alert" aria-live="polite">
+  Supplier saved successfully
+</div>
+```
+
+**Form Validation:**
+
+```tsx
+<input
+  aria-invalid={error ? "true" : "false"}
+  aria-describedby={error ? "email-error" : undefined}
+/>;
+{
+  error && (
+    <p id="email-error" role="alert">
+      {error}
+    </p>
+  );
+}
+```
+
+**Dynamic Content:**
+
+```tsx
+<div aria-live="polite" aria-atomic="true">
+  {results.length} results found
+</div>
+```
+
+#### **Focus Management**
+
+- Modal opens → Focus moves to first interactive element
+- Modal closes → Focus returns to trigger
+- Form submission error → Focus moves to first error
+- Page load → Focus on main heading (h1)
+
+#### **Alternative Text**
+
+All images must have alt text:
+
+```tsx
+<img src="chart.png" alt="Performance trend showing 10% improvement" />
+
+<!-- Decorative images -->
+<img src="decoration.svg" alt="" role="presentation" />
+```
+
+### 8.2 Accessibility Checklist
+
+**Every Feature Must:**
+
+- [ ] Be keyboard accessible
+- [ ] Have visible focus indicators
+- [ ] Include ARIA labels where needed
+- [ ] Support screen readers
+- [ ] Meet color contrast requirements
+- [ ] Have adequate touch targets (mobile)
+- [ ] Announce dynamic content changes
+- [ ] Handle errors accessibly
+
+---
+
+## 9. Usability Testing
+
+### 9.1 Test Scenarios
+
+#### **Scenario 1: New Supplier Onboarding**
+
+**Task:** Add a new supplier and complete qualification
+
+**Steps:**
+
+1. Log in to Supplex
+2. Navigate to Suppliers
+3. Add new supplier (Acme Manufacturing)
+4. Fill out basic information
+5. Start qualification process
+6. Complete questionnaire
+7. Submit for review
+
+**Success Metrics:**
+
+- Task completion rate: > 90%
+- Time to complete: < 15 minutes
+- Errors encountered: < 2
+- User satisfaction: > 4/5
+
+**Observation Points:**
+
+- Can users find "Add Supplier" button easily?
+- Do they understand required vs. optional fields?
+- Do they notice the auto-generated supplier code?
+- Can they navigate the qualification questionnaire?
+- Do they understand the risk score?
+
+---
+
+#### **Scenario 2: Register and Track Complaint**
+
+**Task:** Report a quality issue and track resolution
+
+**Steps:**
+
+1. Register new complaint for supplier
+2. Add description and photos
+3. Document root cause
+4. Create corrective actions
+5. Mark actions complete
+6. Close complaint
+
+**Success Metrics:**
+
+- Task completion: > 85%
+- Time: < 10 minutes
+- Satisfaction: > 4/5
+
+**Observation Points:**
+
+- Can users find complaint registration?
+- Is severity selection clear?
+- Can they upload photos easily?
+- Do they understand CAPA workflow?
+- Is the timeline helpful?
+
+---
+
+#### **Scenario 3: Quarterly Evaluation**
+
+**Task:** Complete performance evaluation for supplier
+
+**Steps:**
+
+1. Navigate to supplier
+2. Create new evaluation
+3. Score all four dimensions
+4. Add comments
+5. Finalize evaluation
+
+**Success Metrics:**
+
+- Completion rate: > 90%
+- Time: < 12 minutes
+- Satisfaction: > 4/5
+
+**Observation Points:**
+
+- Is star rating intuitive?
+- Do they understand scoring weights?
+- Is overall score calculation clear?
+- Do they notice it updates in real-time?
+- Can they easily add comments?
+
+---
+
+### 9.2 Usability Metrics
+
+**System Usability Scale (SUS):**
+
+- Target score: > 75 (Good)
+- Industry average: 68
+
+**Task Success Metrics:**
+
+- First-time completion rate: > 85%
+- Error-free completion: > 70%
+- Time on task: Within 20% of expert time
+
+**User Satisfaction:**
+
+- Post-task satisfaction: > 4/5
+- Net Promoter Score: > 40
+- Would recommend: > 80%
+
+---
+
+## 10. Design Handoff Checklist
+
+### For Designers (Figma)
+
+- [ ] All screens designed at 1440px width
+- [ ] Mobile versions for key screens
+- [ ] Design system/component library created
+- [ ] All interactive states shown (hover, focus, disabled)
+- [ ] Error states designed
+- [ ] Empty states designed
+- [ ] Loading states designed
+- [ ] Annotations for complex interactions
+- [ ] Spacing documented (use 4px grid)
+- [ ] Typography styles applied consistently
+- [ ] Color styles from design system used
+- [ ] Icons from Lucide React library
+- [ ] Export assets properly named
+- [ ] Prototypes for key flows created
+- [ ] Developer handoff notes included
+
+### For Developers
+
+- [ ] Install shadcn/ui components needed
+- [ ] Configure Tailwind CSS theme
+- [ ] Set up color tokens
+- [ ] Install Lucide React icons
+- [ ] Install Recharts for data visualization
+- [ ] Implement global layout components
+- [ ] Create reusable component library
+- [ ] Test responsive breakpoints
+- [ ] Validate accessibility (aXe, Lighthouse)
+- [ ] Cross-browser testing (Chrome, Firefox, Safari, Edge)
+
+### For Product/QA
+
+- [ ] All user stories mapped to designs
+- [ ] Acceptance criteria include UI specifications
+- [ ] Test cases cover all interaction states
+- [ ] Accessibility testing plan created
+- [ ] Usability testing scripts prepared
+- [ ] Performance benchmarks defined
+
+---
+
+## Appendix A: Component Mapping to shadcn/ui
+
+### Core Components
+
+| Supplex Component | shadcn/ui Component | Customization Needed        |
+| ----------------- | ------------------- | --------------------------- |
+| Button            | `button`            | Size variants, icon support |
+| Input             | `input`             | Error states, helper text   |
+| Select            | `select`            | Searchable variant          |
+| Checkbox          | `checkbox`          | Label positioning           |
+| Radio             | `radio-group`       | None                        |
+| Textarea          | `textarea`          | Character count             |
+| Card              | `card`              | Hover states                |
+| Badge             | `badge`             | Status color variants       |
+| Modal             | `dialog`            | Size variants               |
+| Dropdown          | `dropdown-menu`     | None                        |
+| Toast             | `toast`             | Auto-dismiss logic          |
+| Table             | `table`             | Sorting, pagination         |
+| Tabs              | `tabs`              | Underline active style      |
+| Avatar            | `avatar`            | None                        |
+| Alert             | `alert`             | None                        |
+| Progress          | `progress`          | None                        |
+| Skeleton          | `skeleton`          | None                        |
+| Tooltip           | `tooltip`           | None                        |
+| Popover           | `popover`           | None                        |
+| Command           | `command`           | For command palette         |
+| Calendar          | `calendar`          | For date pickers            |
+
+---
+
+## Appendix B: Icon Library Reference
+
+### Using Lucide React
+
+```tsx
+import {
+  Plus,
+  Minus,
+  X,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Filter,
+  Download,
+  Upload,
+  Edit,
+  Trash2,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  User,
+  Users,
+  Building,
+  Mail,
+  Phone,
+  Globe,
+  Calendar,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  File,
+  Image,
+  Paperclip,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  Settings,
+  LogOut,
+  Bell,
+  HelpCircle,
+  BarChart,
+  PieChart,
+  LineChart,
+  Activity,
+  Package,
+  Truck,
+  Shield,
+  Star,
+} from "lucide-react";
+```
+
+### Icon Sizes
+
+- Small: 16px (w-4 h-4) - Inline with text, buttons
+- Medium: 20px (w-5 h-5) - Navigation, cards
+- Large: 24px (w-6 h-6) - Page headers
+- XLarge: 32px (w-8 h-8) - Empty states, dashboards
+
+---
+
+## Appendix C: Tailwind Configuration
+
+### tailwind.config.js
+
+```js
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          50: "#eff6ff",
+          100: "#dbeafe",
+          200: "#bfdbfe",
+          300: "#93c5fd",
+          400: "#60a5fa",
+          500: "#3b82f6",
+          600: "#2563eb",
+          700: "#1d4ed8",
+          800: "#1e40af",
+          900: "#1e3a8a",
+          DEFAULT: "#3b82f6",
+          foreground: "#ffffff",
+        },
+        success: {
+          50: "#f0fdf4",
+          500: "#10b981",
+          600: "#059669",
+          700: "#047857",
+        },
+        warning: {
+          50: "#fffbeb",
+          500: "#f59e0b",
+          600: "#d97706",
+          700: "#b45309",
+        },
+        error: {
+          50: "#fef2f2",
+          500: "#ef4444",
+          600: "#dc2626",
+          700: "#b91c1c",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+      },
+      borderRadius: {
+        lg: "12px",
+        md: "8px",
+        sm: "6px",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+};
+```
+
+---
+
+## Appendix D: Animation Examples
+
+### Micro-interactions
+
+```tsx
+// Button Press Effect
+<button className="active:scale-95 transition-transform duration-150">
+  Click Me
+</button>
+
+// Card Hover Lift
+<div className="transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
+  Card Content
+</div>
+
+// Fade In on Load
+<div className="animate-in fade-in duration-500">
+  Content
+</div>
+
+// Slide In from Right
+<div className="animate-in slide-in-from-right duration-300">
+  Sidebar
+</div>
+
+// Spinner
+<Loader2 className="animate-spin" />
+
+// Pulse (for live indicators)
+<div className="animate-pulse">
+  <div className="h-2 w-2 rounded-full bg-green-500" />
+</div>
+```
+
+---
+
+## Appendix E: Common Patterns Library
+
+### Search with Filters
+
+```tsx
+<div className="space-y-4">
+  {/* Search Bar */}
+  <div className="relative">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <input
+      type="text"
+      placeholder="Search..."
+      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md"
+    />
+  </div>
+
+  {/* Active Filters */}
+  {filters.length > 0 && (
+    <div className="flex flex-wrap gap-2">
+      {filters.map((filter) => (
+        <Badge key={filter.id} variant="secondary">
+          {filter.label}
+          <X className="w-3 h-3 ml-1 cursor-pointer" />
+        </Badge>
+      ))}
+      <Button variant="ghost" size="sm">
+        Clear all
+      </Button>
+    </div>
+  )}
+</div>
+```
+
+### Data Table with Actions
+
+```tsx
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead className="w-12">
+        <Checkbox />
+      </TableHead>
+      <TableHead>Name</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead className="text-right">Actions</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    <TableRow className="hover:bg-slate-50">
+      <TableCell>
+        <Checkbox />
+      </TableCell>
+      <TableCell className="font-medium">Acme Corp</TableCell>
+      <TableCell>
+        <Badge variant="success">Active</Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem>View Details</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-error-600">
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+```
+
+### Form Section
+
+```tsx
+<div className="space-y-6">
+  <div>
+    <h3 className="text-lg font-semibold text-slate-900 mb-4">
+      Basic Information
+    </h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-700">
+          First Name
+          <span className="text-error-500">*</span>
+        </label>
+        <input
+          type="text"
+          className="w-full px-3 py-2 border border-slate-300 rounded-md"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-700">
+          Last Name
+          <span className="text-error-500">*</span>
+        </label>
+        <input
+          type="text"
+          className="w-full px-3 py-2 border border-slate-300 rounded-md"
+        />
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### KPI Card
+
+```tsx
+<Card className="p-6">
+  <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-primary-100 rounded-lg">
+        <Users className="w-6 h-6 text-primary-600" />
+      </div>
+      <div>
+        <p className="text-sm text-slate-600">Active Suppliers</p>
+        <p className="text-3xl font-semibold text-slate-900">97</p>
+      </div>
+    </div>
+  </div>
+  <div className="flex items-center gap-1 text-sm">
+    <TrendingUp className="w-4 h-4 text-success-600" />
+    <span className="text-success-600 font-medium">+12%</span>
+    <span className="text-slate-600">from last month</span>
+  </div>
+</Card>
+```
+
+---
+
+## Appendix F: Performance Checklist
+
+### Image Optimization
+
+- [ ] Use Next.js Image component for automatic optimization
+- [ ] Serve images in WebP format with fallbacks
+- [ ] Lazy load images below the fold
+- [ ] Use appropriate image sizes (srcset)
+- [ ] Compress all images (TinyPNG, ImageOptim)
+
+### Code Splitting
+
+- [ ] Dynamic imports for heavy components
+- [ ] Route-based code splitting
+- [ ] Lazy load charts only when visible
+- [ ] Split vendor bundles
+
+### Caching Strategy
+
+- [ ] Cache API responses (React Query)
+- [ ] Cache static assets (Service Worker)
+- [ ] Use stale-while-revalidate for non-critical data
+- [ ] Implement optimistic updates
+
+### Bundle Size
+
+- [ ] Keep main bundle < 200KB gzipped
+- [ ] Use tree-shaking for unused code
+- [ ] Analyze bundle with webpack-bundle-analyzer
+- [ ] Remove unused dependencies
+
+---
+
+## Appendix G: Browser Testing Matrix
+
+| Browser          | Version  | Desktop | Tablet | Mobile | Priority |
+| ---------------- | -------- | ------- | ------ | ------ | -------- |
+| Chrome           | Latest   | ✅      | ✅     | ✅     | P0       |
+| Chrome           | Latest-1 | ✅      | ✅     | ✅     | P0       |
+| Firefox          | Latest   | ✅      | ✅     | ✅     | P0       |
+| Safari           | Latest   | ✅      | ✅     | ✅     | P0       |
+| Safari           | iOS 15+  | N/A     | ✅     | ✅     | P0       |
+| Edge             | Latest   | ✅      | ✅     | ✅     | P1       |
+| Samsung Internet | Latest   | N/A     | ✅     | ✅     | P1       |
+
+**Test Resolutions:**
+
+- Mobile: 375x667 (iPhone SE), 414x896 (iPhone 12 Pro)
+- Tablet: 768x1024 (iPad), 1024x768 (iPad Landscape)
+- Desktop: 1366x768, 1920x1080, 2560x1440
+
+---
+
+## Appendix H: Accessibility Testing Tools
+
+### Automated Tools
+
+1. **aXe DevTools** (Browser Extension)
+
+   - Install in Chrome/Firefox
+   - Run on every page
+   - Fix all violations before release
+
+2. **Lighthouse** (Chrome DevTools)
+
+   - Run accessibility audit
+   - Target score: 100
+   - Check performance, SEO too
+
+3. **WAVE** (WebAIM)
+   - Visual feedback on accessibility
+   - Identifies ARIA usage
+   - Checks color contrast
+
+### Manual Testing
+
+1. **Keyboard Navigation**
+
+   - Tab through entire page
+   - Verify tab order
+   - Test all interactive elements
+   - Check focus indicators
+
+2. **Screen Reader Testing**
+
+   - VoiceOver (Mac): Cmd+F5
+   - NVDA (Windows): Free download
+   - Test critical user flows
+   - Verify form labels and error messages
+
+3. **Zoom Testing**
+   - Test at 200% zoom
+   - Verify layout doesn't break
+   - Ensure all content accessible
+
+---
+
+## Appendix I: Design Tokens (CSS Variables)
+
+```css
+:root {
+  /* Colors */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
+  --text-5xl: 3rem; /* 48px */
+
+  /* Spacing */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-12: 3rem; /* 48px */
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+
+  /* Borders */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+---
+
+## Document Version History
+
+| Version | Date         | Author  | Changes                             |
+| ------- | ------------ | ------- | ----------------------------------- |
+| 1.0     | Oct 12, 2025 | UX Team | Complete UX specification finalized |
+
+---
+
+## Related Documents
+
+- **Product Requirements:** `pm.mdc`
+- **Business Analysis:** `analyst.mdc`
+- **Project Brief:** `PROJECT_BRIEF.md`
+- **Figma Designs:** [Link to Figma project - TBD]
+- **Component Storybook:** [Link - TBD]
+
+---
+
+## Approval & Sign-Off
+
+| Role              | Name  | Signature      | Date       |
+| ----------------- | ----- | -------------- | ---------- |
+| **UX Lead**       | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+| **Product Owner** | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+| **Tech Lead**     | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+| **Design Lead**   | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+
+---
+
+**End of UX Design Specification**
+
+This comprehensive specification provides everything needed to design and build Supplex with a consistent, accessible, and delightful user experience.
+
+For questions or clarifications:
+
+- **UX Lead:** [email@domain.com]
+- **Design Team:** [email@domain.com]
+
+---
+
+**© 2025 Supplex. All design specifications are confidential.**
