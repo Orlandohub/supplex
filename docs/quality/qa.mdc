@@ -1,0 +1,2535 @@
+# Supplex - QA & Testing Strategy
+
+**Document Version:** 1.0  
+**Date:** October 12, 2025  
+**Status:** Test Architecture & Strategy  
+**QA Lead:** [TBD]  
+**Product Owner:** [TBD]
+
+---
+
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+2. [High-Risk Areas Identification](#2-high-risk-areas-identification)
+3. [Test Architecture](#3-test-architecture)
+4. [Testing Strategy by Type](#4-testing-strategy-by-type)
+5. [Multi-Tenancy Testing](#5-multi-tenancy-testing)
+6. [Security Testing](#6-security-testing)
+7. [Performance Testing](#7-performance-testing)
+8. [Test Data Management](#8-test-data-management)
+9. [Test Automation](#9-test-automation)
+10. [Quality Gates & Release Criteria](#10-quality-gates--release-criteria)
+
+---
+
+## 1. Executive Summary
+
+### 1.1 Purpose
+
+This document provides early test architecture guidance for Supplex, with emphasis on **high-risk areas** that require rigorous testing to ensure data integrity, security, and system reliability in a multi-tenant SaaS environment.
+
+### 1.2 Testing Philosophy
+
+**"Shift-Left Testing"** - Identify and prevent defects early in the development cycle rather than finding them in production.
+
+**Key Principles:**
+
+1. **Test Early, Test Often** - Automated tests run on every commit
+2. **Multi-Tenancy First** - Data isolation is non-negotiable
+3. **Security by Default** - Every feature tested for security vulnerabilities
+4. **Performance Built-In** - Performance tests from day one
+5. **Risk-Based Prioritization** - Focus on high-impact areas
+
+### 1.3 Quality Objectives (MVP)
+
+| Metric                       | Target          | Rationale                                   |
+| ---------------------------- | --------------- | ------------------------------------------- |
+| **Code Coverage**            | 80%+            | High coverage ensures critical paths tested |
+| **Critical Bug Escape Rate** | 0%              | No P0 bugs in production                    |
+| **Test Automation Rate**     | 70%+            | Majority of tests automated for speed       |
+| **API Response Time (P95)**  | < 500ms         | Performance SLA compliance                  |
+| **System Uptime**            | 99.5%+          | Reliability for business operations         |
+| **Security Vulnerabilities** | 0 critical/high | Security is non-negotiable                  |
+| **Multi-Tenancy Leaks**      | 0               | Data isolation is critical                  |
+
+---
+
+## 2. High-Risk Areas Identification
+
+### 2.1 Critical Risk Matrix
+
+| Risk Area                       | Impact   | Probability | Risk Level      | Testing Priority |
+| ------------------------------- | -------- | ----------- | --------------- | ---------------- |
+| **Multi-Tenancy Data Leakage**  | Critical | Medium      | **🔴 CRITICAL** | P0               |
+| **Authentication Bypass**       | Critical | Low         | **🔴 CRITICAL** | P0               |
+| **Data Loss/Corruption**        | Critical | Low         | **🔴 CRITICAL** | P0               |
+| **Performance Degradation**     | High     | Medium      | **🟠 HIGH**     | P0               |
+| **Supplier Scoring Accuracy**   | High     | Medium      | **🟠 HIGH**     | P0               |
+| **File Upload Security**        | High     | Medium      | **🟠 HIGH**     | P0               |
+| **Workflow State Integrity**    | High     | Medium      | **🟠 HIGH**     | P1               |
+| **Email Notification Failures** | Medium   | Medium      | **🟡 MEDIUM**   | P1               |
+| **Report Data Accuracy**        | Medium   | Low         | **🟡 MEDIUM**   | P1               |
+| **UI Responsiveness**           | Medium   | Low         | **🟡 MEDIUM**   | P2               |
+
+---
+
+### 2.2 High-Risk Area #1: Multi-Tenancy Data Isolation
+
+**Why High-Risk:**
+
+- Data breach between tenants = catastrophic business failure
+- Legal/compliance violations (GDPR, CCPA)
+- Complete loss of customer trust
+- Potential lawsuits and regulatory fines
+
+**Risk Scenarios:**
+
+1. **Cross-Tenant Data Access**
+
+   - User from Tenant A can view/edit Tenant B's suppliers
+   - API returns data from wrong tenant
+   - Search results include other tenants' data
+
+2. **RLS Policy Failures**
+
+   - Supabase Row-Level Security (RLS) policy misconfiguration
+   - Direct database access bypasses RLS
+   - Policy edge cases not covered
+
+3. **Shared Resource Contamination**
+   - Document storage paths overlap between tenants
+   - Cache keys not scoped to tenant
+   - Session data mixed between tenants
+
+**Test Strategy:**
+
+```
+Priority: P0 (Critical)
+Test Coverage Required: 100%
+Test Types: Unit, Integration, E2E, Penetration
+Test Frequency: Every commit + daily full suite
+```
+
+**Specific Tests Required:**
+
+✅ **Positive Tests:**
+
+- User can access their own tenant's data
+- All CRUD operations work within tenant scope
+- Filters and searches return only tenant data
+
+✅ **Negative Tests:**
+
+- User CANNOT access other tenant's data via API
+- Direct tenant_id manipulation in requests fails
+- SQL injection attempts to bypass RLS fail
+- JWT token tampering rejected
+- Cross-tenant URL guessing blocked
+
+✅ **Edge Cases:**
+
+- User belongs to multiple tenants (future)
+- Admin switching between tenants
+- Tenant creation/deletion
+- User reassignment between tenants
+
+**Test Automation:**
+
+```typescript
+// Example: Multi-Tenancy Test Suite
+describe("Multi-Tenancy Data Isolation", () => {
+  let tenantAUser, tenantBUser;
+  let tenantASupplier, tenantBSupplier;
+
+  beforeEach(async () => {
+    // Setup: Create two tenants with test data
+    tenantAUser = await createTestUser({ tenant: "tenant-a" });
+    tenantBUser = await createTestUser({ tenant: "tenant-b" });
+    tenantASupplier = await createSupplier({
+      tenant: "tenant-a",
+      name: "Acme Corp",
+    });
+    tenantBSupplier = await createSupplier({
+      tenant: "tenant-b",
+      name: "Beta Inc",
+    });
+  });
+
+  it("should only return suppliers from user tenant", async () => {
+    const response = await api.get("/suppliers", { auth: tenantAUser });
+
+    expect(response.data).toHaveLength(1);
+    expect(response.data[0].id).toBe(tenantASupplier.id);
+    expect(response.data).not.toContainEqual(
+      expect.objectContaining({ id: tenantBSupplier.id })
+    );
+  });
+
+  it("should reject access to other tenant supplier by ID", async () => {
+    const response = await api.get(`/suppliers/${tenantBSupplier.id}`, {
+      auth: tenantAUser,
+    });
+
+    expect(response.status).toBe(404); // Not 403, to avoid leaking existence
+  });
+
+  it("should reject tenant_id manipulation in request", async () => {
+    const response = await api.post("/suppliers", {
+      auth: tenantAUser,
+      body: {
+        name: "Malicious Supplier",
+        tenant_id: "tenant-b", // Attempting to inject into another tenant
+      },
+    });
+
+    // Should either ignore tenant_id or reject request
+    const created = await api.get(`/suppliers/${response.data.id}`, {
+      auth: tenantAUser,
+    });
+    expect(created.data.tenant_id).toBe("tenant-a"); // Must be user's tenant
+  });
+
+  it("should prevent SQL injection to bypass RLS", async () => {
+    const response = await api.get("/suppliers", {
+      auth: tenantAUser,
+      query: {
+        search: "' OR tenant_id != tenant_id OR name LIKE '", // SQL injection attempt
+      },
+    });
+
+    expect(response.data.length).toBeLessThanOrEqual(1); // Only tenant-a data
+  });
+});
+```
+
+**Security Checklist:**
+
+- [ ] RLS policies defined for ALL tenant-scoped tables
+- [ ] RLS policies tested with automated tests
+- [ ] API never accepts tenant_id from client (always from JWT)
+- [ ] JWT token validation on every request
+- [ ] File storage paths include tenant_id prefix
+- [ ] Cache keys include tenant_id prefix
+- [ ] Database queries use parameterized queries (no SQL injection)
+- [ ] Audit logs track tenant_id for all operations
+- [ ] Penetration testing includes cross-tenant access attempts
+
+---
+
+### 2.3 High-Risk Area #2: Authentication & Authorization
+
+**Why High-Risk:**
+
+- Authentication bypass = complete system compromise
+- Improper authorization = data access violations
+- Session hijacking = unauthorized actions
+
+**Risk Scenarios:**
+
+1. **Authentication Bypass**
+
+   - Password reset token prediction
+   - JWT token forgery
+   - Brute force login attempts
+   - Session fixation attacks
+
+2. **Authorization Failures**
+
+   - Viewer role can edit/delete data
+   - Quality role can approve Stage 2 qualification
+   - User can escalate own privileges
+   - API endpoint authorization missing
+
+3. **Session Management**
+   - Sessions don't expire
+   - Logout doesn't invalidate tokens
+   - Concurrent session abuse
+   - Token refresh vulnerabilities
+
+**Test Strategy:**
+
+```
+Priority: P0 (Critical)
+Test Coverage: 95%+
+Test Types: Unit, Integration, Security, Penetration
+```
+
+**RBAC Test Matrix:**
+
+| Feature                       | Admin   | Procurement | Quality | Viewer  |
+| ----------------------------- | ------- | ----------- | ------- | ------- |
+| Create Supplier               | ✅ PASS | ✅ PASS     | ✅ PASS | ❌ FAIL |
+| Delete Supplier               | ✅ PASS | ✅ PASS     | ❌ FAIL | ❌ FAIL |
+| Approve Qualification Stage 2 | ✅ PASS | ✅ PASS     | ❌ FAIL | ❌ FAIL |
+| Approve Qualification Stage 3 | ✅ PASS | ❌ FAIL     | ✅ PASS | ❌ FAIL |
+| Close Complaint               | ✅ PASS | ❌ FAIL     | ✅ PASS | ❌ FAIL |
+| View Dashboard                | ✅ PASS | ✅ PASS     | ✅ PASS | ✅ PASS |
+| Export Data                   | ✅ PASS | ✅ PASS     | ✅ PASS | ❌ FAIL |
+| Manage Users                  | ✅ PASS | ❌ FAIL     | ❌ FAIL | ❌ FAIL |
+
+**Test Automation:**
+
+```typescript
+describe("Authentication & Authorization", () => {
+  describe("Login", () => {
+    it("should accept valid credentials", async () => {
+      const response = await api.post("/auth/login", {
+        email: "user@example.com",
+        password: "ValidPass123!",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.data.access_token).toBeDefined();
+      expect(response.data.user.tenant_id).toBeDefined();
+    });
+
+    it("should reject invalid password", async () => {
+      const response = await api.post("/auth/login", {
+        email: "user@example.com",
+        password: "WrongPassword",
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.data.error).toBe("invalid_credentials");
+    });
+
+    it("should lock account after 5 failed attempts", async () => {
+      const email = "user@example.com";
+
+      // Attempt 5 failed logins
+      for (let i = 0; i < 5; i++) {
+        await api.post("/auth/login", { email, password: "wrong" });
+      }
+
+      // 6th attempt should be locked
+      const response = await api.post("/auth/login", {
+        email,
+        password: "ValidPass123!", // Even with correct password
+      });
+
+      expect(response.status).toBe(429);
+      expect(response.data.error).toBe("account_locked");
+    });
+  });
+
+  describe("RBAC - Viewer Role", () => {
+    let viewerUser;
+
+    beforeEach(async () => {
+      viewerUser = await createTestUser({ role: "viewer" });
+    });
+
+    it("should allow viewing suppliers", async () => {
+      const response = await api.get("/suppliers", { auth: viewerUser });
+      expect(response.status).toBe(200);
+    });
+
+    it("should deny creating suppliers", async () => {
+      const response = await api.post("/suppliers", {
+        auth: viewerUser,
+        body: { name: "Test Supplier" },
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.data.error).toBe("insufficient_permissions");
+    });
+
+    it("should deny exporting data", async () => {
+      const response = await api.get("/suppliers/export", { auth: viewerUser });
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe("JWT Token", () => {
+    it("should reject expired token", async () => {
+      const expiredToken = generateExpiredToken();
+      const response = await api.get("/suppliers", {
+        headers: { Authorization: `Bearer ${expiredToken}` },
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.data.error).toBe("token_expired");
+    });
+
+    it("should reject tampered token", async () => {
+      const validToken = await generateValidToken();
+      const tamperedToken = validToken.slice(0, -10) + "TAMPERED";
+
+      const response = await api.get("/suppliers", {
+        headers: { Authorization: `Bearer ${tamperedToken}` },
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.data.error).toBe("invalid_token");
+    });
+  });
+});
+```
+
+---
+
+### 2.4 High-Risk Area #3: Data Integrity & Consistency
+
+**Why High-Risk:**
+
+- Incorrect supplier scores = poor business decisions
+- Lost evaluations = compliance violations
+- Corrupted qualifications = supplier approval failures
+- Data inconsistency = loss of audit trail
+
+**Risk Scenarios:**
+
+1. **Calculation Errors**
+
+   - Overall score calculation incorrect
+   - Risk score computation fails
+   - Weighted averages wrong
+   - Rounding errors accumulate
+
+2. **State Machine Violations**
+
+   - Qualification skips stages
+   - Complaint closed without CAPA completion
+   - Evaluation finalized with missing data
+   - Status transitions invalid
+
+3. **Data Loss**
+   - Concurrent updates overwrite changes
+   - Soft delete becomes hard delete
+   - File upload fails silently
+   - Cache invalidation issues
+
+**Test Strategy:**
+
+```
+Priority: P0 (Critical)
+Test Coverage: 90%+
+Test Types: Unit, Integration, Property-Based
+```
+
+**Test Automation:**
+
+```typescript
+describe("Evaluation Scoring Accuracy", () => {
+  it("should calculate overall score correctly", () => {
+    const evaluation = {
+      quality: { rating: 4.5 }, // 30% weight
+      delivery: { rating: 4.0 }, // 30% weight
+      service: { rating: 4.0 }, // 20% weight
+      cost: { rating: 4.3 }, // 20% weight
+    };
+
+    const expected = 4.5 * 0.3 + 4.0 * 0.3 + 4.0 * 0.2 + 4.3 * 0.2;
+    // 1.35 + 1.2 + 0.8 + 0.86 = 4.21
+
+    const result = calculateOverallScore(evaluation);
+    expect(result).toBeCloseTo(4.21, 2);
+  });
+
+  it("should handle edge cases", () => {
+    // All minimum scores
+    expect(
+      calculateOverallScore({
+        quality: { rating: 1.0 },
+        delivery: { rating: 1.0 },
+        service: { rating: 1.0 },
+        cost: { rating: 1.0 },
+      })
+    ).toBe(1.0);
+
+    // All maximum scores
+    expect(
+      calculateOverallScore({
+        quality: { rating: 5.0 },
+        delivery: { rating: 5.0 },
+        service: { rating: 5.0 },
+        cost: { rating: 5.0 },
+      })
+    ).toBe(5.0);
+  });
+
+  it("should reject invalid ratings", () => {
+    expect(() =>
+      calculateOverallScore({
+        quality: { rating: 6.0 }, // Invalid: > 5.0
+        delivery: { rating: 4.0 },
+        service: { rating: 4.0 },
+        cost: { rating: 4.0 },
+      })
+    ).toThrow("Rating must be between 1 and 5");
+  });
+});
+
+describe("Qualification Workflow State Machine", () => {
+  it("should enforce stage progression", async () => {
+    const qualification = await createQualification({
+      status: "draft",
+      stage: 1,
+    });
+
+    // Cannot jump to stage 3 from stage 1
+    const response = await api.put(`/qualifications/${qualification.id}`, {
+      stage: 3,
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.data.error).toBe("invalid_stage_transition");
+  });
+
+  it("should require all questions answered before submission", async () => {
+    const qualification = await createQualification({ stage: 1 });
+
+    // Only 10 of 15 questions answered
+    await answerQuestions(qualification.id, 10);
+
+    const response = await api.post(
+      `/qualifications/${qualification.id}/submit`
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.data.error).toBe("incomplete_questionnaire");
+    expect(response.data.missing_questions).toHaveLength(5);
+  });
+
+  it("should prevent editing after finalization", async () => {
+    const evaluation = await createEvaluation({ status: "completed" });
+    await api.post(`/evaluations/${evaluation.id}/finalize`);
+
+    const response = await api.put(`/evaluations/${evaluation.id}`, {
+      quality: { rating: 5.0 },
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.data.error).toBe("evaluation_locked");
+  });
+});
+
+describe("Concurrent Update Handling", () => {
+  it("should prevent lost updates with optimistic locking", async () => {
+    const supplier = await createSupplier({ name: "Test Corp", version: 1 });
+
+    // Two users load the same supplier
+    const user1Data = await api.get(`/suppliers/${supplier.id}`);
+    const user2Data = await api.get(`/suppliers/${supplier.id}`);
+
+    // User 1 updates successfully
+    await api.put(`/suppliers/${supplier.id}`, {
+      body: { name: "Updated by User 1", version: 1 },
+    });
+
+    // User 2 attempts to update with stale version
+    const response = await api.put(`/suppliers/${supplier.id}`, {
+      body: { name: "Updated by User 2", version: 1 },
+    });
+
+    expect(response.status).toBe(409); // Conflict
+    expect(response.data.error).toBe("version_conflict");
+  });
+});
+```
+
+---
+
+### 2.5 High-Risk Area #4: File Upload Security
+
+**Why High-Risk:**
+
+- Malicious file uploads = server compromise
+- Unvalidated files = XSS/malware
+- Unbounded uploads = storage exhaustion
+- Path traversal = file system access
+
+**Risk Scenarios:**
+
+1. **Malicious File Upload**
+
+   - Executable files uploaded (.exe, .sh)
+   - Script files with XSS payload
+   - Malware/virus uploads
+   - ZIP bombs / decompression attacks
+
+2. **Storage Issues**
+
+   - No size limits = storage exhaustion
+   - No quota per tenant = abuse
+   - Orphaned files not cleaned up
+   - File overwrite attacks
+
+3. **Access Control**
+   - Files accessible without authentication
+   - Cross-tenant file access
+   - Direct URL guessing
+   - Missing file expiration
+
+**Test Strategy:**
+
+```
+Priority: P0 (High)
+Test Coverage: 95%+
+Test Types: Unit, Integration, Security, Penetration
+```
+
+**Test Automation:**
+
+```typescript
+describe("File Upload Security", () => {
+  it("should accept valid file types", async () => {
+    const validFiles = ["document.pdf", "cert.jpg", "report.xlsx"];
+
+    for (const filename of validFiles) {
+      const response = await uploadFile(filename);
+      expect(response.status).toBe(201);
+    }
+  });
+
+  it("should reject executable files", async () => {
+    const maliciousFiles = ["virus.exe", "malware.sh", "script.bat"];
+
+    for (const filename of maliciousFiles) {
+      const response = await uploadFile(filename);
+      expect(response.status).toBe(400);
+      expect(response.data.error).toBe("invalid_file_type");
+    }
+  });
+
+  it("should enforce file size limit (25MB)", async () => {
+    const largeFile = generateFile(30 * 1024 * 1024); // 30MB
+
+    const response = await api.post("/documents", {
+      body: { file: largeFile },
+    });
+
+    expect(response.status).toBe(413); // Payload Too Large
+    expect(response.data.error).toBe("file_too_large");
+  });
+
+  it("should sanitize file names", async () => {
+    const response = await uploadFile("../../../etc/passwd"); // Path traversal
+
+    expect(response.status).toBe(400);
+    expect(response.data.error).toBe("invalid_filename");
+  });
+
+  it("should enforce tenant isolation for file access", async () => {
+    const tenantA = await createTestUser({ tenant: "tenant-a" });
+    const tenantB = await createTestUser({ tenant: "tenant-b" });
+
+    // Tenant A uploads file
+    const upload = await api.post("/documents", {
+      auth: tenantA,
+      body: { file: "secret.pdf" },
+    });
+
+    // Tenant B attempts to access
+    const response = await api.get(`/documents/${upload.data.id}`, {
+      auth: tenantB,
+    });
+
+    expect(response.status).toBe(404); // Not 403
+  });
+
+  it("should generate secure, unpredictable file URLs", async () => {
+    const urls = [];
+
+    for (let i = 0; i < 10; i++) {
+      const upload = await uploadFile(`file${i}.pdf`);
+      urls.push(upload.data.url);
+    }
+
+    // URLs should not be sequential or predictable
+    expect(new Set(urls).size).toBe(10); // All unique
+    expect(urls[0]).toMatch(/^https:\/\/.*\/[a-f0-9-]{36}\//); // UUID pattern
+  });
+
+  it("should expire pre-signed URLs after 1 hour", async () => {
+    const upload = await uploadFile("document.pdf");
+    const url = upload.data.url;
+
+    // Immediately accessible
+    const response1 = await fetch(url);
+    expect(response1.status).toBe(200);
+
+    // After 1 hour + 1 minute (mock time)
+    jest.advanceTimersByTime(61 * 60 * 1000);
+
+    const response2 = await fetch(url);
+    expect(response2.status).toBe(403); // Forbidden - expired
+  });
+
+  it("should perform virus scanning", async () => {
+    // Mock virus scanner
+    mockVirusScanner.mockReturnValueOnce({ infected: true, virus: "EICAR" });
+
+    const response = await uploadFile("infected.exe");
+
+    expect(response.status).toBe(400);
+    expect(response.data.error).toBe("virus_detected");
+  });
+});
+```
+
+**Security Checklist:**
+
+- [ ] File type whitelist enforced (PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF)
+- [ ] File size limit enforced (25MB)
+- [ ] Filename sanitization (remove path traversal, special chars)
+- [ ] Virus scanning on upload (ClamAV or cloud service)
+- [ ] Files stored with UUID names (not original names)
+- [ ] Pre-signed URLs with 1-hour expiration
+- [ ] Tenant isolation in storage paths
+- [ ] No direct file system access (use Supabase Storage)
+- [ ] File metadata stored in database with tenant_id
+- [ ] Orphaned file cleanup job runs daily
+
+---
+
+### 2.6 High-Risk Area #5: Performance & Scalability
+
+**Why High-Risk:**
+
+- Slow system = poor user experience = churn
+- Unoptimized queries = database overload
+- No caching = high costs
+- Memory leaks = system crashes
+
+**Risk Scenarios:**
+
+1. **Database Performance**
+
+   - Missing indexes on large tables
+   - N+1 query problems
+   - Inefficient joins
+   - Unbounded result sets
+
+2. **API Performance**
+
+   - Slow response times (> 1s)
+   - No pagination
+   - No rate limiting
+   - Memory leaks in long-running processes
+
+3. **Frontend Performance**
+   - Large bundle sizes
+   - Unoptimized images
+   - No lazy loading
+   - Excessive re-renders
+
+**Test Strategy:**
+
+```
+Priority: P0 (High)
+Test Coverage: Key workflows
+Test Types: Performance, Load, Stress, Spike
+```
+
+**Performance Benchmarks:**
+
+| Operation                   | Target (P95) | Max (P99) | Test Data Size   |
+| --------------------------- | ------------ | --------- | ---------------- |
+| GET /suppliers (list)       | < 300ms      | < 500ms   | 500 suppliers    |
+| GET /suppliers/{id}         | < 200ms      | < 300ms   | N/A              |
+| POST /suppliers             | < 400ms      | < 600ms   | N/A              |
+| GET /evaluations            | < 400ms      | < 700ms   | 200 evaluations  |
+| POST /evaluations (complex) | < 600ms      | < 1000ms  | N/A              |
+| GET /dashboard              | < 800ms      | < 1200ms  | Full tenant data |
+| Export suppliers CSV        | < 3s         | < 5s      | 500 suppliers    |
+
+**Test Automation:**
+
+```typescript
+describe("Performance Tests", () => {
+  beforeAll(async () => {
+    // Seed database with realistic data volume
+    await seedDatabase({
+      tenants: 10,
+      suppliersPerTenant: 500,
+      evaluationsPerSupplier: 4,
+      complaintsPerSupplier: 2,
+    });
+  });
+
+  it("should load supplier list in < 300ms (P95)", async () => {
+    const measurements = [];
+
+    for (let i = 0; i < 100; i++) {
+      const start = Date.now();
+      await api.get("/suppliers?per_page=25");
+      const duration = Date.now() - start;
+      measurements.push(duration);
+    }
+
+    const p95 = calculatePercentile(measurements, 95);
+    expect(p95).toBeLessThan(300);
+  });
+
+  it("should handle pagination efficiently", async () => {
+    const page1 = await api.get("/suppliers?page=1&per_page=25");
+    const page10 = await api.get("/suppliers?page=10&per_page=25");
+
+    // Last page should not be significantly slower than first
+    expect(page10.duration).toBeLessThan(page1.duration * 1.5);
+  });
+
+  it("should eager-load related data to avoid N+1 queries", async () => {
+    const queryCount = await getQueryCount(async () => {
+      const suppliers = await api.get("/suppliers?include=category,contact");
+      // Should load suppliers + categories + contacts in 3 queries total
+      // NOT 1 + N queries (one per supplier)
+    });
+
+    expect(queryCount).toBeLessThanOrEqual(3);
+  });
+
+  it("should cache frequently accessed data", async () => {
+    const url = "/dashboard";
+
+    // First request (cache miss)
+    const response1 = await api.get(url);
+    const time1 = response1.duration;
+
+    // Second request (cache hit)
+    const response2 = await api.get(url);
+    const time2 = response2.duration;
+
+    // Cached response should be at least 2x faster
+    expect(time2).toBeLessThan(time1 / 2);
+  });
+});
+
+describe("Load Testing", () => {
+  it("should handle 100 concurrent users", async () => {
+    const results = await loadTest({
+      url: "/suppliers",
+      concurrentUsers: 100,
+      duration: "1m",
+    });
+
+    expect(results.successRate).toBeGreaterThan(0.99); // 99%+ success
+    expect(results.p95ResponseTime).toBeLessThan(500);
+    expect(results.errorRate).toBeLessThan(0.01); // < 1% errors
+  });
+
+  it("should recover from traffic spike", async () => {
+    // Baseline: 10 users
+    await loadTest({ concurrentUsers: 10, duration: "30s" });
+
+    // Spike: 500 users
+    const spikeResults = await loadTest({
+      concurrentUsers: 500,
+      duration: "1m",
+    });
+
+    // System should not crash, though response times may degrade
+    expect(spikeResults.successRate).toBeGreaterThan(0.95); // 95%+
+
+    // Return to baseline: 10 users
+    const recoveryResults = await loadTest({
+      concurrentUsers: 10,
+      duration: "30s",
+    });
+
+    // Should recover to normal performance within 30s
+    expect(recoveryResults.p95ResponseTime).toBeLessThan(500);
+  });
+});
+```
+
+**Performance Checklist:**
+
+- [ ] Database indexes on all foreign keys
+- [ ] Database indexes on frequently queried columns (status, tenant_id, created_at)
+- [ ] Pagination on all list endpoints (max 100 per page)
+- [ ] Eager loading for related data (avoid N+1)
+- [ ] API response caching with Redis (TTL: 5-60 minutes)
+- [ ] Dashboard data cached (TTL: 5 minutes)
+- [ ] Rate limiting: 1000 requests/hour per tenant
+- [ ] Connection pooling configured (max 20 connections per tenant)
+- [ ] Frontend code splitting by route
+- [ ] Image optimization (WebP, lazy loading)
+- [ ] Bundle size < 200KB gzipped
+
+---
+
+## 3. Test Architecture
+
+### 3.1 Test Pyramid
+
+```
+                    /\
+                   /  \
+                  / E2E\ (10% - Critical flows)
+                 /______\
+                /        \
+               /  Integr. \ (30% - API + DB + Services)
+              /____________\
+             /              \
+            /  Unit Tests     \ (60% - Business logic, utilities)
+           /__________________\
+```
+
+**Distribution:**
+
+- **Unit Tests (60%):** Fast, isolated, test business logic
+- **Integration Tests (30%):** Test API + database + external services
+- **E2E Tests (10%):** Test critical user flows end-to-end
+
+### 3.2 Test Technology Stack
+
+**Backend Testing:**
+
+- **Framework:** Jest (Node.js) or pytest (Python)
+- **Mocking:** jest-mock (built-in) or sinon
+- **API Testing:** supertest (Node.js) or pytest-httpx (Python)
+- **Database:** Test database instance per test suite
+- **Fixtures:** Factory pattern with faker.js for test data
+
+**Frontend Testing:**
+
+- **Unit:** Jest + React Testing Library
+- **Component:** Storybook with interaction tests
+- **E2E:** Playwright (preferred) or Cypress
+- **Visual Regression:** Percy or Chromatic
+
+**Performance Testing:**
+
+- **Load Testing:** k6 or Artillery
+- **APM:** Vercel Analytics + Sentry
+- **Database:** Supabase monitoring dashboard
+
+**Security Testing:**
+
+- **SAST:** SonarQube or Snyk
+- **DAST:** OWASP ZAP
+- **Dependency Scanning:** Dependabot + npm audit
+- **Secret Scanning:** GitGuardian or truffleHog
+
+### 3.3 Test Environment Strategy
+
+```
+Local Dev → CI/CD → Dev → Staging → Production
+
+├── Local Development
+│   ├── Docker Compose (PostgreSQL, Redis)
+│   ├── Supabase local emulator
+│   └── Run unit + integration tests
+│
+├── CI/CD (GitHub Actions)
+│   ├── Run all tests on PR
+│   ├── Coverage reporting
+│   ├── Security scans
+│   └── Build validation
+│
+├── Dev Environment (Vercel Preview)
+│   ├── Deployed on every PR
+│   ├── Supabase dev project
+│   ├── Test data seeded
+│   └── Manual testing
+│
+├── Staging Environment
+│   ├── Production-like configuration
+│   ├── Supabase staging project
+│   ├── Full E2E test suite
+│   ├── Performance testing
+│   └── Security testing
+│
+└── Production
+    ├── Canary deployments (10% traffic)
+    ├── Monitoring & alerts
+    └── Rollback on failures
+```
+
+**Environment Configuration:**
+
+| Environment    | Database          | Storage          | Cache         | Monitoring      |
+| -------------- | ----------------- | ---------------- | ------------- | --------------- |
+| **Local**      | Docker PostgreSQL | Local files      | Docker Redis  | Console logs    |
+| **CI/CD**      | Ephemeral DB      | Mock             | Mock          | Test reports    |
+| **Dev**        | Supabase Dev      | Supabase Storage | Upstash Redis | Vercel logs     |
+| **Staging**    | Supabase Staging  | Supabase Storage | Upstash Redis | Full monitoring |
+| **Production** | Supabase Pro      | Supabase Storage | Upstash Redis | Datadog/Sentry  |
+
+---
+
+## 4. Testing Strategy by Type
+
+### 4.1 Unit Testing
+
+**Purpose:** Test individual functions, classes, utilities in isolation
+
+**Scope:**
+
+- Business logic (scoring calculations, validations)
+- Utility functions (date formatting, string manipulation)
+- Pure functions (no I/O, no side effects)
+
+**Coverage Target:** 80%+
+
+**Example Test Cases:**
+
+```typescript
+// utils/scoring.test.ts
+describe("calculateOverallScore", () => {
+  it("should calculate weighted average correctly", () => {
+    const scores = {
+      quality: 4.5, // 30%
+      delivery: 4.0, // 30%
+      service: 4.0, // 20%
+      cost: 4.3, // 20%
+    };
+
+    expect(calculateOverallScore(scores)).toBeCloseTo(4.21, 2);
+  });
+
+  it("should handle minimum scores", () => {
+    const scores = { quality: 1, delivery: 1, service: 1, cost: 1 };
+    expect(calculateOverallScore(scores)).toBe(1.0);
+  });
+
+  it("should throw error for invalid scores", () => {
+    expect(() =>
+      calculateOverallScore({
+        quality: 6, // Invalid
+        delivery: 4,
+        service: 4,
+        cost: 4,
+      })
+    ).toThrow("Rating must be between 1 and 5");
+  });
+});
+
+// models/supplier.test.ts
+describe("Supplier Model", () => {
+  describe("validation", () => {
+    it("should validate required fields", () => {
+      const supplier = new Supplier({ tenant_id: "abc" });
+
+      const errors = supplier.validate();
+      expect(errors).toContain("name is required");
+    });
+
+    it("should validate email format", () => {
+      const supplier = new Supplier({
+        tenant_id: "abc",
+        name: "Acme Corp",
+        contact_email: "invalid-email",
+      });
+
+      const errors = supplier.validate();
+      expect(errors).toContain("contact_email must be valid email");
+    });
+  });
+
+  describe("risk scoring", () => {
+    it("should calculate risk score from qualification", () => {
+      const qualification = {
+        iso_certified: true,
+        financial_stable: true,
+        references_count: 3,
+      };
+
+      const riskScore = calculateRiskScore(qualification);
+      expect(riskScore).toBe(15); // Low risk
+    });
+  });
+});
+```
+
+---
+
+### 4.2 Integration Testing
+
+**Purpose:** Test API endpoints, database interactions, service integrations
+
+**Scope:**
+
+- API routes (REST endpoints)
+- Database CRUD operations
+- Authentication/authorization
+- External service integrations (email, file storage)
+
+**Coverage Target:** 70%+
+
+**Example Test Cases:**
+
+```typescript
+// api/suppliers.integration.test.ts
+describe("Suppliers API", () => {
+  let authToken;
+
+  beforeAll(async () => {
+    await setupTestDatabase();
+    authToken = await loginTestUser();
+  });
+
+  afterAll(async () => {
+    await cleanupTestDatabase();
+  });
+
+  describe("GET /api/v1/suppliers", () => {
+    beforeEach(async () => {
+      await seedSuppliers(10);
+    });
+
+    it("should return paginated suppliers", async () => {
+      const response = await request(app)
+        .get("/api/v1/suppliers?page=1&per_page=5")
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(5);
+      expect(response.body.meta.total_pages).toBe(2);
+      expect(response.body.meta.current_page).toBe(1);
+    });
+
+    it("should filter by status", async () => {
+      const response = await request(app)
+        .get("/api/v1/suppliers?status=approved")
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      response.body.data.forEach((supplier) => {
+        expect(supplier.status).toBe("approved");
+      });
+    });
+
+    it("should search by name", async () => {
+      await createSupplier({ name: "Acme Manufacturing" });
+
+      const response = await request(app)
+        .get("/api/v1/suppliers?search=Acme")
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.data.length).toBeGreaterThan(0);
+      expect(response.body.data[0].name).toContain("Acme");
+    });
+  });
+
+  describe("POST /api/v1/suppliers", () => {
+    it("should create supplier with valid data", async () => {
+      const supplierData = {
+        name: "New Supplier Inc",
+        status: "prospect",
+        category_id: "uuid",
+        contact_info: {
+          primary_contact: {
+            name: "John Doe",
+            email: "john@newsupplier.com",
+            phone: "+1-555-0100",
+          },
+        },
+      };
+
+      const response = await request(app)
+        .post("/api/v1/suppliers")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send(supplierData)
+        .expect(201);
+
+      expect(response.body.id).toBeDefined();
+      expect(response.body.name).toBe("New Supplier Inc");
+      expect(response.body.code).toMatch(/^SUP-\d{4}-\d{4}$/);
+    });
+
+    it("should reject invalid data", async () => {
+      const response = await request(app)
+        .post("/api/v1/suppliers")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ status: "approved" }) // Missing required 'name'
+        .expect(400);
+
+      expect(response.body.error).toBe("validation_error");
+      expect(response.body.details.name).toContain("Name is required");
+    });
+
+    it("should enforce tenant isolation", async () => {
+      // Create supplier in tenant A
+      const supplierA = await createSupplier({ tenant: "tenant-a" });
+
+      // Login as tenant B
+      const tokenB = await loginTestUser({ tenant: "tenant-b" });
+
+      // Try to access tenant A's supplier
+      await request(app)
+        .get(`/api/v1/suppliers/${supplierA.id}`)
+        .set("Authorization", `Bearer ${tokenB}`)
+        .expect(404); // Not 403, to avoid leaking existence
+    });
+  });
+});
+```
+
+---
+
+### 4.3 End-to-End (E2E) Testing
+
+**Purpose:** Test complete user workflows from UI to database
+
+**Scope:**
+
+- Critical user journeys (login, create supplier, qualification, evaluation, complaint)
+- Cross-module workflows
+- UI interactions
+
+**Coverage Target:** Critical paths only (10-15 test scenarios)
+
+**Tool:** Playwright
+
+**Example Test Cases:**
+
+```typescript
+// e2e/supplier-qualification.spec.ts
+import { test, expect } from "@playwright/test";
+
+test.describe("Supplier Qualification Flow", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/login");
+    await page.fill('[name="email"]', "user@test.com");
+    await page.fill('[name="password"]', "TestPass123!");
+    await page.click('button[type="submit"]');
+    await page.waitForURL("/dashboard");
+  });
+
+  test("should complete full qualification process", async ({ page }) => {
+    // Step 1: Create new supplier
+    await page.click("text=Suppliers");
+    await page.click("text=Add New Supplier");
+    await page.fill('[name="name"]', "Test Supplier Corp");
+    await page.selectOption('[name="status"]', "prospect");
+    await page.fill('[name="contact_email"]', "contact@testsupplier.com");
+    await page.click('button:has-text("Save Supplier")');
+
+    await expect(page.locator(".toast-success")).toBeVisible();
+    await expect(page).toHaveURL(/\/suppliers\/[a-f0-9-]{36}/);
+
+    // Step 2: Start qualification
+    await page.click('button:has-text("Start Qualification")');
+    await page.click('button:has-text("Create Qualification")');
+
+    await expect(page.locator("h1")).toContainText("Qualification");
+
+    // Step 3: Fill questionnaire
+    await page.click("text=Quality Management System");
+    await page.click('input[value="yes"]'); // ISO certified
+    await page.click('button[aria-label="Rate 4 stars"]');
+
+    // Upload document
+    await page.setInputFiles(
+      'input[type="file"]',
+      "tests/fixtures/iso-cert.pdf"
+    );
+    await expect(page.locator("text=iso-cert.pdf")).toBeVisible();
+
+    await page.fill(
+      'textarea[name="quality_processes"]',
+      "Documented quality procedures in place"
+    );
+
+    // Submit for review
+    await page.click('button:has-text("Submit for Review")');
+    await expect(page.locator(".toast-success")).toContainText("submitted");
+
+    // Verify status changed
+    const status = await page.locator(".status-badge").textContent();
+    expect(status).toContain("Stage 2");
+  });
+
+  test("should prevent submission with incomplete questionnaire", async ({
+    page,
+  }) => {
+    await page.goto("/qualifications/new");
+
+    // Try to submit without filling required questions
+    await page.click('button:has-text("Submit for Review")');
+
+    // Should show validation errors
+    await expect(page.locator(".error-message")).toContainText(
+      "complete all required"
+    );
+    await expect(page.locator('[aria-invalid="true"]')).toHaveCount(5); // 5 missing required fields
+  });
+
+  test("should support save as draft", async ({ page }) => {
+    await page.goto("/qualifications/new");
+
+    // Partially fill form
+    await page.fill('[name="supplier_name"]', "Draft Supplier");
+
+    // Save draft
+    await page.click('button:has-text("Save Draft")');
+    await expect(page.locator(".toast-success")).toContainText("Draft saved");
+
+    // Navigate away
+    await page.click("text=Dashboard");
+
+    // Return to qualification
+    await page.goto("/qualifications");
+    await page.click("text=Draft Supplier");
+
+    // Data should be preserved
+    const value = await page.inputValue('[name="supplier_name"]');
+    expect(value).toBe("Draft Supplier");
+  });
+});
+
+// e2e/complaint-workflow.spec.ts
+test.describe("Complaint Management", () => {
+  test("should register and track complaint to resolution", async ({
+    page,
+  }) => {
+    // Login
+    await page.goto("/login");
+    await page.fill('[name="email"]', "quality@test.com");
+    await page.fill('[name="password"]', "TestPass123!");
+    await page.click('button[type="submit"]');
+
+    // Navigate to complaints
+    await page.click("text=Complaints");
+    await page.click("text=Register New Complaint");
+
+    // Fill complaint form
+    await page.fill('[name="supplier"]', "Acme");
+    await page.click("text=Acme Manufacturing"); // Autocomplete selection
+    await page.selectOption('[name="category"]', "defective_material");
+    await page.click('input[value="high"]'); // Severity
+    await page.fill(
+      'textarea[name="description"]',
+      "Defective coating on 100 units"
+    );
+    await page.fill('[name="quantity"]', "100");
+
+    // Upload photos
+    await page.setInputFiles('input[type="file"]', [
+      "tests/fixtures/defect-photo-1.jpg",
+      "tests/fixtures/inspection-report.pdf",
+    ]);
+
+    // Submit
+    await page.click('button:has-text("Register Complaint")');
+
+    await expect(page.locator(".toast-success")).toBeVisible();
+    await expect(page.locator("h1")).toContainText("CPL-"); // Complaint number
+
+    // Add root cause
+    await page.click('button:has-text("Add Root Cause")');
+    await page.selectOption('[name="method"]', "5_why");
+    await page.fill(
+      'textarea[name="root_cause"]',
+      "Inadequate process controls"
+    );
+    await page.click('button:has-text("Save")');
+
+    // Create CAPA
+    await page.click('button:has-text("Add CAPA")');
+    await page.fill(
+      '[name="description"]',
+      "Implement environmental monitoring"
+    );
+    await page.selectOption('[name="responsible"]', "supplier");
+    await page.fill('[name="due_date"]', "2025-10-20");
+    await page.click('button:has-text("Create CAPA")');
+
+    await expect(page.locator(".capa-card")).toBeVisible();
+    await expect(page.locator(".capa-status")).toContainText("Pending");
+
+    // Mark CAPA complete
+    await page.click('button:has-text("Mark Complete")');
+    await page.fill(
+      'textarea[name="verification"]',
+      "Verified environmental controls in place"
+    );
+    await page.click('button:has-text("Confirm")');
+
+    await expect(page.locator(".capa-status")).toContainText("Complete");
+
+    // Close complaint
+    await page.click('button:has-text("Close Complaint")');
+    await page.fill(
+      'textarea[name="closure_notes"]',
+      "All actions verified effective"
+    );
+    await page.click('button[aria-label="Rate 4 stars"]'); // Effectiveness rating
+    await page.click('button:has-text("Close")');
+
+    await expect(page.locator(".status-badge")).toContainText("Closed");
+  });
+});
+```
+
+---
+
+## 5. Multi-Tenancy Testing
+
+### 5.1 Test Strategy
+
+**Critical Requirement:** Zero cross-tenant data leakage
+
+**Test Categories:**
+
+1. **Data Isolation Tests** - Verify tenant data is isolated
+2. **RLS Policy Tests** - Test Row-Level Security enforcement
+3. **API Authorization Tests** - Verify JWT-based tenant filtering
+4. **File Storage Tests** - Verify file isolation
+5. **Cache Isolation Tests** - Verify cache keys include tenant_id
+
+### 5.2 Automated Test Suite
+
+```typescript
+// tests/multi-tenancy.test.ts
+describe("Multi-Tenancy Isolation", () => {
+  let tenantA, tenantB, tenantC;
+
+  beforeAll(async () => {
+    // Create 3 tenants with test data
+    tenantA = await createTenant({ name: "Tenant A" });
+    tenantB = await createTenant({ name: "Tenant B" });
+    tenantC = await createTenant({ name: "Tenant C" });
+
+    await seedData(tenantA, {
+      suppliers: 10,
+      evaluations: 20,
+      complaints: 5,
+    });
+    await seedData(tenantB, {
+      suppliers: 15,
+      evaluations: 30,
+      complaints: 8,
+    });
+    await seedData(tenantC, {
+      suppliers: 5,
+      evaluations: 10,
+      complaints: 2,
+    });
+  });
+
+  describe("Supplier Isolation", () => {
+    it("should only return suppliers from user tenant", async () => {
+      const userA = await createUser({ tenant: tenantA });
+      const response = await api.get("/suppliers", { auth: userA });
+
+      expect(response.data).toHaveLength(10);
+      response.data.forEach((supplier) => {
+        expect(supplier.tenant_id).toBe(tenantA.id);
+      });
+    });
+
+    it("should prevent cross-tenant access by ID", async () => {
+      const userA = await createUser({ tenant: tenantA });
+      const supplierB = await createSupplier({ tenant: tenantB });
+
+      const response = await api.get(`/suppliers/${supplierB.id}`, {
+        auth: userA,
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it("should prevent tenant_id manipulation in POST", async () => {
+      const userA = await createUser({ tenant: tenantA });
+
+      const response = await api.post("/suppliers", {
+        auth: userA,
+        body: {
+          name: "Malicious Supplier",
+          tenant_id: tenantB.id, // Attempting to inject into tenant B
+        },
+      });
+
+      expect(response.status).toBe(201);
+
+      // Verify created in user's tenant, not injected tenant
+      const created = await db.suppliers.findById(response.data.id);
+      expect(created.tenant_id).toBe(tenantA.id);
+      expect(created.tenant_id).not.toBe(tenantB.id);
+    });
+  });
+
+  describe("Search & Filter Isolation", () => {
+    it("should not return cross-tenant results in search", async () => {
+      const userA = await createUser({ tenant: tenantA });
+      await createSupplier({ tenant: tenantA, name: "Acme Corp" });
+      await createSupplier({ tenant: tenantB, name: "Acme Industries" });
+
+      const response = await api.get("/suppliers?search=Acme", {
+        auth: userA,
+      });
+
+      expect(response.data).toHaveLength(1);
+      expect(response.data[0].tenant_id).toBe(tenantA.id);
+    });
+
+    it("should not leak tenant existence in aggregations", async () => {
+      const userA = await createUser({ tenant: tenantA });
+
+      const response = await api.get("/analytics/supplier-count");
+
+      // Should only count tenant A's suppliers
+      expect(response.data.total).toBe(10);
+      // NOT 30 (sum of all tenants)
+    });
+  });
+
+  describe("Relationship Isolation", () => {
+    it("should prevent cross-tenant foreign key references", async () => {
+      const userA = await createUser({ tenant: tenantA });
+      const supplierB = await createSupplier({ tenant: tenantB });
+
+      // Attempt to create evaluation for tenant B's supplier
+      const response = await api.post("/evaluations", {
+        auth: userA,
+        body: {
+          supplier_id: supplierB.id,
+          period_start: "2025-10-01",
+          period_end: "2025-12-31",
+        },
+      });
+
+      // Should fail (supplier not found in user's tenant)
+      expect(response.status).toBe(400);
+      expect(response.data.error).toBe("supplier_not_found");
+    });
+  });
+
+  describe("File Storage Isolation", () => {
+    it("should prevent cross-tenant file access", async () => {
+      const userA = await createUser({ tenant: tenantA });
+      const userB = await createUser({ tenant: tenantB });
+
+      // User B uploads file
+      const upload = await api.post("/documents", {
+        auth: userB,
+        body: { file: "confidential.pdf" },
+      });
+
+      // User A attempts to access
+      const response = await api.get(`/documents/${upload.data.id}`, {
+        auth: userA,
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it("should store files with tenant prefix", async () => {
+      const userA = await createUser({ tenant: tenantA });
+
+      const upload = await api.post("/documents", {
+        auth: userA,
+        body: { file: "test.pdf" },
+      });
+
+      const storagePath = upload.data.storage_path;
+      expect(storagePath).toMatch(new RegExp(`^${tenantA.id}/`));
+    });
+  });
+
+  describe("Cache Isolation", () => {
+    it("should include tenant_id in cache keys", async () => {
+      const userA = await createUser({ tenant: tenantA });
+      const userB = await createUser({ tenant: tenantB });
+
+      // User A requests dashboard
+      await api.get("/dashboard", { auth: userA });
+
+      // Check cache key
+      const cacheKey = await redis.keys("dashboard:*");
+      expect(cacheKey[0]).toContain(tenantA.id);
+
+      // User B requests dashboard
+      await api.get("/dashboard", { auth: userB });
+
+      // Should have separate cache entry
+      const cacheKeys = await redis.keys("dashboard:*");
+      expect(cacheKeys).toHaveLength(2);
+      expect(cacheKeys.some((key) => key.includes(tenantB.id))).toBe(true);
+    });
+  });
+
+  describe("SQL Injection Attempts", () => {
+    it("should prevent RLS bypass via SQL injection", async () => {
+      const userA = await createUser({ tenant: tenantA });
+
+      const injections = [
+        "' OR tenant_id != tenant_id OR name LIKE '",
+        "'; DROP TABLE suppliers; --",
+        "' UNION SELECT * FROM suppliers WHERE '1'='1",
+        "1' OR '1'='1",
+      ];
+
+      for (const injection of injections) {
+        const response = await api.get("/suppliers", {
+          auth: userA,
+          query: { search: injection },
+        });
+
+        // Should return only tenant A data (or empty)
+        expect(response.data.length).toBeLessThanOrEqual(10);
+        response.data.forEach((supplier) => {
+          expect(supplier.tenant_id).toBe(tenantA.id);
+        });
+      }
+    });
+  });
+
+  describe("Concurrent Multi-Tenant Load", () => {
+    it("should handle concurrent requests from multiple tenants", async () => {
+      const users = await Promise.all([
+        createUser({ tenant: tenantA }),
+        createUser({ tenant: tenantB }),
+        createUser({ tenant: tenantC }),
+      ]);
+
+      // Simulate 100 concurrent requests across 3 tenants
+      const requests = [];
+      for (let i = 0; i < 100; i++) {
+        const user = users[i % 3];
+        requests.push(api.get("/suppliers", { auth: user }));
+      }
+
+      const responses = await Promise.all(requests);
+
+      // Verify each response has correct tenant data
+      responses.forEach((response, i) => {
+        const expectedTenant = users[i % 3].tenant_id;
+        response.data.forEach((supplier) => {
+          expect(supplier.tenant_id).toBe(expectedTenant);
+        });
+      });
+    });
+  });
+});
+```
+
+### 5.3 RLS Policy Testing
+
+**Test Supabase Row-Level Security policies:**
+
+```sql
+-- Test RLS policies directly in database
+-- tests/database/rls.test.sql
+
+-- Setup: Create test tenants and data
+INSERT INTO tenants (id, name) VALUES
+  ('tenant-a', 'Tenant A'),
+  ('tenant-b', 'Tenant B');
+
+INSERT INTO suppliers (id, tenant_id, name) VALUES
+  ('supplier-a1', 'tenant-a', 'Supplier A1'),
+  ('supplier-a2', 'tenant-a', 'Supplier A2'),
+  ('supplier-b1', 'tenant-b', 'Supplier B1');
+
+-- Test: User from tenant A can only see tenant A suppliers
+SET app.current_tenant = 'tenant-a';
+SELECT COUNT(*) FROM suppliers; -- Should return 2
+
+-- Test: Query for tenant B supplier should return 0 rows
+SELECT COUNT(*) FROM suppliers WHERE id = 'supplier-b1'; -- Should return 0
+
+-- Test: Cannot update other tenant's data
+UPDATE suppliers SET name = 'Hacked' WHERE tenant_id = 'tenant-b';
+SELECT name FROM suppliers WHERE id = 'supplier-b1'; -- Should still be 'Supplier B1'
+
+-- Test: Cannot insert with wrong tenant_id
+INSERT INTO suppliers (id, tenant_id, name) VALUES
+  ('supplier-hack', 'tenant-b', 'Malicious Supplier');
+-- Should fail or insert with tenant-a
+
+SELECT tenant_id FROM suppliers WHERE id = 'supplier-hack';
+-- Should be 'tenant-a', not 'tenant-b'
+```
+
+---
+
+## 6. Security Testing
+
+### 6.1 Security Test Checklist
+
+**Authentication:**
+
+- [ ] Password requirements enforced (8+ chars, uppercase, number, special)
+- [ ] Account lockout after 5 failed attempts
+- [ ] Password reset tokens expire after 1 hour
+- [ ] Password reset tokens are single-use
+- [ ] JWT tokens expire after 8 hours
+- [ ] JWT tokens cannot be forged
+- [ ] Logout invalidates tokens
+- [ ] No hardcoded credentials in code
+
+**Authorization:**
+
+- [ ] RBAC enforced on all endpoints
+- [ ] Viewer cannot modify data
+- [ ] Procurement cannot approve Stage 3
+- [ ] Quality cannot delete suppliers
+- [ ] All roles tested (see RBAC matrix)
+
+**Input Validation:**
+
+- [ ] SQL injection prevented (parameterized queries)
+- [ ] XSS prevented (input sanitization, CSP headers)
+- [ ] CSRF protection enabled
+- [ ] File upload validation (type, size, content)
+- [ ] Email validation
+- [ ] Phone number validation
+- [ ] URL validation
+
+**Data Protection:**
+
+- [ ] All data encrypted at rest (Supabase default)
+- [ ] All data encrypted in transit (TLS 1.3)
+- [ ] Sensitive fields (passwords) hashed (bcrypt)
+- [ ] API keys encrypted in database
+- [ ] No sensitive data in logs
+- [ ] No sensitive data in error messages
+
+**API Security:**
+
+- [ ] Rate limiting enforced (1000/hour per tenant)
+- [ ] CORS configured for specific domains
+- [ ] API authentication required on all endpoints
+- [ ] No verbose error messages in production
+- [ ] Security headers configured (CSP, HSTS, X-Frame-Options)
+
+**Multi-Tenancy:**
+
+- [ ] RLS policies on all tenant tables
+- [ ] No cross-tenant data leakage
+- [ ] Tenant ID from JWT, never from client
+- [ ] File storage isolated per tenant
+- [ ] Cache keys scoped to tenant
+
+### 6.2 OWASP Top 10 Testing
+
+| OWASP Risk                            | Test Strategy                                         | Priority |
+| ------------------------------------- | ----------------------------------------------------- | -------- |
+| **A01: Broken Access Control**        | RBAC testing, multi-tenancy testing                   | P0       |
+| **A02: Cryptographic Failures**       | Verify TLS, encryption at rest, password hashing      | P0       |
+| **A03: Injection**                    | SQL injection, XSS, command injection tests           | P0       |
+| **A04: Insecure Design**              | Security architecture review, threat modeling         | P1       |
+| **A05: Security Misconfiguration**    | Security headers, default credentials, error messages | P1       |
+| **A06: Vulnerable Components**        | Dependency scanning (npm audit, Snyk)                 | P0       |
+| **A07: Identification/Auth Failures** | Authentication testing, session management            | P0       |
+| **A08: Software/Data Integrity**      | Code signing, supply chain security                   | P2       |
+| **A09: Logging/Monitoring Failures**  | Audit log testing, alerting verification              | P1       |
+| **A10: Server-Side Request Forgery**  | SSRF testing (if applicable)                          | P2       |
+
+### 6.3 Penetration Testing
+
+**Manual Penetration Testing Scenarios:**
+
+```
+Tester: Security Team / External Auditor
+Frequency: Before MVP launch, then quarterly
+Scope: All MVP features
+```
+
+**Test Scenarios:**
+
+1. **Cross-Tenant Data Access**
+
+   - Attempt to access other tenant's data via API manipulation
+   - Try URL parameter tampering
+   - Test JWT token manipulation
+   - Verify RLS enforcement
+
+2. **Authentication Bypass**
+
+   - Test weak password acceptance
+   - Brute force login
+   - Password reset token prediction
+   - Session fixation
+   - JWT forgery
+
+3. **File Upload Exploits**
+
+   - Upload malicious files (.exe, .sh, scripts)
+   - Upload oversized files
+   - Path traversal attacks
+   - File type bypass (rename .exe to .pdf)
+
+4. **Injection Attacks**
+
+   - SQL injection in search, filters
+   - XSS in text inputs
+   - Command injection (if applicable)
+   - LDAP injection (if applicable)
+
+5. **Business Logic Flaws**
+   - Skip qualification stages
+   - Close complaint without CAPA
+   - Modify finalized evaluations
+   - Escalate user privileges
+
+**Tools:**
+
+- **OWASP ZAP** - Automated vulnerability scanner
+- **Burp Suite** - Manual penetration testing
+- **SQLMap** - SQL injection testing
+- **Nikto** - Web server scanner
+
+---
+
+## 7. Performance Testing
+
+### 7.1 Performance Test Types
+
+**1. Load Testing**
+
+- Purpose: Verify system handles expected load
+- Users: 100 concurrent users
+- Duration: 1 hour
+- Success: < 1% error rate, P95 response time < 500ms
+
+**2. Stress Testing**
+
+- Purpose: Find breaking point
+- Users: Gradually increase from 100 to 1000
+- Duration: Until system degrades
+- Success: Identify maximum capacity, graceful degradation
+
+**3. Spike Testing**
+
+- Purpose: Verify recovery from traffic spike
+- Users: 10 → 500 → 10 (sudden changes)
+- Duration: 30 minutes
+- Success: System recovers within 30 seconds
+
+**4. Endurance Testing**
+
+- Purpose: Find memory leaks, resource exhaustion
+- Users: 50 concurrent users
+- Duration: 24 hours
+- Success: No performance degradation, no memory leaks
+
+### 7.2 Performance Test Scenarios
+
+**Scenario 1: Dashboard Load**
+
+```
+Endpoint: GET /dashboard
+Concurrent Users: 100
+Duration: 10 minutes
+Expected RPS: 10 requests/second
+Target P95: < 800ms
+Target P99: < 1200ms
+```
+
+**Scenario 2: Supplier List with Filters**
+
+```
+Endpoint: GET /suppliers?status=approved&category=metal
+Concurrent Users: 50
+Duration: 5 minutes
+Expected RPS: 20 requests/second
+Target P95: < 300ms
+Target P99: < 500ms
+```
+
+**Scenario 3: Create Evaluation**
+
+```
+Endpoint: POST /evaluations
+Concurrent Users: 20
+Duration: 5 minutes
+Expected RPS: 5 requests/second
+Target P95: < 600ms
+Target P99: < 1000ms
+```
+
+### 7.3 Performance Testing with k6
+
+```javascript
+// tests/performance/load-test.js
+import http from "k6/http";
+import { check, sleep } from "k6";
+import { Rate, Trend } from "k6/metrics";
+
+const errorRate = new Rate("errors");
+const dashboardTime = new Trend("dashboard_response_time");
+
+export const options = {
+  stages: [
+    { duration: "2m", target: 10 }, // Ramp-up to 10 users
+    { duration: "5m", target: 10 }, // Stay at 10 users
+    { duration: "2m", target: 50 }, // Ramp-up to 50 users
+    { duration: "5m", target: 50 }, // Stay at 50 users
+    { duration: "2m", target: 100 }, // Ramp-up to 100 users
+    { duration: "5m", target: 100 }, // Stay at 100 users
+    { duration: "2m", target: 0 }, // Ramp-down to 0 users
+  ],
+  thresholds: {
+    http_req_duration: ["p(95)<500", "p(99)<1000"], // 95% < 500ms, 99% < 1s
+    errors: ["rate<0.01"], // Error rate < 1%
+    dashboard_response_time: ["p(95)<800"],
+  },
+};
+
+const BASE_URL = "https://supplex-staging.vercel.app";
+const AUTH_TOKEN = __ENV.AUTH_TOKEN;
+
+export default function () {
+  // Simulate user session
+  const params = {
+    headers: {
+      Authorization: `Bearer ${AUTH_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+  };
+
+  // 1. Load dashboard
+  let response = http.get(`${BASE_URL}/api/v1/dashboard`, params);
+  check(response, {
+    "dashboard status is 200": (r) => r.status === 200,
+    "dashboard response time < 800ms": (r) => r.timings.duration < 800,
+  });
+  errorRate.add(response.status !== 200);
+  dashboardTime.add(response.timings.duration);
+  sleep(2);
+
+  // 2. List suppliers
+  response = http.get(`${BASE_URL}/api/v1/suppliers?per_page=25`, params);
+  check(response, {
+    "suppliers status is 200": (r) => r.status === 200,
+    "suppliers response time < 300ms": (r) => r.timings.duration < 300,
+  });
+  errorRate.add(response.status !== 200);
+  sleep(1);
+
+  // 3. View supplier detail
+  if (response.status === 200) {
+    const suppliers = JSON.parse(response.body).data;
+    if (suppliers.length > 0) {
+      const supplierId = suppliers[0].id;
+      response = http.get(`${BASE_URL}/api/v1/suppliers/${supplierId}`, params);
+      check(response, {
+        "supplier detail status is 200": (r) => r.status === 200,
+        "supplier detail response time < 200ms": (r) =>
+          r.timings.duration < 200,
+      });
+      errorRate.add(response.status !== 200);
+      sleep(3);
+    }
+  }
+
+  // 4. Search suppliers
+  response = http.get(`${BASE_URL}/api/v1/suppliers?search=acme`, params);
+  check(response, {
+    "search status is 200": (r) => r.status === 200,
+  });
+  errorRate.add(response.status !== 200);
+  sleep(1);
+}
+
+export function handleSummary(data) {
+  return {
+    "performance-report.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+  };
+}
+```
+
+**Run Performance Tests:**
+
+```bash
+# Install k6
+brew install k6
+
+# Run load test
+k6 run tests/performance/load-test.js
+
+# Run with environment variables
+AUTH_TOKEN=xyz k6 run tests/performance/load-test.js
+
+# Run with custom duration
+k6 run --duration 10m --vus 50 tests/performance/load-test.js
+```
+
+---
+
+## 8. Test Data Management
+
+### 8.1 Test Data Strategy
+
+**Principles:**
+
+1. **Realistic Data** - Use faker.js for realistic names, emails, addresses
+2. **Consistent Seeding** - Same seed = same data (reproducible tests)
+3. **Isolated Data** - Each test suite has its own data
+4. **Cleanup** - Tests clean up after themselves
+5. **No Production Data** - Never use real customer data in tests
+
+### 8.2 Test Data Factory
+
+```typescript
+// tests/factories/index.ts
+import { faker } from "@faker-js/faker";
+
+export class TestDataFactory {
+  // Set seed for reproducibility
+  static seed(value: number) {
+    faker.seed(value);
+  }
+
+  static createTenant(overrides = {}) {
+    return {
+      id: faker.string.uuid(),
+      name: faker.company.name(),
+      subdomain: faker.internet.domainWord(),
+      plan_tier: "professional",
+      status: "active",
+      created_at: faker.date.past(),
+      ...overrides,
+    };
+  }
+
+  static createUser(overrides = {}) {
+    const firstName = faker.person.firstName();
+    const lastName = faker.person.lastName();
+
+    return {
+      id: faker.string.uuid(),
+      tenant_id: overrides.tenant_id || faker.string.uuid(),
+      email: faker.internet.email({ firstName, lastName }),
+      first_name: firstName,
+      last_name: lastName,
+      role: "procurement",
+      status: "active",
+      created_at: faker.date.past(),
+      ...overrides,
+    };
+  }
+
+  static createSupplier(overrides = {}) {
+    return {
+      id: faker.string.uuid(),
+      tenant_id: overrides.tenant_id || faker.string.uuid(),
+      code: `SUP-${faker.number.int({ min: 2024, max: 2025 })}-${faker.number
+        .int({ min: 1, max: 9999 })
+        .toString()
+        .padStart(4, "0")}`,
+      name: faker.company.name(),
+      status: "approved",
+      category_id: faker.string.uuid(),
+      risk_level: faker.helpers.arrayElement(["low", "medium", "high"]),
+      contact_info: {
+        primary_contact: {
+          name: faker.person.fullName(),
+          email: faker.internet.email(),
+          phone: faker.phone.number(),
+        },
+      },
+      addresses: [
+        {
+          type: "headquarters",
+          street: faker.location.streetAddress(),
+          city: faker.location.city(),
+          state: faker.location.state({ abbreviated: true }),
+          zip: faker.location.zipCode(),
+          country: "USA",
+        },
+      ],
+      created_at: faker.date.past(),
+      ...overrides,
+    };
+  }
+
+  static createEvaluation(overrides = {}) {
+    return {
+      id: faker.string.uuid(),
+      tenant_id: overrides.tenant_id || faker.string.uuid(),
+      supplier_id: overrides.supplier_id || faker.string.uuid(),
+      evaluation_number: `EVAL-${faker.number.int({
+        min: 2024,
+        max: 2025,
+      })}-Q${faker.number.int({ min: 1, max: 4 })}-${faker.number
+        .int({ min: 1, max: 999 })
+        .toString()
+        .padStart(4, "0")}`,
+      period_start: faker.date.past(),
+      period_end: faker.date.recent(),
+      status: "completed",
+      overall_score: faker.number.float({ min: 1, max: 5, precision: 0.1 }),
+      scores_breakdown: {
+        quality: {
+          rating: faker.number.float({ min: 1, max: 5, precision: 0.1 }),
+        },
+        delivery: {
+          rating: faker.number.float({ min: 1, max: 5, precision: 0.1 }),
+        },
+        service: {
+          rating: faker.number.float({ min: 1, max: 5, precision: 0.1 }),
+        },
+        cost: {
+          rating: faker.number.float({ min: 1, max: 5, precision: 0.1 }),
+        },
+      },
+      created_at: faker.date.past(),
+      ...overrides,
+    };
+  }
+
+  static createComplaint(overrides = {}) {
+    return {
+      id: faker.string.uuid(),
+      tenant_id: overrides.tenant_id || faker.string.uuid(),
+      supplier_id: overrides.supplier_id || faker.string.uuid(),
+      complaint_number: `CPL-${faker.number.int({
+        min: 2024,
+        max: 2025,
+      })}-${faker.number
+        .int({ min: 1, max: 9999 })
+        .toString()
+        .padStart(4, "0")}`,
+      category_id: faker.string.uuid(),
+      severity: faker.helpers.arrayElement([
+        "low",
+        "medium",
+        "high",
+        "critical",
+      ]),
+      status: "open",
+      description: faker.lorem.paragraph(),
+      part_number: `PART-${faker.number
+        .int({ min: 1, max: 999 })
+        .toString()
+        .padStart(3, "0")}`,
+      quantity_affected: faker.number.int({ min: 1, max: 1000 }),
+      financial_impact: faker.number.float({
+        min: 100,
+        max: 50000,
+        precision: 0.01,
+      }),
+      created_at: faker.date.past(),
+      ...overrides,
+    };
+  }
+}
+
+// Usage in tests
+describe("Supplier API", () => {
+  beforeEach(async () => {
+    TestDataFactory.seed(12345); // Reproducible data
+
+    const tenant = await db.tenants.create(TestDataFactory.createTenant());
+    const user = await db.users.create(
+      TestDataFactory.createUser({ tenant_id: tenant.id })
+    );
+    const supplier = await db.suppliers.create(
+      TestDataFactory.createSupplier({ tenant_id: tenant.id })
+    );
+  });
+});
+```
+
+### 8.3 Test Database Management
+
+```typescript
+// tests/utils/database.ts
+
+export class TestDatabase {
+  private static connection;
+
+  static async setup() {
+    // Create test database
+    this.connection = await createConnection({
+      host: process.env.TEST_DB_HOST || "localhost",
+      port: process.env.TEST_DB_PORT || 5432,
+      database: `supplex_test_${process.pid}`, // Isolated per test process
+      username: process.env.TEST_DB_USER || "postgres",
+      password: process.env.TEST_DB_PASSWORD || "postgres",
+    });
+
+    // Run migrations
+    await this.connection.runMigrations();
+  }
+
+  static async teardown() {
+    if (this.connection) {
+      await this.connection.dropDatabase();
+      await this.connection.close();
+    }
+  }
+
+  static async reset() {
+    // Truncate all tables (faster than drop/recreate)
+    await this.connection.query(
+      "TRUNCATE TABLE suppliers, evaluations, complaints, users, tenants CASCADE"
+    );
+  }
+
+  static async seed(data) {
+    // Seed with specific data
+    for (const [table, rows] of Object.entries(data)) {
+      await this.connection.getRepository(table).save(rows);
+    }
+  }
+}
+
+// Global test setup (jest.setup.ts)
+beforeAll(async () => {
+  await TestDatabase.setup();
+});
+
+afterAll(async () => {
+  await TestDatabase.teardown();
+});
+
+beforeEach(async () => {
+  await TestDatabase.reset();
+});
+```
+
+---
+
+## 9. Test Automation
+
+### 9.1 CI/CD Pipeline
+
+```yaml
+# .github/workflows/ci.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: supplex_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run type-check
+
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supplex_test
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supplex_test
+          REDIS_URL: redis://localhost:6379
+          SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_TEST_KEY }}
+
+      - name: Generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/coverage-final.json
+
+      - name: Check coverage threshold
+        run: npm run test:coverage:check
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Run secret scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          BASE_URL: ${{ secrets.STAGING_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run load test
+        run: k6 run tests/performance/load-test.js
+        env:
+          AUTH_TOKEN: ${{ secrets.STAGING_AUTH_TOKEN }}
+          BASE_URL: ${{ secrets.STAGING_URL }}
+
+  quality-gate:
+    name: Quality Gate
+    needs: [test, security, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all tests passed
+        run: echo "All quality checks passed!"
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: quality-gate
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Vercel Staging
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: ${{ secrets.VERCEL_SCOPE }}
+
+  deploy-production:
+    name: Deploy to Production
+    needs: quality-gate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Vercel Production
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: "--prod"
+          scope: ${{ secrets.VERCEL_SCOPE }}
+```
+
+### 9.2 Test Execution Schedule
+
+| Test Type               | Trigger       | Frequency  | Duration    |
+| ----------------------- | ------------- | ---------- | ----------- |
+| **Unit Tests**          | Every commit  | Continuous | ~2 minutes  |
+| **Integration Tests**   | Every commit  | Continuous | ~5 minutes  |
+| **E2E Tests (smoke)**   | Every PR      | On-demand  | ~10 minutes |
+| **E2E Tests (full)**    | Merge to main | Daily      | ~30 minutes |
+| **Security Scan**       | Every PR      | Continuous | ~5 minutes  |
+| **Performance Tests**   | Merge to main | Daily      | ~15 minutes |
+| **Multi-Tenancy Tests** | Every commit  | Continuous | ~3 minutes  |
+| **Load Tests**          | Manual        | Weekly     | ~1 hour     |
+| **Penetration Tests**   | Manual        | Quarterly  | ~1 week     |
+
+---
+
+## 10. Quality Gates & Release Criteria
+
+### 10.1 Quality Gates
+
+**Gate 1: Code Commit**
+
+- [ ] All unit tests pass
+- [ ] Code coverage ≥ 80%
+- [ ] Linter passes (0 errors)
+- [ ] TypeScript type-check passes
+- [ ] No security vulnerabilities (high/critical)
+
+**Gate 2: Pull Request**
+
+- [ ] All tests pass (unit + integration)
+- [ ] Code review approved (2+ reviewers)
+- [ ] No merge conflicts
+- [ ] Documentation updated
+- [ ] Changelog updated
+
+**Gate 3: Staging Deployment**
+
+- [ ] All E2E tests pass
+- [ ] Security scan passes
+- [ ] Performance benchmarks met
+- [ ] Manual QA approval
+
+**Gate 4: Production Release**
+
+- [ ] Staging validation complete
+- [ ] Stakeholder sign-off
+- [ ] Release notes published
+- [ ] Rollback plan documented
+- [ ] Monitoring alerts configured
+
+### 10.2 MVP Release Criteria
+
+**Functional Criteria:**
+
+- [ ] All P0 user stories implemented and tested
+- [ ] All 7 core modules functional:
+  - Tenant & User Management
+  - Supplier Master Data
+  - Qualification Workflow (3-stage)
+  - Performance Evaluation
+  - Complaint Tracking & CAPA
+  - Analytics & Dashboards
+  - REST API
+- [ ] RBAC enforced for all roles (Admin, Procurement, Quality, Viewer)
+- [ ] Multi-tenancy data isolation verified (0 leaks)
+
+**Quality Criteria:**
+
+- [ ] Test coverage ≥ 80%
+- [ ] 0 P0 (critical) bugs
+- [ ] ≤ 5 P1 (high) bugs
+- [ ] All security tests passed
+- [ ] All performance benchmarks met (P95 < 500ms)
+- [ ] Accessibility: WCAG 2.1 Level A compliance
+
+**Security Criteria:**
+
+- [ ] 0 critical/high security vulnerabilities
+- [ ] Penetration testing passed
+- [ ] RLS policies tested and verified
+- [ ] File upload security verified
+- [ ] Authentication/authorization tested
+
+**Performance Criteria:**
+
+- [ ] Page load time < 2s (P95)
+- [ ] API response time < 500ms (P95)
+- [ ] Dashboard load time < 800ms (P95)
+- [ ] System handles 100 concurrent users
+- [ ] Database queries optimized (< 50ms average)
+
+**Operational Criteria:**
+
+- [ ] Monitoring and alerts configured
+- [ ] Backup and recovery tested
+- [ ] Disaster recovery plan documented
+- [ ] Support documentation complete
+- [ ] User guide published
+- [ ] API documentation published
+
+**Compliance Criteria:**
+
+- [ ] GDPR compliance verified
+- [ ] Data retention policies implemented
+- [ ] Audit logging functional
+- [ ] Terms of Service finalized
+- [ ] Privacy Policy finalized
+
+### 10.3 Bug Severity Definitions
+
+| Severity          | Definition                                  | Response Time | Examples                                                |
+| ----------------- | ------------------------------------------- | ------------- | ------------------------------------------------------- |
+| **P0 - Critical** | System down, data loss, security breach     | 1 hour        | Multi-tenancy leak, auth bypass, data corruption        |
+| **P1 - High**     | Major feature broken, significant impact    | 4 hours       | Qualification workflow blocked, cannot create suppliers |
+| **P2 - Medium**   | Feature partially broken, workaround exists | 1 day         | Search not working, export fails occasionally           |
+| **P3 - Low**      | Minor issue, cosmetic problem               | 1 week        | UI misalignment, typos, minor performance issue         |
+
+**Release Blocking:**
+
+- **P0:** Always blocks release
+- **P1:** Blocks release (≤ 5 allowed with documented workarounds)
+- **P2:** Does not block release
+- **P3:** Does not block release
+
+---
+
+## Document Approval
+
+| Role              | Name  | Signature      | Date       |
+| ----------------- | ----- | -------------- | ---------- |
+| **QA Lead**       | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+| **Product Owner** | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+| **Tech Lead**     | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+| **Security Lead** | [TBD] | \***\*\_\*\*** | **/**/\_\_ |
+
+---
+
+## Related Documents
+
+- **Product Requirements:** `pm.mdc`
+- **Business Analysis:** `analyst.mdc`
+- **Project Brief:** `PROJECT_BRIEF.md`
+- **UX Specification:** `ux-expert.mdc`
+- **Test Cases Repository:** [TBD]
+- **Bug Tracking System:** [TBD]
+
+---
+
+**© 2025 Supplex. All testing specifications are confidential.**
