@@ -1,0 +1,2668 @@
+# Supplex - Product Requirements Document (PRD)
+
+**Document Version:** 1.0  
+**Date:** October 12, 2025  
+**Status:** Draft  
+**Product Owner:** [TBD]  
+**Technical Lead:** [TBD]
+
+---
+
+## Table of Contents
+
+1. [Product Overview](#1-product-overview)
+2. [User Personas](#2-user-personas)
+3. [Feature Requirements](#3-feature-requirements)
+4. [User Stories & Acceptance Criteria](#4-user-stories--acceptance-criteria)
+5. [User Flows](#5-user-flows)
+6. [Functional Requirements](#6-functional-requirements)
+7. [Non-Functional Requirements](#7-non-functional-requirements)
+8. [API Specifications](#8-api-specifications)
+9. [Data Model Requirements](#9-data-model-requirements)
+10. [UI/UX Requirements](#10-uiux-requirements)
+11. [Success Metrics](#11-success-metrics)
+12. [Release Criteria](#12-release-criteria)
+
+---
+
+## 1. Product Overview
+
+### 1.1 Vision Statement
+
+Supplex is the affordable, modern supplier lifecycle management platform that empowers mid-sized manufacturers to efficiently manage supplier qualification, performance evaluation, and quality issues without the complexity and cost of enterprise solutions.
+
+### 1.2 Product Objectives
+
+**Primary Objective:**  
+Launch an MVP within 4 months that enables mid-sized manufacturers to replace spreadsheets with a centralized, automated supplier management system.
+
+**Key Value Propositions:**
+
+1. **Affordability:** 80-90% cheaper than SAP Ariba/Coupa
+2. **Speed:** Go live in 2-4 weeks vs. 6-12 months
+3. **Simplicity:** Intuitive modern UI requiring minimal training
+4. **Completeness:** Full supplier lifecycle in one platform
+
+### 1.3 Target Users
+
+- **Primary:** Mid-sized manufacturing companies (50-500 employees)
+- **Secondary:** Larger enterprises seeking specialized supplier management
+- **Industries:** Automotive, aerospace, electronics, industrial equipment, medical devices
+
+### 1.4 MVP Scope Summary
+
+**In-Scope Modules:**
+
+1. Tenant & User Management
+2. Supplier Master Data
+3. Qualification Workflow (3-stage)
+4. Performance Evaluation (quarterly)
+5. Complaint Tracking & CAPA
+6. Analytics Dashboard
+7. REST API
+
+**Out of Scope:**
+
+- Advanced workflow customization (Phase 2)
+- ERP integrations (Phase 2)
+- Supplier portal (Phase 3)
+- Mobile apps (Phase 3)
+
+---
+
+## 2. User Personas
+
+### 2.1 Primary Personas
+
+#### **Persona 1: Sarah - Supplier Quality Engineer**
+
+**Demographics:**
+
+- Age: 32
+- Role: Supplier Quality Engineer
+- Experience: 8 years in quality management
+- Company: 250-employee automotive supplier
+
+**Goals:**
+
+- Track supplier quality issues systematically
+- Reduce time spent on manual CAPA tracking
+- Improve supplier performance visibility
+- Ensure compliance with customer requirements (IATF 16949)
+
+**Pain Points:**
+
+- Currently using Excel + email for complaint tracking
+- Lost history when employees leave
+- No visibility into supplier trends
+- Manual report generation takes hours
+- Difficult to track CAPA completion
+
+**Technical Proficiency:** Medium (comfortable with web apps, Excel power user)
+
+**Key Use Cases:**
+
+- Register supplier complaints
+- Track corrective actions
+- Generate supplier performance reports
+- Monitor supplier quality trends
+
+---
+
+#### **Persona 2: Michael - Procurement Manager**
+
+**Demographics:**
+
+- Age: 45
+- Role: Procurement Manager
+- Experience: 15 years in purchasing
+- Company: 150-employee electronics manufacturer
+
+**Goals:**
+
+- Centralize supplier information
+- Streamline supplier qualification process
+- Track supplier performance across dimensions
+- Make data-driven sourcing decisions
+
+**Pain Points:**
+
+- Supplier data scattered across multiple files
+- Qualification process takes weeks with email approvals
+- No standardized performance evaluation
+- Can't easily compare suppliers
+- Compliance documentation often missing
+
+**Technical Proficiency:** Medium-Low (prefers simple interfaces)
+
+**Key Use Cases:**
+
+- Add new suppliers to system
+- Initiate qualification workflows
+- Evaluate supplier performance quarterly
+- Generate supplier scorecards
+
+---
+
+#### **Persona 3: David - Operations Director**
+
+**Demographics:**
+
+- Age: 50
+- Role: Operations Director / VP Operations
+- Experience: 20+ years in manufacturing
+- Company: 400-employee industrial equipment manufacturer
+
+**Goals:**
+
+- Reduce supplier-related disruptions
+- Improve overall supply chain quality
+- Get executive-level visibility
+- Ensure regulatory compliance
+
+**Pain Points:**
+
+- Lacks real-time visibility into supplier issues
+- Supply disruptions due to poor supplier performance
+- Difficulty prioritizing supplier improvements
+- Manual reporting for management meetings
+
+**Technical Proficiency:** Low (needs simple dashboards)
+
+**Key Use Cases:**
+
+- View executive dashboard
+- Monitor critical supplier issues
+- Review supplier performance summaries
+- Approve high-risk supplier qualifications
+
+---
+
+### 2.2 Secondary Personas
+
+#### **Persona 4: Jennifer - Quality Manager**
+
+- Oversees quality team, approves CAPA plans
+- Needs audit trails for ISO/IATF compliance
+- Reviews supplier audit results
+
+#### **Persona 5: Tom - Purchasing Agent**
+
+- Data entry for supplier information
+- Initiates purchase orders (future integration)
+- Requests new supplier qualifications
+
+---
+
+## 3. Feature Requirements
+
+### 3.1 Module 1: Tenant & User Management
+
+**Priority:** P0 (Critical - MVP Blocker)  
+**Target:** Month 1
+
+#### Features:
+
+**F1.1 Multi-Tenant Architecture**
+
+- Each customer organization has isolated data (tenant)
+- Subdomain-based access (e.g., `acme.supplex.com`)
+- Tenant customization support (settings stored in JSONB)
+
+**F1.2 User Authentication**
+
+- Email/password login
+- Password reset via email
+- Session management (JWT tokens with tenant_id claim)
+- Remember me functionality
+- Password requirements: min 8 chars, 1 uppercase, 1 number
+
+**F1.3 User Management**
+
+- Add/edit/delete users within tenant
+- User roles: Admin, Procurement, Quality, Viewer
+- Role-based permissions enforcement
+- User invitation via email
+- User deactivation (soft delete)
+
+**F1.4 Tenant Settings**
+
+- Company information (name, address, logo)
+- Email notification preferences
+- Timezone selection
+- Currency selection
+
+---
+
+### 3.2 Module 2: Supplier Master Data Management
+
+**Priority:** P0 (Critical - MVP Blocker)  
+**Target:** Month 1-2
+
+#### Features:
+
+**F2.1 Supplier CRUD Operations**
+
+- Create new supplier profiles
+- View supplier details
+- Edit supplier information
+- Delete suppliers (soft delete if has history)
+- Supplier list with search and filters
+
+**F2.2 Supplier Information Fields**
+
+**Basic Information:**
+
+- Supplier code (auto-generated or manual)
+- Supplier name (required)
+- Status: Prospect, Qualified, Approved, Blocked
+- Registration date
+
+**Contact Information:**
+
+- Primary contact name, email, phone
+- Secondary contacts (multiple)
+- Website URL
+- Physical address(es)
+
+**Business Information:**
+
+- Tax ID / VAT number
+- Industry/sector
+- Employee count range
+- Annual revenue range (optional)
+
+**Categorization:**
+
+- Supplier category (dropdown, configurable)
+- Product/service types
+- Risk level: Low, Medium, High, Critical
+- Supplier tier: Strategic, Preferred, Approved, Conditional
+
+**Certifications:**
+
+- Certification name (e.g., ISO 9001, IATF 16949)
+- Certificate number
+- Issue date / Expiry date
+- Document upload
+
+**Financial Information:**
+
+- Payment terms
+- Currency
+- Credit limit (optional)
+- Bank information (optional)
+
+**F2.3 Document Management**
+
+- Upload documents per supplier (PDF, images, Excel, Word)
+- Document types: Certificate, Contract, Insurance, W9, Other
+- Document expiry tracking
+- Document version history
+- Download documents
+- Max file size: 25MB per file
+
+**F2.4 Supplier Categorization**
+
+- Manage supplier categories (hierarchy supported)
+- Assign suppliers to categories
+- Filter suppliers by category
+
+**F2.5 Search & Filtering**
+
+- Full-text search across supplier name, code, contacts
+- Filter by status, category, risk level, certification expiry
+- Sort by name, date added, risk level
+- Pagination (25/50/100 per page)
+
+---
+
+### 3.3 Module 3: Supplier Qualification Workflow
+
+**Priority:** P0 (Critical - MVP Blocker)  
+**Target:** Month 2
+
+#### Features:
+
+**F3.1 Qualification Process Initiation**
+
+- Start qualification for new or existing supplier
+- Link to supplier profile
+- Select qualification template (default for MVP)
+- Assign requestor
+
+**F3.2 Three-Stage Approval Workflow**
+
+**Stage 1: Requestor/Initiator**
+
+- Fill out qualification questionnaire
+- Upload required documents
+- Calculate initial risk score
+- Submit for procurement review
+
+**Stage 2: Procurement Review**
+
+- Review submitted information
+- Request additional information (send back to requestor)
+- Add procurement notes
+- Approve or reject for quality review
+
+**Stage 3: Quality/Management Approval**
+
+- Final review of qualification
+- Add final notes
+- Approve (supplier becomes "Qualified") or Reject
+- If rejected, supplier status becomes "Blocked"
+
+**F3.3 Qualification Questionnaire (MVP)**
+
+- Basic template with 15-20 questions
+- Question types: Yes/No, Rating (1-5), Text, File upload
+- Questions organized by sections:
+  - Quality Management System
+  - Production Capabilities
+  - Financial Stability
+  - References
+  - Compliance & Certifications
+
+**F3.4 Risk Scoring**
+
+- Automatic risk score calculation (0-100)
+- Based on questionnaire answers
+- Display as: Low (0-30), Medium (31-60), High (61-85), Critical (86-100)
+- Configurable scoring weights per question (Phase 2)
+
+**F3.5 Document Collection**
+
+- Required documents checklist
+- Mark documents as received/pending
+- Upload documents directly to qualification
+- Documents automatically linked to supplier profile
+
+**F3.6 Email Notifications**
+
+- Notify approver when ready for their review
+- Notify requestor when sent back for changes
+- Notify all stakeholders on final approval/rejection
+- Reminder emails for pending approvals (after 3 days)
+
+**F3.7 Qualification History**
+
+- View all qualification attempts per supplier
+- Audit trail of all actions (who, when, what)
+- Comments/notes thread per qualification
+
+---
+
+### 3.4 Module 4: Performance Evaluation
+
+**Priority:** P0 (Critical - MVP Blocker)  
+**Target:** Month 2
+
+#### Features:
+
+**F4.1 Evaluation Creation**
+
+- Create evaluation for approved suppliers
+- Set evaluation period (start/end dates)
+- Select evaluation template (default for MVP)
+- Assign evaluator
+
+**F4.2 Four Evaluation Dimensions**
+
+**1. Quality (Weight: 30%)**
+
+- Defect rate (%)
+- Number of complaints in period
+- CAPA response time
+- Certificate compliance (up-to-date?)
+- Manual rating (1-5)
+
+**2. Delivery (Weight: 30%)**
+
+- On-time delivery rate (%)
+- Lead time accuracy
+- Order completeness
+- Manual rating (1-5)
+
+**3. Service (Weight: 20%)**
+
+- Responsiveness
+- Communication quality
+- Issue resolution
+- Technical support
+- Manual rating (1-5)
+
+**4. Cost (Weight: 20%)**
+
+- Price competitiveness
+- Payment terms adherence
+- Cost stability
+- Manual rating (1-5)
+
+**F4.3 Scoring System**
+
+- Each dimension scored 1-5
+- Overall score = weighted average
+- Score interpretation:
+  - Excellent: 4.5-5.0
+  - Good: 3.5-4.49
+  - Acceptable: 2.5-3.49
+  - Poor: 1.5-2.49
+  - Unacceptable: < 1.5
+
+**F4.4 Manual Data Entry (MVP)**
+
+- Evaluator manually enters metrics
+- Auto-population from complaints data (Phase 2)
+- Auto-population from ERP data (Phase 2)
+
+**F4.5 Evaluation Workflow**
+
+- Draft → In Progress → Completed
+- Save as draft
+- Submit for review (optional approval)
+- Finalize evaluation (locks data)
+
+**F4.6 Historical Trending**
+
+- View past evaluations for supplier
+- Trend charts showing dimension scores over time
+- Compare current vs. previous period
+
+**F4.7 Performance Alerts**
+
+- Alert if overall score drops below 2.5 (poor)
+- Alert if any dimension score < 2.0
+- Email notifications to Admin and Quality roles
+
+**F4.8 Evaluation Scheduling**
+
+- Set evaluation frequency per supplier (monthly, quarterly, annual)
+- Calendar view of upcoming evaluations
+- Reminder notifications 1 week before due
+
+---
+
+### 3.5 Module 5: Complaint Tracking & CAPA
+
+**Priority:** P0 (Critical - MVP Blocker)  
+**Target:** Month 2
+
+#### Features:
+
+**F5.1 Complaint Registration**
+
+- Create new complaint against supplier
+- Auto-generated complaint number (format: CPL-YYYY-0001)
+- Link to supplier
+- Link to affected PO/part number (optional)
+
+**F5.2 Complaint Information Fields**
+
+**Basic Details:**
+
+- Complaint number (auto)
+- Date reported
+- Reported by (user)
+- Supplier
+- Complaint category (dropdown)
+- Severity: Low, Medium, High, Critical
+
+**Description:**
+
+- Problem description (rich text)
+- Part/product affected
+- Quantity affected
+- Date discovered
+- Immediate containment actions
+
+**Classification:**
+
+- Complaint type: Quality, Delivery, Service, Other
+- Impact: Customer, Production, Inventory, None
+- Financial impact (optional amount)
+
+**F5.3 Complaint Categories (Configurable)**
+Default categories:
+
+- Defective material/parts
+- Wrong quantity delivered
+- Late delivery
+- Missing documentation
+- Packaging issues
+- Non-conforming material
+- Communication issues
+
+**F5.4 Complaint Status Workflow**
+
+- Open → Investigating → Awaiting Supplier → Resolved → Closed
+- Status change triggers notifications
+- Required fields per status:
+  - Investigating: Root cause analysis required
+  - Resolved: Corrective actions documented
+  - Closed: Verification complete
+
+**F5.5 Assignment & Tracking**
+
+- Assign complaint to internal user (Quality Engineer)
+- Due date calculation based on severity:
+  - Critical: 24 hours
+  - High: 3 days
+  - Medium: 7 days
+  - Low: 14 days
+- SLA tracking (overdue indicator)
+- Reassign capability
+
+**F5.6 Root Cause Analysis**
+
+- Root cause description (text area)
+- Root cause method: 5 Why, Fishbone, Other (Phase 2: templates)
+- Root cause determination date
+
+**F5.7 CAPA (Corrective & Preventive Actions)**
+
+- Add multiple corrective actions
+- Each action has:
+  - Description
+  - Responsible party (internal or supplier)
+  - Due date
+  - Status: Pending, In Progress, Complete
+  - Completion date
+  - Verification notes
+
+**F5.8 Document Attachments**
+
+- Upload photos of defects
+- Attach inspection reports
+- Supplier response documents
+- Evidence of corrective actions
+- Max 10 files per complaint
+
+**F5.9 Supplier Communication**
+
+- Internal notes (visible to internal team only)
+- External notes (shared with supplier - Phase 2: supplier portal)
+- Email notification to supplier contact when complaint created
+- Manual email capability
+
+**F5.10 Complaint Resolution**
+
+- Verify corrective actions completed
+- Mark as resolved
+- Closure notes
+- Effectiveness rating (1-5)
+
+**F5.11 Complaint Analytics**
+
+- Complaints by supplier (count, by status)
+- Complaints by category (Pareto chart)
+- Average resolution time
+- Recurring complaints (same supplier + same category)
+- Financial impact summary
+
+---
+
+### 3.6 Module 6: Analytics & Dashboards
+
+**Priority:** P0 (Critical - MVP Blocker)  
+**Target:** Month 3
+
+#### Features:
+
+**F6.1 Executive Dashboard**
+
+**KPI Cards:**
+
+- Total active suppliers
+- Suppliers by status (Approved, Qualified, Blocked)
+- Open complaints count
+- Average supplier score
+- Suppliers in qualification pipeline
+
+**Charts:**
+
+- Supplier performance distribution (pie: Excellent, Good, Acceptable, Poor)
+- Complaint trend (line chart, last 6 months)
+- Top 10 suppliers by score (bar chart)
+- Complaints by category (bar chart)
+
+**Alerts:**
+
+- Suppliers with poor performance (< 2.5 score)
+- Overdue qualifications (> 2 weeks pending)
+- Critical open complaints
+- Expiring certifications (next 30 days)
+
+**F6.2 Supplier Scorecard**
+
+- Individual supplier dashboard
+- Current performance score with trend
+- Breakdown by dimension (Quality, Delivery, Service, Cost)
+- Open complaints count
+- Recent evaluations history (table)
+- Recent complaints history (table)
+
+**F6.3 Procurement Dashboard**
+
+- Supplier list with quick filters
+- Qualification pipeline view (Kanban: Stage 1, Stage 2, Stage 3)
+- Recent activity feed
+- Suppliers by category (pie chart)
+
+**F6.4 Quality Dashboard**
+
+- Open complaints by supplier (table)
+- Complaint aging report (< 7 days, 7-14 days, 14-30 days, > 30 days)
+- CAPA completion rate
+- Complaint recurrence analysis
+- Average resolution time by category
+
+**F6.5 Data Export**
+
+- Export supplier list to CSV/Excel
+- Export evaluation data to CSV/Excel
+- Export complaint log to CSV/Excel
+- PDF generation for supplier scorecards
+- PDF generation for compliance reports
+
+**F6.6 Custom Date Ranges**
+
+- All dashboards support date range selection
+- Presets: Last 7 days, Last 30 days, Last quarter, Last year, Custom
+
+---
+
+### 3.7 Module 7: REST API
+
+**Priority:** P1 (Important - MVP)  
+**Target:** Month 3
+
+#### Features:
+
+**F7.1 API Authentication**
+
+- JWT token-based authentication
+- API key generation per tenant
+- Token expiration (24 hours)
+- Token refresh endpoint
+
+**F7.2 Core Endpoints (MVP)**
+
+**Suppliers:**
+
+- GET /api/v1/suppliers (list with pagination, filters)
+- GET /api/v1/suppliers/{id} (single supplier)
+- POST /api/v1/suppliers (create)
+- PUT /api/v1/suppliers/{id} (update)
+- DELETE /api/v1/suppliers/{id} (soft delete)
+
+**Evaluations:**
+
+- GET /api/v1/evaluations (list)
+- GET /api/v1/evaluations/{id}
+- POST /api/v1/evaluations (create)
+- PUT /api/v1/evaluations/{id}
+
+**Complaints:**
+
+- GET /api/v1/complaints (list)
+- GET /api/v1/complaints/{id}
+- POST /api/v1/complaints (create)
+- PUT /api/v1/complaints/{id}
+- PUT /api/v1/complaints/{id}/status (update status)
+
+**Qualifications:**
+
+- GET /api/v1/qualifications (list)
+- GET /api/v1/qualifications/{id}
+- POST /api/v1/qualifications (create)
+- PUT /api/v1/qualifications/{id}/approve (approve/reject)
+
+**F7.3 API Documentation**
+
+- OpenAPI 3.0 specification
+- Interactive API documentation (Swagger UI)
+- Code examples in curl, JavaScript, Python
+- Authentication guide
+- Rate limiting documentation
+
+**F7.4 API Rate Limiting**
+
+- 1000 requests per hour per tenant (MVP)
+- 429 response when exceeded
+- Rate limit headers in response
+
+**F7.5 Webhooks (Phase 2)**
+
+- Out of scope for MVP
+
+---
+
+## 4. User Stories & Acceptance Criteria
+
+### 4.1 Tenant & User Management
+
+#### **US-1.1: User Login**
+
+**As a** registered user  
+**I want to** log in to Supplex using my email and password  
+**So that** I can access my company's supplier data securely
+
+**Acceptance Criteria:**
+
+- [ ] Login page displays email and password fields
+- [ ] Valid credentials redirect to dashboard
+- [ ] Invalid credentials show error message "Invalid email or password"
+- [ ] After 5 failed attempts, account is locked for 15 minutes
+- [ ] "Remember me" checkbox keeps session active for 30 days
+- [ ] Successful login creates JWT token with tenant_id and role claims
+- [ ] Session expires after 8 hours of inactivity
+
+**Priority:** P0  
+**Estimate:** 3 story points
+
+---
+
+#### **US-1.2: Password Reset**
+
+**As a** user who forgot my password  
+**I want to** reset it via email  
+**So that** I can regain access to my account
+
+**Acceptance Criteria:**
+
+- [ ] "Forgot password?" link on login page
+- [ ] Enter email, receive reset link within 2 minutes
+- [ ] Reset link expires after 1 hour
+- [ ] Reset page requires new password (min 8 chars, 1 uppercase, 1 number)
+- [ ] Password successfully changed, redirect to login
+- [ ] Old password no longer works
+- [ ] Email notification sent on successful password change
+
+**Priority:** P0  
+**Estimate:** 3 story points
+
+---
+
+#### **US-1.3: Add New User**
+
+**As an** Admin  
+**I want to** add new users to my tenant  
+**So that** my team members can access the system
+
+**Acceptance Criteria:**
+
+- [ ] Admin navigates to Settings > Users > Add User
+- [ ] Form requires: first name, last name, email, role
+- [ ] Email must be unique within tenant
+- [ ] Available roles: Admin, Procurement, Quality, Viewer
+- [ ] User receives invitation email with setup link
+- [ ] Invitation link expires after 7 days
+- [ ] New user sets password on first login
+- [ ] User appears in user list after setup
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+### 4.2 Supplier Master Data
+
+#### **US-2.1: Create New Supplier**
+
+**As a** Procurement user  
+**I want to** create a new supplier profile  
+**So that** I can track their information and performance
+
+**Acceptance Criteria:**
+
+- [ ] Navigate to Suppliers > Add New Supplier
+- [ ] Required fields: Supplier name, status
+- [ ] Optional fields: All contact info, certifications, financial info
+- [ ] Supplier code auto-generated in format: SUP-YYYY-0001
+- [ ] Can manually override supplier code
+- [ ] Duplicate name warning (not blocking)
+- [ ] Status defaults to "Prospect"
+- [ ] Success message displayed on save
+- [ ] Supplier appears in supplier list immediately
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-2.2: View Supplier Details**
+
+**As a** user  
+**I want to** view complete supplier information  
+**So that** I can understand their capabilities and status
+
+**Acceptance Criteria:**
+
+- [ ] Click supplier name from list to view details
+- [ ] All supplier fields displayed in organized sections
+- [ ] Contact information section with all contacts
+- [ ] Certifications table with expiry dates highlighted if < 30 days
+- [ ] Documents list with download buttons
+- [ ] Activity history showing recent evaluations, complaints, changes
+- [ ] Quick actions: Edit, Evaluate, Report Complaint
+- [ ] Breadcrumb navigation: Home > Suppliers > [Supplier Name]
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-2.3: Upload Supplier Document**
+
+**As a** Procurement or Quality user  
+**I want to** upload documents for a supplier  
+**So that** I can keep certifications and contracts organized
+
+**Acceptance Criteria:**
+
+- [ ] On supplier detail page, Documents section with "Upload" button
+- [ ] Drag-and-drop or file browser upload
+- [ ] Supported formats: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG
+- [ ] Max file size: 25MB per file
+- [ ] Required fields: Document type, document name
+- [ ] Optional: Expiry date
+- [ ] Document appears in list immediately after upload
+- [ ] File stored in Supabase Storage with tenant isolation
+- [ ] Document URL accessible only to tenant users
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-2.4: Search Suppliers**
+
+**As a** user  
+**I want to** search for suppliers by name or code  
+**So that** I can quickly find specific suppliers
+
+**Acceptance Criteria:**
+
+- [ ] Search box at top of supplier list page
+- [ ] Search starts after typing 2+ characters
+- [ ] Searches across: supplier name, supplier code, contact names
+- [ ] Results update in real-time (debounced 300ms)
+- [ ] No results shows "No suppliers found matching '[query]'"
+- [ ] Clear search button (X icon)
+- [ ] Search persists through pagination
+
+**Priority:** P0  
+**Estimate:** 3 story points
+
+---
+
+#### **US-2.5: Filter Suppliers**
+
+**As a** user  
+**I want to** filter suppliers by status, category, and risk level  
+**So that** I can focus on specific supplier segments
+
+**Acceptance Criteria:**
+
+- [ ] Filter panel on left side of supplier list
+- [ ] Filter by status: checkboxes for Prospect, Qualified, Approved, Blocked
+- [ ] Filter by category: dropdown with all categories
+- [ ] Filter by risk level: checkboxes for Low, Medium, High, Critical
+- [ ] Filter by certification expiry: "Expiring soon" (< 30 days), "Expired"
+- [ ] Multiple filters combine with AND logic
+- [ ] Active filters shown as tags above list
+- [ ] Clear all filters button
+- [ ] Filtered count shown: "Showing X of Y suppliers"
+
+**Priority:** P1  
+**Estimate:** 5 story points
+
+---
+
+### 4.3 Qualification Workflow
+
+#### **US-3.1: Start Supplier Qualification**
+
+**As a** Procurement user  
+**I want to** initiate a qualification process for a new supplier  
+**So that** I can ensure they meet our requirements
+
+**Acceptance Criteria:**
+
+- [ ] From supplier detail page, "Start Qualification" button
+- [ ] Creates new qualification linked to supplier
+- [ ] Qualification number auto-generated: QUAL-YYYY-0001
+- [ ] Opens qualification form (Stage 1)
+- [ ] Requestor field pre-filled with current user
+- [ ] Status set to "Draft - Stage 1"
+- [ ] Supplier cannot have multiple "In Progress" qualifications
+
+**Priority:** P0  
+**Estimate:** 3 story points
+
+---
+
+#### **US-3.2: Complete Qualification Questionnaire**
+
+**As a** requestor  
+**I want to** fill out the qualification questionnaire  
+**So that** I can document the supplier's capabilities
+
+**Acceptance Criteria:**
+
+- [ ] Questionnaire divided into sections (Quality, Production, Financial, References, Compliance)
+- [ ] Question types: Yes/No (radio), Rating 1-5 (stars), Text (textarea), File upload
+- [ ] Progress indicator shows % complete
+- [ ] Save as draft (can exit and return)
+- [ ] Required questions marked with asterisk
+- [ ] Cannot submit without completing required questions
+- [ ] Risk score auto-calculated and displayed
+- [ ] Upload required documents checklist
+- [ ] Submit button moves to Stage 2
+
+**Priority:** P0  
+**Estimate:** 8 story points
+
+---
+
+#### **US-3.3: Approve Qualification (Procurement)**
+
+**As a** Procurement Manager  
+**I want to** review and approve Stage 2 qualifications  
+**So that** I can validate supplier readiness
+
+**Acceptance Criteria:**
+
+- [ ] Notification email received when qualification enters Stage 2
+- [ ] Review all questionnaire answers (read-only)
+- [ ] Review uploaded documents
+- [ ] Add procurement notes (text area)
+- [ ] Three action buttons: Approve, Request Changes, Reject
+- [ ] "Request Changes" sends back to Stage 1 with notes
+- [ ] "Approve" moves to Stage 3
+- [ ] "Reject" sets qualification status to "Rejected"
+- [ ] All actions create audit log entry
+- [ ] Email notifications sent on action
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-3.4: Final Approval (Quality/Management)**
+
+**As a** Quality Manager or Admin  
+**I want to** give final approval to qualified suppliers  
+**So that** they can be used for production
+
+**Acceptance Criteria:**
+
+- [ ] Notification email when qualification enters Stage 3
+- [ ] Review all previous stages (read-only)
+- [ ] Add final approval notes
+- [ ] Two actions: Approve or Reject
+- [ ] "Approve" changes supplier status to "Qualified"
+- [ ] "Approve" sets qualification status to "Approved"
+- [ ] "Approve" records qualification date on supplier
+- [ ] "Reject" changes supplier status to "Blocked"
+- [ ] Email notification to all stakeholders
+- [ ] Qualification locked (no further edits)
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+### 4.4 Performance Evaluation
+
+#### **US-4.1: Create Quarterly Evaluation**
+
+**As a** Procurement or Quality user  
+**I want to** create a performance evaluation for a supplier  
+**So that** I can track their performance over time
+
+**Acceptance Criteria:**
+
+- [ ] From supplier page, "Create Evaluation" button
+- [ ] Evaluation number auto-generated: EVAL-YYYY-Q1-0001
+- [ ] Select evaluation period (start/end dates)
+- [ ] Default to current quarter
+- [ ] Cannot create overlapping evaluations for same supplier
+- [ ] Assign evaluator (default: current user)
+- [ ] Status set to "Draft"
+- [ ] Opens evaluation form
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-4.2: Complete Evaluation Scoring**
+
+**As an** evaluator  
+**I want to** score a supplier across four dimensions  
+**So that** I can document their performance
+
+**Acceptance Criteria:**
+
+- [ ] Four dimension sections: Quality, Delivery, Service, Cost
+- [ ] Each dimension has:
+  - Manual rating (1-5 stars, required)
+  - Comments (textarea)
+  - Supporting metrics (optional text fields for rates/percentages)
+- [ ] Overall score auto-calculated: (Quality*0.3 + Delivery*0.3 + Service*0.2 + Cost*0.2)
+- [ ] Overall score displayed prominently with color coding:
+  - Green: 4.5-5.0 (Excellent)
+  - Light green: 3.5-4.49 (Good)
+  - Yellow: 2.5-3.49 (Acceptable)
+  - Orange: 1.5-2.49 (Poor)
+  - Red: < 1.5 (Unacceptable)
+- [ ] Save as draft capability
+- [ ] Finalize button (locks evaluation)
+- [ ] Cannot edit after finalized
+
+**Priority:** P0  
+**Estimate:** 8 story points
+
+---
+
+#### **US-4.3: View Supplier Performance History**
+
+**As a** user  
+**I want to** see a supplier's evaluation history  
+**So that** I can track performance trends
+
+**Acceptance Criteria:**
+
+- [ ] On supplier detail page, "Performance" tab
+- [ ] Table showing all past evaluations with: Date, Period, Overall Score, Status
+- [ ] Click evaluation to view full details
+- [ ] Line chart showing overall score trend over time
+- [ ] Bar chart showing dimension scores for last evaluation
+- [ ] Comparison view: current vs. previous evaluation
+- [ ] Export evaluations to CSV
+- [ ] If no evaluations, show "No evaluations yet" with "Create Evaluation" CTA
+
+**Priority:** P1  
+**Estimate:** 5 story points
+
+---
+
+### 4.5 Complaint Tracking
+
+#### **US-5.1: Register New Complaint**
+
+**As a** Quality user  
+**I want to** register a complaint against a supplier  
+**So that** I can track the issue resolution
+
+**Acceptance Criteria:**
+
+- [ ] Navigate to Complaints > New Complaint
+- [ ] Required fields: Supplier, Category, Severity, Description
+- [ ] Optional fields: Part number, quantity, PO number, financial impact
+- [ ] Complaint number auto-generated: CPL-YYYY-0001
+- [ ] Date reported auto-set to today
+- [ ] Reported by auto-set to current user
+- [ ] Assign to (defaults to current user, can reassign)
+- [ ] Due date auto-calculated based on severity
+- [ ] Status set to "Open"
+- [ ] Upload attachments (photos, documents)
+- [ ] Save creates complaint and sends notification email to assigned user
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-5.2: Add Root Cause Analysis**
+
+**As a** Quality Engineer  
+**I want to** document the root cause of a complaint  
+**So that** we can prevent recurrence
+
+**Acceptance Criteria:**
+
+- [ ] On complaint detail page, "Root Cause" section
+- [ ] Change status to "Investigating" (if not already)
+- [ ] Root cause description (textarea, required to change status)
+- [ ] Root cause method dropdown (5 Why, Fishbone, 8D, Other)
+- [ ] Root cause determination date
+- [ ] Save updates complaint and adds to activity log
+- [ ] Status can be changed to "Awaiting Supplier" once root cause documented
+
+**Priority:** P0  
+**Estimate:** 3 story points
+
+---
+
+#### **US-5.3: Track Corrective Actions**
+
+**As a** Quality Engineer  
+**I want to** create and track corrective actions  
+**So that** I can ensure the issue is resolved
+
+**Acceptance Criteria:**
+
+- [ ] On complaint detail page, "Corrective Actions" section
+- [ ] Add CAPA button opens form
+- [ ] CAPA fields: Description, Responsible (internal/supplier), Due date
+- [ ] Status: Pending, In Progress, Complete
+- [ ] Multiple CAPAs can be added to one complaint
+- [ ] Each CAPA has checkbox to mark complete
+- [ ] Completion date auto-set when marked complete
+- [ ] Complaint cannot be marked "Resolved" until all CAPAs complete
+- [ ] CAPA completion triggers notification
+
+**Priority:** P0  
+**Estimate:** 5 story points
+
+---
+
+#### **US-5.4: Close Complaint**
+
+**As a** Quality Engineer  
+**I want to** close a resolved complaint  
+**So that** it's recorded as complete
+
+**Acceptance Criteria:**
+
+- [ ] Complaint status can be changed to "Resolved" when all CAPAs complete
+- [ ] "Close" button visible when status is "Resolved"
+- [ ] Closure requires:
+  - Verification notes (textarea)
+  - Effectiveness rating (1-5)
+  - Closure date (auto-set)
+- [ ] Status changes to "Closed"
+- [ ] Closed complaints cannot be edited (reopening requires Admin)
+- [ ] Closure notification sent to supplier contact and reported by user
+- [ ] Closed complaint visible in history but grayed out in open complaints list
+
+**Priority:** P0  
+**Estimate:** 3 story points
+
+---
+
+### 4.6 Dashboards & Analytics
+
+#### **US-6.1: View Executive Dashboard**
+
+**As an** Operations Director  
+**I want to** see high-level supplier metrics  
+**So that** I can quickly understand supplier management status
+
+**Acceptance Criteria:**
+
+- [ ] Dashboard is home page after login
+- [ ] KPI cards show:
+  - Total active suppliers (clickable to supplier list)
+  - Suppliers by status (pie chart with legend)
+  - Open complaints count (clickable to complaint list)
+  - Average supplier performance score
+- [ ] Top 10 suppliers by score (horizontal bar chart)
+- [ ] Complaint trend last 6 months (line chart)
+- [ ] Alerts section showing:
+  - Suppliers with poor performance (< 2.5, red badge)
+  - Critical open complaints (red badge)
+  - Expiring certifications next 30 days (yellow badge)
+- [ ] Date range selector (default: Last 30 days)
+- [ ] Dashboard loads in < 2 seconds
+
+**Priority:** P0  
+**Estimate:** 8 story points
+
+---
+
+#### **US-6.2: Generate Supplier Scorecard**
+
+**As a** user  
+**I want to** generate a PDF scorecard for a supplier  
+**So that** I can share it with stakeholders
+
+**Acceptance Criteria:**
+
+- [ ] From supplier detail page, "Generate Scorecard" button
+- [ ] PDF includes:
+  - Supplier basic information
+  - Current performance score with trend graph
+  - Breakdown by dimension (table)
+  - Last 4 evaluations (table)
+  - Open complaints summary
+  - Recent complaints (last 5)
+  - Certifications status
+- [ ] PDF branded with tenant logo
+- [ ] Download as `[SupplierName]_Scorecard_[Date].pdf`
+- [ ] Generation takes < 5 seconds
+
+**Priority:** P1  
+**Estimate:** 5 story points
+
+---
+
+#### **US-6.3: Export Data to Excel**
+
+**As a** Procurement Manager  
+**I want to** export supplier data to Excel  
+**So that** I can perform custom analysis
+
+**Acceptance Criteria:**
+
+- [ ] From supplier list page, "Export to Excel" button
+- [ ] Exports filtered results (if filters applied)
+- [ ] Excel includes columns: Code, Name, Status, Category, Risk Level, Current Score, Last Evaluation Date, Open Complaints, Contact Name, Contact Email
+- [ ] Downloads as `Suppliers_Export_[Date].xlsx`
+- [ ] Similar export available for: Evaluations, Complaints
+- [ ] Export limited to 1000 rows for MVP
+
+**Priority:** P1  
+**Estimate:** 3 story points
+
+---
+
+## 5. User Flows
+
+### 5.1 User Flow: New Supplier Qualification
+
+```
+[Start] Procurement needs to qualify new supplier
+
+1. Navigate to Suppliers
+2. Click "Add New Supplier"
+3. Fill basic information form
+   - Required: Name, Status (Prospect)
+4. Save supplier → Supplier created
+
+5. From supplier detail page, click "Start Qualification"
+6. Fill Stage 1 questionnaire
+   - Answer 15-20 questions
+   - Upload required documents
+   - View calculated risk score
+7. Save as draft (optional) OR Submit for review
+
+8. Procurement Manager receives notification
+9. Reviews Stage 1 submission
+10. Decision point:
+    - Request Changes → Back to step 6
+    - Reject → Qualification ends, supplier blocked
+    - Approve → Continue to step 11
+
+11. Quality Manager receives notification
+12. Reviews complete qualification
+13. Decision point:
+    - Reject → Supplier status = Blocked
+    - Approve → Supplier status = Qualified
+
+14. All stakeholders notified of final decision
+15. Supplier now available for orders
+
+[End]
+```
+
+**Happy Path Duration:** ~30 minutes (user time), 3-5 days (approval cycle)
+
+---
+
+### 5.2 User Flow: Register & Resolve Complaint
+
+```
+[Start] Quality Engineer discovers supplier defect
+
+1. Navigate to Complaints
+2. Click "Register New Complaint"
+3. Fill complaint form:
+   - Select supplier
+   - Select category (Defective material)
+   - Set severity (High)
+   - Describe problem
+   - Upload defect photos
+4. Assign to self
+5. Submit → Complaint created (Status: Open)
+
+6. Email notification sent to assigned user and supplier
+
+7. Quality Engineer investigates
+8. Document root cause (Status changes to Investigating)
+9. Determine 5 Why analysis results
+10. Save root cause
+
+11. Create corrective actions:
+    - CAPA 1: Supplier to rework process (Due: 7 days)
+    - CAPA 2: Supplier to provide updated procedure (Due: 14 days)
+12. Change status to "Awaiting Supplier"
+
+13. Supplier completes actions (tracked via email/phone)
+14. Quality Engineer marks CAPAs as complete
+
+15. Verify actions effective
+16. Change status to "Resolved"
+17. Add closure notes
+18. Rate effectiveness: 4/5
+19. Close complaint
+
+20. Email notification sent to all parties
+
+[End]
+```
+
+**Typical Duration:** 7-14 days from registration to closure
+
+---
+
+### 5.3 User Flow: Quarterly Evaluation
+
+```
+[Start] It's end of quarter, time to evaluate suppliers
+
+1. Navigate to Suppliers
+2. Filter by Status = Approved
+3. For each supplier:
+
+   4. Click supplier name → Detail page
+   5. Click "Create Evaluation"
+   6. Set evaluation period (auto-populated with current quarter)
+   7. Confirm → Evaluation created
+
+   8. Open evaluation form
+   9. Score Quality dimension:
+      - Enter defect rate: 2.3%
+      - Review complaints: 1 open
+      - Rate overall quality: 4/5
+      - Add comments
+
+   10. Score Delivery dimension:
+      - Enter on-time delivery: 95%
+      - Rate overall: 5/5
+
+   11. Score Service dimension:
+      - Rate responsiveness: 4/5
+
+   12. Score Cost dimension:
+      - Rate price competitiveness: 3/5
+
+   13. Review overall score: 4.0 (Good)
+   14. Save as draft OR Finalize
+
+   15. If finalized → Evaluation locked
+   16. If overall score < 2.5 → Alert sent to management
+
+17. Repeat for all suppliers
+
+18. Review dashboard to see updated scores
+
+[End]
+```
+
+**Time per Evaluation:** 10-15 minutes  
+**Frequency:** Quarterly
+
+---
+
+## 6. Functional Requirements
+
+### 6.1 Authentication & Authorization
+
+**FR-1.1: Multi-Factor Authentication**
+
+- OUT OF SCOPE for MVP (Phase 2)
+
+**FR-1.2: Session Management**
+
+- JWT tokens expire after 8 hours of inactivity
+- Refresh token mechanism for seamless session extension
+- "Remember me" extends session to 30 days
+- User can be logged in on max 3 devices simultaneously
+
+**FR-1.3: Role-Based Access Control**
+
+| Feature                          | Admin | Procurement | Quality | Viewer |
+| -------------------------------- | ----- | ----------- | ------- | ------ |
+| Manage users                     | ✅    | ❌          | ❌      | ❌     |
+| Manage settings                  | ✅    | ❌          | ❌      | ❌     |
+| Create suppliers                 | ✅    | ✅          | ✅      | ❌     |
+| Edit suppliers                   | ✅    | ✅          | ✅      | ❌     |
+| Delete suppliers                 | ✅    | ✅          | ❌      | ❌     |
+| Start qualifications             | ✅    | ✅          | ❌      | ❌     |
+| Approve qualifications (Stage 2) | ✅    | ✅          | ❌      | ❌     |
+| Approve qualifications (Stage 3) | ✅    | ❌          | ✅      | ❌     |
+| Create evaluations               | ✅    | ✅          | ✅      | ❌     |
+| Finalize evaluations             | ✅    | ✅          | ✅      | ❌     |
+| Create complaints                | ✅    | ✅          | ✅      | ❌     |
+| Close complaints                 | ✅    | ❌          | ✅      | ❌     |
+| View dashboards                  | ✅    | ✅          | ✅      | ✅     |
+| Export data                      | ✅    | ✅          | ✅      | ❌     |
+
+**FR-1.4: Audit Logging**
+
+- All create/update/delete operations logged
+- Log includes: User, Action, Timestamp, Entity Type, Entity ID, Changes (before/after)
+- Logs retained for 7 years
+- Logs accessible to Admin role only
+
+---
+
+### 6.2 Data Management
+
+**FR-2.1: Soft Delete**
+
+- Suppliers, evaluations, complaints use soft delete
+- Deleted items hidden from UI but retained in database
+- Admin can view deleted items and restore if needed
+
+**FR-2.2: Data Validation**
+
+- Email addresses validated using regex
+- Phone numbers accept international formats
+- URLs validated as proper format
+- File uploads validated for type and size
+- SQL injection prevented via parameterized queries
+- XSS prevention via input sanitization
+
+**FR-2.3: Data Retention**
+
+- Active data: Indefinite retention
+- Soft-deleted data: 90 days, then hard delete
+- Audit logs: 7 years
+- Uploaded files: Deleted when parent entity hard deleted
+
+---
+
+### 6.3 Notification System
+
+**FR-3.1: Email Notifications**
+
+- Triggered by: User invited, Qualification stage change, Evaluation created, Complaint assigned, CAPA due soon (1 day before), Password reset, Password changed
+- Email template branded with tenant logo
+- Unsubscribe link in footer (user preference)
+- Sent via AWS SES or SendGrid
+
+**FR-3.2: In-App Notifications (Phase 2)**
+
+- OUT OF SCOPE for MVP
+
+**FR-3.3: Notification Preferences**
+
+- User can enable/disable each notification type
+- Default: All enabled except marketing
+
+---
+
+### 6.4 Search & Filtering
+
+**FR-4.1: Full-Text Search**
+
+- Search uses PostgreSQL full-text search (MVP)
+- Searches across: Supplier name, code, contact names, contact emails
+- Case-insensitive
+- Results ranked by relevance
+- Debounced 300ms to reduce queries
+
+**FR-4.2: Advanced Filtering**
+
+- Multiple filters combine with AND logic
+- Filter options persist in URL query params (shareable links)
+- Applied filters shown as removable tags
+- Filter state saved per user (Phase 2)
+
+---
+
+### 6.5 File Management
+
+**FR-5.1: File Upload**
+
+- Max file size: 25MB per file
+- Accepted types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF
+- Virus scanning via ClamAV (Phase 2) or Supabase Edge Function
+- Files stored in Supabase Storage with tenant path prefix
+- File access controlled via RLS policies
+
+**FR-5.2: File Download**
+
+- Pre-signed URLs generated for secure download
+- URLs expire after 1 hour
+- Download tracked in audit log
+
+---
+
+## 7. Non-Functional Requirements
+
+### 7.1 Performance
+
+**NFR-1.1: Page Load Time**
+
+- 90% of pages load in < 2 seconds on 3G connection
+- 95% of pages load in < 1 second on 4G connection
+- Dashboard loads in < 2 seconds with 1000 suppliers
+
+**NFR-1.2: API Response Time**
+
+- 95% of API requests respond in < 500ms
+- 99% of API requests respond in < 1000ms
+- Bulk operations (exports) can take up to 30 seconds
+
+**NFR-1.3: Database Performance**
+
+- All queries optimized with proper indexes
+- N+1 query problems eliminated via eager loading
+- Database connection pooling (max 20 connections per tenant)
+
+**NFR-1.4: Scalability**
+
+- System supports up to 50 tenants in MVP
+- Each tenant supports up to 500 suppliers
+- Each tenant supports up to 50 users
+- System scales horizontally via Vercel serverless functions
+
+---
+
+### 7.2 Security
+
+**NFR-2.1: Data Encryption**
+
+- All data encrypted at rest (AES-256) via Supabase
+- All data encrypted in transit (TLS 1.3)
+- Passwords hashed using bcrypt (salt rounds: 12)
+- Sensitive fields (API keys) encrypted at application level
+
+**NFR-2.2: Multi-Tenancy Isolation**
+
+- Row-Level Security (RLS) policies enforce tenant isolation
+- All queries filtered by tenant_id automatically
+- JWT tokens include tenant_id claim
+- No cross-tenant data leakage possible
+
+**NFR-2.3: Authentication Security**
+
+- Password requirements: Min 8 chars, 1 uppercase, 1 number, 1 special char
+- Account lockout after 5 failed login attempts (15 min cooldown)
+- Password reset tokens expire after 1 hour
+- JWT tokens include expiration claim
+
+**NFR-2.4: API Security**
+
+- Rate limiting: 1000 requests/hour per tenant
+- API authentication via JWT or API key
+- CORS configured for specific domains only
+- SQL injection prevention via parameterized queries
+- XSS prevention via input sanitization and Content Security Policy headers
+
+**NFR-2.5: Compliance**
+
+- GDPR compliant (data export, right to erasure)
+- SOC 2 Type II preparation (audit trail, access controls)
+- CCPA compliant
+
+---
+
+### 7.3 Availability
+
+**NFR-3.1: Uptime**
+
+- Target: 99.5% uptime (MVP)
+- Goal: 99.9% uptime (Production)
+- Planned maintenance windows: Sunday 2-4 AM UTC
+
+**NFR-3.2: Disaster Recovery**
+
+- Database backups: Daily automated via Supabase
+- Point-in-time recovery available
+- RTO (Recovery Time Objective): 2 hours
+- RPO (Recovery Point Objective): 24 hours (daily backups)
+
+**NFR-3.3: Monitoring**
+
+- Uptime monitoring via Vercel Analytics
+- Error tracking via Sentry
+- Performance monitoring via Vercel Insights
+- Database monitoring via Supabase Dashboard
+- Alerts for: Downtime, Error rate > 1%, API response time > 1s
+
+---
+
+### 7.4 Usability
+
+**NFR-4.1: Browser Support**
+
+- Chrome 90+ (primary)
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+- No IE 11 support
+
+**NFR-4.2: Responsive Design**
+
+- Desktop-first design (primary use case)
+- Tablet support (iPad landscape)
+- Mobile support (limited to dashboards and viewing)
+- Mobile-optimized forms (Phase 2)
+
+**NFR-4.3: Accessibility**
+
+- WCAG 2.1 Level A compliance (minimum)
+- Keyboard navigation support
+- Screen reader friendly
+- Color contrast ratios meet AA standards
+- Alt text on images
+
+**NFR-4.4: Internationalization**
+
+- OUT OF SCOPE for MVP (English only)
+- Phase 2: Multi-language support (Spanish, French, German)
+
+---
+
+### 7.5 Maintainability
+
+**NFR-5.1: Code Quality**
+
+- TypeScript strict mode enabled
+- ESLint configured with recommended rules
+- Prettier for code formatting
+- Code coverage target: 70% (unit + integration tests)
+- No critical or high severity vulnerabilities in dependencies
+
+**NFR-5.2: Documentation**
+
+- API documentation via OpenAPI/Swagger
+- User guide with screenshots
+- Developer setup guide in README
+- Architecture decision records (ADRs)
+
+**NFR-5.3: Deployment**
+
+- Automated deployment via GitHub Actions
+- Zero-downtime deployments
+- Rollback capability within 5 minutes
+- Preview deployments for each PR
+
+---
+
+## 8. API Specifications
+
+### 8.1 Authentication
+
+#### POST /api/v1/auth/login
+
+**Request:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "remember_me": false
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 28800,
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "role": "procurement",
+    "tenant_id": "uuid"
+  }
+}
+```
+
+**Error (401 Unauthorized):**
+
+```json
+{
+  "error": "invalid_credentials",
+  "message": "Invalid email or password"
+}
+```
+
+---
+
+#### POST /api/v1/auth/logout
+
+**Headers:**
+
+- Authorization: Bearer {access_token}
+
+**Response (200 OK):**
+
+```json
+{
+  "message": "Successfully logged out"
+}
+```
+
+---
+
+### 8.2 Suppliers
+
+#### GET /api/v1/suppliers
+
+**Query Parameters:**
+
+- `page` (int, default: 1)
+- `per_page` (int, default: 25, max: 100)
+- `search` (string, optional)
+- `status` (string[], optional): prospect, qualified, approved, blocked
+- `category_id` (uuid, optional)
+- `risk_level` (string[], optional): low, medium, high, critical
+- `sort_by` (string, optional): name, created_at, risk_level
+- `sort_order` (string, optional): asc, desc
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "code": "SUP-2025-0001",
+      "name": "Acme Manufacturing",
+      "status": "approved",
+      "category": {
+        "id": "uuid",
+        "name": "Metal Fabrication"
+      },
+      "risk_level": "low",
+      "current_score": 4.2,
+      "last_evaluation_date": "2025-09-30",
+      "open_complaints": 1,
+      "contact_name": "Jane Smith",
+      "contact_email": "jane@acme.com",
+      "created_at": "2025-01-15T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "per_page": 25,
+    "total_pages": 4,
+    "total_count": 97
+  }
+}
+```
+
+---
+
+#### GET /api/v1/suppliers/{id}
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "uuid",
+  "code": "SUP-2025-0001",
+  "name": "Acme Manufacturing",
+  "status": "approved",
+  "risk_level": "low",
+  "qualification_date": "2025-02-01",
+  "category_id": "uuid",
+  "contact_info": {
+    "primary_contact": {
+      "name": "Jane Smith",
+      "email": "jane@acme.com",
+      "phone": "+1-555-0100"
+    },
+    "secondary_contacts": []
+  },
+  "addresses": [
+    {
+      "type": "headquarters",
+      "street": "123 Main St",
+      "city": "Detroit",
+      "state": "MI",
+      "zip": "48201",
+      "country": "USA"
+    }
+  ],
+  "business_info": {
+    "tax_id": "12-3456789",
+    "website": "https://acme.com",
+    "employee_count": "100-500",
+    "industry": "Manufacturing"
+  },
+  "certifications": [
+    {
+      "id": "uuid",
+      "name": "ISO 9001:2015",
+      "certificate_number": "ISO9001-12345",
+      "issue_date": "2023-01-15",
+      "expiry_date": "2026-01-15",
+      "document_url": "https://..."
+    }
+  ],
+  "current_score": 4.2,
+  "last_evaluation_date": "2025-09-30",
+  "open_complaints": 1,
+  "created_at": "2025-01-15T10:00:00Z",
+  "updated_at": "2025-10-01T14:30:00Z"
+}
+```
+
+**Error (404 Not Found):**
+
+```json
+{
+  "error": "not_found",
+  "message": "Supplier not found"
+}
+```
+
+---
+
+#### POST /api/v1/suppliers
+
+**Request:**
+
+```json
+{
+  "name": "New Supplier Inc",
+  "code": "SUP-2025-0099",
+  "status": "prospect",
+  "category_id": "uuid",
+  "risk_level": "medium",
+  "contact_info": {
+    "primary_contact": {
+      "name": "Bob Johnson",
+      "email": "bob@newsupplier.com",
+      "phone": "+1-555-0200"
+    }
+  },
+  "addresses": [
+    {
+      "type": "headquarters",
+      "street": "456 Oak Ave",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": "60601",
+      "country": "USA"
+    }
+  ]
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "uuid",
+  "code": "SUP-2025-0099",
+  "name": "New Supplier Inc",
+  "status": "prospect",
+  "created_at": "2025-10-12T10:00:00Z"
+}
+```
+
+**Error (400 Bad Request):**
+
+```json
+{
+  "error": "validation_error",
+  "message": "Validation failed",
+  "details": {
+    "name": ["Name is required"],
+    "contact_info.primary_contact.email": ["Invalid email format"]
+  }
+}
+```
+
+---
+
+#### PUT /api/v1/suppliers/{id}
+
+**Request:** (partial update supported)
+
+```json
+{
+  "status": "approved",
+  "risk_level": "low"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "uuid",
+  "code": "SUP-2025-0099",
+  "name": "New Supplier Inc",
+  "status": "approved",
+  "updated_at": "2025-10-12T11:00:00Z"
+}
+```
+
+---
+
+#### DELETE /api/v1/suppliers/{id}
+
+**Response (204 No Content)**
+
+**Error (409 Conflict):**
+
+```json
+{
+  "error": "conflict",
+  "message": "Cannot delete supplier with existing evaluations or complaints"
+}
+```
+
+---
+
+### 8.3 Evaluations
+
+#### GET /api/v1/evaluations
+
+**Query Parameters:**
+
+- `supplier_id` (uuid, optional)
+- `status` (string[], optional): draft, in_progress, completed
+- `period_start` (date, optional)
+- `period_end` (date, optional)
+- `page`, `per_page` (same as suppliers)
+
+**Response:** (similar structure to suppliers list)
+
+---
+
+#### POST /api/v1/evaluations
+
+**Request:**
+
+```json
+{
+  "supplier_id": "uuid",
+  "period_start": "2025-07-01",
+  "period_end": "2025-09-30",
+  "evaluator_id": "uuid",
+  "scores": {
+    "quality": {
+      "rating": 4,
+      "comments": "Good quality overall",
+      "defect_rate": 2.3
+    },
+    "delivery": {
+      "rating": 5,
+      "comments": "Always on time",
+      "on_time_rate": 98.5
+    },
+    "service": {
+      "rating": 4,
+      "comments": "Responsive to inquiries"
+    },
+    "cost": {
+      "rating": 3,
+      "comments": "Prices slightly above market"
+    }
+  },
+  "status": "completed"
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "uuid",
+  "evaluation_number": "EVAL-2025-Q3-0001",
+  "supplier_id": "uuid",
+  "overall_score": 4.0,
+  "status": "completed",
+  "created_at": "2025-10-01T10:00:00Z"
+}
+```
+
+---
+
+### 8.4 Complaints
+
+#### GET /api/v1/complaints
+
+**Query Parameters:**
+
+- `supplier_id` (uuid, optional)
+- `status` (string[], optional): open, investigating, awaiting_supplier, resolved, closed
+- `severity` (string[], optional): low, medium, high, critical
+- `assigned_to` (uuid, optional)
+- `category_id` (uuid, optional)
+- `page`, `per_page`
+
+---
+
+#### POST /api/v1/complaints
+
+**Request:**
+
+```json
+{
+  "supplier_id": "uuid",
+  "category_id": "uuid",
+  "severity": "high",
+  "description": "Received defective parts in shipment #12345",
+  "part_number": "PART-001",
+  "quantity_affected": 100,
+  "po_number": "PO-2025-0500",
+  "financial_impact": 5000.0,
+  "assigned_to": "uuid"
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "uuid",
+  "complaint_number": "CPL-2025-0001",
+  "status": "open",
+  "due_date": "2025-10-15T23:59:59Z",
+  "created_at": "2025-10-12T10:00:00Z"
+}
+```
+
+---
+
+#### PUT /api/v1/complaints/{id}/status
+
+**Request:**
+
+```json
+{
+  "status": "investigating",
+  "root_cause": "Inadequate process controls during production",
+  "root_cause_method": "5_why"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "uuid",
+  "complaint_number": "CPL-2025-0001",
+  "status": "investigating",
+  "updated_at": "2025-10-12T14:00:00Z"
+}
+```
+
+---
+
+### 8.5 Rate Limiting
+
+All API endpoints are subject to rate limiting:
+
+**Limits:**
+
+- 1000 requests per hour per tenant
+- 100 requests per minute per tenant
+
+**Response Headers:**
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 847
+X-RateLimit-Reset: 1697123400
+```
+
+**Error (429 Too Many Requests):**
+
+```json
+{
+  "error": "rate_limit_exceeded",
+  "message": "Rate limit exceeded. Try again in 45 minutes."
+}
+```
+
+---
+
+## 9. Data Model Requirements
+
+### 9.1 Core Entities
+
+#### Tenants
+
+```sql
+CREATE TABLE tenants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  subdomain VARCHAR(63) UNIQUE NOT NULL,
+  plan_tier VARCHAR(50) NOT NULL DEFAULT 'starter',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Users
+
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  last_login_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(tenant_id, email)
+);
+
+-- RLS Policy
+CREATE POLICY "Users can only see their tenant's users" ON users
+  FOR ALL
+  USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+```
+
+#### Suppliers
+
+```sql
+CREATE TABLE suppliers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  code VARCHAR(50) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  category_id UUID REFERENCES supplier_categories(id),
+  risk_level VARCHAR(50),
+  qualification_date DATE,
+  contact_info JSONB DEFAULT '{}',
+  addresses JSONB DEFAULT '[]',
+  business_info JSONB DEFAULT '{}',
+  certifications JSONB DEFAULT '[]',
+  financial_info JSONB DEFAULT '{}',
+  custom_fields JSONB DEFAULT '{}',
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(tenant_id, code)
+);
+
+CREATE INDEX idx_suppliers_tenant_status ON suppliers(tenant_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_suppliers_tenant_name ON suppliers(tenant_id, name) WHERE deleted_at IS NULL;
+
+-- RLS Policy
+CREATE POLICY "Suppliers are tenant isolated" ON suppliers
+  FOR ALL
+  USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+```
+
+#### Evaluations
+
+```sql
+CREATE TABLE evaluations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  supplier_id UUID NOT NULL REFERENCES suppliers(id),
+  evaluation_number VARCHAR(50) NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'draft',
+  evaluator_id UUID NOT NULL REFERENCES users(id),
+  overall_score DECIMAL(3,2),
+  scores_breakdown JSONB NOT NULL,
+  finalized_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(tenant_id, evaluation_number)
+);
+
+CREATE INDEX idx_evaluations_supplier ON evaluations(supplier_id);
+
+-- RLS Policy
+CREATE POLICY "Evaluations are tenant isolated" ON evaluations
+  FOR ALL
+  USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+```
+
+#### Complaints
+
+```sql
+CREATE TABLE complaints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  supplier_id UUID NOT NULL REFERENCES suppliers(id),
+  complaint_number VARCHAR(50) NOT NULL,
+  category_id UUID REFERENCES complaint_categories(id),
+  severity VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'open',
+  description TEXT NOT NULL,
+  part_number VARCHAR(100),
+  quantity_affected INTEGER,
+  po_number VARCHAR(100),
+  financial_impact DECIMAL(12,2),
+  reported_by UUID NOT NULL REFERENCES users(id),
+  assigned_to UUID REFERENCES users(id),
+  due_date TIMESTAMP WITH TIME ZONE,
+  root_cause TEXT,
+  root_cause_method VARCHAR(50),
+  resolution_notes TEXT,
+  effectiveness_rating INTEGER CHECK (effectiveness_rating BETWEEN 1 AND 5),
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  closed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(tenant_id, complaint_number)
+);
+
+CREATE INDEX idx_complaints_supplier_status ON complaints(supplier_id, status);
+CREATE INDEX idx_complaints_assigned ON complaints(assigned_to) WHERE status NOT IN ('closed');
+
+-- RLS Policy
+CREATE POLICY "Complaints are tenant isolated" ON complaints
+  FOR ALL
+  USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+```
+
+### 9.2 Supporting Tables
+
+#### Supplier Categories
+
+```sql
+CREATE TABLE supplier_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  name VARCHAR(255) NOT NULL,
+  parent_id UUID REFERENCES supplier_categories(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(tenant_id, name, parent_id)
+);
+```
+
+#### Documents
+
+```sql
+CREATE TABLE documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  entity_type VARCHAR(50) NOT NULL,
+  entity_id UUID NOT NULL,
+  document_type VARCHAR(50) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(500) NOT NULL,
+  expiry_date DATE,
+  uploaded_by UUID NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_documents_entity ON documents(entity_type, entity_id);
+```
+
+#### Corrective Actions (CAPA)
+
+```sql
+CREATE TABLE corrective_actions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  complaint_id UUID NOT NULL REFERENCES complaints(id),
+  description TEXT NOT NULL,
+  responsible_party VARCHAR(50) NOT NULL,
+  responsible_user_id UUID REFERENCES users(id),
+  due_date DATE NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  completion_date DATE,
+  verification_notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Audit Logs
+
+```sql
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  user_id UUID NOT NULL REFERENCES users(id),
+  action VARCHAR(50) NOT NULL,
+  entity_type VARCHAR(50) NOT NULL,
+  entity_id UUID NOT NULL,
+  changes JSONB,
+  ip_address INET,
+  user_agent TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_audit_logs_tenant_entity ON audit_logs(tenant_id, entity_type, entity_id);
+CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
+```
+
+---
+
+## 10. UI/UX Requirements
+
+### 10.1 Design System
+
+**UI Framework:** shadcn/ui components with Tailwind CSS
+
+**Color Palette:**
+
+- Primary: Blue (#3B82F6)
+- Success: Green (#10B981)
+- Warning: Yellow (#F59E0B)
+- Error: Red (#EF4444)
+- Neutral: Gray scale (#F9FAFB to #111827)
+
+**Typography:**
+
+- Font family: Inter (sans-serif)
+- Headings: 600 weight
+- Body: 400 weight
+- Small text: 14px
+- Body text: 16px
+- H1: 32px
+- H2: 24px
+- H3: 20px
+
+**Spacing:**
+
+- Use Tailwind's spacing scale (4px base unit)
+- Card padding: 24px
+- Section margins: 32px
+
+### 10.2 Layout
+
+**Navigation:**
+
+- Top navigation bar (sticky)
+  - Logo (left)
+  - Main navigation (center): Suppliers, Qualifications, Evaluations, Complaints, Dashboard
+  - User menu (right): Profile, Settings, Logout
+- Breadcrumb navigation below top nav
+- No sidebar for MVP (future consideration)
+
+**Page Layout:**
+
+- Max content width: 1400px
+- Centered on large screens
+- Responsive breakpoints: 640px (sm), 768px (md), 1024px (lg), 1280px (xl)
+
+### 10.3 Components
+
+**Tables:**
+
+- Striped rows
+- Hover state
+- Sortable column headers (click to sort)
+- Pagination controls at bottom
+- Loading skeleton during data fetch
+- Empty state with helpful message and CTA
+
+**Forms:**
+
+- Labels above fields
+- Required fields marked with red asterisk
+- Inline validation on blur
+- Error messages below fields in red
+- Success state after submission
+- Disabled state for readonly forms
+
+**Buttons:**
+
+- Primary: Filled blue
+- Secondary: Outlined blue
+- Danger: Filled red
+- Text: Underline on hover
+- Sizes: Small (32px), Medium (40px), Large (48px)
+- Icons supported (left or right)
+
+**Cards:**
+
+- White background
+- 1px border (#E5E7EB)
+- 8px border radius
+- Box shadow on hover (subtle)
+
+**Modals:**
+
+- Overlay with 50% opacity black background
+- Centered modal
+- Close button (X) top right
+- Max width: 600px
+- Accessible (focus trap, ESC to close)
+
+**Toasts:**
+
+- Position: Top right
+- Auto-dismiss after 5 seconds
+- Types: Success (green), Error (red), Info (blue), Warning (yellow)
+- Can be manually dismissed
+
+### 10.4 Page-Specific Requirements
+
+#### Supplier List Page
+
+- Search bar prominent at top
+- Filters in collapsible panel on left (or top on mobile)
+- Table with columns: Code, Name, Status, Category, Risk Level, Score, Open Complaints, Actions
+- Status badge (color-coded)
+- Risk level badge (color-coded)
+- Actions dropdown: View, Edit, Evaluate, Report Complaint, Delete
+- Add New Supplier button (primary, top right)
+
+#### Supplier Detail Page
+
+- Header with supplier name and status badge
+- Tabs: Overview, Performance, Complaints, Documents, History
+- Overview tab: All supplier information in sections
+- Edit button (top right)
+- Quick actions: Evaluate, Report Complaint, Start Qualification
+
+#### Dashboard Page
+
+- Grid layout (responsive)
+- KPI cards: 4 across on desktop, 2 on tablet, 1 on mobile
+- Charts: Use Chart.js or Recharts
+- Interactive charts (hover for details)
+- Date range picker prominent
+- Refresh button to reload data
+
+#### Qualification Workflow Page
+
+- Wizard-style interface (if creating new)
+- Progress indicator: Stage 1 → Stage 2 → Stage 3
+- Section-based questionnaire
+- Progress percentage bar
+- Save Draft button (secondary)
+- Submit button (primary)
+- Previous responses shown when reviewing
+
+#### Evaluation Form
+
+- Four dimension sections (collapsible cards)
+- Star rating component (1-5)
+- Text inputs for metrics (defect rate, on-time %)
+- Overall score displayed prominently at top (updates live)
+- Color-coded score: Green (>4.5), Yellow (2.5-4.5), Red (<2.5)
+- Save Draft and Finalize buttons
+
+#### Complaint Form
+
+- Single-page form (not wizard)
+- Severity selector prominent (radio buttons with colors)
+- Rich text editor for description (basic formatting)
+- File upload with drag-and-drop
+- Due date auto-calculated and displayed
+- Preview uploaded files
+
+---
+
+## 11. Success Metrics
+
+### 11.1 MVP Launch Criteria (Month 4)
+
+**Feature Completeness:**
+
+- [ ] All 7 modules implemented and tested
+- [ ] All P0 user stories completed
+- [ ] All critical bugs resolved
+- [ ] Documentation complete
+
+**Technical Metrics:**
+
+- [ ] 99%+ uptime during beta period (last 2 weeks)
+- [ ] Page load time < 2 seconds (95th percentile)
+- [ ] API response time < 500ms (95th percentile)
+- [ ] Zero critical security vulnerabilities
+- [ ] Test coverage > 70%
+
+**User Readiness:**
+
+- [ ] User guide published
+- [ ] API documentation published
+- [ ] Support system operational
+- [ ] First pilot customer onboarded successfully
+
+### 11.2 Post-Launch Success Metrics (Month 6)
+
+**Adoption:**
+
+- 5+ pilot customers onboarded
+- 250+ suppliers managed in system
+- 20+ active users
+- 50+ evaluations completed
+- 25+ complaints tracked
+
+**Engagement:**
+
+- DAU/MAU ratio > 30% (daily active / monthly active users)
+- Average session duration > 15 minutes
+- Average 3+ sessions per user per week
+
+**Quality:**
+
+- NPS > 40
+- User-reported bugs < 5 per week
+- Average support response time < 24 hours
+- System uptime 99.5%+
+
+**Business:**
+
+- 2+ customers ready to convert to paid
+- $20K ARR committed
+- CAC (Customer Acquisition Cost) < $5K per customer
+- Time to first value < 1 week (onboarding to first evaluation)
+
+---
+
+## 12. Release Criteria
+
+### 12.1 MVP Release Checklist
+
+**Development:**
+
+- [ ] All P0 features implemented
+- [ ] Code reviewed and merged to main branch
+- [ ] No P0 or P1 bugs open
+- [ ] Performance benchmarks met
+- [ ] Security scan passed (no critical/high vulnerabilities)
+
+**Testing:**
+
+- [ ] Unit tests passing (>70% coverage)
+- [ ] Integration tests passing
+- [ ] E2E tests passing (critical user flows)
+- [ ] Browser compatibility tested
+- [ ] Accessibility audit completed
+
+**Documentation:**
+
+- [ ] User guide written and published
+- [ ] API documentation generated and published
+- [ ] Admin guide written
+- [ ] Release notes prepared
+
+**Infrastructure:**
+
+- [ ] Production environment provisioned
+- [ ] SSL certificates configured
+- [ ] DNS configured
+- [ ] Monitoring and alerting configured
+- [ ] Backup and recovery tested
+
+**Legal & Compliance:**
+
+- [ ] Terms of Service finalized
+- [ ] Privacy Policy finalized
+- [ ] SLA document prepared
+- [ ] GDPR compliance verified
+
+**Support:**
+
+- [ ] Helpdesk system configured
+- [ ] Support email setup
+- [ ] Knowledge base populated with FAQs
+- [ ] Escalation process defined
+
+**Go-Live:**
+
+- [ ] Pilot customer data migrated (if applicable)
+- [ ] User accounts created
+- [ ] Training session conducted
+- [ ] Stakeholder sign-off obtained
+
+---
+
+## 13. Appendix
+
+### 13.1 Glossary
+
+**CAPA:** Corrective and Preventive Actions - steps taken to eliminate the causes of detected non-conformities
+
+**ERP:** Enterprise Resource Planning - business process management software
+
+**KPI:** Key Performance Indicator - measurable value demonstrating effectiveness
+
+**MVP:** Minimum Viable Product - product with minimum features to satisfy early customers
+
+**NPS:** Net Promoter Score - metric for measuring customer loyalty (-100 to +100)
+
+**P0/P1/P2:** Priority levels (P0 = Critical, P1 = High, P2 = Medium)
+
+**RLS:** Row-Level Security - database security feature that restricts row access
+
+**SLA:** Service Level Agreement - commitment between service provider and customer
+
+**WCAG:** Web Content Accessibility Guidelines - accessibility recommendations
+
+### 13.2 References
+
+- **Project Brief:** `PROJECT_BRIEF.md`
+- **Business Analysis:** `analyst.mdc`
+- **Figma Designs:** [TBD]
+- **Technical Architecture:** [TBD]
+- **Database ERD:** [TBD]
+
+### 13.3 Change Log
+
+| Version | Date         | Author       | Changes                                |
+| ------- | ------------ | ------------ | -------------------------------------- |
+| 1.0     | Oct 12, 2025 | Product Team | Initial PRD created from Project Brief |
+
+---
+
+## Document Approval
+
+| Role                  | Name  | Signature  | Date       |
+| --------------------- | ----- | ---------- | ---------- |
+| **Product Owner**     | [TBD] | ****\_**** | **/**/\_\_ |
+| **Technical Lead**    | [TBD] | ****\_**** | **/**/\_\_ |
+| **Executive Sponsor** | [TBD] | ****\_**** | **/**/\_\_ |
+| **UX Lead**           | [TBD] | ****\_**** | **/**/\_\_ |
+
+---
+
+**End of Product Requirements Document**
+
+For questions or feedback, contact:
+
+- Product Owner: [email@domain.com]
+- Technical Lead: [email@domain.com]
