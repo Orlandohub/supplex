@@ -28,6 +28,7 @@ export default [
         module: "readonly",
         require: "readonly",
         exports: "readonly",
+        Buffer: "readonly",
         Request: "readonly",
         Response: "readonly",
         fetch: "readonly",
