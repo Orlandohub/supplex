@@ -25,15 +25,14 @@ export const links: LinksFunction = () => [
 export async function loader({ request }: LoaderFunctionArgs) {
   // Get initial authentication state for the app
   const { session, user, response } = await getSession(request);
-  
+
   const userRecord = null;
-  
+
   // If user is authenticated, fetch their user record
   if (user && session) {
     try {
-      const { createSupabaseServerClient } = await import("~/lib/auth/session.server");
       // TODO: Use createSupabaseServerClient when we implement server-side user record fetching
-      
+      // const { createSupabaseServerClient } = await import("~/lib/auth/session.server");
       // For now, we'll pass the user data and let the client fetch the user record
       // This avoids server-side database calls during initial load
     } catch (error) {
@@ -42,8 +41,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Combine auth headers with security headers
-  const authHeaders = response ? Object.fromEntries(response.headers.entries()) : {};
-  const securityHeaders = getSecurityHeaders(process.env.NODE_ENV === 'development');
+  const authHeaders = response
+    ? Object.fromEntries(response.headers.entries())
+    : {};
+  const securityHeaders = getSecurityHeaders(
+    process.env.NODE_ENV === "development"
+  );
 
   return json(
     {

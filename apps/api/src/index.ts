@@ -1,12 +1,15 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { registerRoute } from "./routes/auth/register";
+import { usersRoutes } from "./routes/users";
 
 const app = new Elysia()
-  .use(cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
-    credentials: true,
-  }))
+  .use(
+    cors({
+      origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+      credentials: true,
+    })
+  )
   .get("/", () => ({
     message: "Supplex API",
     version: "1.0.0",
@@ -16,10 +19,8 @@ const app = new Elysia()
     status: "ok",
     timestamp: new Date().toISOString(),
   }))
-  .group("/api", (app) =>
-    app
-      .use(registerRoute)
-  );
+  .group("/api", (app) => app.use(registerRoute))
+  .use(usersRoutes);
 
 const PORT = process.env.PORT || 3001;
 

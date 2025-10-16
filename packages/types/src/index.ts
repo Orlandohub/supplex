@@ -36,6 +36,7 @@ export * from "./models/tenant";
 
 // User
 export * from "./models/user";
+export * from "./models/user-helpers";
 
 // Supplier
 export * from "./models/supplier";
@@ -45,6 +46,12 @@ export * from "./models/contact";
 
 // Document
 export * from "./models/document";
+
+// Permissions
+export * from "./models/permissions";
+
+// Audit Logs
+export * from "./models/audit-log";
 
 /**
  * Supabase Database Type Definition
@@ -275,13 +282,30 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      user_role: 'admin' | 'procurement_manager' | 'quality_manager' | 'viewer';
-      supplier_status: 'active' | 'inactive' | 'pending' | 'suspended';
-      supplier_risk_level: 'low' | 'medium' | 'high' | 'critical';
-      supplier_size: 'small' | 'medium' | 'large' | 'enterprise';
-      document_status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'expired';
-      document_type: 'certificate' | 'contract' | 'compliance' | 'financial' | 'quality' | 'other';
-      document_category: 'iso_certificate' | 'business_license' | 'insurance' | 'quality_manual' | 'audit_report' | 'other';
+      user_role: "admin" | "procurement_manager" | "quality_manager" | "viewer";
+      supplier_status: "active" | "inactive" | "pending" | "suspended";
+      supplier_risk_level: "low" | "medium" | "high" | "critical";
+      supplier_size: "small" | "medium" | "large" | "enterprise";
+      document_status:
+        | "draft"
+        | "pending_review"
+        | "approved"
+        | "rejected"
+        | "expired";
+      document_type:
+        | "certificate"
+        | "contract"
+        | "compliance"
+        | "financial"
+        | "quality"
+        | "other";
+      document_category:
+        | "iso_certificate"
+        | "business_license"
+        | "insurance"
+        | "quality_manual"
+        | "audit_report"
+        | "other";
     };
     CompositeTypes: {
       [_ in never]: never;
