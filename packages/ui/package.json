@@ -1,0 +1,33 @@
+{
+  "name": "@supplex/ui",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "dependencies": {
+    "@supplex/types": "workspace:*",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0"
+  },
+  "devDependencies": {
+    "@supplex/config": "workspace:*",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.4.0"
+  }
+}

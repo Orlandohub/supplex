@@ -1,0 +1,29 @@
+{
+  "name": "@supplex/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir ./dist --target bun",
+    "start": "bun run dist/index.js",
+    "test": "bun test",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.0.2",
+    "@supplex/types": "workspace:*",
+    "elysia": "^1.0.0",
+    "drizzle-orm": "^0.30.10",
+    "postgres": "^3.4.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@supplex/config": "workspace:*",
+    "@types/bun": "^1.1.0",
+    "drizzle-kit": "^0.21.4",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3"
+  }
+}
