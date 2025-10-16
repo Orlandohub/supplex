@@ -13,9 +13,14 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@remix-run/node": "^2.8.0",
     "@remix-run/react": "^2.8.0",
     "@remix-run/serve": "^2.8.0",
+    "@supabase/auth-helpers-remix": "^0.4.0",
+    "@supabase/auth-helpers-shared": "^0.7.0",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.75.0",
     "@supplex/types": "workspace:*",
     "isbot": "^4",
     "react": "^18.3.1",

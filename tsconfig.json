@@ -1,0 +1,21 @@
+{
+  "extends": "./packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@supplex/types": ["./packages/types/src"],
+      "@supplex/ui": ["./packages/ui/src"],
+      "@supplex/db": ["./packages/db/src"],
+      "@supplex/config": ["./packages/config"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./apps/api" },
+    { "path": "./packages/types" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/db" },
+    { "path": "./packages/config" }
+  ]
+}
+

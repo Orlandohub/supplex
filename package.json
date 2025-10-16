@@ -1,0 +1,42 @@
+{
+  "name": "supplex",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Supplier Management Platform",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.15.0",
+    "bun": ">=1.1.0"
+  },
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @supplex/web dev\" \"pnpm --filter @supplex/api dev\"",
+    "build": "pnpm --filter @supplex/types build && pnpm --filter @supplex/web build && pnpm --filter @supplex/api build",
+    "test": "pnpm --recursive run test",
+    "lint": "pnpm --recursive run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "type-check": "pnpm --recursive run type-check",
+    "prepare": "husky",
+    "db:generate": "pnpm --filter @supplex/db db:generate",
+    "db:migrate": "pnpm --filter @supplex/db db:migrate",
+    "db:push": "pnpm --filter @supplex/db db:push",
+    "db:studio": "pnpm --filter @supplex/db db:studio",
+    "db:seed": "pnpm --filter @supplex/db db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  }
+}
+

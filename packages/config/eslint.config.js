@@ -5,6 +5,7 @@ import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import jsxA11yPlugin from "eslint-plugin-jsx-a11y";
 import prettierConfig from "eslint-config-prettier";
+import globals from "globals";
 
 export default [
   js.configs.recommended,
@@ -21,20 +22,35 @@ export default [
         },
       },
       globals: {
-        console: "readonly",
-        process: "readonly",
-        __dirname: "readonly",
-        __filename: "readonly",
-        module: "readonly",
-        require: "readonly",
-        exports: "readonly",
-        Buffer: "readonly",
-        Request: "readonly",
-        Response: "readonly",
+        ...globals.browser,
+        ...globals.node,
+        ...globals.es2021,
+        // React globals
+        React: "readonly",
+        JSX: "readonly",
+        // Additional Web APIs
         fetch: "readonly",
         Headers: "readonly",
+        HeadersInit: "readonly",
+        Request: "readonly", 
+        Response: "readonly",
         URL: "readonly",
         URLSearchParams: "readonly",
+        // Node.js globals
+        NodeJS: "readonly",
+        Buffer: "readonly",
+        global: "readonly",
+        // Testing globals
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
+        vi: "readonly",
+        vitest: "readonly",
       },
     },
     plugins: {

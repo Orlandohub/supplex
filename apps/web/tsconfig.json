@@ -1,0 +1,20 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": ["@remix-run/node", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "paths": {
+      "~/*": ["./app/*"],
+      "@supplex/types": ["../../packages/types/src"],
+      "@supplex/ui": ["../../packages/ui/src"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "vite.config.ts"
+  ],
+  "exclude": ["node_modules", "build", ".cache"]
+}
+

@@ -1,0 +1,16 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "paths": {
+      "@supplex/types": ["../../packages/types/src"],
+      "@supplex/db": ["../../packages/db/src"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "**/*.test.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}
+

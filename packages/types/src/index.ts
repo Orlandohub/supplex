@@ -27,25 +27,266 @@ export const HealthCheckSchema = z.object({
 export type HealthCheck = z.infer<typeof HealthCheckSchema>;
 
 /**
- * User role types (will be expanded in Story 1.3)
+ * Database Models (Story 1.2)
+ * Export all entity types, enums, and Zod schemas
  */
-export const UserRoleSchema = z.enum([
-  "admin",
-  "procurement",
-  "quality",
-  "viewer",
-]);
-export type UserRole = z.infer<typeof UserRoleSchema>;
+
+// Tenant
+export * from "./models/tenant";
+
+// User
+export * from "./models/user";
+
+// Supplier
+export * from "./models/supplier";
+
+// Contact
+export * from "./models/contact";
+
+// Document
+export * from "./models/document";
 
 /**
- * Placeholder types for future implementation
+ * Supabase Database Type Definition
+ * Maps our models to Supabase's expected schema format
  */
-export interface User {
-  id: string;
-  email: string;
-  role: UserRole;
-  createdAt: Date;
-  updatedAt: Date;
+export interface Database {
+  public: {
+    Tables: {
+      tenants: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          settings: any;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          settings?: any;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          settings?: any;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      users: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          email: string;
+          full_name: string;
+          role: string;
+          avatar_url: string | null;
+          is_active: boolean;
+          last_login_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          email: string;
+          full_name: string;
+          role: string;
+          avatar_url?: string | null;
+          is_active?: boolean;
+          last_login_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          email?: string;
+          full_name?: string;
+          role?: string;
+          avatar_url?: string | null;
+          is_active?: boolean;
+          last_login_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      suppliers: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          legal_name: string;
+          registration_number: string | null;
+          tax_number: string | null;
+          website: string | null;
+          industry: string | null;
+          size: string | null;
+          status: string;
+          risk_level: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          legal_name: string;
+          registration_number?: string | null;
+          tax_number?: string | null;
+          website?: string | null;
+          industry?: string | null;
+          size?: string | null;
+          status?: string;
+          risk_level?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          name?: string;
+          legal_name?: string;
+          registration_number?: string | null;
+          tax_number?: string | null;
+          website?: string | null;
+          industry?: string | null;
+          size?: string | null;
+          status?: string;
+          risk_level?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      contacts: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          supplier_id: string | null;
+          name: string;
+          email: string;
+          phone: string | null;
+          role: string | null;
+          is_primary: boolean;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          supplier_id?: string | null;
+          name: string;
+          email: string;
+          phone?: string | null;
+          role?: string | null;
+          is_primary?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          supplier_id?: string | null;
+          name?: string;
+          email?: string;
+          phone?: string | null;
+          role?: string | null;
+          is_primary?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      documents: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          supplier_id: string | null;
+          name: string;
+          type: string;
+          category: string;
+          file_path: string;
+          file_size: number;
+          mime_type: string;
+          version: number;
+          status: string;
+          expires_at: string | null;
+          metadata: any;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          supplier_id?: string | null;
+          name: string;
+          type: string;
+          category: string;
+          file_path: string;
+          file_size: number;
+          mime_type: string;
+          version?: number;
+          status?: string;
+          expires_at?: string | null;
+          metadata?: any;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          supplier_id?: string | null;
+          name?: string;
+          type?: string;
+          category?: string;
+          file_path?: string;
+          file_size?: number;
+          mime_type?: string;
+          version?: number;
+          status?: string;
+          expires_at?: string | null;
+          metadata?: any;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      user_role: 'admin' | 'procurement_manager' | 'quality_manager' | 'viewer';
+      supplier_status: 'active' | 'inactive' | 'pending' | 'suspended';
+      supplier_risk_level: 'low' | 'medium' | 'high' | 'critical';
+      supplier_size: 'small' | 'medium' | 'large' | 'enterprise';
+      document_status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'expired';
+      document_type: 'certificate' | 'contract' | 'compliance' | 'financial' | 'quality' | 'other';
+      document_category: 'iso_certificate' | 'business_license' | 'insurance' | 'quality_manual' | 'audit_report' | 'other';
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
 }
 
 /**
@@ -53,5 +294,4 @@ export interface User {
  */
 export const schemas = {
   HealthCheckSchema,
-  UserRoleSchema,
 };
