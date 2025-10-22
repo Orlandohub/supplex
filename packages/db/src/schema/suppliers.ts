@@ -19,6 +19,8 @@ import { users } from "./users";
  * Indexes:
  * - (tenant_id, status) WHERE deleted_at IS NULL - for status filtering
  * - (tenant_id, name) WHERE deleted_at IS NULL - for name search
+ * - (tenant_id, category) WHERE deleted_at IS NULL - for category filtering
+ * - (tenant_id, updated_at DESC) WHERE deleted_at IS NULL - for sorting by updated_at
  */
 export const suppliers = pgTable(
   "suppliers",
@@ -60,6 +62,16 @@ export const suppliers = pgTable(
     tenantNameIdx: index("idx_suppliers_tenant_name").on(
       table.tenantId,
       table.name
+    ).where(sql`${table.deletedAt} IS NULL`),
+    // Composite index on (tenant_id, category) for category filtering
+    tenantCategoryIdx: index("idx_suppliers_tenant_category").on(
+      table.tenantId,
+      table.category
+    ).where(sql`${table.deletedAt} IS NULL`),
+    // Composite index on (tenant_id, updated_at DESC) for sorting
+    tenantUpdatedAtIdx: index("idx_suppliers_tenant_updated_at").on(
+      table.tenantId,
+      table.updatedAt
     ).where(sql`${table.deletedAt} IS NULL`),
     // Unique constraint on (tenant_id, tax_id)
     tenantTaxIdUnique: unique("suppliers_tenant_tax_id_unique").on(

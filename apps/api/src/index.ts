@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { registerRoute } from "./routes/auth/register";
 import { usersRoutes } from "./routes/users";
+import { suppliersRoutes } from "./routes/suppliers";
 
 const app = new Elysia()
   .use(
@@ -20,7 +21,8 @@ const app = new Elysia()
     timestamp: new Date().toISOString(),
   }))
   .group("/api", (app) => app.use(registerRoute))
-  .use(usersRoutes);
+  .use(usersRoutes)
+  .use(suppliersRoutes);
 
 const PORT = process.env.PORT || 3001;
 

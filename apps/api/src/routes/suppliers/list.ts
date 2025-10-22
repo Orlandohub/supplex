@@ -1,0 +1,146 @@
+import { Elysia, t } from "elysia";
+import { db } from "../../lib/db";
+import { suppliers } from "@supplex/db";
+import { eq, and, isNull, or, ilike, inArray, asc, desc, sql } from "drizzle-orm";
+import { authenticate } from "../../lib/rbac/middleware";
+import { SupplierStatus, SupplierCategory } from "@supplex/types";
+
+/**
+ * GET /api/suppliers
+ * Returns paginated, filtered, and sorted list of suppliers
+ *
+ * Query params:
+ * - search: Full-text search on name, tax_id, address (optional)
+ * - status[]: Array of status enums to filter (multi-select, optional)
+ * - category[]: Array of category enums to filter (multi-select, optional)
+ * - page: Page number (default: 1)
+ * - limit: Items per page (default: 20, max: 100)
+ * - sort: Sort column and direction (e.g., 'name_asc', 'updated_at_desc')
+ *
+ * Auth: Requires valid JWT (any authenticated user can list suppliers)
+ */
+export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
+  .use(authenticate)
+  .get(
+    "/",
+    async ({ query, user, set }) => {
+      try {
+        const tenantId = user.tenantId;
+        
+        // TODO: Add Redis caching for performance optimization
+        // Cache key: `suppliers:list:${tenantId}:${queryHash}`
+        // TTL: 5 minutes
+        // This will be implemented when Redis is configured
+        const {
+          search,
+          status,
+          category,
+          page = 1,
+          limit = 20,
+          sort = "updated_at_desc",
+        } = query;
+
+        // Validate pagination parameters
+        const pageNum = Math.max(1, page);
+        const limitNum = Math.min(100, Math.max(1, limit));
+        const offset = (pageNum - 1) * limitNum;
+
+        // Parse sort parameter
+        const [sortColumn, sortDirection] = sort.split("_") as [string, "asc" | "desc"];
+        
+        // Build where conditions
+        const conditions = [];
+        
+        // Tenant isolation (always required)
+        conditions.push(eq(suppliers.tenantId, tenantId));
+        
+        // Exclude soft-deleted suppliers
+        conditions.push(isNull(suppliers.deletedAt));
+        
+        // Search filter
+        if (search) {
+          conditions.push(
+            or(
+              ilike(suppliers.name, `%${search}%`),
+              ilike(suppliers.taxId, `%${search}%`),
+              sql`${suppliers.address}::text ILIKE ${`%${search}%`}`
+            )!
+          );
+        }
+        
+        // Status filter
+        if (status && status.length > 0) {
+          conditions.push(inArray(suppliers.status, status));
+        }
+        
+        // Category filter
+        if (category && category.length > 0) {
+          conditions.push(inArray(suppliers.category, category));
+        }
+        
+        // Build order by clause
+        let orderByClause;
+        switch (sortColumn) {
+          case "name":
+            orderByClause = sortDirection === "asc" ? asc(suppliers.name) : desc(suppliers.name);
+            break;
+          case "status":
+            orderByClause = sortDirection === "asc" ? asc(suppliers.status) : desc(suppliers.status);
+            break;
+          case "updated_at":
+          default:
+            orderByClause = sortDirection === "asc" ? asc(suppliers.updatedAt) : desc(suppliers.updatedAt);
+            break;
+        }
+        
+        // Fetch suppliers with pagination
+        const suppliersList = await db
+          .select()
+          .from(suppliers)
+          .where(and(...conditions))
+          .orderBy(orderByClause)
+          .limit(limitNum)
+          .offset(offset);
+        
+        // Get total count for pagination
+        const [{ count }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(suppliers)
+          .where(and(...conditions));
+        
+        return {
+          success: true,
+          data: {
+            suppliers: suppliersList,
+            total: count,
+            page: pageNum,
+            limit: limitNum,
+          },
+        };
+      } catch (error: any) {
+        console.error("Error fetching suppliers:", error);
+        set.status = 500;
+        return {
+          success: false,
+          error: "Failed to fetch suppliers",
+        };
+      }
+    },
+    {
+      query: t.Object({
+        search: t.Optional(t.String()),
+        status: t.Optional(t.Array(t.String())),
+        category: t.Optional(t.Array(t.String())),
+        page: t.Optional(t.Numeric({ minimum: 1 })),
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+        sort: t.Optional(t.String()),
+      }),
+      detail: {
+        summary: "List suppliers in tenant",
+        description:
+          "Returns paginated, filtered, and sorted list of suppliers in the authenticated user's tenant",
+        tags: ["Suppliers"],
+      },
+    }
+  );
+

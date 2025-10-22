@@ -10,7 +10,8 @@
     "bun": ">=1.1.0"
   },
   "scripts": {
-    "dev": "concurrently \"pnpm --filter @supplex/web dev\" \"pnpm --filter @supplex/api dev\"",
+    "_comment": "WINDOWS USERS: API runs via WSL2 because ElysiaJS requires Bun runtime. The 'dev' command uses 'dev:wsl' for API. Do not change this.",
+    "dev": "concurrently \"pnpm --filter @supplex/web dev\" \"pnpm --filter @supplex/api dev:wsl\"",
     "build": "pnpm --filter @supplex/types build && pnpm --filter @supplex/web build && pnpm --filter @supplex/api build",
     "test": "pnpm --recursive run test",
     "lint": "pnpm --recursive run lint",

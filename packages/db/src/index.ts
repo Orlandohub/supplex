@@ -44,6 +44,7 @@ export { users } from "./schema/users";
 export { suppliers } from "./schema/suppliers";
 export { contacts } from "./schema/contacts";
 export { documents } from "./schema/documents";
+export { auditLogs } from "./schema/audit-logs";
 
 /**
  * Export types for TypeScript
@@ -68,6 +69,10 @@ export type {
   InsertDocument,
   SelectDocument,
 } from "./schema/documents";
+export type {
+  InsertAuditLog,
+  SelectAuditLog,
+} from "./schema/audit-logs";
 
 /**
  * Export tenant context helpers

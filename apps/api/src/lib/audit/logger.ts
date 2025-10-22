@@ -49,7 +49,7 @@ export function extractIpAddress(
 ): string | null {
   // Try various common headers for IP address
   const ip =
-    headers["x-forwarded-for"]?.split(",")[0].trim() ||
+    headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
     headers["x-real-ip"] ||
     headers["cf-connecting-ip"] || // Cloudflare
     headers["x-client-ip"] ||

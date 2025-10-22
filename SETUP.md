@@ -253,14 +253,19 @@ Expected: All tests should pass
 
 ### 8. Start Development Servers
 
+**⚠️ IMPORTANT FOR WINDOWS USERS:**
+The API backend uses ElysiaJS which requires Bun runtime. Bun only runs on Windows via WSL2.
+The `pnpm dev` command is already configured to use WSL for the API (`dev:wsl` script).
+**DO NOT modify package.json scripts to run Bun directly on Windows - it will fail.**
+
 ```bash
 # Start both frontend and backend
 pnpm dev
 ```
 
 This should start:
-- Frontend: http://localhost:3000
-- Backend: http://localhost:3001
+- Frontend: http://localhost:3000 (runs with Node.js on Windows)
+- Backend: http://localhost:3001 (runs with Bun in WSL2)
 
 ### 9. Verify Setup
 
