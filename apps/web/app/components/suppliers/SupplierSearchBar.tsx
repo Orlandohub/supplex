@@ -1,32 +1,40 @@
 import { useSearchParams } from "@remix-run/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDebounce } from "~/hooks/useDebounce";
 
 interface SupplierSearchBarProps {
   initialSearch?: string;
 }
 
-export function SupplierSearchBar({ initialSearch = "" }: SupplierSearchBarProps) {
+export function SupplierSearchBar({
+  initialSearch = "",
+}: SupplierSearchBarProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const debouncedSearch = useDebounce(searchTerm, 300);
+  const initialSearchRef = useRef(initialSearch);
+
+  // Update ref when initialSearch changes
+  useEffect(() => {
+    initialSearchRef.current = initialSearch;
+  }, [initialSearch]);
 
   useEffect(() => {
-    if (debouncedSearch !== initialSearch) {
+    if (debouncedSearch !== initialSearchRef.current) {
       const newParams = new URLSearchParams(searchParams);
-      
+
       if (debouncedSearch) {
         newParams.set("search", debouncedSearch);
       } else {
         newParams.delete("search");
       }
-      
+
       // Reset to page 1 when searching
       newParams.set("page", "1");
-      
+
       setSearchParams(newParams, { replace: true });
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, searchParams, setSearchParams]);
 
   const handleClear = () => {
     setSearchTerm("");
@@ -86,4 +94,3 @@ export function SupplierSearchBar({ initialSearch = "" }: SupplierSearchBarProps
     </div>
   );
 }
-

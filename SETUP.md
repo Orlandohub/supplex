@@ -23,9 +23,8 @@ pnpm --version
 # macOS/Linux
 curl -fsSL https://bun.sh/install | bash
 
-# Windows (use WSL2)
-wsl --install
-# Then run the above command inside WSL
+# Windows (Native Support)
+powershell -c "irm bun.sh/install.ps1|iex"
 
 # Verify installation
 bun --version
@@ -253,26 +252,22 @@ Expected: All tests should pass
 
 ### 8. Start Development Servers
 
-**⚠️ IMPORTANT FOR WINDOWS USERS:**
-The API backend uses ElysiaJS which requires Bun runtime. Bun only runs on Windows via WSL2.
-The `pnpm dev` command is already configured to use WSL for the API (`dev:wsl` script).
-**DO NOT modify package.json scripts to run Bun directly on Windows - it will fail.**
-
 ```bash
 # Start both frontend and backend
 pnpm dev
 ```
 
 This should start:
-- Frontend: http://localhost:3000 (runs with Node.js on Windows)
-- Backend: http://localhost:3001 (runs with Bun in WSL2)
+- Frontend: http://localhost:5173 (Vite default port)
+- Backend: http://localhost:3001
 
 ### 9. Verify Setup
 
 Open your browser and navigate to:
 
-- **Frontend**: http://localhost:3000
+- **Frontend**: http://localhost:5173
   - Should see "Welcome to Supplex" page
+  - Note: Vite uses port 5173 by default (can be changed in vite.config.ts)
   
 - **Backend Health**: http://localhost:3001/health
   - Should return JSON: `{"status":"ok","timestamp":"..."}`
@@ -282,70 +277,61 @@ Open your browser and navigate to:
 
 ## Troubleshooting
 
-### Bun/ElysiaJS Backend Verification (Windows/WSL)
+### Bun/ElysiaJS Backend Verification
 
-**Windows users must use WSL2 for Bun runtime. Follow these steps:**
+Bun now has native Windows support, making it easier to run ElysiaJS backend on Windows.
 
-1. **Install WSL2** (if not already installed):
+1. **Verify Bun installation**:
    ```bash
-   # Run in PowerShell as Administrator
-   wsl --install
-   # Restart your computer after installation
-   ```
-
-2. **Verify Bun installation in WSL**:
-   ```bash
-   # Open WSL terminal
-   wsl
-   
    # Check Bun version
    bun --version  # Should show 1.1.0 or higher
    ```
 
-3. **Test ElysiaJS dev server with hot reload**:
+2. **Test ElysiaJS dev server with hot reload**:
    ```bash
-   # Navigate to project in WSL
-   cd /mnt/c/Users/[YourUser]/[PathToProject]/supplex
+   # Navigate to project
+   cd supplex
    
    # Install dependencies if needed
    pnpm install
    
    # Start backend dev server
-   pnpm --filter @supplex/api dev
+   cd apps/api
+   bun run dev
    
    # Expected output:
    # 🦊 Supplex API is running at http://localhost:3001
    ```
 
-4. **Test health check endpoint**:
-   ```bash
-   # In a new terminal/WSL session
+3. **Test health check endpoint**:
+   ```powershell
+   # In a new PowerShell window
    curl http://localhost:3001/health
    
    # Expected output:
-   # {"status":"ok","timestamp":"2025-10-16T..."}
+   # {"status":"ok","timestamp":"2025-10-22T..."}
    ```
 
-5. **Test hot reload**:
+4. **Test hot reload**:
    - With dev server running, edit `apps/api/src/index.ts`
    - Make a small change (e.g., update version number)
    - Server should automatically restart
    - Verify change reflected in API response
 
-6. **Test concurrent dev mode** (frontend + backend):
+5. **Test concurrent dev mode** (frontend + backend):
    ```bash
    # From project root
    pnpm dev
    
    # Should start both:
-   # - Frontend: http://localhost:3000
+   # - Frontend: http://localhost:5173
    # - Backend: http://localhost:3001
    ```
 
-**Known WSL Issues:**
-- **File permissions**: If you get permission errors, ensure project is on Linux filesystem (`~` or `/home/`), not Windows mount (`/mnt/c/`)
-- **Port access**: WSL2 ports should be accessible from Windows browser automatically
-- **Performance**: Projects on Windows filesystem (`/mnt/c/`) are slower; consider moving to WSL home directory
+**Common Bun Issues:**
+- **Bun not recognized**: Restart your terminal or IDE after installing Bun
+- **Permission errors**: Run PowerShell as Administrator during installation
+- **Path issues**: Bun should be automatically added to PATH; if not, add `C:\Users\[YourUser]\.bun\bin` manually
 
 ### pnpm install fails
 
@@ -366,7 +352,7 @@ If you see errors during `pnpm install`:
 
 ### Bun not found
 
-- **Windows users**: Bun requires WSL2. Install WSL and run commands inside WSL.
+- **Windows**: Ensure `C:\Users\[YourUser]\.bun\bin` is in your PATH. Restart terminal after installation.
 - **macOS/Linux**: Ensure `~/.bun/bin` is in your PATH
 
 ### TypeScript errors
@@ -424,7 +410,7 @@ After completing all steps, verify:
 - [ ] `pnpm type-check` passes with no errors
 - [ ] `pnpm test` runs and all tests pass
 - [ ] `pnpm dev` starts both servers successfully
-- [ ] Frontend loads at http://localhost:3000
+- [ ] Frontend loads at http://localhost:5173
 - [ ] Backend health check works at http://localhost:3001/health
 - [ ] Pre-commit hook runs on `git commit`
 - [ ] Hot reload works (edit a file and see it update)

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { supplierDetailRoutes } from "../detail";
 import type { AuthContext } from "../../../lib/rbac/middleware";
@@ -60,12 +60,12 @@ const mockSupplier = {
   deletedAt: null,
 };
 
-const mockCreatedByUser = {
-  id: "550e8400-e29b-41d4-a716-446655440001",
-  email: "admin@example.com",
-  firstName: "Admin",
-  lastName: "User",
-};
+// const mockCreatedByUser = {
+//   id: "550e8400-e29b-41d4-a716-446655440001",
+//   email: "admin@example.com",
+//   firstName: "Admin",
+//   lastName: "User",
+// };
 
 describe("Supplier Detail API", () => {
   describe("GET /api/suppliers/:id", () => {
@@ -75,9 +75,7 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       expect(response.status).toBe(200);
@@ -154,9 +152,7 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       expect(response.status).toBe(404);
@@ -173,9 +169,7 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       if (response.status === 200) {
@@ -193,9 +187,7 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       // Should succeed for Viewer role (read-only access)
@@ -206,9 +198,7 @@ describe("Supplier Detail API", () => {
       const app = new Elysia().use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       expect(response.status).toBe(401);
@@ -220,9 +210,7 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       // Should either succeed or return proper error
@@ -236,16 +224,15 @@ describe("Supplier Detail API", () => {
 
       const startTime = performance.now();
 
-      const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+      await app.handle(
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       const endTime = performance.now();
       const executionTime = endTime - startTime;
 
-      console.log(`Detail endpoint execution time: ${executionTime.toFixed(2)}ms`);
+      // Logging disabled for tests
+      // console.log(`Detail endpoint execution time: ${executionTime.toFixed(2)}ms`);
 
       // Relaxed for unit test environment, production should be < 500ms
       expect(executionTime).toBeLessThan(2000);
@@ -259,14 +246,11 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}/status`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "qualified" }),
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "qualified" }),
+        })
       );
 
       // Should succeed or return 404 if supplier doesn't exist in test DB
@@ -279,14 +263,11 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}/status`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "conditional" }),
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "conditional" }),
+        })
       );
 
       // Should succeed or return 404 if supplier doesn't exist
@@ -299,14 +280,11 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}/status`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "qualified" }),
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "qualified" }),
+        })
       );
 
       expect(response.status).toBe(403);
@@ -320,14 +298,11 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}/status`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "invalid_status" }),
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "invalid_status" }),
+        })
       );
 
       expect(response.status).toBe(400);
@@ -380,17 +355,14 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}/status`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: "qualified",
-              note: "Passed initial quality assessment",
-            }),
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "qualified",
+            note: "Passed initial quality assessment",
+          }),
+        })
       );
 
       // Should succeed or return 404
@@ -412,14 +384,11 @@ describe("Supplier Detail API", () => {
 
       for (const status of validStatuses) {
         const response = await app.handle(
-          new Request(
-            `http://localhost/suppliers/${mockSupplier.id}/status`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status }),
-            }
-          )
+          new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+          })
         );
 
         // Should accept all valid status values
@@ -431,14 +400,11 @@ describe("Supplier Detail API", () => {
       const app = new Elysia().use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}/status`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "qualified" }),
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "qualified" }),
+        })
       );
 
       expect(response.status).toBe(401);
@@ -452,12 +418,9 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       // Should succeed or return 404 if supplier doesn't exist
@@ -470,12 +433,9 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       expect(response.status).toBe(403);
@@ -489,12 +449,9 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       expect(response.status).toBe(403);
@@ -545,12 +502,9 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       // The implementation should set deleted_at timestamp, not physically delete
@@ -563,12 +517,9 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       if (response.status === 200) {
@@ -582,12 +533,9 @@ describe("Supplier Detail API", () => {
       const app = new Elysia().use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       expect(response.status).toBe(401);
@@ -606,12 +554,9 @@ describe("Supplier Detail API", () => {
         .use(supplierDetailRoutes);
 
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`,
-          {
-            method: "DELETE",
-          }
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
+          method: "DELETE",
+        })
       );
 
       expect(response.status).toBe(404);
@@ -622,13 +567,6 @@ describe("Supplier Detail API", () => {
 
   describe("Tenant Isolation Tests", () => {
     it("should enforce tenant isolation across all endpoints", async () => {
-      const tenant1User: AuthContext["user"] = {
-        id: "550e8400-e29b-41d4-a716-446655440011",
-        email: "user1@example.com",
-        role: UserRole.ADMIN,
-        tenantId: "650e8400-e29b-41d4-a716-446655440011",
-      };
-
       const tenant2User: AuthContext["user"] = {
         id: "550e8400-e29b-41d4-a716-446655440022",
         email: "user2@example.com",
@@ -642,13 +580,10 @@ describe("Supplier Detail API", () => {
 
       // Supplier belongs to mockSupplier.tenantId, user is from different tenant
       const response = await app.handle(
-        new Request(
-          `http://localhost/suppliers/${mockSupplier.id}`
-        )
+        new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
       expect(response.status).toBe(404);
     });
   });
 });
-

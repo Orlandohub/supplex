@@ -34,7 +34,7 @@ interface SupplierDetailTabsProps {
       expiryDate: string;
       documentId?: string;
     }>;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     riskScore: number | null;
     createdAt: string;
     updatedAt: string;
@@ -45,12 +45,12 @@ interface SupplierDetailTabsProps {
 
 /**
  * Supplier Detail Tabs Component
- * 
+ *
  * Main tabbed interface for supplier detail page
  * - Overview Tab: Displays all supplier information
  * - Documents Tab: Placeholder for Story 1.8
  * - History Tab: Placeholder for audit history
- * 
+ *
  * Features:
  * - URL-based tab state (query param)
  * - Edit button (with permissions check)
@@ -161,4 +161,3 @@ export function SupplierDetailTabs({ supplier }: SupplierDetailTabsProps) {
     </div>
   );
 }
-

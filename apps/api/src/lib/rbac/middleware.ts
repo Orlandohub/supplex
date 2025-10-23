@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { supabase } from "../supabase";
+import { supabaseAdmin } from "../supabase";
 import {
   UserRole,
   extractRoleFromMetadata,
@@ -33,76 +33,77 @@ function extractBearerToken(authorization: string | undefined): string | null {
     return null;
   }
 
-  return parts[1];
+  return parts[1] || null;
 }
 
 /**
  * Authentication Middleware
  * Validates JWT and extracts user information
  * Attaches user context to request
+ *
+ * Pattern from: https://elysiajs.com/blog/elysia-supabase
  */
 export const authenticate = new Elysia({ name: "auth" }).derive(
+  { as: "scoped" },
   async ({ headers, set }) => {
+    console.log("[AUTH MIDDLEWARE] Starting authentication...");
+    console.log("[AUTH MIDDLEWARE] Headers:", headers);
+
     const token = extractBearerToken(headers.authorization);
+    console.log(
+      "[AUTH MIDDLEWARE] Extracted token:",
+      token ? "EXISTS" : "MISSING"
+    );
 
     if (!token) {
+      console.log("[AUTH MIDDLEWARE] No token found, throwing 401");
       set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "UNAUTHORIZED",
-            message: "Missing or invalid authorization token",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      throw new Error("Missing or invalid authorization token");
     }
 
-    // Validate JWT with Supabase
+    // Validate JWT with Supabase (using admin client to validate tokens)
+    console.log("[AUTH MIDDLEWARE] Validating token with Supabase...");
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser(token);
+    } = await supabaseAdmin.auth.getUser(token);
+
+    console.log(
+      "[AUTH MIDDLEWARE] Supabase response - User:",
+      user ? "EXISTS" : "NULL"
+    );
+    console.log("[AUTH MIDDLEWARE] Supabase response - Error:", error);
 
     if (error || !user) {
+      console.log("[AUTH MIDDLEWARE] Token validation failed, throwing 401");
       set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "UNAUTHORIZED",
-            message: "Invalid or expired token",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      throw new Error(error?.message || "Invalid or expired token");
     }
 
     // Extract role and tenant_id from user metadata
+    console.log("[AUTH MIDDLEWARE] User metadata:", user.user_metadata);
     const role = extractRoleFromMetadata(user.user_metadata);
-    const tenantId = user.user_metadata?.tenant_id;
+    const tenantId: string | null =
+      (user.user_metadata?.tenant_id as string | null) ?? null;
+    console.log("[AUTH MIDDLEWARE] Extracted role:", role);
+    console.log("[AUTH MIDDLEWARE] Extracted tenantId:", tenantId);
 
     if (!tenantId) {
+      console.log("[AUTH MIDDLEWARE] No tenant ID found, throwing 401");
       set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "UNAUTHORIZED",
-            message: "User is not associated with a tenant",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      throw new Error("User is not associated with a tenant");
     }
 
-    // Return authenticated user context
+    // Return authenticated user context (as per ElysiaJS pattern)
+    console.log("[AUTH MIDDLEWARE] Returning user context");
     return {
       user: {
         id: user.id,
         email: user.email || "",
         role,
-        tenantId,
+        tenantId: tenantId as string,
       },
-    } as AuthContext;
+    };
   }
 );
 
@@ -120,7 +121,7 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
 export function requireRole(allowedRoles: UserRole[]) {
   return new Elysia({ name: "require-role" })
     .use(authenticate)
-    .derive(({ user, set }) => {
+    .derive({ as: "scoped" }, ({ user, set }: any) => {
       if (!allowedRoles.includes(user.role)) {
         set.status = 403;
         throw new Error(
@@ -152,7 +153,7 @@ export function requireRole(allowedRoles: UserRole[]) {
 export function requirePermission(permission: PermissionAction) {
   return new Elysia({ name: "require-permission" })
     .use(authenticate)
-    .derive(({ user, set }) => {
+    .derive({ as: "scoped" }, ({ user, set }: any) => {
       if (!checkPermission(user.role, permission)) {
         set.status = 403;
         throw new Error(

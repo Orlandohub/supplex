@@ -1,145 +1,197 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BrowserRouter } from "@remix-run/react";
+import { MemoryRouter } from "react-router-dom";
 import { SupplierPagination } from "../SupplierPagination";
+
+// Mock Remix hooks since MemoryRouter doesn't provide them
+vi.mock("@remix-run/react", async () => {
+  const actual = await vi.importActual("@remix-run/react");
+  const ReactRouterDOM = await import("react-router-dom");
+  return {
+    ...actual,
+    useSearchParams: () => [new URLSearchParams(), vi.fn()],
+    Link: ReactRouterDOM.Link,
+  };
+});
 
 describe("SupplierPagination", () => {
   it("does not render when there is only one page", () => {
     const { container } = render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierPagination currentPage={1} totalItems={10} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     expect(container.firstChild).toBeNull();
   });
 
   it("displays item count correctly", () => {
-    render(
-      <BrowserRouter>
+    const { container } = render(
+      <MemoryRouter>
         <SupplierPagination currentPage={1} totalItems={50} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
-    expect(screen.getByText(/showing 1 to 20 of 50 suppliers/i)).toBeInTheDocument();
+
+    // Text is in a paragraph - query the content
+    const paragraph = container.querySelector("p.text-sm.text-gray-700");
+    expect(paragraph).toBeInTheDocument();
+    expect(paragraph?.textContent).toMatch(
+      /Showing\s+1\s+to\s+20\s+of\s+50\s+suppliers/i
+    );
   });
 
   it("displays correct item range for page 2", () => {
-    render(
-      <BrowserRouter>
+    const { container } = render(
+      <MemoryRouter>
         <SupplierPagination currentPage={2} totalItems={50} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
-    expect(screen.getByText(/showing 21 to 40 of 50 suppliers/i)).toBeInTheDocument();
+
+    // Check paragraph content
+    const paragraph = container.querySelector("p.text-sm.text-gray-700");
+    expect(paragraph?.textContent).toMatch(
+      /Showing\s+21\s+to\s+40\s+of\s+50\s+suppliers/i
+    );
   });
 
   it("displays correct item range for last page", () => {
-    render(
-      <BrowserRouter>
+    const { container } = render(
+      <MemoryRouter>
         <SupplierPagination currentPage={3} totalItems={45} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
-    expect(screen.getByText(/showing 41 to 45 of 45 suppliers/i)).toBeInTheDocument();
+
+    // Check paragraph content
+    const paragraph = container.querySelector("p.text-sm.text-gray-700");
+    expect(paragraph?.textContent).toMatch(
+      /Showing\s+41\s+to\s+45\s+of\s+45\s+suppliers/i
+    );
   });
 
   it("disables previous button on first page", () => {
-    render(
-      <BrowserRouter>
+    const { container } = render(
+      <MemoryRouter>
         <SupplierPagination currentPage={1} totalItems={50} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
-    const prevButtons = screen.getAllByText("Previous");
-    prevButtons.forEach((button) => {
-      const span = button.closest("span");
-      if (span) {
-        expect(span).toHaveClass("cursor-not-allowed");
-      }
-    });
+
+    // Check for disabled Previous button (span with cursor-not-allowed class)
+    const disabledPrevSpan = container.querySelector("span.cursor-not-allowed");
+    expect(disabledPrevSpan).toBeInTheDocument();
+    expect(disabledPrevSpan?.textContent).toContain("Previous");
   });
 
   it("disables next button on last page", () => {
-    render(
-      <BrowserRouter>
+    const { container } = render(
+      <MemoryRouter>
         <SupplierPagination currentPage={3} totalItems={50} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
-    const nextButtons = screen.getAllByText("Next");
-    nextButtons.forEach((button) => {
-      const span = button.closest("span");
-      if (span) {
-        expect(span).toHaveClass("cursor-not-allowed");
-      }
-    });
+
+    // Check for disabled Next button (span with cursor-not-allowed class)
+    const disabledSpans = container.querySelectorAll("span.cursor-not-allowed");
+    const nextSpan = Array.from(disabledSpans).find((span) =>
+      span.textContent?.includes("Next")
+    );
+    expect(nextSpan).toBeInTheDocument();
   });
 
   it("highlights current page number", () => {
     render(
-      <BrowserRouter>
-        <SupplierPagination currentPage={2} totalItems={100} itemsPerPage={20} />
-      </BrowserRouter>
+      <MemoryRouter>
+        <SupplierPagination
+          currentPage={2}
+          totalItems={100}
+          itemsPerPage={20}
+        />
+      </MemoryRouter>
     );
-    
+
     const pageLink = screen.getByText("2").closest("a");
-    expect(pageLink).toHaveClass("bg-blue-50", "border-blue-500", "text-blue-600");
+    expect(pageLink).toHaveClass(
+      "bg-blue-50",
+      "border-blue-500",
+      "text-blue-600"
+    );
   });
 
   it("generates page links with correct URLs", () => {
     render(
-      <BrowserRouter>
-        <SupplierPagination currentPage={1} totalItems={100} itemsPerPage={20} />
-      </BrowserRouter>
+      <MemoryRouter>
+        <SupplierPagination
+          currentPage={1}
+          totalItems={100}
+          itemsPerPage={20}
+        />
+      </MemoryRouter>
     );
-    
+
     const page2Link = screen.getByText("2").closest("a");
-    expect(page2Link).toHaveAttribute("href", expect.stringContaining("page=2"));
+    expect(page2Link).toHaveAttribute(
+      "href",
+      expect.stringContaining("page=2")
+    );
   });
 
   it("shows ellipsis for large page counts", () => {
     render(
-      <BrowserRouter>
-        <SupplierPagination currentPage={1} totalItems={200} itemsPerPage={20} />
-      </BrowserRouter>
+      <MemoryRouter>
+        <SupplierPagination
+          currentPage={1}
+          totalItems={200}
+          itemsPerPage={20}
+        />
+      </MemoryRouter>
     );
-    
+
     const ellipsis = screen.getByText("...");
     expect(ellipsis).toBeInTheDocument();
   });
 
   it("renders all page numbers when total pages is small", () => {
-    render(
-      <BrowserRouter>
+    const { container } = render(
+      <MemoryRouter>
         <SupplierPagination currentPage={1} totalItems={60} itemsPerPage={20} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
-    expect(screen.getByText("1")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+
+    // Check for page number links (not the count display)
+    const pageLinks = container.querySelectorAll("nav a");
+    const pageNumbers = Array.from(pageLinks)
+      .map((link) => link.textContent)
+      .filter((text) => /^\d+$/.test(text || ""));
+    expect(pageNumbers).toContain("1");
+    expect(pageNumbers).toContain("2");
+    expect(pageNumbers).toContain("3");
     expect(screen.queryByText("...")).not.toBeInTheDocument();
   });
 
   it("has proper accessibility with aria-current", () => {
     render(
-      <BrowserRouter>
-        <SupplierPagination currentPage={2} totalItems={100} itemsPerPage={20} />
-      </BrowserRouter>
+      <MemoryRouter>
+        <SupplierPagination
+          currentPage={2}
+          totalItems={100}
+          itemsPerPage={20}
+        />
+      </MemoryRouter>
     );
-    
+
     const currentPageLink = screen.getByText("2").closest("a");
     expect(currentPageLink).toHaveAttribute("aria-current", "page");
   });
 
   it("shows mobile view with simplified pagination", () => {
     render(
-      <BrowserRouter>
-        <SupplierPagination currentPage={2} totalItems={100} itemsPerPage={20} />
-      </BrowserRouter>
+      <MemoryRouter>
+        <SupplierPagination
+          currentPage={2}
+          totalItems={100}
+          itemsPerPage={20}
+        />
+      </MemoryRouter>
     );
-    
+
     // Check that both mobile and desktop views exist
     const prevButtons = screen.getAllByText("Previous");
     expect(prevButtons.length).toBeGreaterThan(0);
@@ -147,16 +199,19 @@ describe("SupplierPagination", () => {
 
   it("enables previous and next buttons on middle pages", () => {
     render(
-      <BrowserRouter>
-        <SupplierPagination currentPage={3} totalItems={100} itemsPerPage={20} />
-      </BrowserRouter>
+      <MemoryRouter>
+        <SupplierPagination
+          currentPage={3}
+          totalItems={100}
+          itemsPerPage={20}
+        />
+      </MemoryRouter>
     );
-    
-    const prevLink = screen.getAllByText("Previous")[0].closest("a");
-    const nextLink = screen.getAllByText("Next")[0].closest("a");
-    
+
+    const prevLink = screen.getAllByText("Previous")[0]?.closest("a");
+    const nextLink = screen.getAllByText("Next")[0]?.closest("a");
+
     expect(prevLink).toHaveAttribute("href", expect.stringContaining("page=2"));
     expect(nextLink).toHaveAttribute("href", expect.stringContaining("page=4"));
   });
 });
-

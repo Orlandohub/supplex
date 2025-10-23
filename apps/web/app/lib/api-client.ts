@@ -1,12 +1,13 @@
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../../../api/src/index";
+import { config } from "./config";
 
 /**
  * Eden Treaty Client Configuration
  * Provides end-to-end type safety for API calls
  */
 
-const API_URL = process.env.API_URL || "http://localhost:3001";
+const API_URL = config.apiUrl;
 
 /**
  * Create Eden Treaty client for server-side API calls (Remix loaders/actions)
@@ -31,4 +32,3 @@ export function createClientEdenTreatyClient(token: string) {
     },
   });
 }
-

@@ -130,7 +130,7 @@ export default function UsersSettingsPage() {
           <UserListTableSkeleton />
         ) : (
           <UserListTable
-            users={filteredUsers}
+            users={filteredUsers as unknown as User[]}
             currentUserId={user?.id}
             onEditRole={handleEditRole}
             onToggleStatus={handleToggleStatus}

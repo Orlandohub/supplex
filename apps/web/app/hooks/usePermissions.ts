@@ -65,35 +65,45 @@ export interface Permissions {
  * ```
  */
 export function usePermissions(): Permissions {
-  const { user } = useAuth();
+  const { userRecord } = useAuth();
+
+  // Transform User to UserContext (they have the same shape)
+  const userContext = userRecord
+    ? {
+        id: userRecord.id,
+        email: userRecord.email,
+        role: userRecord.role,
+        tenantId: userRecord.tenantId,
+      }
+    : null;
 
   return {
     // User Management
-    canManageUsers: canManageUsers(user),
+    canManageUsers: canManageUsers(userContext),
 
     // Supplier Management
-    canViewSuppliers: !!user, // All authenticated users can view
-    canCreateSuppliers: canCreateSuppliers(user),
-    canEditSupplier: canEditSupplier(user),
-    canDeleteSuppliers: canDeleteSuppliers(user),
+    canViewSuppliers: !!userContext, // All authenticated users can view
+    canCreateSuppliers: canCreateSuppliers(userContext),
+    canEditSupplier: canEditSupplier(userContext),
+    canDeleteSuppliers: canDeleteSuppliers(userContext),
 
     // Document Management
-    canUploadDocuments: canUploadDocuments(user),
+    canUploadDocuments: canUploadDocuments(userContext),
 
     // Evaluation Management
-    canCreateEvaluations: canCreateEvaluations(user),
+    canCreateEvaluations: canCreateEvaluations(userContext),
 
     // CAPA Management
-    canManageCapa: canManageCapa(user),
+    canManageCapa: canManageCapa(userContext),
 
     // Analytics
-    canViewAnalytics: canViewAnalytics(user),
+    canViewAnalytics: canViewAnalytics(userContext),
 
     // Settings
-    canAccessSettings: canAccessSettings(user),
+    canAccessSettings: canAccessSettings(userContext),
 
     // Role Checks
-    isAdmin: isAdmin(user),
-    isViewer: isViewer(user),
+    isAdmin: isAdmin(userContext),
+    isViewer: isViewer(userContext),
   };
 }

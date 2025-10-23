@@ -10,13 +10,16 @@ import {
   isRouteErrorResponse,
   useRouteError,
   Link,
+  useSearchParams,
 } from "@remix-run/react";
+import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { Supplier } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
 import { Breadcrumb } from "~/components/ui/Breadcrumb";
+import { useToast } from "~/hooks/useToast";
 
 // Type for supplier data after Remix serialization (Dates become strings)
 type SerializedSupplier = Omit<
@@ -40,7 +43,10 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   if (!data || !data.supplier) {
     return [
       { title: "Supplier Not Found | Supplex" },
-      { name: "description", content: "The requested supplier could not be found." },
+      {
+        name: "description",
+        content: "The requested supplier could not be found.",
+      },
     ];
   }
   return [
@@ -57,7 +63,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
  * Handles authentication and API calls
  */
 export async function loader(args: LoaderFunctionArgs) {
-  const { request, params } = args;
+  const { params } = args;
 
   // Protect this route - require authentication
   const { session } = await requireAuth(args);
@@ -199,9 +205,29 @@ export default function SupplierDetail() {
     supplier: SerializedSupplier;
   };
   const navigation = useNavigation();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
 
   // Check if we're loading
   const isLoading = navigation.state === "loading";
+
+  // Show success toast based on URL params
+  useEffect(() => {
+    const success = searchParams.get("success");
+    if (success === "created") {
+      toast({
+        title: "Supplier created successfully",
+        description: "The supplier has been added to your organization.",
+        variant: "success",
+      });
+    } else if (success === "updated") {
+      toast({
+        title: "Supplier updated successfully",
+        description: "The supplier information has been saved.",
+        variant: "success",
+      });
+    }
+  }, [searchParams, toast]);
 
   // Breadcrumb items
   const breadcrumbItems = [
@@ -277,7 +303,8 @@ export function ErrorBoundary() {
               Supplier Not Found
             </h1>
             <p className="text-gray-600 mb-6">
-              This supplier doesn't exist or you don't have access to view it.
+              This supplier doesn&apos;t exist or you don&apos;t have access to
+              view it.
             </p>
             <Link
               to="/suppliers"
@@ -343,4 +370,3 @@ export function ErrorBoundary() {
     </div>
   );
 }
-

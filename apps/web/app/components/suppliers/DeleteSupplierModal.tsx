@@ -13,13 +13,13 @@ import { AlertTriangle } from "lucide-react";
 interface DeleteSupplierModalProps {
   isOpen: boolean;
   onClose: () => void;
-  supplierId: string;
+  supplierId?: string;
   supplierName: string;
 }
 
 /**
  * Delete Supplier Confirmation Modal
- * 
+ *
  * Displays a confirmation dialog before deleting a supplier
  * - Warns about soft delete (data preserved for audit)
  * - Requires explicit confirmation
@@ -29,7 +29,7 @@ interface DeleteSupplierModalProps {
 export function DeleteSupplierModal({
   isOpen,
   onClose,
-  supplierId,
+  supplierId: _supplierId,
   supplierName,
 }: DeleteSupplierModalProps) {
   const navigation = useNavigation();
@@ -44,7 +44,7 @@ export function DeleteSupplierModal({
             <span>Delete Supplier</span>
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{supplierName}"?
+            Are you sure you want to delete &quot;{supplierName}&quot;?
           </DialogDescription>
         </DialogHeader>
 
@@ -54,8 +54,9 @@ export function DeleteSupplierModal({
               This action cannot be easily undone.
             </p>
             <p className="text-sm text-red-700">
-              The supplier will be archived and removed from your active supplier list.
-              Historical data will be preserved for audit purposes.
+              The supplier will be archived and removed from your active
+              supplier list. Historical data will be preserved for audit
+              purposes.
             </p>
           </div>
         </div>
@@ -88,4 +89,3 @@ export function DeleteSupplierModal({
     </Dialog>
   );
 }
-

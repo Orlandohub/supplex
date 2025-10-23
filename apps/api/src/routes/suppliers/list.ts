@@ -1,9 +1,18 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers } from "@supplex/db";
-import { eq, and, isNull, or, ilike, inArray, asc, desc, sql } from "drizzle-orm";
+import {
+  eq,
+  and,
+  isNull,
+  or,
+  ilike,
+  inArray,
+  asc,
+  desc,
+  sql,
+} from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
-import { SupplierStatus, SupplierCategory } from "@supplex/types";
 
 /**
  * GET /api/suppliers
@@ -23,10 +32,12 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .get(
     "/",
-    async ({ query, user, set }) => {
+    async ({ query, user, set }: any) => {
+      console.log("[SUPPLIER LIST ROUTE] Handler called");
+      console.log("[SUPPLIER LIST ROUTE] User object:", user);
       try {
-        const tenantId = user.tenantId;
-        
+        const tenantId = user.tenantId as string;
+
         // TODO: Add Redis caching for performance optimization
         // Cache key: `suppliers:list:${tenantId}:${queryHash}`
         // TTL: 5 minutes
@@ -46,17 +57,20 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
         const offset = (pageNum - 1) * limitNum;
 
         // Parse sort parameter
-        const [sortColumn, sortDirection] = sort.split("_") as [string, "asc" | "desc"];
-        
+        const [sortColumn, sortDirection] = sort.split("_") as [
+          string,
+          "asc" | "desc",
+        ];
+
         // Build where conditions
         const conditions = [];
-        
+
         // Tenant isolation (always required)
         conditions.push(eq(suppliers.tenantId, tenantId));
-        
+
         // Exclude soft-deleted suppliers
         conditions.push(isNull(suppliers.deletedAt));
-        
+
         // Search filter
         if (search) {
           conditions.push(
@@ -67,32 +81,41 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
             )!
           );
         }
-        
+
         // Status filter
         if (status && status.length > 0) {
           conditions.push(inArray(suppliers.status, status));
         }
-        
+
         // Category filter
         if (category && category.length > 0) {
           conditions.push(inArray(suppliers.category, category));
         }
-        
+
         // Build order by clause
         let orderByClause;
         switch (sortColumn) {
           case "name":
-            orderByClause = sortDirection === "asc" ? asc(suppliers.name) : desc(suppliers.name);
+            orderByClause =
+              sortDirection === "asc"
+                ? asc(suppliers.name)
+                : desc(suppliers.name);
             break;
           case "status":
-            orderByClause = sortDirection === "asc" ? asc(suppliers.status) : desc(suppliers.status);
+            orderByClause =
+              sortDirection === "asc"
+                ? asc(suppliers.status)
+                : desc(suppliers.status);
             break;
           case "updated_at":
           default:
-            orderByClause = sortDirection === "asc" ? asc(suppliers.updatedAt) : desc(suppliers.updatedAt);
+            orderByClause =
+              sortDirection === "asc"
+                ? asc(suppliers.updatedAt)
+                : desc(suppliers.updatedAt);
             break;
         }
-        
+
         // Fetch suppliers with pagination
         const suppliersList = await db
           .select()
@@ -101,13 +124,14 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
           .orderBy(orderByClause)
           .limit(limitNum)
           .offset(offset);
-        
+
         // Get total count for pagination
-        const [{ count }] = await db
+        const countResult = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(suppliers)
           .where(and(...conditions));
-        
+        const count = countResult[0]?.count ?? 0;
+
         return {
           success: true,
           data: {
@@ -143,4 +167,3 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
       },
     }
   );
-

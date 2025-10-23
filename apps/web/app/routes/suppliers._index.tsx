@@ -1,8 +1,9 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSearchParams, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigation, Link } from "@remix-run/react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { usePermissions } from "~/hooks/usePermissions";
 import { SupplierTable } from "~/components/suppliers/SupplierTable";
 import { SupplierCard } from "~/components/suppliers/SupplierCard";
 import { SupplierSearchBar } from "~/components/suppliers/SupplierSearchBar";
@@ -10,7 +11,24 @@ import { SupplierFilters } from "~/components/suppliers/SupplierFilters";
 import { SupplierPagination } from "~/components/suppliers/SupplierPagination";
 import { EmptySupplierState } from "~/components/suppliers/EmptySupplierState";
 import { SupplierTableSkeleton } from "~/components/suppliers/SupplierTableSkeleton";
+import { Button } from "~/components/ui/button";
 import type { Supplier } from "@supplex/types";
+import { Plus } from "lucide-react";
+
+// Type for supplier data after Remix serialization (Dates become strings)
+type SerializedSupplier = Omit<
+  Supplier,
+  "createdAt" | "updatedAt" | "deletedAt" | "certifications"
+> & {
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  certifications: Array<{
+    type: string;
+    issueDate: string;
+    expiryDate: string;
+  }>;
+};
 
 export const meta: MetaFunction = () => {
   return [
@@ -22,10 +40,11 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs) {
+  const { request } = args;
   // Protect this route - require authentication
-  const { session } = await requireAuth(request);
-  
+  const { session } = await requireAuth(args);
+
   // Extract query parameters from URL
   const url = new URL(request.url);
   const search = url.searchParams.get("search") || undefined;
@@ -62,13 +81,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
       throw new Response("Failed to load suppliers", { status: 500 });
     }
 
-    const data = response.data as any;
+    // Eden Treaty returns data wrapped in { success: true, data: { ... } }
+    if (
+      !response.data ||
+      typeof response.data !== "object" ||
+      !("data" in response.data)
+    ) {
+      throw new Response("Invalid API response format", { status: 500 });
+    }
+
+    const apiResponse = response.data as {
+      success: boolean;
+      data: {
+        suppliers: Supplier[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+    };
 
     return json({
-      suppliers: data.data.suppliers as Supplier[],
-      total: data.data.total as number,
-      page: data.data.page as number,
-      limit: data.data.limit as number,
+      suppliers: apiResponse.data.suppliers,
+      total: apiResponse.data.total,
+      page: apiResponse.data.page,
+      limit: apiResponse.data.limit,
       filters: {
         search: search || "",
         status,
@@ -83,9 +119,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function SuppliersIndex() {
-  const { suppliers, total, page, limit, filters } = useLoaderData<typeof loader>();
-  const [searchParams] = useSearchParams();
+  const { suppliers, total, page, limit, filters } = useLoaderData<
+    typeof loader
+  >() as {
+    suppliers: SerializedSupplier[];
+    total: number;
+    page: number;
+    limit: number;
+    filters: {
+      search: string;
+      status: string[];
+      category: string[];
+      sort: string;
+    };
+  };
   const navigation = useNavigation();
+  const permissions = usePermissions();
 
   // Check if we're loading
   const isLoading = navigation.state === "loading";
@@ -94,23 +143,30 @@ export default function SuppliersIndex() {
   const hasSuppliers = suppliers.length > 0;
 
   // Check if we have any active filters
-  const hasActiveFilters = 
-    filters.search ||
-    filters.status.length > 0 ||
-    filters.category.length > 0;
+  const hasActiveFilters =
+    filters.search || filters.status.length > 0 || filters.category.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Suppliers</h1>
               <p className="mt-1 text-sm text-gray-500">
                 Manage and view your supplier information
               </p>
             </div>
+            {/* Add Supplier Button - Only visible to Admin and Procurement Manager */}
+            {permissions.canCreateSuppliers && (
+              <Button asChild>
+                <Link to="/suppliers/new" className="inline-flex items-center">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Supplier
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -174,4 +230,3 @@ export default function SuppliersIndex() {
     </div>
   );
 }
-

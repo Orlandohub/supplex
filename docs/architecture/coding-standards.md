@@ -4,7 +4,12 @@
 
 - **Type Sharing:** Always define types in `packages/types` and import from there
 - **API Calls:** Never make direct HTTP calls - use Eden Treaty client
-- **Environment Variables:** Access only through config objects, never `process.env` directly
+- **Environment Variables:** 
+  - CRITICAL: See `apps/web/ENV-CONFIG.md` for Supabase env var configuration
+  - Never use `process.env` directly in isomorphic code (breaks SSR)
+  - Web app uses multi-source pattern: `window.ENV` → `import.meta.env` → `process.env`
+  - DO NOT modify `apps/web/vite.config.ts` envPrefix without reading ENV-CONFIG.md
+  - DO NOT remove `window.ENV` injection from `apps/web/app/root.tsx`
 - **Error Handling:** All API routes must use standard error handler
 - **State Updates:** Never mutate state directly
 - **Tenant Isolation:** All database queries must include tenant filter

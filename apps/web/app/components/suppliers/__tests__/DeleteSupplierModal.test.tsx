@@ -2,18 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DeleteSupplierModal } from "../DeleteSupplierModal";
 import { MemoryRouter } from "react-router-dom";
-import { createRemixStub } from "@remix-run/testing";
 
 // Mock useNavigation and Form
 vi.mock("@remix-run/react", async () => {
   const actual = await vi.importActual("@remix-run/react");
   const React = await import("react");
+  const MockForm = React.forwardRef<HTMLFormElement, any>(
+    ({ children, ...props }, ref) =>
+      React.createElement("form", { ...props, ref }, children)
+  );
+  MockForm.displayName = "Form";
   return {
     ...actual,
     useNavigation: () => ({ state: "idle" }),
-    Form: React.forwardRef<HTMLFormElement, any>(({ children, ...props }, ref) =>
-      React.createElement("form", { ...props, ref }, children)
-    ),
+    Form: MockForm,
   };
 });
 
@@ -40,11 +42,13 @@ describe("DeleteSupplierModal", () => {
 
     // Check for modal heading (there are multiple "Delete Supplier" texts)
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Are you sure you want to delete/i)
+    ).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {
-    const { container } = render(
+    render(
       <MemoryRouter>
         <DeleteSupplierModal
           isOpen={false}
@@ -160,7 +164,7 @@ describe("DeleteSupplierModal", () => {
     );
 
     // Check for the AlertTriangle icon by looking for the SVG
-    const alertIcon = document.querySelector('svg.lucide-triangle-alert');
+    const alertIcon = document.querySelector("svg.lucide-triangle-alert");
     expect(alertIcon).toBeInTheDocument();
   });
 
@@ -202,4 +206,3 @@ describe("DeleteSupplierModal", () => {
     ).toBeInTheDocument();
   });
 });
-

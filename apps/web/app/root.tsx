@@ -13,6 +13,7 @@ import type { LinksFunction } from "@remix-run/node";
 import { AuthProvider } from "~/providers/AuthProvider";
 import { getSession } from "~/lib/auth/session.server";
 import { getSecurityHeaders } from "~/lib/security/csp";
+import { Toaster } from "~/components/ui/toaster";
 import styles from "./tailwind.css?url";
 
 export const links: LinksFunction = () => [
@@ -80,6 +81,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </head>
       <body className="antialiased">
         {children}
+        <Toaster />
         <ScrollRestoration />
         <Scripts />
       </body>

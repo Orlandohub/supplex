@@ -90,19 +90,19 @@ describe("RBAC Middleware", () => {
     it("should reject requests without authorization header", async () => {
       const app = new Elysia()
         .use(authenticate)
-        .get("/test", ({ user }) => ({ success: true, user }));
+        .get("/test", ({ user }: any) => ({ success: true, user }));
 
       const response = await app.handle(new Request("http://localhost/test"));
 
       expect(response.status).toBe(401);
-      const body = await response.json();
-      expect(body.error.code).toBe("UNAUTHORIZED");
+      const body = (await response.json()) as any;
+      expect(body?.error?.code).toBe("UNAUTHORIZED");
     });
 
     it("should reject requests with malformed authorization header", async () => {
       const app = new Elysia()
         .use(authenticate)
-        .get("/test", ({ user }) => ({ success: true, user }));
+        .get("/test", ({ user }: any) => ({ success: true, user }));
 
       const response = await app.handle(
         new Request("http://localhost/test", {
@@ -116,7 +116,7 @@ describe("RBAC Middleware", () => {
     it("should reject requests with invalid token", async () => {
       const app = new Elysia()
         .use(authenticate)
-        .get("/test", ({ user }) => ({ success: true, user }));
+        .get("/test", ({ user }: any) => ({ success: true, user }));
 
       const response = await app.handle(
         new Request("http://localhost/test", {

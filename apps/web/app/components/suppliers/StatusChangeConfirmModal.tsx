@@ -14,7 +14,7 @@ import { AlertTriangle, ArrowRight } from "lucide-react";
 interface StatusChangeConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  supplierId: string;
+  supplierId?: string;
   supplierName: string;
   oldStatus: SupplierStatus;
   newStatus: SupplierStatus;
@@ -33,7 +33,7 @@ const statusLabels: Record<SupplierStatus, string> = {
 
 /**
  * Status Change Confirmation Modal
- * 
+ *
  * Displays a confirmation dialog before changing supplier status
  * - Shows old status → new status transition
  * - Requires explicit confirmation
@@ -43,7 +43,7 @@ const statusLabels: Record<SupplierStatus, string> = {
 export function StatusChangeConfirmModal({
   isOpen,
   onClose,
-  supplierId,
+  supplierId: _supplierId,
   supplierName,
   oldStatus,
   newStatus,
@@ -60,7 +60,7 @@ export function StatusChangeConfirmModal({
             <span>Confirm Status Change</span>
           </DialogTitle>
           <DialogDescription>
-            You are about to change the status for "{supplierName}".
+            You are about to change the status for &quot;{supplierName}&quot;.
           </DialogDescription>
         </DialogHeader>
 
@@ -89,7 +89,7 @@ export function StatusChangeConfirmModal({
 
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
             <p className="text-sm text-yellow-800">
-              This change will be recorded in the supplier's audit history.
+              This change will be recorded in the supplier&apos;s audit history.
             </p>
           </div>
         </div>
@@ -122,4 +122,3 @@ export function StatusChangeConfirmModal({
     </Dialog>
   );
 }
-

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { StatusBadge } from "./StatusBadge";
 import type { SupplierCategory, SupplierStatus } from "@supplex/types";
-import { MapPin, Mail, Phone, Globe, Calendar, User } from "lucide-react";
+import { MapPin, Mail, Phone, Globe, User } from "lucide-react";
 
 interface SupplierOverviewProps {
   supplier: {
@@ -28,7 +28,7 @@ interface SupplierOverviewProps {
       expiryDate: string;
       documentId?: string;
     }>;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     riskScore: number | null;
     createdAt: string;
     updatedAt: string;
@@ -62,7 +62,7 @@ function formatDate(dateString: string): string {
 
 /**
  * Supplier Overview Component
- * 
+ *
  * Displays comprehensive supplier information including:
  * - Company details (name, tax ID, status)
  * - Contact information
@@ -73,7 +73,6 @@ function formatDate(dateString: string): string {
  */
 export function SupplierOverview({ supplier }: SupplierOverviewProps) {
   const address = supplier.address;
-  const fullAddress = `${address.street}, ${address.city}, ${address.state} ${address.postalCode}, ${address.country}`;
 
   return (
     <div className="space-y-6">
@@ -85,7 +84,9 @@ export function SupplierOverview({ supplier }: SupplierOverviewProps) {
               <h2 className="text-2xl font-bold text-gray-900">
                 {supplier.name}
               </h2>
-              <p className="text-sm text-gray-500 mt-1">Tax ID: {supplier.taxId}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Tax ID: {supplier.taxId}
+              </p>
             </div>
             <div className="mt-4 md:mt-0">
               <StatusBadge status={supplier.status} />
@@ -106,7 +107,9 @@ export function SupplierOverview({ supplier }: SupplierOverviewProps) {
                   <p className="text-sm font-medium text-gray-700">
                     Primary Contact
                   </p>
-                  <p className="text-sm text-gray-900">{supplier.contactName}</p>
+                  <p className="text-sm text-gray-900">
+                    {supplier.contactName}
+                  </p>
                 </div>
               </div>
 
@@ -294,4 +297,3 @@ export function SupplierOverview({ supplier }: SupplierOverviewProps) {
     </div>
   );
 }
-

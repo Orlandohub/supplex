@@ -5,8 +5,45 @@
  * Usage: pnpm db:seed (or bun run src/seed.ts)
  */
 
-import { db } from "./index";
-import { tenants, users, suppliers, contacts, documents } from "./schema";
+// Load environment variables from .env file before importing anything
+import { config } from "dotenv";
+import { resolve, dirname } from "path";
+import { existsSync } from "fs";
+import { fileURLToPath } from "url";
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Try multiple .env locations
+const envPaths = [
+  resolve(process.cwd(), ".env"), // current working directory
+  resolve(__dirname, ".env"), // same dir as script
+  resolve(__dirname, "../.env"), // packages/db/.env
+  resolve(__dirname, "../../.env"), // root .env
+];
+
+console.log("Looking for .env files...");
+for (const envPath of envPaths) {
+  if (existsSync(envPath)) {
+    console.log(`✓ Found .env at: ${envPath}`);
+    config({ path: envPath });
+    break;
+  }
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error("❌ DATABASE_URL not found in environment variables!");
+  console.error(`Current directory: ${process.cwd()}`);
+  console.error(`Tried paths: ${envPaths.join(", ")}`);
+  process.exit(1);
+}
+
+console.log(
+  `✓ DATABASE_URL loaded: ${process.env.DATABASE_URL.substring(0, 50)}...`
+);
+
+// Import types that don't initialize connections
 import { eq } from "drizzle-orm";
 import {
   TenantStatus,
@@ -22,6 +59,12 @@ import {
  */
 async function seed() {
   console.log("🌱 Starting database seed...\n");
+
+  // Dynamically import db AFTER env vars are loaded
+  const { db } = await import("./index.js");
+  const { tenants, users, suppliers, contacts, documents } = await import(
+    "./schema/index.js"
+  );
 
   try {
     // Check if tenants already exist (idempotency)

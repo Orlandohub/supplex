@@ -1,3 +1,34 @@
-[test]
-# preload = ["./vitest.setup.ts"]
+# Bun configuration for Supplex API
+# https://bun.sh/docs/runtime/bunfig
 
+[install]
+# Use exact versions for dependencies
+exact = true
+# Frozen lockfile in CI
+frozen = false
+# Install peer dependencies automatically
+peer = true
+
+[install.cache]
+# Cache directory for packages
+dir = "~/.bun/install/cache"
+
+[test]
+# Test configuration
+preload = ["./src/test-server.ts"]
+coverage = true
+coverageThreshold = 0.8
+
+[run]
+# Enable hot reload in development
+hot = true
+# Watch for file changes
+watch = true
+
+# Ignore patterns for hot reload
+watchPaths = ["src/**/*"]
+watchIgnore = ["node_modules/**", "dist/**", "**/*.test.ts"]
+
+[define]
+# Define environment constants at build time
+"process.env.NODE_ENV" = "\"development\""

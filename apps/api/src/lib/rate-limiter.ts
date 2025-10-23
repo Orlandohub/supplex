@@ -80,25 +80,24 @@ export function rateLimit(options: RateLimitOptions) {
       };
     })
     .onAfterHandle(({ rateLimitData, set }) => {
-      // Add rate limit headers
-      set.headers = {
-        ...set.headers,
-        "X-RateLimit-Limit": maxRequests.toString(),
-        "X-RateLimit-Remaining": Math.max(
-          0,
-          maxRequests - rateLimitData.count
-        ).toString(),
-        "X-RateLimit-Reset": rateLimitData.resetTime.toString(),
-      };
+      // Add rate limit headers without spreading to avoid type conflicts
+      set.headers["X-RateLimit-Limit"] = maxRequests.toString();
+      set.headers["X-RateLimit-Remaining"] = Math.max(
+        0,
+        maxRequests - rateLimitData.count
+      ).toString();
+      set.headers["X-RateLimit-Reset"] = rateLimitData.resetTime.toString();
 
       // Skip counting successful requests if configured
-      if (skipSuccessfulRequests && set.status && set.status < 400) {
+      const statusCode = typeof set.status === "number" ? set.status : 200;
+      if (skipSuccessfulRequests && statusCode < 400 && rateLimitData) {
         rateLimitData.count--;
       }
     })
     .onError(({ error, rateLimitData, set }) => {
       // Skip counting failed requests if configured
-      if (skipFailedRequests && set.status && set.status >= 400) {
+      const statusCode = typeof set.status === "number" ? set.status : 500;
+      if (skipFailedRequests && statusCode >= 400 && rateLimitData) {
         rateLimitData.count--;
       }
 
@@ -115,7 +114,7 @@ function getClientIP(request: Request): string | null {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     // x-forwarded-for can contain multiple IPs, take the first one
-    return forwarded.split(",")[0].trim();
+    return forwarded.split(",")[0]?.trim() || null;
   }
 
   // Check other common headers

@@ -22,10 +22,10 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .post(
     "/invite",
-    async ({ body, user, set, headers }) => {
+    async ({ body, user, set, headers }: any) => {
       try {
         const { email, role, message } = body;
-        const tenantId = user.tenantId;
+        const tenantId = user.tenantId as string;
         const auditContext = createAuditContext(
           headers as Record<string, string | undefined>
         );
@@ -74,7 +74,7 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
             id: userId,
             tenantId: tenantId,
             email,
-            fullName: email.split("@")[0], // Temporary, user can update later
+            fullName: email.split("@")[0] || "User", // Temporary, user can update later
             role: role as UserRole,
             avatarUrl: null,
             isActive: true,

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { BrowserRouter } from "@remix-run/react";
+import { MemoryRouter } from "react-router-dom";
 import { SupplierSearchBar } from "../SupplierSearchBar";
 
 // Mock useSearchParams
@@ -21,19 +21,21 @@ describe("SupplierSearchBar", () => {
 
   it("renders search input with placeholder", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    const input = screen.getByPlaceholderText(/search by name, company id, or location/i);
+    const input = screen.getByPlaceholderText(
+      /search by name, company id, or location/i
+    );
     expect(input).toBeInTheDocument();
   });
 
   it("displays initial search value", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar initialSearch="Acme Corp" />
-      </BrowserRouter>
+      </MemoryRouter>
     );
     const input = screen.getByDisplayValue("Acme Corp");
     expect(input).toBeInTheDocument();
@@ -42,17 +44,17 @@ describe("SupplierSearchBar", () => {
   it("debounces search input", async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const input = screen.getByRole("textbox");
     await user.type(input, "Test");
-    
+
     // Should not call immediately
     expect(mockSetSearchParams).not.toHaveBeenCalled();
-    
+
     // Should call after debounce delay (300ms)
     await waitFor(
       () => {
@@ -65,14 +67,14 @@ describe("SupplierSearchBar", () => {
   it("shows clear button when search term is present", async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const input = screen.getByRole("textbox");
     await user.type(input, "Test");
-    
+
     const clearButton = screen.getByLabelText(/clear search/i);
     expect(clearButton).toBeInTheDocument();
   });
@@ -80,14 +82,14 @@ describe("SupplierSearchBar", () => {
   it("clears search when clear button is clicked", async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar initialSearch="Test" />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const clearButton = screen.getByLabelText(/clear search/i);
     await user.click(clearButton);
-    
+
     const input = screen.getByRole("textbox") as HTMLInputElement;
     expect(input.value).toBe("");
   });
@@ -95,14 +97,14 @@ describe("SupplierSearchBar", () => {
   it("updates URL params with search term", async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const input = screen.getByRole("textbox");
     await user.type(input, "Acme");
-    
+
     await waitFor(
       () => {
         expect(mockSetSearchParams).toHaveBeenCalledWith(
@@ -116,13 +118,12 @@ describe("SupplierSearchBar", () => {
 
   it("has proper accessibility attributes", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierSearchBar />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const input = screen.getByRole("textbox");
     expect(input).toHaveAttribute("aria-label", "Search suppliers");
   });
 });
-

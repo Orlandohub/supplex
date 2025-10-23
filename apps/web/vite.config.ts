@@ -2,32 +2,36 @@ import { vitePlugin as remix } from "@remix-run/dev";
 import { defineConfig } from "vite";
 import path from "path";
 
-export default defineConfig({
-  plugins: [
-    remix({
-      future: {
-        v3_fetcherPersist: true,
-        v3_relativeSplatPath: true,
-        v3_throwAbortReason: true,
-      },
-    }),
-  ],
+// CRITICAL: Disable Remix plugin during tests to avoid routing conflicts
+// The Remix plugin interferes with Vitest by trying to handle routing in test mode
+// When mode === 'test', we exclude the plugin to allow pure component testing
+export default defineConfig(({ mode }) => ({
+  plugins:
+    mode === "test"
+      ? []
+      : [
+          remix({
+            future: {
+              v3_fetcherPersist: true,
+              v3_relativeSplatPath: true,
+              v3_throwAbortReason: true,
+            },
+          }),
+        ],
   resolve: {
     alias: {
       "~": path.resolve(__dirname, "./app"),
     },
   },
-  define: {
-    // Make environment variables available to client-side code
-    'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL),
-    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY),
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-  },
+  // CRITICAL: envPrefix configuration for Supabase SSR
+  // This exposes SUPABASE_* and API_* env vars to client-side code via import.meta.env
+  // DO NOT REMOVE: Required for supabase-client.ts to access env vars during build/hydration
+  // See: apps/web/app/lib/auth/supabase-client.ts for full explanation
+  envPrefix: ["VITE_", "SUPABASE_", "API_"],
   test: {
     globals: true,
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     include: ["**/*.test.{ts,tsx}"],
   },
-});
-
+}));

@@ -1,4 +1,4 @@
-import { getBrowserClient } from './supabase-client';
+import { getBrowserClient } from "./supabase-client";
 
 // Session monitoring configuration
 const SESSION_CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds
@@ -35,15 +35,18 @@ class SessionMonitor {
     this.isRunning = true;
 
     // Start periodic checks
-    this.intervalId = setInterval(this.checkAndRefreshSession.bind(this), SESSION_CHECK_INTERVAL);
+    this.intervalId = setInterval(
+      this.checkAndRefreshSession.bind(this),
+      SESSION_CHECK_INTERVAL
+    );
 
     // Listen for tab focus to check session immediately
-    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
 
     // Listen for storage changes (session updates from other tabs)
-    window.addEventListener('storage', this.handleStorageChange);
+    window.addEventListener("storage", this.handleStorageChange);
 
-    console.log('Session monitor started');
+    console.log("Session monitor started");
   }
 
   /**
@@ -61,28 +64,49 @@ class SessionMonitor {
       this.intervalId = null;
     }
 
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    window.removeEventListener('storage', this.handleStorageChange);
+    document.removeEventListener(
+      "visibilitychange",
+      this.handleVisibilityChange
+    );
+    window.removeEventListener("storage", this.handleStorageChange);
 
-    console.log('Session monitor stopped');
+    console.log("Session monitor stopped");
   }
 
   /**
    * Check session and refresh if needed
+   * SECURITY: Uses getUser() to validate session authenticity with server
    */
   private async checkAndRefreshSession(): Promise<void> {
     try {
       const supabase = getBrowserClient();
-      const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error('Session check error:', error);
-        this.callbacks.onError?.(error);
+      // Use getUser() to validate session with Supabase Auth server
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("User validation error:", userError);
+        this.callbacks.onError?.(userError);
         return;
       }
 
-      if (!session) {
-        console.log('No active session found');
+      if (!user) {
+        console.log("No authenticated user found");
+        this.callbacks.onSessionExpired?.();
+        return;
+      }
+
+      // Get session data for expiry check
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.log("No active session found");
         this.callbacks.onSessionExpired?.();
         return;
       }
@@ -93,11 +117,11 @@ class SessionMonitor {
       const timeUntilExpiry = expiresAt - now;
 
       if (timeUntilExpiry <= REFRESH_THRESHOLD) {
-        console.log('Session expiring soon, refreshing...');
+        console.log("Session expiring soon, refreshing...");
         await this.refreshSession();
       }
     } catch (error) {
-      console.error('Session monitoring error:', error);
+      console.error("Session monitoring error:", error);
       this.callbacks.onError?.(error as Error);
     }
   }
@@ -108,14 +132,19 @@ class SessionMonitor {
   private async refreshSession(): Promise<void> {
     try {
       const supabase = getBrowserClient();
-      const { data: { session }, error } = await supabase.auth.refreshSession();
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.refreshSession();
 
       if (error) {
-        console.error('Session refresh error:', error);
-        
+        console.error("Session refresh error:", error);
+
         // If refresh fails, the session is likely invalid
-        if (error.message?.includes('Invalid Refresh Token') || 
-            error.message?.includes('refresh_token_not_found')) {
+        if (
+          error.message?.includes("Invalid Refresh Token") ||
+          error.message?.includes("refresh_token_not_found")
+        ) {
           this.callbacks.onSessionExpired?.();
         } else {
           this.callbacks.onError?.(error);
@@ -124,14 +153,14 @@ class SessionMonitor {
       }
 
       if (session) {
-        console.log('Session refreshed successfully');
+        console.log("Session refreshed successfully");
         this.callbacks.onSessionRefresh?.(session);
       } else {
-        console.log('No session returned from refresh');
+        console.log("No session returned from refresh");
         this.callbacks.onSessionExpired?.();
       }
     } catch (error) {
-      console.error('Session refresh error:', error);
+      console.error("Session refresh error:", error);
       this.callbacks.onError?.(error as Error);
     }
   }
@@ -140,7 +169,7 @@ class SessionMonitor {
    * Handle tab visibility change
    */
   private handleVisibilityChange(): void {
-    if (document.visibilityState === 'visible') {
+    if (document.visibilityState === "visible") {
       // Tab became visible, check session immediately
       this.checkAndRefreshSession();
     }
@@ -151,9 +180,11 @@ class SessionMonitor {
    */
   private handleStorageChange(event: StorageEvent): void {
     // Listen for Supabase session changes from other tabs
-    if (event.key?.includes('supabase.auth.token')) {
-      console.log('Session updated in another tab, checking current session...');
-      
+    if (event.key?.includes("supabase.auth.token")) {
+      console.log(
+        "Session updated in another tab, checking current session..."
+      );
+
       // Small delay to let Supabase process the change
       setTimeout(() => {
         this.checkAndRefreshSession();
@@ -187,29 +218,29 @@ export function setupSessionMonitoring(authCallbacks: {
   onSessionExpired?: () => void;
   onError?: (error: Error) => void;
 }) {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return; // Don't run on server
   }
 
   sessionMonitor.start({
     onSessionRefresh: (session) => {
-      console.log('Session refreshed by monitor');
+      console.log("Session refreshed by monitor");
       authCallbacks.onSessionRefresh?.(session);
     },
     onSessionExpired: () => {
-      console.log('Session expired, redirecting to login');
+      console.log("Session expired, redirecting to login");
       authCallbacks.onSessionExpired?.();
       // Redirect to login
-      window.location.href = '/login';
+      window.location.href = "/login";
     },
     onError: (error) => {
-      console.error('Session monitoring error:', error);
+      console.error("Session monitoring error:", error);
       authCallbacks.onError?.(error);
     },
   });
 
   // Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     sessionMonitor.stop();
   });
 }
@@ -221,7 +252,7 @@ export function getTimeUntilExpiry(session: any): number | null {
   if (!session?.expires_at) {
     return null;
   }
-  
+
   const expiresAt = session.expires_at * 1000;
   const now = Date.now();
   return Math.max(0, expiresAt - now);
@@ -230,7 +261,10 @@ export function getTimeUntilExpiry(session: any): number | null {
 /**
  * Utility to check if session is expiring soon
  */
-export function isSessionExpiringSoon(session: any, thresholdMs: number = REFRESH_THRESHOLD): boolean {
+export function isSessionExpiringSoon(
+  session: any,
+  thresholdMs: number = REFRESH_THRESHOLD
+): boolean {
   const timeUntilExpiry = getTimeUntilExpiry(session);
   return timeUntilExpiry !== null && timeUntilExpiry <= thresholdMs;
 }

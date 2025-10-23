@@ -91,12 +91,12 @@ export function LoginForm({
       if (result.success) {
         onSuccess?.();
 
+        // Small delay to ensure session is properly set
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         // Redirect to intended page or default
-        if (redirectTo) {
-          window.location.href = decodeURIComponent(redirectTo);
-        } else {
-          window.location.href = "/";
-        }
+        const targetUrl = redirectTo ? decodeURIComponent(redirectTo) : "/";
+        window.location.href = targetUrl;
       } else {
         setSubmitError(result.error || "Login failed. Please try again.");
       }

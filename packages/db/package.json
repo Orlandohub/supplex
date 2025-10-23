@@ -16,18 +16,22 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "bun run src/seed.ts"
+    "db:seed": "tsx src/seed.ts",
+    "create-auth-users": "tsx src/create-auth-users.ts"
   },
   "dependencies": {
     "@supplex/types": "workspace:*",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.10",
     "postgres": "^3.4.4"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "@supplex/config": "workspace:*",
     "@types/bun": "^1.1.0",
     "drizzle-kit": "^0.21.4",
     "eslint": "^8.57.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
 }

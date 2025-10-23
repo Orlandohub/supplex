@@ -1,14 +1,14 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers, users } from "@supplex/db";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { authenticate, requireRole } from "../../lib/rbac/middleware";
 import { UserRole, SupplierStatus } from "@supplex/types";
 
 /**
  * GET /api/suppliers/:id
  * Returns detailed supplier information by ID
- * 
+ *
  * Auth: Requires valid JWT (any authenticated user can view suppliers)
  * Tenant Scoping: Automatically filtered by user's tenant_id
  */
@@ -22,7 +22,8 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const tenantId = user.tenantId as string;
 
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
           set.status = 400;
           return {
@@ -63,7 +64,8 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             success: false,
             error: {
               code: "NOT_FOUND",
-              message: "Supplier not found or you don't have access to this supplier.",
+              message:
+                "Supplier not found or you don't have access to this supplier.",
               timestamp: new Date().toISOString(),
             },
           };
@@ -116,12 +118,12 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
     async ({ params, body, user, set }: any) => {
       try {
         const { id } = params;
-        const { status, note } = body;
+        const { status } = body;
         const tenantId = user.tenantId as string;
-        const userId = user.id as string;
 
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
           set.status = 400;
           return {
@@ -167,7 +169,8 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             success: false,
             error: {
               code: "NOT_FOUND",
-              message: "Supplier not found or you don't have access to this supplier.",
+              message:
+                "Supplier not found or you don't have access to this supplier.",
               timestamp: new Date().toISOString(),
             },
           };
@@ -216,7 +219,8 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
       }),
       detail: {
         summary: "Update supplier status",
-        description: "Updates the status of a supplier (Admin/Procurement Manager only)",
+        description:
+          "Updates the status of a supplier (Admin/Procurement Manager only)",
         tags: ["Suppliers"],
       },
     }
@@ -228,10 +232,10 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
-        const userId = user.id as string;
 
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
           set.status = 400;
           return {
@@ -263,7 +267,8 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             success: false,
             error: {
               code: "NOT_FOUND",
-              message: "Supplier not found or you don't have access to this supplier.",
+              message:
+                "Supplier not found or you don't have access to this supplier.",
               timestamp: new Date().toISOString(),
             },
           };
@@ -311,4 +316,3 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
       },
     }
   );
-

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { SupplierDetailTabs } from "../SupplierDetailTabs";
 import { SupplierStatus, SupplierCategory } from "@supplex/types";
@@ -11,14 +11,18 @@ vi.mock("@remix-run/react", async () => {
   const actual = await vi.importActual("@remix-run/react");
   const React = await import("react");
   const ReactRouterDOM = await import("react-router-dom");
+  const MockForm = React.forwardRef<HTMLFormElement, any>(
+    ({ children, ...props }, ref) =>
+      React.createElement("form", { ...props, ref }, children)
+  );
+  MockForm.displayName = "Form";
+
   return {
     ...actual,
     useSearchParams: () => [new URLSearchParams(), vi.fn()],
     useNavigation: () => ({ state: "idle" }),
     Link: ReactRouterDOM.Link,
-    Form: React.forwardRef<HTMLFormElement, any>(({ children, ...props }, ref) =>
-      React.createElement("form", { ...props, ref }, children)
-    ),
+    Form: MockForm,
   };
 });
 
@@ -51,7 +55,7 @@ const mockSupplier = {
 describe("SupplierDetailTabs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Default permissions
     vi.spyOn(usePermissionsModule, "usePermissions").mockReturnValue({
       canEditSupplier: true,
@@ -269,10 +273,11 @@ describe("SupplierDetailTabs", () => {
     );
 
     // Should display current status in the dropdown (button with combobox role)
-    const statusButton = screen.getByRole("combobox", { name: /change status/i });
+    const statusButton = screen.getByRole("combobox", {
+      name: /change status/i,
+    });
     expect(statusButton).toBeInTheDocument();
     // Verify "Approved" text is within the button
     expect(statusButton).toHaveTextContent("Approved");
   });
 });
-

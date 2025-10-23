@@ -18,10 +18,10 @@ export const auditLogRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .get(
     "/:id/audit",
-    async ({ params, query, user, set }) => {
+    async ({ params, query, user, set }: any) => {
       try {
         const { id: targetUserId } = params;
-        const tenantId = user.tenantId;
+        const tenantId = user.tenantId as string;
 
         const limit = Math.min(query.limit || 20, 100);
         const offset = query.offset || 0;

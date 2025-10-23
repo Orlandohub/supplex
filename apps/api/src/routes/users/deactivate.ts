@@ -23,12 +23,12 @@ export const deactivateUserRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .patch(
     "/:id/status",
-    async ({ params, body, user, set, headers }) => {
+    async ({ params, body, user, set, headers }: any) => {
       try {
         const { id: targetUserId } = params;
         const { isActive } = body;
-        const currentUserId = user.id;
-        const tenantId = user.tenantId;
+        const currentUserId = user.id as string;
+        const tenantId = user.tenantId as string;
         const auditContext = createAuditContext(
           headers as Record<string, string | undefined>
         );

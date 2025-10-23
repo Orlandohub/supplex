@@ -1,8 +1,11 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
-import { useAuth } from '~/hooks/useAuth';
-import { getBrowserClient } from '~/lib/auth/supabase-client';
-import { setupSessionMonitoring, sessionMonitor } from '~/lib/auth/session-monitor';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { useAuth } from "~/hooks/useAuth";
+import { getBrowserClient } from "~/lib/auth/supabase-client";
+import {
+  setupSessionMonitoring,
+  sessionMonitor,
+} from "~/lib/auth/session-monitor";
+import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: SupabaseUser | null;
@@ -21,22 +24,22 @@ interface AuthProviderProps {
   initialUserRecord?: any;
 }
 
-export function AuthProvider({ 
-  children, 
-  initialUser = null, 
+export function AuthProvider({
+  children,
+  initialUser = null,
   initialSession = null,
-  initialUserRecord = null 
+  initialUserRecord = null,
 }: AuthProviderProps) {
-  const { 
-    user, 
-    userRecord, 
-    session, 
-    isLoading, 
+  const {
+    user,
+    userRecord,
+    session,
+    isLoading,
     isAuthenticated,
     setAuth,
     setLoading,
     clearAuth,
-    refreshAuth 
+    refreshAuth,
   } = useAuth();
 
   useEffect(() => {
@@ -46,33 +49,42 @@ export function AuthProvider({
     }
 
     // Only set up client-side auth listener in the browser
-    if (typeof window !== 'undefined') {
-      setLoading(true);
-      
+    if (typeof window !== "undefined") {
       const supabase = getBrowserClient();
 
-      // Get initial session
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // Get initial session - SECURITY: Use getUser() to validate with server
+      supabase.auth.getUser().then(async ({ data: { user }, error }) => {
         if (error) {
-          console.error('Error getting session:', error);
+          // Only log non-session-missing errors (session missing is expected when not logged in)
+          if (error.message !== "Auth session missing!") {
+            console.error("Error validating user:", error);
+          }
+          setLoading(false);
           clearAuth();
           return;
         }
 
-        if (session) {
+        if (user) {
+          // Get session data after user validation
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
           // Fetch user record from database
           supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
+            .from("users")
+            .select("*")
+            .eq("id", user.id)
             .single()
             .then(({ data: userRecord, error: userError }) => {
               if (userError) {
-                console.error('Error fetching user record:', userError);
+                console.error("Error fetching user record:", userError);
               }
-              setAuth(session.user, session, userRecord);
+              setAuth(user, session, userRecord);
+              setLoading(false);
             });
         } else {
+          setLoading(false);
           clearAuth();
         }
       });
@@ -81,27 +93,27 @@ export function AuthProvider({
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_IN' && session) {
+        console.log("Auth state changed:", event, session?.user?.email);
+
+        if (event === "SIGNED_IN" && session) {
           // Fetch user record when signing in
           const { data: userRecord, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
+            .from("users")
+            .select("*")
+            .eq("id", session.user.id)
             .single();
 
           if (userError) {
-            console.error('Error fetching user record:', userError);
+            console.error("Error fetching user record:", userError);
           }
 
           setAuth(session.user, session, userRecord);
-        } else if (event === 'SIGNED_OUT') {
+        } else if (event === "SIGNED_OUT") {
           clearAuth();
-        } else if (event === 'TOKEN_REFRESHED' && session) {
+        } else if (event === "TOKEN_REFRESHED" && session) {
           // Update session on token refresh
           setAuth(session.user, session, userRecord);
-        } else if (event === 'USER_UPDATED' && session) {
+        } else if (event === "USER_UPDATED" && session) {
           // Refresh user data when profile is updated
           await refreshAuth();
         }
@@ -118,7 +130,7 @@ export function AuthProvider({
           clearAuth();
         },
         onError: (error) => {
-          console.error('Session monitoring error:', error);
+          console.error("Session monitoring error:", error);
         },
       });
 
@@ -128,7 +140,8 @@ export function AuthProvider({
         sessionMonitor.stop();
       };
     }
-  }, [initialUser, initialSession, initialUserRecord]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Provide auth context value
   const contextValue: AuthContextType = {
@@ -140,9 +153,7 @@ export function AuthProvider({
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
 
@@ -153,11 +164,11 @@ export function AuthProvider({
  */
 export function useAuthContext(): AuthContextType {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
+    throw new Error("useAuthContext must be used within an AuthProvider");
   }
-  
+
   return context;
 }
 
@@ -169,7 +180,7 @@ export function withAuth<P extends object>(
 ) {
   return function AuthenticatedComponent(props: P) {
     const { isAuthenticated, isLoading } = useAuthContext();
-    
+
     if (isLoading) {
       return (
         <div className="min-h-screen flex items-center justify-center">
@@ -177,14 +188,14 @@ export function withAuth<P extends object>(
         </div>
       );
     }
-    
+
     if (!isAuthenticated) {
       // This should not happen as routes should be protected server-side
       // but it's a good fallback
-      window.location.href = '/login';
+      window.location.href = "/login";
       return null;
     }
-    
+
     return <WrappedComponent {...props} />;
   };
 }

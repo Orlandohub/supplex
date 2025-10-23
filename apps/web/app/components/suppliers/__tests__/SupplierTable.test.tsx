@@ -1,11 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BrowserRouter } from "@remix-run/react";
+import { MemoryRouter } from "react-router-dom";
 import { SupplierTable } from "../SupplierTable";
 import { SupplierStatus, SupplierCategory } from "@supplex/types";
-import type { Supplier } from "@supplex/types";
+import type { SerializedSupplier } from "@supplex/types";
 
-const mockSuppliers: Supplier[] = [
+// Mock useNavigate
+vi.mock("@remix-run/react", async () => {
+  const actual = await vi.importActual("@remix-run/react");
+  const ReactRouterDOM = await import("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+    Link: ReactRouterDOM.Link,
+  };
+});
+
+const mockSuppliers: SerializedSupplier[] = [
   {
     id: "supplier-1",
     tenantId: "tenant-123",
@@ -28,8 +39,8 @@ const mockSuppliers: Supplier[] = [
     metadata: {},
     riskScore: 2.5,
     createdBy: "user-123",
-    createdAt: new Date("2024-01-01"),
-    updatedAt: new Date("2024-01-15"),
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-15T00:00:00.000Z",
     deletedAt: null,
   },
   {
@@ -54,8 +65,8 @@ const mockSuppliers: Supplier[] = [
     metadata: {},
     riskScore: 5.0,
     createdBy: "user-123",
-    createdAt: new Date("2024-01-02"),
-    updatedAt: new Date("2024-01-16"),
+    createdAt: "2024-01-02T00:00:00.000Z",
+    updatedAt: "2024-01-16T00:00:00.000Z",
     deletedAt: null,
   },
 ];
@@ -63,11 +74,11 @@ const mockSuppliers: Supplier[] = [
 describe("SupplierTable", () => {
   it("renders table with correct columns", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     expect(screen.getByText(/supplier name/i)).toBeInTheDocument();
     expect(screen.getByText(/status/i)).toBeInTheDocument();
     expect(screen.getByText(/category/i)).toBeInTheDocument();
@@ -78,29 +89,29 @@ describe("SupplierTable", () => {
 
   it("renders all supplier rows", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
     expect(screen.getByText("Beta Supplies")).toBeInTheDocument();
   });
 
   it("displays supplier information correctly", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     // Check name and tax ID
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
     expect(screen.getByText("TAX-001")).toBeInTheDocument();
-    
+
     // Check location
     expect(screen.getByText("New York, USA")).toBeInTheDocument();
-    
+
     // Check contact
     expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("john@acme.com")).toBeInTheDocument();
@@ -108,57 +119,60 @@ describe("SupplierTable", () => {
 
   it("displays status badges", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     expect(screen.getByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("Conditional")).toBeInTheDocument();
   });
 
   it("displays category labels correctly", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     expect(screen.getByText("Raw Materials")).toBeInTheDocument();
     expect(screen.getByText("Components")).toBeInTheDocument();
   });
 
   it("shows sort icons on sortable columns", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} currentSort="name_asc" />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     // Check that column headers are links for sorting
     const nameHeader = screen.getByText(/supplier name/i).closest("a");
     expect(nameHeader).toBeInTheDocument();
-    expect(nameHeader).toHaveAttribute("href", expect.stringContaining("sort="));
+    expect(nameHeader).toHaveAttribute(
+      "href",
+      expect.stringContaining("sort=")
+    );
   });
 
   it("makes table rows clickable", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const rows = screen.getAllByRole("button");
     expect(rows.length).toBeGreaterThan(0);
   });
 
   it("has keyboard navigation support", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     const rows = screen.getAllByRole("button");
     rows.forEach((row) => {
       expect(row).toHaveAttribute("tabIndex", "0");
@@ -167,24 +181,23 @@ describe("SupplierTable", () => {
 
   it("renders empty table when no suppliers", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={[]} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     // Table should still render with headers
     expect(screen.getByText(/supplier name/i)).toBeInTheDocument();
   });
 
   it("formats dates correctly", () => {
     render(
-      <BrowserRouter>
+      <MemoryRouter>
         <SupplierTable suppliers={mockSuppliers} />
-      </BrowserRouter>
+      </MemoryRouter>
     );
-    
+
     // Dates should be formatted as "Jan 15, 2024" style
     expect(screen.getByText(/Jan 15, 2024/i)).toBeInTheDocument();
   });
 });
-

@@ -119,3 +119,31 @@ export const UpdateSupplierSchema = InsertSupplierSchema.partial().omit({
 export type InsertSupplier = z.infer<typeof InsertSupplierSchema>;
 export type UpdateSupplier = z.infer<typeof UpdateSupplierSchema>;
 
+// Serialized type for frontend (Remix loaders serialize Dates to strings)
+export interface SerializedSupplierCertification {
+  type: string;
+  issueDate: string;
+  expiryDate: string;
+  documentId?: string;
+}
+
+export interface SerializedSupplier {
+  id: string;
+  tenantId: string;
+  name: string;
+  taxId: string;
+  category: SupplierCategory;
+  status: SupplierStatus;
+  performanceScore: number | null;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: SupplierAddress;
+  certifications: SerializedSupplierCertification[];
+  metadata: Record<string, any>;
+  riskScore: number | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}

@@ -50,15 +50,15 @@ export function RoleGuard({
   children,
   fallback = null,
 }: RoleGuardProps) {
-  const { user } = useAuth();
+  const { userRecord } = useAuth();
 
   // No user logged in
-  if (!user) {
+  if (!userRecord) {
     return <>{fallback}</>;
   }
 
   // User doesn't have required role
-  if (!allowedRoles.includes(user.role)) {
+  if (!allowedRoles.includes(userRecord.role)) {
     return <>{fallback}</>;
   }
 

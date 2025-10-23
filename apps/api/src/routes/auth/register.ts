@@ -5,7 +5,12 @@ import { tenants, users } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { authRateLimit } from "../../lib/rate-limiter";
 import type { InsertUser, InsertTenant } from "@supplex/types";
-import { UserRole, createUserMetadata } from "@supplex/types";
+import {
+  UserRole,
+  TenantStatus,
+  TenantPlan,
+  createUserMetadata,
+} from "@supplex/types";
 
 // Validation schemas
 const registerSchema = t.Object({
@@ -73,7 +78,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
           await supabaseAdmin.auth.admin.createUser({
             email,
             password,
-            email_confirm: false, // Skip email confirmation for MVP
+            email_confirm: true, // Auto-confirm email for MVP (enables immediate sign-in)
             user_metadata: {
               full_name: fullName,
               tenant_name: tenantName,
@@ -99,7 +104,9 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
             name: tenantName,
             slug: uniqueSlug,
             settings: {},
-            isActive: true,
+            status: TenantStatus.ACTIVE,
+            plan: TenantPlan.STARTER,
+            subscriptionEndsAt: null,
           };
 
           const [tenant] = await db
