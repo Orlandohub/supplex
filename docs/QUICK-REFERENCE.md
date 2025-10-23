@@ -44,14 +44,41 @@ const data = result[0].joined?.name || "Unknown";
 
 ### 🌐 Environment Variables (Frontend)
 ```typescript
-// ✅ DO THIS - Isomorphic code
+// ✅ DO THIS - Use centralized config
+import { config } from "~/lib/config";
+const apiUrl = config.apiUrl;
+
+// ✅ OR - Full 3-source pattern
 const isBrowser = typeof window !== "undefined";
 const apiUrl = isBrowser 
   ? window.ENV?.API_URL 
-  : process.env.API_URL;
+  : import.meta.env.API_URL || process.env.API_URL;
 
-// ❌ NEVER use process.env in frontend
+// ❌ NEVER use process.env directly in frontend
 const apiUrl = process.env.API_URL; // Crashes in browser!
+
+// ❌ NEVER use wrong variable names
+const apiUrl = import.meta.env.VITE_API_URL; // Undefined!
+```
+
+### 🎯 ElysiaJS Validation Schemas
+```typescript
+// ✅ DO THIS - TypeBox only
+import { UserRole } from "@supplex/types";  // Type only
+
+body: t.Object({
+  field: t.String(),
+  enum: t.Union([
+    t.Literal("value1"),
+    t.Literal("value2"),
+  ]),
+})
+
+// ❌ NEVER mix Zod with TypeBox
+import { DocumentTypeSchema } from "@supplex/types";  // Zod schema
+body: t.Object({
+  documentType: DocumentTypeSchema,  // Crashes!
+})
 ```
 
 ---
@@ -60,11 +87,12 @@ const apiUrl = process.env.API_URL; // Crashes in browser!
 
 ### Before Pushing Code
 - [ ] All schema field names verified against `packages/db/schema/`
-- [ ] No `process.env` usage in frontend code
+- [ ] No `process.env` usage in frontend code - use `config.apiUrl`
 - [ ] Auth middleware used directly, not nested
 - [ ] Role checks include null safety: `user?.role`
 - [ ] Joined data has null checks: `joined?.field`
 - [ ] Client-side navigation tested (not just initial loads)
+- [ ] ElysiaJS routes use TypeBox only (no Zod schemas)
 - [ ] TypeScript builds without errors: `pnpm build`
 - [ ] Tests pass: `pnpm test`
 
@@ -75,9 +103,11 @@ const apiUrl = process.env.API_URL; // Crashes in browser!
 | Error Message | Fix |
 |---------------|-----|
 | `user.role is undefined` | Use `authenticate` directly, move role check to handler |
-| `process is not defined` | Add `typeof window !== "undefined"` check |
+| `process is not defined` | Use `config.apiUrl` or add `typeof window !== "undefined"` check |
 | `Object.entries requires...` | Check if schema field actually exists |
 | `Cannot create route... parameter` | Use consistent param names (`:id` not `:supplierId`) |
+| `POST to /suppliers/undefined/api/...` | Use `config.apiUrl` not `import.meta.env.VITE_API_URL` |
+| `Preflight validation check failed` | ElysiaJS routes must use TypeBox (`t.*`), not Zod (`z.*`) |
 
 ---
 

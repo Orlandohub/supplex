@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole, DocumentTypeSchema } from "@supplex/types";
+import { UserRole } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { randomUUID } from "crypto";
 
@@ -196,7 +196,13 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
           type: ALLOWED_MIME_TYPES,
           maxSize: MAX_FILE_SIZE,
         }),
-        documentType: DocumentTypeSchema,
+        documentType: t.Union([
+          t.Literal("certificate"),
+          t.Literal("contract"),
+          t.Literal("insurance"),
+          t.Literal("audit_report"),
+          t.Literal("other"),
+        ]),
         description: t.Optional(t.String()),
         expiryDate: t.Optional(t.String({ format: "date" })),
       }),

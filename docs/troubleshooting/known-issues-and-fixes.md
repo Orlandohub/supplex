@@ -285,5 +285,169 @@ const config = isBrowser ? window.ENV?.CONFIG : process.env.CONFIG;
 
 ---
 
+## Issue 4: Missing import.meta.env in Config + Wrong API URL Variable
+
+**Date**: October 23, 2025  
+**Affected Files**: `apps/web/app/lib/config.ts`, `apps/web/app/components/suppliers/DocumentUploadModal.tsx`
+
+### Problem
+Document upload failed with error:
+```
+POST request to "/suppliers/undefined/api/suppliers/{id}/documents"
+```
+
+The URL was malformed with "undefined" in the path, causing Remix to treat it as a relative URL.
+
+### Root Cause
+Two related issues:
+
+1. **Wrong environment variable name in DocumentUploadModal**:
+   ```typescript
+   `${import.meta.env.VITE_API_URL}/api/suppliers/...`  // ❌ VITE_API_URL doesn't exist
+   ```
+   - Should be `import.meta.env.API_URL` (exposed by `vite.config.ts` envPrefix: `['API_']`)
+   - `VITE_API_URL` is undefined, causing malformed URL
+
+2. **Incomplete config.ts implementation**:
+   ```typescript
+   // ❌ Missing import.meta.env source
+   const apiUrl = isBrowser
+     ? window.ENV?.API_URL
+     : process.env.API_URL;
+   ```
+   - According to `ENV-CONFIG.md`, should have 3 sources: `window.ENV`, `import.meta.env`, `process.env`
+   - Missing `import.meta.env` breaks build-time configuration
+
+### Solution
+**1. Fix config.ts to include all 3 sources (matches supabase-client.ts pattern):**
+
+```typescript
+function getConfig(): AppConfig {
+  const isBrowser = typeof window !== "undefined";
+
+  // Multi-source environment variable loading (matches supabase-client.ts pattern)
+  // 1. Browser: window.ENV (from server via root.tsx)
+  // 2. Server/Build: import.meta.env (Vite) or process.env (Node.js)
+  const apiUrl = isBrowser
+    ? window.ENV?.API_URL || "http://localhost:3001"
+    : import.meta.env.API_URL || process.env.API_URL || "http://localhost:3001";  // ✅ Added import.meta.env
+
+  return { apiUrl, /* ... */ };
+}
+```
+
+**2. Fix DocumentUploadModal to use centralized config:**
+
+```typescript
+import { config } from "~/lib/config";
+
+// Then use:
+const response = await fetch(
+  `${config.apiUrl}/api/suppliers/${supplierId}/documents`,  // ✅ Uses centralized config
+  // ...
+);
+```
+
+### Prevention Guidelines
+1. **Always use centralized `config.apiUrl`** - never access env vars directly in components
+2. **Follow the 3-source pattern** documented in `supabase-client.ts`:
+   - Browser: `window.ENV`
+   - Build-time: `import.meta.env`
+   - Server: `process.env`
+3. **Check `vite.config.ts` envPrefix** - only variables with these prefixes are exposed to `import.meta.env`
+4. **Never use `VITE_*` prefixed vars** unless explicitly added to envPrefix
+5. **Reference `ENV-CONFIG.md`** when working with environment variables
+
+---
+
+## Issue 5: Mixing Zod and TypeBox Schemas in ElysiaJS
+
+**Date**: October 23, 2025  
+**Affected Files**: `apps/api/src/routes/documents/upload.ts`
+
+### Problem
+Document upload failed during OPTIONS preflight with error:
+```
+error: Preflight validation check failed to guard for the given schema
+```
+
+ElysiaJS couldn't compile the route schema, causing the API endpoint to crash.
+
+### Root Cause
+Mixed Zod schema with TypeBox schemas in ElysiaJS route body validation:
+
+```typescript
+import { DocumentTypeSchema } from "@supplex/types";  // ❌ Zod schema
+
+body: t.Object({
+  file: t.File({ /* ... */ }),              // ✅ TypeBox
+  documentType: DocumentTypeSchema,         // ❌ Zod schema - doesn't work!
+  description: t.Optional(t.String()),      // ✅ TypeBox
+})
+```
+
+**ElysiaJS uses TypeBox (`t.*`) for validation, not Zod (`z.*`).**
+
+When ElysiaJS tried to compile the schema, it failed because `DocumentTypeSchema` is a Zod schema (`z.nativeEnum(DocumentType)`), which TypeBox cannot process.
+
+### Solution
+**Replace Zod schema with TypeBox union of literals:**
+
+```typescript
+// ❌ WRONG - Remove Zod import
+// import { UserRole, DocumentTypeSchema } from "@supplex/types";
+
+// ✅ CORRECT - Only import types, not Zod schemas
+import { UserRole } from "@supplex/types";
+
+body: t.Object({
+  file: t.File({
+    type: ALLOWED_MIME_TYPES,
+    maxSize: MAX_FILE_SIZE,
+  }),
+  // ✅ Use TypeBox union instead of Zod enum
+  documentType: t.Union([
+    t.Literal("certificate"),
+    t.Literal("contract"),
+    t.Literal("insurance"),
+    t.Literal("audit_report"),
+    t.Literal("other"),
+  ]),
+  description: t.Optional(t.String()),
+  expiryDate: t.Optional(t.String({ format: "date" })),
+})
+```
+
+### Prevention Guidelines
+1. **Never mix Zod and TypeBox** - ElysiaJS routes must use TypeBox (`t.*`) exclusively
+2. **@supplex/types can export Zod schemas** for frontend validation, but API routes must use TypeBox
+3. **For enums in ElysiaJS routes**, use `t.Union([t.Literal(...), ...])` not Zod's `z.nativeEnum()`
+4. **Check imports** - if you see `z.*` in an ElysiaJS route file, it's wrong
+5. **Runtime validation** - ElysiaJS compiles schemas at startup; errors appear during server startup, not at request time
+
+### Correct Pattern for Enums in ElysiaJS
+
+```typescript
+// ✅ TypeBox union of literals
+documentType: t.Union([
+  t.Literal("value1"),
+  t.Literal("value2"),
+  t.Literal("value3"),
+])
+
+// Or with TypeBox enum (if you want to define it separately)
+const DocumentTypeEnum = t.Union([
+  t.Literal("certificate"),
+  t.Literal("contract"),
+  // ...
+]);
+
+body: t.Object({
+  documentType: DocumentTypeEnum,
+})
+```
+
+---
+
 **Last Updated**: October 23, 2025
 
