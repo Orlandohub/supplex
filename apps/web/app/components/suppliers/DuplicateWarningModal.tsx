@@ -14,10 +14,30 @@ interface Duplicate {
   name: string;
 }
 
+interface FormData {
+  name: string;
+  taxId: string;
+  category: string;
+  status: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone?: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  website?: string;
+  notes?: string;
+}
+
 interface DuplicateWarningModalProps {
   isOpen: boolean;
   onClose: () => void;
   duplicates: Duplicate[];
+  formData: FormData;
   onSaveAnyway: () => void;
 }
 
@@ -35,6 +55,7 @@ export function DuplicateWarningModal({
   isOpen,
   onClose,
   duplicates,
+  formData,
   onSaveAnyway,
 }: DuplicateWarningModalProps) {
   return (
@@ -77,7 +98,60 @@ export function DuplicateWarningModal({
             Cancel
           </Button>
           <Form method="post">
+            {/* Hidden inputs to preserve all form data */}
             <input type="hidden" name="forceSave" value="true" />
+            <input type="hidden" name="name" value={formData.name} />
+            <input type="hidden" name="taxId" value={formData.taxId} />
+            <input type="hidden" name="category" value={formData.category} />
+            <input type="hidden" name="status" value={formData.status} />
+            <input
+              type="hidden"
+              name="contactName"
+              value={formData.contactName}
+            />
+            <input
+              type="hidden"
+              name="contactEmail"
+              value={formData.contactEmail}
+            />
+            {formData.contactPhone && (
+              <input
+                type="hidden"
+                name="contactPhone"
+                value={formData.contactPhone}
+              />
+            )}
+            <input
+              type="hidden"
+              name="address.street"
+              value={formData.address.street}
+            />
+            <input
+              type="hidden"
+              name="address.city"
+              value={formData.address.city}
+            />
+            <input
+              type="hidden"
+              name="address.state"
+              value={formData.address.state}
+            />
+            <input
+              type="hidden"
+              name="address.postalCode"
+              value={formData.address.postalCode}
+            />
+            <input
+              type="hidden"
+              name="address.country"
+              value={formData.address.country}
+            />
+            {formData.website && (
+              <input type="hidden" name="website" value={formData.website} />
+            )}
+            {formData.notes && (
+              <input type="hidden" name="notes" value={formData.notes} />
+            )}
             <Button type="submit" onClick={onSaveAnyway}>
               Save Anyway
             </Button>

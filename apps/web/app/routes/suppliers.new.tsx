@@ -83,7 +83,9 @@ export async function action(args: ActionFunctionArgs) {
 
     // Handle duplicate detection (409 Conflict)
     if (response.error && response.status === 409) {
-      const errorData = response.error.value as any;
+      const errorData = response.error.value as {
+        error?: { duplicates?: unknown[] };
+      };
       return json(
         {
           error: "duplicate",
@@ -96,7 +98,9 @@ export async function action(args: ActionFunctionArgs) {
 
     // Handle validation errors (400 Bad Request)
     if (response.error && response.status === 400) {
-      const errorData = response.error.value as any;
+      const errorData = response.error.value as {
+        error?: { errors?: unknown[] };
+      };
       return json(
         {
           error: "validation",
@@ -211,6 +215,7 @@ export default function CreateSupplier() {
           isOpen={showDuplicateModal}
           onClose={() => setShowDuplicateModal(false)}
           duplicates={actionData.duplicates || []}
+          formData={actionData.formData}
           onSaveAnyway={() => {
             // The form will be resubmitted with forceSave=true
             setShowDuplicateModal(false);

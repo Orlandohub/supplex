@@ -47,7 +47,7 @@ export interface Supplier {
   contactPhone: string;
   address: SupplierAddress;
   certifications: SupplierCertification[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   riskScore: number | null; // 1-10 scale
   createdBy: string; // User ID
   createdAt: Date;
@@ -88,7 +88,7 @@ export const SupplierSchema = z.object({
   contactPhone: z.string().max(50),
   address: SupplierAddressSchema,
   certifications: z.array(SupplierCertificationSchema),
-  metadata: z.record(z.any()),
+  metadata: z.record(z.unknown()),
   riskScore: z.number().min(1).max(10).nullable(),
   createdBy: z.string().uuid(),
   createdAt: z.date(),
@@ -99,21 +99,22 @@ export const SupplierSchema = z.object({
 // Insert/Update Schemas (without auto-generated fields)
 export const InsertSupplierSchema = SupplierSchema.omit({
   id: true,
+  tenantId: true,
+  createdBy: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
 }).extend({
   status: SupplierStatusSchema.default(SupplierStatus.PROSPECT),
   performanceScore: z.number().min(1).max(5).nullable().optional(),
+  contactPhone: z.string().max(50).optional(),
+  website: z.string().url("Invalid URL format").optional().or(z.literal("")),
   certifications: z.array(SupplierCertificationSchema).default([]),
   metadata: z.record(z.any()).default({}),
   riskScore: z.number().min(1).max(10).nullable().optional(),
 });
 
-export const UpdateSupplierSchema = InsertSupplierSchema.partial().omit({
-  tenantId: true,
-  createdBy: true,
-});
+export const UpdateSupplierSchema = InsertSupplierSchema.partial();
 
 // Type inference from Zod schemas
 export type InsertSupplier = z.infer<typeof InsertSupplierSchema>;
@@ -140,7 +141,7 @@ export interface SerializedSupplier {
   contactPhone: string;
   address: SupplierAddress;
   certifications: SerializedSupplierCertification[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   riskScore: number | null;
   createdBy: string;
   createdAt: string;

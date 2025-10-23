@@ -16,10 +16,21 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
   .put(
     "/:id",
-    async ({ params, body, user, set }: any) => {
+    async ({
+      params,
+      body,
+      user,
+      set,
+    }: {
+      params: { id: string };
+      body: Record<string, unknown>;
+      user: { tenantId: string; id: string };
+      set: { status: number };
+    }) => {
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
+        const userId = user.id as string;
 
         // Validate UUID format
         const uuidRegex =
@@ -89,6 +100,7 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           .set({
             ...updateData,
             updatedAt: new Date(),
+            updatedBy: userId,
           })
           .where(eq(suppliers.id, id))
           .returning();
@@ -103,13 +115,14 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
             supplier: updatedSupplier[0],
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error updating supplier:", error);
 
         // Handle unique constraint violation (duplicate tax_id)
+        const dbError = error as { code?: string; constraint?: string };
         if (
-          error.code === "23505" &&
-          error.constraint === "suppliers_tenant_tax_id_unique"
+          dbError.code === "23505" &&
+          dbError.constraint === "suppliers_tenant_tax_id_unique"
         ) {
           set.status = 409;
           return {
