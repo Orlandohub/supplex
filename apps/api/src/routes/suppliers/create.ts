@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers } from "@supplex/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { requireRole } from "../../lib/rbac/middleware";
+import { authenticate } from "../../lib/rbac/middleware";
 import { UserRole, InsertSupplierSchema } from "@supplex/types";
 
 /**
@@ -13,10 +13,26 @@ import { UserRole, InsertSupplierSchema } from "@supplex/types";
  * Tenant Scoping: Automatically sets tenant_id from authenticated user's JWT
  */
 export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
-  .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
+  .use(authenticate)
   .post(
     "/",
     async ({ body, user, set }: any) => {
+      // Check role permission
+      if (
+        !user?.role ||
+        ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
+      ) {
+        set.status = 403;
+        return {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message:
+              "Access denied. Required role: Admin or Procurement Manager",
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
       try {
         const tenantId = user.tenantId as string;
         const userId = user.id as string;

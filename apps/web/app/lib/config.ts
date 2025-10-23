@@ -13,8 +13,18 @@ interface AppConfig {
 }
 
 function getConfig(): AppConfig {
-  const apiUrl = process.env.API_URL || "http://localhost:3001";
-  const nodeEnv = process.env.NODE_ENV || "development";
+  // Check if we're in a browser environment
+  const isBrowser = typeof window !== "undefined";
+
+  // In browser, use window.ENV or fallback to defaults
+  // In server, use process.env
+  const apiUrl = isBrowser
+    ? window.ENV?.API_URL || "http://localhost:3001"
+    : process.env.API_URL || "http://localhost:3001";
+
+  const nodeEnv = isBrowser
+    ? window.ENV?.NODE_ENV || "development"
+    : process.env.NODE_ENV || "development";
 
   return {
     apiUrl,

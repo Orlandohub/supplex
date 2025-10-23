@@ -43,8 +43,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             createdByUser: {
               id: users.id,
               email: users.email,
-              firstName: users.firstName,
-              lastName: users.lastName,
+              fullName: users.fullName,
             },
           })
           .from(suppliers)
@@ -76,9 +75,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         // Enrich supplier with user information
         const enrichedSupplier = {
           ...supplier,
-          createdByName: createdByUser
-            ? `${createdByUser.firstName} ${createdByUser.lastName}`.trim()
-            : "Unknown",
+          createdByName: createdByUser?.fullName || "Unknown",
           createdByEmail: createdByUser?.email || null,
         };
 

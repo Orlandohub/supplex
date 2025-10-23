@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers } from "@supplex/db";
 import { and, eq, isNull } from "drizzle-orm";
-import { requireRole } from "../../lib/rbac/middleware";
+import { authenticate } from "../../lib/rbac/middleware";
 import { UserRole, UpdateSupplierSchema } from "@supplex/types";
 
 /**
@@ -13,7 +13,7 @@ import { UserRole, UpdateSupplierSchema } from "@supplex/types";
  * Tenant Scoping: Updates only if supplier belongs to user's tenant
  */
 export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
-  .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
+  .use(authenticate)
   .put(
     "/:id",
     async ({
@@ -24,9 +24,27 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
     }: {
       params: { id: string };
       body: Record<string, unknown>;
-      user: { tenantId: string; id: string };
+      user: { tenantId: string; id: string; role: string };
       set: { status: number };
     }) => {
+      // Check role permission
+      if (
+        !user?.role ||
+        ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
+          user.role as UserRole
+        )
+      ) {
+        set.status = 403;
+        return {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message:
+              "Access denied. Required role: Admin or Procurement Manager",
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
