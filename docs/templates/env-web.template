@@ -1,0 +1,16 @@
+# Supplex Web Application - Environment Variables
+# Copy this file to apps/web/.env and fill in your actual values
+
+# Supabase Configuration
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+
+# API Configuration
+API_URL=http://localhost:3001
+
+# Monitoring & Error Tracking (Optional)
+SENTRY_DSN=
+
+# Environment Configuration
+NODE_ENV=development
+

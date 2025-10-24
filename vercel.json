@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm --filter @supplex/web build",
+  "devCommand": "pnpm --filter @supplex/web dev",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "framework": "remix",
+  "outputDirectory": "apps/web/build/client",
+  "regions": ["fra1"],
+  "env": {
+    "SUPABASE_URL": "@supabase-url",
+    "SUPABASE_ANON_KEY": "@supabase-anon-key",
+    "API_URL": "@api-url"
+  },
+  "build": {
+    "env": {
+      "SUPABASE_URL": "@supabase-url",
+      "SUPABASE_ANON_KEY": "@supabase-anon-key",
+      "API_URL": "@api-url"
+    }
+  }
+}

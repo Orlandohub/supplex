@@ -1,0 +1,71 @@
+# Codecov Configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+# Coverage configuration
+coverage:
+  precision: 2
+  round: down
+  range: 60...100
+
+  # Status checks for PR blocking
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: false
+      frontend:
+        target: 60%
+        threshold: 1%
+        flags:
+          - frontend
+        informational: false
+      backend:
+        target: 70%
+        threshold: 1%
+        flags:
+          - backend
+        informational: false
+
+    patch:
+      default:
+        target: 60%
+        threshold: 5%
+        informational: true
+
+  # PR comment configuration
+comment:
+    layout: "reach,diff,flags,tree,files"
+    behavior: default
+    require_changes: false
+    require_base: false
+    require_head: true
+
+# Flags for separating frontend/backend coverage
+flags:
+  frontend:
+    paths:
+      - apps/web/
+    carryforward: true
+  backend:
+    paths:
+      - apps/api/
+    carryforward: true
+
+# Ignore patterns
+ignore:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/__tests__/**"
+  - "**/test-*.ts"
+  - "**/test-*.tsx"
+  - "**/*.config.ts"
+  - "**/*.config.js"
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/coverage/**"
+  - "**/*.d.ts"
+  - "docs/**"
+  - "tests/e2e/**"
+

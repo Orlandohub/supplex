@@ -1,0 +1,73 @@
+# Fly.io Configuration for Supplex API
+# See: https://fly.io/docs/reference/configuration/
+
+app = "supplex-api"
+primary_region = "fra"  # Frankfurt for EU compliance
+
+# Build configuration
+[build]
+  # Use Bun buildpack for optimal performance
+  builder = "paketobuildpacks/builder:base"
+  buildpacks = ["oven-sh/bun"]
+
+# Deployment configuration
+[deploy]
+  # Run database migrations before deployment
+  release_command = "bun run db:migrate"
+  # Immediate deployment strategy (rolling deployment)
+  strategy = "immediate"
+
+# Environment variables
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+# HTTP service configuration
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # HTTP port
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+    force_https = true
+
+  # HTTPS port
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  # Health checks
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/health"
+    protocol = "http"
+    restart_limit = 0
+
+    [services.http_checks.headers]
+      User-Agent = "Fly-Health-Check"
+
+  # TCP checks (fallback)
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "5s"
+    restart_limit = 0
+
+# VM resources
+[vm]
+  memory = "512mb"
+  cpus = 1
+
+# Metrics configuration
+[metrics]
+  port = 9091
+  path = "/metrics"
+

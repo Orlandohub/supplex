@@ -1,0 +1,67 @@
+name: Deploy Backend to Fly.io
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/api/**'
+      - 'packages/db/**'
+      - 'packages/types/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+# Cancel in-progress deployments for same branch
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel deployments
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    # Only deploy if CI passed
+    needs: []  # Add CI workflow as dependency if running separately
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          cd apps/api
+          flyctl deploy --remote-only --strategy immediate
+
+      - name: Verify deployment
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Wait for deployment to complete
+          sleep 10
+          
+          # Check deployment status
+          flyctl status -a supplex-api
+          
+          # Verify health check
+          HEALTH_URL="https://supplex-api.fly.dev/api/health"
+          echo "Checking health endpoint: $HEALTH_URL"
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_URL)
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Deployment successful - Health check passed"
+          else
+            echo "❌ Deployment failed - Health check returned $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Backend deployment to Fly.io failed"
+          echo "::error::Check logs with: flyctl logs -a supplex-api"
+

@@ -2,6 +2,17 @@
 
 A modern, cloud-native supplier management platform built for pharmaceutical and medical device companies to streamline supplier lifecycle management, qualification workflows, and compliance tracking.
 
+## 📊 Status
+
+[![CI](https://github.com/supplex/supplex/actions/workflows/ci.yml/badge.svg)](https://github.com/supplex/supplex/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/supplex/supplex/branch/main/graph/badge.svg)](https://codecov.io/gh/supplex/supplex)
+[![Deployment](https://img.shields.io/badge/deployment-active-success)](https://github.com/supplex/supplex/deployments)
+
+**Deployments:**
+- 🌐 Frontend: [supplex.vercel.app](https://supplex.vercel.app) 
+- 🔌 Backend API: [supplex-api.fly.dev](https://supplex-api.fly.dev)
+- 🏥 Health Check: [supplex-api.fly.dev/api/health](https://supplex-api.fly.dev/api/health)
+
 ## 🚀 Quick Start
 
 ```bash
