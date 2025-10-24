@@ -62,9 +62,8 @@ async function seed() {
 
   // Dynamically import db AFTER env vars are loaded
   const { db } = await import("./index.js");
-  const { tenants, users, suppliers, contacts, documents } = await import(
-    "./schema/index.js"
-  );
+  const { tenants, users, suppliers, contacts, documents, documentChecklists } =
+    await import("./schema/index.js");
 
   try {
     // Check if tenants already exist (idempotency)
@@ -304,6 +303,67 @@ async function seed() {
       }
     }
 
+    // Create default document checklist for Tenant 1
+    console.log("   Creating default document checklist:");
+    const [checklist1] = await db
+      .insert(documentChecklists)
+      .values({
+        tenantId: tenant1.id,
+        templateName: "ISO 9001 Standard Qualification",
+        isDefault: true,
+        requiredDocuments: [
+          {
+            name: "ISO 9001 Certificate",
+            description:
+              "Current ISO 9001:2015 Quality Management System Certificate",
+            required: true,
+            type: "certification",
+          },
+          {
+            name: "Business License",
+            description: "Valid business registration or trade license",
+            required: true,
+            type: "legal",
+          },
+          {
+            name: "Insurance Certificate",
+            description: "General liability and product liability insurance",
+            required: true,
+            type: "insurance",
+          },
+          {
+            name: "W-9 Tax Form",
+            description:
+              "IRS Form W-9 (for US suppliers) or equivalent tax documentation",
+            required: true,
+            type: "tax",
+          },
+          {
+            name: "Quality Manual",
+            description: "Company quality management system documentation",
+            required: true,
+            type: "quality",
+          },
+          {
+            name: "Financial Statement",
+            description: "Latest annual financial statement or credit report",
+            required: true,
+            type: "financial",
+          },
+          {
+            name: "Reference Letters",
+            description: "At least 2 reference letters from existing customers",
+            required: false,
+            type: "reference",
+          },
+        ],
+      })
+      .returning();
+
+    if (!checklist1)
+      throw new Error("Failed to create default checklist for tenant1");
+    console.log(`      ✓ Default checklist: ${checklist1.templateName}`);
+
     console.log("");
 
     // =========================================================================
@@ -485,6 +545,67 @@ async function seed() {
       }
     }
 
+    // Create default document checklist for Tenant 2
+    console.log("   Creating default document checklist:");
+    const [checklist2] = await db
+      .insert(documentChecklists)
+      .values({
+        tenantId: tenant2.id,
+        templateName: "ISO 9001 Standard Qualification",
+        isDefault: true,
+        requiredDocuments: [
+          {
+            name: "ISO 9001 Certificate",
+            description:
+              "Current ISO 9001:2015 Quality Management System Certificate",
+            required: true,
+            type: "certification",
+          },
+          {
+            name: "Business License",
+            description: "Valid business registration or trade license",
+            required: true,
+            type: "legal",
+          },
+          {
+            name: "Insurance Certificate",
+            description: "General liability and product liability insurance",
+            required: true,
+            type: "insurance",
+          },
+          {
+            name: "W-9 Tax Form",
+            description:
+              "IRS Form W-9 (for US suppliers) or equivalent tax documentation",
+            required: true,
+            type: "tax",
+          },
+          {
+            name: "Quality Manual",
+            description: "Company quality management system documentation",
+            required: true,
+            type: "quality",
+          },
+          {
+            name: "Financial Statement",
+            description: "Latest annual financial statement or credit report",
+            required: true,
+            type: "financial",
+          },
+          {
+            name: "Reference Letters",
+            description: "At least 2 reference letters from existing customers",
+            required: false,
+            type: "reference",
+          },
+        ],
+      })
+      .returning();
+
+    if (!checklist2)
+      throw new Error("Failed to create default checklist for tenant2");
+    console.log(`      ✓ Default checklist: ${checklist2.templateName}`);
+
     console.log("");
     console.log("✅ Database seed completed successfully!\n");
     console.log("Summary:");
@@ -492,6 +613,7 @@ async function seed() {
     console.log(`   - 2 users created (1 per tenant)`);
     console.log(`   - 10 suppliers created (5 per tenant)`);
     console.log(`   - ~25 contacts created`);
+    console.log(`   - 2 default document checklists created`);
     console.log(`   - Sample documents created for approved suppliers\n`);
 
     process.exit(0);

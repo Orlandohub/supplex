@@ -139,6 +139,189 @@ CREATE POLICY "tenant_delete_documents" ON documents
   USING (tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid);
 
 -- ============================================================================
+-- QUALIFICATION WORKFLOWS TABLE (Story 2.1)
+-- ============================================================================
+
+-- Enable RLS on qualification_workflows table
+ALTER TABLE qualification_workflows ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can only see workflows in their tenant (excluding soft-deleted)
+CREATE POLICY "tenant_isolation_qualification_workflows" ON qualification_workflows
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can insert workflows in their tenant
+CREATE POLICY "tenant_insert_qualification_workflows" ON qualification_workflows
+  FOR INSERT
+  WITH CHECK (
+    tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    AND EXISTS (
+      SELECT 1 FROM suppliers 
+      WHERE suppliers.id = qualification_workflows.supplier_id 
+      AND suppliers.tenant_id = qualification_workflows.tenant_id
+    )
+  );
+
+-- Policy: Users can update workflows in their tenant
+CREATE POLICY "tenant_update_qualification_workflows" ON qualification_workflows
+  FOR UPDATE
+  USING (
+    tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can soft-delete workflows in their tenant
+CREATE POLICY "tenant_delete_qualification_workflows" ON qualification_workflows
+  FOR UPDATE
+  USING (tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid);
+
+-- ============================================================================
+-- QUALIFICATION STAGES TABLE (Story 2.1)
+-- ============================================================================
+
+-- Enable RLS on qualification_stages table
+ALTER TABLE qualification_stages ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can only see stages for workflows in their tenant (excluding soft-deleted)
+CREATE POLICY "tenant_isolation_qualification_stages" ON qualification_stages
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = qualification_stages.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+      AND qualification_workflows.deleted_at IS NULL
+    )
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can insert stages for workflows in their tenant
+CREATE POLICY "tenant_insert_qualification_stages" ON qualification_stages
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = qualification_stages.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    )
+  );
+
+-- Policy: Users can update stages for workflows in their tenant
+CREATE POLICY "tenant_update_qualification_stages" ON qualification_stages
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = qualification_stages.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+      AND qualification_workflows.deleted_at IS NULL
+    )
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can soft-delete stages for workflows in their tenant
+CREATE POLICY "tenant_delete_qualification_stages" ON qualification_stages
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = qualification_stages.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    )
+  );
+
+-- ============================================================================
+-- DOCUMENT CHECKLISTS TABLE (Story 2.1)
+-- ============================================================================
+
+-- Enable RLS on document_checklists table
+ALTER TABLE document_checklists ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can only see checklists in their tenant (excluding soft-deleted)
+CREATE POLICY "tenant_isolation_document_checklists" ON document_checklists
+  FOR SELECT
+  USING (
+    tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can insert checklists in their tenant
+CREATE POLICY "tenant_insert_document_checklists" ON document_checklists
+  FOR INSERT
+  WITH CHECK (tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid);
+
+-- Policy: Users can update checklists in their tenant
+CREATE POLICY "tenant_update_document_checklists" ON document_checklists
+  FOR UPDATE
+  USING (
+    tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can soft-delete checklists in their tenant
+CREATE POLICY "tenant_delete_document_checklists" ON document_checklists
+  FOR UPDATE
+  USING (tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid);
+
+-- ============================================================================
+-- WORKFLOW DOCUMENTS TABLE (Story 2.1)
+-- ============================================================================
+
+-- Enable RLS on workflow_documents table
+ALTER TABLE workflow_documents ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can only see workflow documents for workflows in their tenant (excluding soft-deleted)
+CREATE POLICY "tenant_isolation_workflow_documents" ON workflow_documents
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = workflow_documents.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+      AND qualification_workflows.deleted_at IS NULL
+    )
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can insert workflow documents for workflows in their tenant
+CREATE POLICY "tenant_insert_workflow_documents" ON workflow_documents
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = workflow_documents.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    )
+  );
+
+-- Policy: Users can update workflow documents for workflows in their tenant
+CREATE POLICY "tenant_update_workflow_documents" ON workflow_documents
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = workflow_documents.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+      AND qualification_workflows.deleted_at IS NULL
+    )
+    AND deleted_at IS NULL
+  );
+
+-- Policy: Users can soft-delete workflow documents for workflows in their tenant
+CREATE POLICY "tenant_delete_workflow_documents" ON workflow_documents
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM qualification_workflows
+      WHERE qualification_workflows.id = workflow_documents.workflow_id
+      AND qualification_workflows.tenant_id = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::uuid
+    )
+  );
+
+-- ============================================================================
 -- VERIFICATION QUERIES
 -- ============================================================================
 -- Use these queries to verify RLS policies are working correctly
@@ -152,7 +335,11 @@ SELECT
   rowsecurity 
 FROM pg_tables 
 WHERE schemaname = 'public' 
-AND tablename IN ('tenants', 'users', 'suppliers', 'contacts', 'documents');
+AND tablename IN (
+  'tenants', 'users', 'suppliers', 'contacts', 'documents',
+  'qualification_workflows', 'qualification_stages', 
+  'document_checklists', 'workflow_documents'
+);
 -- Expected: rowsecurity = true for all tables
 
 -- Test 2: List all RLS policies
@@ -192,11 +379,33 @@ ORDER BY tablename, policyname;
 -- DROP POLICY IF EXISTS "tenant_update_documents" ON documents;
 -- DROP POLICY IF EXISTS "tenant_delete_documents" ON documents;
 
+-- Story 2.1: Qualification Workflow Policies
+-- DROP POLICY IF EXISTS "tenant_isolation_qualification_workflows" ON qualification_workflows;
+-- DROP POLICY IF EXISTS "tenant_insert_qualification_workflows" ON qualification_workflows;
+-- DROP POLICY IF EXISTS "tenant_update_qualification_workflows" ON qualification_workflows;
+-- DROP POLICY IF EXISTS "tenant_delete_qualification_workflows" ON qualification_workflows;
+-- DROP POLICY IF EXISTS "tenant_isolation_qualification_stages" ON qualification_stages;
+-- DROP POLICY IF EXISTS "tenant_insert_qualification_stages" ON qualification_stages;
+-- DROP POLICY IF EXISTS "tenant_update_qualification_stages" ON qualification_stages;
+-- DROP POLICY IF EXISTS "tenant_delete_qualification_stages" ON qualification_stages;
+-- DROP POLICY IF EXISTS "tenant_isolation_document_checklists" ON document_checklists;
+-- DROP POLICY IF EXISTS "tenant_insert_document_checklists" ON document_checklists;
+-- DROP POLICY IF EXISTS "tenant_update_document_checklists" ON document_checklists;
+-- DROP POLICY IF EXISTS "tenant_delete_document_checklists" ON document_checklists;
+-- DROP POLICY IF EXISTS "tenant_isolation_workflow_documents" ON workflow_documents;
+-- DROP POLICY IF EXISTS "tenant_insert_workflow_documents" ON workflow_documents;
+-- DROP POLICY IF EXISTS "tenant_update_workflow_documents" ON workflow_documents;
+-- DROP POLICY IF EXISTS "tenant_delete_workflow_documents" ON workflow_documents;
+
 -- ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE suppliers DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE contacts DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE documents DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE qualification_workflows DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE qualification_stages DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE document_checklists DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE workflow_documents DISABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- END OF RLS POLICIES

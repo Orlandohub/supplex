@@ -53,6 +53,12 @@ export * from "./models/permissions";
 // Audit Logs
 export * from "./models/audit-log";
 
+// Qualification Workflows (Story 2.1)
+export * from "./models/qualification-workflow";
+export * from "./models/qualification-stage";
+export * from "./models/document-checklist";
+export * from "./models/workflow-document";
+
 /**
  * Supabase Database Type Definition
  * Maps our models to Supabase's expected schema format
