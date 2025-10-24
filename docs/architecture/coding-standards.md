@@ -1,6 +1,8 @@
 # Coding Standards
 
-> 📚 **See Also:** [Known Issues & Fixes](../troubleshooting/known-issues-and-fixes.md) - Common pitfalls and solutions
+> 📚 **See Also:**  
+> - [Remix Patterns](./remix-patterns.md) - Standard patterns for Remix routes (**REQUIRED READING**)
+> - [Known Issues & Fixes](../troubleshooting/known-issues-and-fixes.md) - Common pitfalls and solutions
 
 ## Critical Fullstack Rules
 
@@ -31,6 +33,20 @@
   - Always use centralized `config.apiUrl` - never access env vars directly
   - Follow 3-source pattern: `window.ENV`, `import.meta.env`, `process.env`
   - See [Issue 4](../troubleshooting/known-issues-and-fixes.md#issue-4-missing-importmetaenv-in-config--wrong-api-url-variable)
+- **Remix Data Loading:** (**CRITICAL** - See [Remix Patterns](./remix-patterns.md))
+  - ALL data fetching must be in loaders (server-side), never in useEffect
+  - Use `Promise.all` for parallel data fetching
+  - Pass data to components via props, not by fetching in components
+  - Add `shouldRevalidate` for routes with URL state (tabs, filters, sorting)
+  - Use `useRevalidator()` for mutations, never manual state updates
+  - Each route needs its own loader if using `useLoaderData()` - it doesn't access parent data
+  - Use `useRouteLoaderData(routeId)` to explicitly access parent loader data if needed
+  - See [Issue 7](../troubleshooting/known-issues-and-fixes.md#issue-7-child-route-cannot-access-parent-loader-data)
+- **Remix Layout Routes:**
+  - Clean up old routes when migrating to new layout patterns
+  - Prefix all authenticated routes with layout prefix (e.g., `_app.*`)
+  - Delete obsolete routes completely - don't leave them commented out
+  - See [Issue 6](../troubleshooting/known-issues-and-fixes.md#issue-6-route-path-collision---old-and-new-index-routes)
 
 ## Naming Conventions
 

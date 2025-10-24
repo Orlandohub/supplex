@@ -232,6 +232,10 @@ Use this checklist when implementing new features:
 - [ ] Test client-side navigation, not just initial page loads
 - [ ] Use TypeScript to catch type errors at development time
 - [ ] Handle optional/undefined values gracefully
+- [ ] Each route needs its own loader if using `useLoaderData()` (Issue 7)
+- [ ] Use `useRouteLoaderData(routeId)` to access parent route data if needed (Issue 7)
+- [ ] Clean up old routes when migrating to new layout patterns (Issue 6)
+- [ ] Check for route path collisions in dev server warnings (Issue 6)
 
 ### Testing
 - [ ] Test authenticated routes with different user roles
@@ -449,5 +453,181 @@ body: t.Object({
 
 ---
 
-**Last Updated**: October 23, 2025
+## Issue 6: Route Path Collision - Old and New Index Routes
+
+**Date**: October 24, 2025  
+**Affected Files**: `apps/web/app/routes/_index.tsx`, `apps/web/app/routes/_app._index.tsx`
+
+### Problem
+Remix dev server showed warning:
+```
+⚠️ Route Path Collision: "/"
+
+The following routes all define the same URL, only the first one will be used
+
+🟢 routes/_app._index.tsx
+⭕️️ routes/_index.tsx
+```
+
+Only the first route (`_app._index.tsx`) was being used, but the old standalone route (`_index.tsx`) remained in the codebase causing confusion.
+
+### Root Cause
+During the migration to the new AppShell layout (Story 1.10), a new `_app._index.tsx` route was created to work within the persistent layout wrapper (`_app.tsx`). However, the old standalone `_index.tsx` route (which had its own navigation and header) was not deleted.
+
+Both routes matched the root path `"/"`, causing a collision.
+
+### Solution
+**Delete the obsolete standalone route:**
+
+```bash
+# Remove the old file
+rm apps/web/app/routes/_index.tsx
+```
+
+**Keep only the new layout-aware route:** `apps/web/app/routes/_app._index.tsx`
+
+The new architecture uses:
+- `_app.tsx` - Persistent layout wrapper (AppShell with sidebar, top nav, mobile nav)
+- `_app._index.tsx` - Dashboard content inside the layout
+- `_app.suppliers._index.tsx`, `_app.suppliers.$id.tsx`, etc. - All authenticated routes inside the layout
+
+### Prevention Guidelines
+1. **Clean up old routes** when migrating to new layout patterns
+2. **Check for route collisions** in dev server warnings
+3. **Use layout routes consistently** - prefix all authenticated routes with the layout prefix (e.g., `_app.*`)
+4. **Delete, don't comment out** - Remove obsolete route files completely to avoid confusion
+5. **Follow Remix file-based routing conventions** - understand how file names map to URL paths
+
+### Remix Layout Route Pattern
+
+```
+routes/
+  _app.tsx                    → Layout wrapper (no URL segment)
+  _app._index.tsx            → "/" (inside layout)
+  _app.suppliers._index.tsx  → "/suppliers" (inside layout)
+  _app.suppliers.$id.tsx     → "/suppliers/:id" (inside layout)
+  login.tsx                  → "/login" (standalone, no layout)
+```
+
+---
+
+## Issue 7: Child Route Cannot Access Parent Loader Data
+
+**Date**: October 24, 2025  
+**Affected Files**: `apps/web/app/routes/_app._index.tsx`
+
+### Problem
+After fixing the route collision, the dashboard page crashed with:
+```
+TypeError: Cannot destructure property 'user' of '__vite_ssr_import_1__.useLoaderData(...)' as it is null.
+    at Dashboard (apps/web/app/routes/_app._index.tsx:21:11)
+```
+
+The child route was trying to access parent loader data, but received `null`.
+
+### Root Cause
+The `_app._index.tsx` route was attempting to use the parent route's loader data:
+
+```typescript
+// ❌ WRONG - trying to access parent loader via useLoaderData()
+import type { loader as appLoader } from './_app';
+
+export default function Dashboard() {
+  const { user, userRecord } = useLoaderData<typeof appLoader>();  // Returns null!
+  // ...
+}
+```
+
+**In Remix, `useLoaderData()` only returns data from the current route's loader, not parent loaders.**
+
+While the parent `_app.tsx` had a loader that returned `user` and `userRecord`, the child route `_app._index.tsx` had no loader of its own. When a route has no loader, `useLoaderData()` returns `null`.
+
+### Solution
+**Add a loader to the child route:**
+
+```typescript
+// ✅ CORRECT - child route has its own loader
+import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node';
+import { json } from '@remix-run/node';
+import { useLoaderData } from '@remix-run/react';
+import { requireAuth } from '~/lib/auth/require-auth';
+
+export async function loader(args: LoaderFunctionArgs) {
+  // Require authentication for dashboard
+  const { user, userRecord } = await requireAuth(args);
+
+  return json({
+    user,
+    userRecord,
+  });
+}
+
+export default function Dashboard() {
+  const { user, userRecord } = useLoaderData<typeof loader>();  // ✅ Works!
+  // ...
+}
+```
+
+**Alternative: Use `useRouteLoaderData()` to access parent data:**
+
+```typescript
+// ✅ ALTERNATIVE - explicitly access parent loader data
+import { useRouteLoaderData } from '@remix-run/react';
+import type { loader as appLoader } from './_app';
+
+export default function Dashboard() {
+  const data = useRouteLoaderData<typeof appLoader>('routes/_app');  // ✅ Access parent by route ID
+  const { user, userRecord } = data || {};
+  // ...
+}
+```
+
+### Prevention Guidelines
+1. **Each route needs its own loader** if it wants to use `useLoaderData()`
+2. **`useLoaderData()` only returns current route data** - not parent route data
+3. **Use `useRouteLoaderData(routeId)` to access parent loaders** - requires knowing the route ID
+4. **Prefer child loaders for simplicity** - easier to type and doesn't require route IDs
+5. **Parent loaders run before child loaders** - auth checks in both is fine (double protection)
+6. **Test with actual data** - null loader data only appears at runtime
+
+### Remix Data Loading Hierarchy
+
+```typescript
+// Parent Layout Route: _app.tsx
+export async function loader(args: LoaderFunctionArgs) {
+  const { user } = await requireAuth(args);
+  return json({ user });  // Available to useRouteLoaderData('routes/_app')
+}
+
+// Child Route: _app._index.tsx
+export async function loader(args: LoaderFunctionArgs) {
+  const { stats } = await fetchDashboardStats();
+  return json({ stats });  // Available to useLoaderData()
+}
+
+export default function Dashboard() {
+  // ✅ Current route data
+  const { stats } = useLoaderData<typeof loader>();
+  
+  // ✅ Parent route data (if needed)
+  const parentData = useRouteLoaderData<typeof parentLoader>('routes/_app');
+  
+  // ❌ WRONG - useLoaderData() doesn't return parent data
+  const { user } = useLoaderData<typeof parentLoader>();  // Returns null!
+}
+```
+
+### When to Use Which Hook
+
+| Hook | Use Case | Returns |
+|------|----------|---------|
+| `useLoaderData()` | Access current route's loader data | Current route data only |
+| `useRouteLoaderData(routeId)` | Access parent or sibling route data | Specific route's data by ID |
+| `useMatches()` | Access all matched route data | Array of all matched routes |
+
+**Best Practice:** Give each route its own loader for the data it needs. Only use `useRouteLoaderData()` when you need to avoid duplicate data fetching.
+
+---
+
+**Last Updated**: October 24, 2025
 
