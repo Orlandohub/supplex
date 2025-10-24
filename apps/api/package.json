@@ -26,6 +26,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@elysiajs/eden": "^1.0.0",
     "@supplex/config": "workspace:*",
     "@types/bun": "^1.1.0",
     "@types/node": "^20.0.0",

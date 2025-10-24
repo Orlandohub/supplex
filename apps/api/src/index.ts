@@ -4,6 +4,8 @@ import { config } from "./config";
 import { registerRoute } from "./routes/auth/register";
 import { usersRoutes } from "./routes/users";
 import { suppliersRoutes } from "./routes/suppliers";
+import { documentsRoutes } from "./routes/documents";
+import { healthRoutes } from "./routes/health";
 
 /**
  * Main Elysia application instance
@@ -22,6 +24,7 @@ const app = new Elysia()
   // Global error handler
   .onError(({ code, error, set }) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    // eslint-disable-next-line no-console
     console.error(`[${code}] ${errorMessage}`);
 
     // Handle different error types
@@ -67,6 +70,7 @@ const app = new Elysia()
   // Request logging middleware (development only)
   .onRequest(({ request }) => {
     if (config.nodeEnv === "development") {
+      // eslint-disable-next-line no-console
       console.log(
         `[${new Date().toISOString()}] ${request.method} ${request.url}`
       );
@@ -79,23 +83,20 @@ const app = new Elysia()
     status: "healthy",
     environment: config.nodeEnv,
   }))
-  // Health check endpoint
-  .get("/health", () => ({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-  }))
+  // Health check routes (with database connectivity check)
+  .use(healthRoutes)
   // API routes
   .group("/api", (app) => app.use(registerRoute))
   .use(usersRoutes)
-  .use(suppliersRoutes);
+  .use(suppliersRoutes)
+  .use(documentsRoutes);
 
 /**
  * Start the server only when running directly (not during tests)
  */
 if (import.meta.main) {
   const server = app.listen(config.port, () => {
+    // eslint-disable-next-line no-console
     console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
@@ -113,6 +114,7 @@ if (import.meta.main) {
 
   // Graceful shutdown handling
   const gracefulShutdown = async (signal: string) => {
+    // eslint-disable-next-line no-console
     console.log(`\n⚠️  Received ${signal}, starting graceful shutdown...`);
 
     try {
@@ -122,9 +124,11 @@ if (import.meta.main) {
       // Close database connections, etc.
       // await db.close();
 
+      // eslint-disable-next-line no-console
       console.log("✅ Graceful shutdown completed");
       process.exit(0);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error("❌ Error during shutdown:", error);
       process.exit(1);
     }
@@ -136,11 +140,13 @@ if (import.meta.main) {
 
   // Handle uncaught errors
   process.on("uncaughtException", (error) => {
+    // eslint-disable-next-line no-console
     console.error("💥 Uncaught Exception:", error);
     gracefulShutdown("uncaughtException");
   });
 
   process.on("unhandledRejection", (reason, promise) => {
+    // eslint-disable-next-line no-console
     console.error("💥 Unhandled Rejection at:", promise, "reason:", reason);
     gracefulShutdown("unhandledRejection");
   });
