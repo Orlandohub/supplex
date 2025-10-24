@@ -59,6 +59,9 @@ export * from "./models/qualification-stage";
 export * from "./models/document-checklist";
 export * from "./models/workflow-document";
 
+// Utilities
+export * from "./utils/risk-calculator";
+
 /**
  * Supabase Database Type Definition
  * Maps our models to Supabase's expected schema format
@@ -71,7 +74,7 @@ export interface Database {
           id: string;
           name: string;
           slug: string;
-          settings: any;
+          settings: Record<string, unknown>;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -80,7 +83,7 @@ export interface Database {
           id?: string;
           name: string;
           slug: string;
-          settings?: any;
+          settings?: Record<string, unknown>;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -89,7 +92,7 @@ export interface Database {
           id?: string;
           name?: string;
           slug?: string;
-          settings?: any;
+          settings?: Record<string, unknown>;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -238,7 +241,7 @@ export interface Database {
           version: number;
           status: string;
           expires_at: string | null;
-          metadata: any;
+          metadata: Record<string, unknown>;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -256,7 +259,7 @@ export interface Database {
           version?: number;
           status?: string;
           expires_at?: string | null;
-          metadata?: any;
+          metadata?: Record<string, unknown>;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -274,7 +277,7 @@ export interface Database {
           version?: number;
           status?: string;
           expires_at?: string | null;
-          metadata?: any;
+          metadata?: Record<string, unknown>;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;

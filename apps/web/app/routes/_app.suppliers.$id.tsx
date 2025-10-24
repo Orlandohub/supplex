@@ -15,7 +15,7 @@ import {
 import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import type { Supplier, Document } from "@supplex/types";
+import type { Supplier, Document, QualificationWorkflow } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
 import { Breadcrumb } from "~/components/ui/Breadcrumb";
@@ -82,12 +82,14 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const client = createEdenTreatyClient(token);
 
-  // Fetch supplier and documents in parallel for optimal performance
+  // Fetch supplier, documents, and workflows in parallel for optimal performance
   try {
-    const [supplierResponse, documentsResponse] = await Promise.all([
-      client.api.suppliers[id].get(),
-      client.api.suppliers[id].documents.get(),
-    ]);
+    const [supplierResponse, documentsResponse, workflowsResponse] =
+      await Promise.all([
+        client.api.suppliers[id].get(),
+        client.api.suppliers[id].documents.get(),
+        client.api.workflows.supplier[id].get(),
+      ]);
 
     // Handle supplier API errors
     if (supplierResponse.error) {
@@ -133,9 +135,25 @@ export async function loader(args: LoaderFunctionArgs) {
       documents = documentsData.documents || [];
     }
 
+    // Handle workflows response (non-fatal - if workflows fail, still show supplier)
+    let workflows: QualificationWorkflow[] = [];
+    if (workflowsResponse.error) {
+      console.error("Workflows API Error:", workflowsResponse.error);
+      // Don't fail the entire page if workflows fail - just show empty list
+    } else if (
+      workflowsResponse.data &&
+      typeof workflowsResponse.data === "object"
+    ) {
+      const workflowsData = workflowsResponse.data as {
+        data?: { workflows?: QualificationWorkflow[] };
+      };
+      workflows = workflowsData.data?.workflows || [];
+    }
+
     return json({
       supplier: supplierApiResponse.data.supplier,
       documents,
+      workflows,
       token, // Pass token for download/delete operations
     });
   } catch (error) {
@@ -252,9 +270,12 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function SupplierDetail() {
-  const { supplier, documents, token } = useLoaderData<typeof loader>() as {
+  const { supplier, documents, workflows, token } = useLoaderData<
+    typeof loader
+  >() as {
     supplier: SerializedSupplier;
     documents: Document[];
+    workflows: QualificationWorkflow[];
     token: string;
   };
   const navigation = useNavigation();
@@ -323,6 +344,7 @@ export default function SupplierDetail() {
         <SupplierDetailTabs
           supplier={supplier}
           documents={documents}
+          workflows={workflows}
           token={token}
         />
       </div>

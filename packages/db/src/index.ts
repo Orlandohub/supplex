@@ -48,7 +48,14 @@ export { contacts } from "./schema/contacts";
 export { documents } from "./schema/documents";
 export { auditLogs } from "./schema/audit-logs";
 export { documentChecklists } from "./schema/document-checklists";
-export { qualificationWorkflows } from "./schema/qualification-workflows";
+export {
+  qualificationWorkflows,
+  WorkflowStatus,
+} from "./schema/qualification-workflows";
+export {
+  workflowDocuments,
+  ChecklistItemStatus,
+} from "./schema/workflow-documents";
 
 /**
  * Export types for TypeScript
@@ -67,6 +74,10 @@ export type {
   InsertQualificationWorkflow,
   SelectQualificationWorkflow,
 } from "./schema/qualification-workflows";
+export type {
+  InsertWorkflowDocument,
+  SelectWorkflowDocument,
+} from "./schema/workflow-documents";
 
 /**
  * Export tenant context helpers

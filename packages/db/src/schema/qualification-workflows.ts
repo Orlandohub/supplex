@@ -5,6 +5,7 @@ import {
   timestamp,
   numeric,
   integer,
+  jsonb,
   index,
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
@@ -65,6 +66,7 @@ export const qualificationWorkflows = pgTable(
       .defaultNow(),
     currentStage: integer("current_stage").default(0),
     riskScore: numeric("risk_score", { precision: 4, scale: 2 }),
+    snapshotedChecklist: jsonb("snapshotted_checklist").notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

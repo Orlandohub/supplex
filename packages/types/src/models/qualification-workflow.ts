@@ -17,6 +17,39 @@ export enum WorkflowStatus {
 }
 
 /**
+ * Risk Level Enum
+ * Represents risk assessment levels for workflow initiation
+ */
+export enum RiskLevel {
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+}
+
+/**
+ * Risk Assessment Interface
+ * Individual risk factors assessed during workflow initiation
+ */
+export interface RiskAssessment {
+  geographic: RiskLevel;
+  financial: RiskLevel;
+  quality: RiskLevel;
+  delivery: RiskLevel;
+}
+
+/**
+ * Required Document Item
+ * Structure for checklist items that will be snapshotted to workflow
+ */
+export interface RequiredDocumentItem {
+  id?: string;
+  name: string;
+  description?: string;
+  required: boolean;
+  type?: string;
+}
+
+/**
  * Qualification Workflow Interface
  * Core data structure for tracking supplier qualification processes
  */
@@ -40,6 +73,10 @@ export interface QualificationWorkflow {
  */
 export interface CreateQualificationWorkflowDto {
   supplierId: string;
+  checklistId: string;
+  riskAssessment: RiskAssessment;
+  notes?: string;
+  snapshotedChecklist?: RequiredDocumentItem[];
   status?: WorkflowStatus;
   currentStage?: number;
   riskScore?: number;

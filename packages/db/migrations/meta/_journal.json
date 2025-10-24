@@ -8,6 +8,13 @@
       "when": 1761313152216,
       "tag": "0000_quiet_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1761318398626,
+      "tag": "0001_flaky_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

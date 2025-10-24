@@ -6,13 +6,16 @@ import { SupplierOverview } from "./SupplierOverview";
 import { StatusChangeDropdown } from "./StatusChangeDropdown";
 import { DeleteSupplierModal } from "./DeleteSupplierModal";
 import { DocumentsTab } from "./DocumentsTab";
+import { QualificationsTab } from "../workflows/QualificationsTab";
+import { InitiateWorkflowDialog } from "../workflows/InitiateWorkflowDialog";
 import { usePermissions } from "~/hooks/usePermissions";
-import { Edit, Trash2, History } from "lucide-react";
+import { Edit, Trash2, History, CheckCircle } from "lucide-react";
 import { Link } from "@remix-run/react";
 import type {
   SupplierStatus,
   SupplierCategory,
   Document,
+  QualificationWorkflow,
 } from "@supplex/types";
 
 interface SupplierDetailTabsProps {
@@ -47,6 +50,7 @@ interface SupplierDetailTabsProps {
     createdByEmail?: string | null;
   };
   documents: Document[];
+  workflows: QualificationWorkflow[];
   token: string;
 }
 
@@ -68,11 +72,13 @@ interface SupplierDetailTabsProps {
 export function SupplierDetailTabs({
   supplier,
   documents,
+  workflows,
   token,
 }: SupplierDetailTabsProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const permissions = usePermissions();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
   // Get active tab from URL or default to "overview"
   const activeTab = searchParams.get("tab") || "overview";
@@ -94,8 +100,20 @@ export function SupplierDetailTabs({
           />
         </div>
 
-        {/* Edit and Delete Buttons */}
+        {/* Action Buttons */}
         <div className="flex space-x-3">
+          {/* Start Qualification Button - Only visible for Prospect status (AC 1) */}
+          {supplier.status === "prospect" &&
+            (permissions.isProcurementManager || permissions.isAdmin) && (
+              <Button
+                onClick={() => setIsWorkflowModalOpen(true)}
+                className="flex items-center space-x-2"
+              >
+                <CheckCircle className="h-4 w-4" />
+                <span>Start Qualification</span>
+              </Button>
+            )}
+
           {permissions.canEditSupplier && (
             <Button
               asChild
@@ -124,9 +142,17 @@ export function SupplierDetailTabs({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="qualifications">
+            Qualifications
+            {workflows.length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                {workflows.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
@@ -141,6 +167,18 @@ export function SupplierDetailTabs({
             supplierId={supplier.id}
             documents={documents}
             token={token}
+          />
+        </TabsContent>
+
+        {/* Qualifications Tab (AC 8) */}
+        <TabsContent value="qualifications" className="mt-6">
+          <QualificationsTab
+            workflows={workflows}
+            onStartQualification={
+              supplier.status === "prospect"
+                ? () => setIsWorkflowModalOpen(true)
+                : undefined
+            }
           />
         </TabsContent>
 
@@ -164,6 +202,14 @@ export function SupplierDetailTabs({
         onClose={() => setIsDeleteModalOpen(false)}
         supplierId={supplier.id}
         supplierName={supplier.name}
+      />
+
+      {/* Workflow Initiation Modal (AC 2-7, 10) */}
+      <InitiateWorkflowDialog
+        open={isWorkflowModalOpen}
+        onOpenChange={setIsWorkflowModalOpen}
+        supplier={supplier}
+        token={token}
       />
     </div>
   );

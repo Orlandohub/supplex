@@ -1,0 +1,1 @@
+ALTER TABLE "qualification_workflows" ADD COLUMN "snapshoted_checklist" jsonb DEFAULT '[]'::jsonb NOT NULL;

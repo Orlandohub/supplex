@@ -29,6 +29,9 @@ export enum AuditAction {
   COMPLAINT_FILED = "COMPLAINT_FILED",
   CAPA_CREATED = "CAPA_CREATED",
 
+  // Workflow Actions
+  WORKFLOW_INITIATED = "WORKFLOW_INITIATED",
+
   // Settings Actions
   TENANT_SETTINGS_UPDATED = "TENANT_SETTINGS_UPDATED",
 }
@@ -42,7 +45,7 @@ export interface AuditLog {
   userId: string; // Who performed the action
   targetUserId: string | null; // Who was affected (for user management)
   action: AuditAction;
-  details: Record<string, any>; // Action-specific context
+  details: Record<string, unknown>; // Action-specific context
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: Date;
@@ -96,5 +99,5 @@ export interface UserStatusChangedDetails {
 export interface SupplierActionDetails {
   supplier_id: string;
   supplier_name: string;
-  changes?: Record<string, any>;
+  changes?: Record<string, unknown>;
 }
