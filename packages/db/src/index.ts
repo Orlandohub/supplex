@@ -12,10 +12,12 @@ import * as schema from "./schema";
  * Uses connection pooling via Supabase
  * Requires DATABASE_URL environment variable
  */
-const connectionString = process.env.DATABASE_URL || 'postgresql://placeholder:placeholder@localhost:5432/placeholder';
+const connectionString =
+  process.env.DATABASE_URL ||
+  "postgresql://placeholder:placeholder@localhost:5432/placeholder";
 
 // Only validate in production
-if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
   throw new Error(
     "DATABASE_URL environment variable is not set. Please configure it in apps/api/.env"
   );
@@ -45,37 +47,28 @@ export { suppliers } from "./schema/suppliers";
 export { contacts } from "./schema/contacts";
 export { documents } from "./schema/documents";
 export { auditLogs } from "./schema/audit-logs";
+export { documentChecklists } from "./schema/document-checklists";
+export { qualificationWorkflows } from "./schema/qualification-workflows";
 
 /**
  * Export types for TypeScript
  */
+export type { InsertTenant, SelectTenant } from "./schema/tenants";
+export type { InsertUser, SelectUser } from "./schema/users";
+export type { InsertSupplier, SelectSupplier } from "./schema/suppliers";
+export type { InsertContact, SelectContact } from "./schema/contacts";
+export type { InsertDocument, SelectDocument } from "./schema/documents";
+export type { InsertAuditLog, SelectAuditLog } from "./schema/audit-logs";
 export type {
-  InsertTenant,
-  SelectTenant,
-} from "./schema/tenants";
+  InsertDocumentChecklist,
+  SelectDocumentChecklist,
+} from "./schema/document-checklists";
 export type {
-  InsertUser,
-  SelectUser,
-} from "./schema/users";
-export type {
-  InsertSupplier,
-  SelectSupplier,
-} from "./schema/suppliers";
-export type {
-  InsertContact,
-  SelectContact,
-} from "./schema/contacts";
-export type {
-  InsertDocument,
-  SelectDocument,
-} from "./schema/documents";
-export type {
-  InsertAuditLog,
-  SelectAuditLog,
-} from "./schema/audit-logs";
+  InsertQualificationWorkflow,
+  SelectQualificationWorkflow,
+} from "./schema/qualification-workflows";
 
 /**
  * Export tenant context helpers
  */
 export * from "./helpers/tenant-context";
-

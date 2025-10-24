@@ -5,6 +5,7 @@ import { registerRoute } from "./routes/auth/register";
 import { usersRoutes } from "./routes/users";
 import { suppliersRoutes } from "./routes/suppliers";
 import { documentsRoutes } from "./routes/documents";
+import { checklistsRoutes } from "./routes/checklists";
 import { healthRoutes } from "./routes/health";
 
 /**
@@ -89,7 +90,8 @@ const app = new Elysia()
   .group("/api", (app) => app.use(registerRoute))
   .use(usersRoutes)
   .use(suppliersRoutes)
-  .use(documentsRoutes);
+  .use(documentsRoutes)
+  .use(checklistsRoutes);
 
 /**
  * Start the server only when running directly (not during tests)
