@@ -6,6 +6,53 @@ Keep this open while coding to avoid common pitfalls.
 
 ## ⚠️ CRITICAL RULES - Never Break These
 
+### 🎯 Remix Data Loading (See [Remix Patterns](./architecture/remix-patterns.md))
+```typescript
+// ✅ DO THIS - Fetch in loader
+export async function loader(args: LoaderFunctionArgs) {
+  const client = createEdenTreatyClient(token);
+  
+  // Parallel fetching
+  const [data1, data2] = await Promise.all([
+    client.api.resource1.get(),
+    client.api.resource2.get(),
+  ]);
+  
+  return json({ data1, data2, token });
+}
+
+// ✅ DO THIS - Props-based components
+export function ChildComponent({ data, token }: Props) {
+  const revalidator = useRevalidator();
+  
+  const handleMutation = async () => {
+    await mutateData();
+    revalidator.revalidate(); // ✅ Triggers loader
+  };
+}
+
+// ✅ DO THIS - Prevent revalidation on URL state changes
+export function shouldRevalidate({ currentUrl, nextUrl }) {
+  if (currentUrl.pathname === nextUrl.pathname) {
+    if (currentUrl.searchParams.toString() !== nextUrl.searchParams.toString()) {
+      return false; // Don't refetch on tab switch
+    }
+  }
+  return true;
+}
+
+// ❌ NEVER do this
+function Component() {
+  useEffect(() => {
+    fetchData(); // ❌ Client-side fetching
+  }, []);
+}
+```
+
+---
+
+## ⚠️ CRITICAL RULES - Never Break These (Backend)
+
 ### 🔐 Authentication (Backend)
 ```typescript
 // ✅ DO THIS
@@ -86,6 +133,10 @@ body: t.Object({
 ## 📝 Pre-Commit Checklist
 
 ### Before Pushing Code
+- [ ] **Remix routes**: Data fetched in loader, not useEffect
+- [ ] **Remix routes**: Added `shouldRevalidate` if using URL state (tabs, filters)
+- [ ] **Remix routes**: Components receive data via props
+- [ ] **Remix routes**: Mutations use `revalidator.revalidate()`
 - [ ] All schema field names verified against `packages/db/schema/`
 - [ ] No `process.env` usage in frontend code - use `config.apiUrl`
 - [ ] Auth middleware used directly, not nested
@@ -102,6 +153,11 @@ body: t.Object({
 
 | Error Message | Fix |
 |---------------|-----|
+| **Remix Patterns** | |
+| Slow tab switching | Add `shouldRevalidate` function to route |
+| Data not updating after mutation | Use `revalidator.revalidate()` not manual state update |
+| Flash of loading state | Fetch data in loader, not useEffect |
+| **Backend** | |
 | `user.role is undefined` | Use `authenticate` directly, move role check to handler |
 | `process is not defined` | Use `config.apiUrl` or add `typeof window !== "undefined"` check |
 | `Object.entries requires...` | Check if schema field actually exists |

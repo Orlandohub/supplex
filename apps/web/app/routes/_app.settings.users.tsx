@@ -66,17 +66,17 @@ export default function UsersSettingsPage() {
 
   const handleInviteUser = () => {
     // Will be implemented in Task 7
-    console.log("Invite user clicked");
+    // TODO: Implement invite user functionality
   };
 
-  const handleEditRole = (targetUser: User) => {
+  const handleEditRole = (_targetUser: User) => {
     // Will be implemented in Task 8
-    console.log("Edit role clicked for user:", targetUser.email);
+    // TODO: Implement edit role for user
   };
 
-  const handleToggleStatus = (targetUser: User) => {
+  const handleToggleStatus = (_targetUser: User) => {
     // Will be implemented in Task 8
-    console.log("Toggle status clicked for user:", targetUser.email);
+    // TODO: Implement toggle status for user
   };
 
   return (

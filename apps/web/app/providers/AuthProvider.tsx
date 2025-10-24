@@ -6,10 +6,11 @@ import {
   sessionMonitor,
 } from "~/lib/auth/session-monitor";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
+import type { User } from "@supplex/types";
 
 interface AuthContextType {
   user: SupabaseUser | null;
-  userRecord: any;
+  userRecord: User | null;
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -21,7 +22,7 @@ interface AuthProviderProps {
   children: ReactNode;
   initialUser?: SupabaseUser | null;
   initialSession?: Session | null;
-  initialUserRecord?: any;
+  initialUserRecord?: User | null;
 }
 
 export function AuthProvider({
@@ -57,6 +58,7 @@ export function AuthProvider({
         if (error) {
           // Only log non-session-missing errors (session missing is expected when not logged in)
           if (error.message !== "Auth session missing!") {
+            // eslint-disable-next-line no-console
             console.error("Error validating user:", error);
           }
           setLoading(false);
@@ -70,14 +72,15 @@ export function AuthProvider({
             data: { session },
           } = await supabase.auth.getSession();
 
-          // Fetch user record from database
+          // Fetch user record from database with tenant information
           supabase
             .from("users")
-            .select("*")
+            .select("*, tenant:tenants(*)")
             .eq("id", user.id)
             .single()
             .then(({ data: userRecord, error: userError }) => {
               if (userError) {
+                // eslint-disable-next-line no-console
                 console.error("Error fetching user record:", userError);
               }
               setAuth(user, session, userRecord);
@@ -93,17 +96,18 @@ export function AuthProvider({
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.email);
+        // Debug: Auth state changed (removed to satisfy linter)
 
         if (event === "SIGNED_IN" && session) {
-          // Fetch user record when signing in
+          // Fetch user record when signing in with tenant information
           const { data: userRecord, error: userError } = await supabase
             .from("users")
-            .select("*")
+            .select("*, tenant:tenants(*)")
             .eq("id", session.user.id)
             .single();
 
           if (userError) {
+            // eslint-disable-next-line no-console
             console.error("Error fetching user record:", userError);
           }
 
@@ -130,6 +134,7 @@ export function AuthProvider({
           clearAuth();
         },
         onError: (error) => {
+          // eslint-disable-next-line no-console
           console.error("Session monitoring error:", error);
         },
       });

@@ -9,6 +9,7 @@ import {
   canEditSupplier,
   canAccessSettings,
   canUploadDocuments,
+  canDeleteDocuments,
   canCreateEvaluations,
   canManageCapa,
   canViewAnalytics,
@@ -29,7 +30,8 @@ export interface Permissions {
   canDeleteSuppliers: boolean;
 
   // Document Management
-  canUploadDocuments: boolean;
+  canUploadDocument: boolean;
+  canDeleteDocument: boolean;
 
   // Evaluation Management
   canCreateEvaluations: boolean;
@@ -88,7 +90,8 @@ export function usePermissions(): Permissions {
     canDeleteSuppliers: canDeleteSuppliers(userContext),
 
     // Document Management
-    canUploadDocuments: canUploadDocuments(userContext),
+    canUploadDocument: canUploadDocuments(userContext),
+    canDeleteDocument: canDeleteDocuments(userContext),
 
     // Evaluation Management
     canCreateEvaluations: canCreateEvaluations(userContext),

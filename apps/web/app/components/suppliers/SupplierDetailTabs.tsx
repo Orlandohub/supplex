@@ -5,10 +5,15 @@ import { Button } from "~/components/ui/button";
 import { SupplierOverview } from "./SupplierOverview";
 import { StatusChangeDropdown } from "./StatusChangeDropdown";
 import { DeleteSupplierModal } from "./DeleteSupplierModal";
+import { DocumentsTab } from "./DocumentsTab";
 import { usePermissions } from "~/hooks/usePermissions";
-import { Edit, Trash2, FileText, History } from "lucide-react";
+import { Edit, Trash2, History } from "lucide-react";
 import { Link } from "@remix-run/react";
-import type { SupplierStatus, SupplierCategory } from "@supplex/types";
+import type {
+  SupplierStatus,
+  SupplierCategory,
+  Document,
+} from "@supplex/types";
 
 interface SupplierDetailTabsProps {
   supplier: {
@@ -41,6 +46,8 @@ interface SupplierDetailTabsProps {
     createdByName?: string;
     createdByEmail?: string | null;
   };
+  documents: Document[];
+  token: string;
 }
 
 /**
@@ -58,7 +65,11 @@ interface SupplierDetailTabsProps {
  * - Status change dropdown (Admin/Procurement Manager)
  * - Keyboard accessible navigation
  */
-export function SupplierDetailTabs({ supplier }: SupplierDetailTabsProps) {
+export function SupplierDetailTabs({
+  supplier,
+  documents,
+  token,
+}: SupplierDetailTabsProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const permissions = usePermissions();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -124,17 +135,13 @@ export function SupplierDetailTabs({ supplier }: SupplierDetailTabsProps) {
           <SupplierOverview supplier={supplier} />
         </TabsContent>
 
-        {/* Documents Tab - Placeholder */}
+        {/* Documents Tab */}
         <TabsContent value="documents" className="mt-6">
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <FileText className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Documents Coming Soon
-            </h3>
-            <p className="text-gray-600">
-              Document management will be available in Story 1.8.
-            </p>
-          </div>
+          <DocumentsTab
+            supplierId={supplier.id}
+            documents={documents}
+            token={token}
+          />
         </TabsContent>
 
         {/* History Tab - Placeholder */}

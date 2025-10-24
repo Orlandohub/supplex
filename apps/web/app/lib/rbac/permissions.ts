@@ -62,6 +62,15 @@ export function canUploadDocuments(user: UserContext | null): boolean {
 }
 
 /**
+ * Check if user can delete documents
+ * Admins and Procurement Managers can delete documents
+ */
+export function canDeleteDocuments(user: UserContext | null): boolean {
+  if (!user) return false;
+  return canUploadDocumentsBase(user.role); // Same permission as upload
+}
+
+/**
  * Check if user can create evaluations
  * Admins and Quality Managers can create evaluations
  */

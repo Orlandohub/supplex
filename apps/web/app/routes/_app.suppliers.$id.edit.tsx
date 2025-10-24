@@ -141,7 +141,7 @@ export async function action(args: ActionFunctionArgs) {
   const formData = await request.formData();
 
   // Build supplier update data object (only include fields that were provided)
-  const supplierData: Record<string, any> = {
+  const supplierData: Record<string, unknown> = {
     name: formData.get("name") as string,
     taxId: formData.get("taxId") as string,
     category: formData.get("category") as string,
@@ -190,11 +190,11 @@ export async function action(args: ActionFunctionArgs) {
 
     // Handle validation errors (400 Bad Request)
     if (response.error && response.status === 400) {
-      const errorData = response.error.value as any;
+      const errorData = response.error.value as Record<string, unknown>;
       return json(
         {
           error: "validation",
-          errors: errorData?.error?.errors || [],
+          errors: (errorData?.error as { errors?: unknown[] })?.errors || [],
           formData: supplierData,
         },
         { status: 400 }

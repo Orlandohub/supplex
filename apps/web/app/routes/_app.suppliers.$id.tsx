@@ -15,7 +15,7 @@ import {
 import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import type { Supplier } from "@supplex/types";
+import type { Supplier, Document } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
 import { Breadcrumb } from "~/components/ui/Breadcrumb";
@@ -82,30 +82,33 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const client = createEdenTreatyClient(token);
 
-  // Fetch supplier from API
+  // Fetch supplier and documents in parallel for optimal performance
   try {
-    const response = await client.api.suppliers[id].get();
+    const [supplierResponse, documentsResponse] = await Promise.all([
+      client.api.suppliers[id].get(),
+      client.api.suppliers[id].documents.get(),
+    ]);
 
-    // Handle API errors
-    if (response.error) {
-      const status = response.status || 500;
+    // Handle supplier API errors
+    if (supplierResponse.error) {
+      const status = supplierResponse.status || 500;
       if (status === 404) {
         throw new Response("Supplier not found", { status: 404 });
       }
-      console.error("API Error:", response.error);
+      console.error("Supplier API Error:", supplierResponse.error);
       throw new Response("Failed to load supplier", { status });
     }
 
-    // Validate response data
+    // Validate supplier response data
     if (
-      !response.data ||
-      typeof response.data !== "object" ||
-      !("data" in response.data)
+      !supplierResponse.data ||
+      typeof supplierResponse.data !== "object" ||
+      !("data" in supplierResponse.data)
     ) {
       throw new Response("Invalid API response format", { status: 500 });
     }
 
-    const apiResponse = response.data as {
+    const supplierApiResponse = supplierResponse.data as {
       success: boolean;
       data: {
         supplier: Supplier & {
@@ -115,8 +118,25 @@ export async function loader(args: LoaderFunctionArgs) {
       };
     };
 
+    // Handle documents response (non-fatal - if documents fail, still show supplier)
+    let documents: Document[] = [];
+    if (documentsResponse.error) {
+      console.error("Documents API Error:", documentsResponse.error);
+      // Don't fail the entire page if documents fail - just show empty list
+    } else if (
+      documentsResponse.data &&
+      typeof documentsResponse.data === "object"
+    ) {
+      const documentsData = documentsResponse.data as {
+        documents?: Document[];
+      };
+      documents = documentsData.documents || [];
+    }
+
     return json({
-      supplier: apiResponse.data.supplier,
+      supplier: supplierApiResponse.data.supplier,
+      documents,
+      token, // Pass token for download/delete operations
     });
   } catch (error) {
     console.error("Failed to fetch supplier:", error);
@@ -126,6 +146,37 @@ export async function loader(args: LoaderFunctionArgs) {
     }
     throw new Response("Failed to load supplier", { status: 500 });
   }
+}
+
+/**
+ * Prevent unnecessary revalidation on tab switches (search param changes)
+ * Only revalidate when:
+ * - Route params change (different supplier)
+ * - Explicit form submission/action
+ * - Manual revalidation (after upload/delete)
+ */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}: {
+  currentUrl: URL;
+  nextUrl: URL;
+  defaultShouldRevalidate: boolean;
+}) {
+  // If only search params changed (tab switch), don't revalidate
+  if (currentUrl.pathname === nextUrl.pathname) {
+    const currentParams = currentUrl.searchParams.toString();
+    const nextParams = nextUrl.searchParams.toString();
+
+    // Same path, different search params = tab switch = no revalidation
+    if (currentParams !== nextParams) {
+      return false;
+    }
+  }
+
+  // For everything else (route change, actions), use default behavior
+  return defaultShouldRevalidate;
 }
 
 /**
@@ -201,8 +252,10 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function SupplierDetail() {
-  const { supplier } = useLoaderData<typeof loader>() as {
+  const { supplier, documents, token } = useLoaderData<typeof loader>() as {
     supplier: SerializedSupplier;
+    documents: Document[];
+    token: string;
   };
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
@@ -267,7 +320,11 @@ export default function SupplierDetail() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SupplierDetailTabs supplier={supplier} />
+        <SupplierDetailTabs
+          supplier={supplier}
+          documents={documents}
+          token={token}
+        />
       </div>
     </div>
   );
