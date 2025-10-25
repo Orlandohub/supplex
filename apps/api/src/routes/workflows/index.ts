@@ -8,6 +8,11 @@ import { removeWorkflowDocumentRoute } from "./remove-document";
 import { submitRoute } from "./submit";
 import { completionStatusRoute } from "./completion-status";
 import { assignedReviewerRoute } from "./assigned-reviewer";
+import { myTasksRoute } from "./my-tasks";
+import { myTasksCountRoute } from "./my-tasks-count";
+import { reviewRoute } from "./review";
+import { approveStageRoute } from "./approve-stage";
+import { rejectStageRoute } from "./reject-stage";
 
 /**
  * Workflow Routes
@@ -23,6 +28,11 @@ import { assignedReviewerRoute } from "./assigned-reviewer";
  * - GET /api/workflows/:workflowId/completion-status - Get workflow document completion status
  * - GET /api/workflows/:workflowId/assigned-reviewer - Get assigned reviewer for workflow submission
  * - POST /api/workflows/:workflowId/submit - Submit workflow for Stage 1 approval
+ * - GET /api/workflows/my-tasks - Get list of pending tasks for current user
+ * - GET /api/workflows/my-tasks/count - Get count of pending tasks for badge
+ * - GET /api/workflows/:workflowId/review - Get workflow review page data
+ * - POST /api/workflows/:workflowId/stages/:stageId/approve - Approve a workflow stage
+ * - POST /api/workflows/:workflowId/stages/:stageId/reject - Reject a workflow stage
  */
 export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
   .use(initiateWorkflowRoute)
@@ -33,4 +43,9 @@ export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
   .use(removeWorkflowDocumentRoute)
   .use(completionStatusRoute)
   .use(assignedReviewerRoute)
-  .use(submitRoute);
+  .use(submitRoute)
+  .use(myTasksRoute)
+  .use(myTasksCountRoute)
+  .use(reviewRoute)
+  .use(approveStageRoute)
+  .use(rejectStageRoute);

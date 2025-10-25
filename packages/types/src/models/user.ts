@@ -56,3 +56,11 @@ export const UpdateUserSchema = InsertUserSchema.partial().omit({
 export type InsertUser = z.infer<typeof InsertUserSchema>;
 export type UpdateUser = z.infer<typeof UpdateUserSchema>;
 
+/**
+ * User Task Summary Interface
+ * Summary of pending tasks and notifications for a user
+ */
+export interface UserTaskSummary {
+  pendingWorkflowsCount: number;
+  overdueTasksCount: number;
+}

@@ -3,7 +3,7 @@
  * Collapsible sidebar navigation with role-based menu filtering
  */
 
-import { Link, useLocation } from "@remix-run/react";
+import { Link, useLocation, useRouteLoaderData } from "@remix-run/react";
 import {
   Home,
   Building2,
@@ -15,10 +15,12 @@ import {
   Code,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import { useNavigationStore } from "~/stores/navigationStore";
 import { usePermissions } from "~/hooks/usePermissions";
 import { cn } from "~/lib/utils";
+import { Badge } from "~/components/ui/badge";
 
 interface NavItem {
   name: string;
@@ -26,6 +28,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   requiredPermissions?: keyof ReturnType<typeof usePermissions>;
   adminOnly?: boolean;
+  showBadge?: boolean;
 }
 
 const navigationItems: NavItem[] = [
@@ -38,6 +41,12 @@ const navigationItems: NavItem[] = [
     name: "Suppliers",
     href: "/suppliers",
     icon: Building2,
+  },
+  {
+    name: "My Tasks",
+    href: "/tasks",
+    icon: ClipboardList,
+    showBadge: true,
   },
   {
     name: "Qualifications",
@@ -77,6 +86,10 @@ export function Sidebar() {
   const location = useLocation();
   const permissions = usePermissions();
   const { isSidebarCollapsed, toggleSidebar } = useNavigationStore();
+
+  // Get task count from root loader
+  const appData = useRouteLoaderData<{ taskCount: number }>("routes/_app");
+  const taskCount = appData?.taskCount || 0;
 
   // Filter navigation based on permissions
   const visibleNavItems = navigationItems.filter((item) => {
@@ -163,7 +176,27 @@ export function Sidebar() {
                     : "text-neutral-400 group-hover:text-neutral-500"
                 )}
               />
-              {!isSidebarCollapsed && <span className="ml-3">{item.name}</span>}
+              {!isSidebarCollapsed && (
+                <span className="ml-3 flex items-center gap-2">
+                  {item.name}
+                  {item.showBadge && taskCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="h-5 min-w-[20px] px-1.5 text-xs font-semibold"
+                    >
+                      {taskCount}
+                    </Badge>
+                  )}
+                </span>
+              )}
+              {isSidebarCollapsed && item.showBadge && taskCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute top-1 right-1 h-4 w-4 p-0 text-[10px] flex items-center justify-center"
+                >
+                  {taskCount > 9 ? "9+" : taskCount}
+                </Badge>
+              )}
             </Link>
           );
         })}

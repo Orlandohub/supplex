@@ -105,6 +105,31 @@ export function WorkflowDetailPage({
             </div>
           </div>
 
+          {/* Rejection Alert Banner */}
+          {workflow.status === "Draft" && workflow.latestRejectedStage && (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm font-semibold text-yellow-900 mb-1">
+                ⚠️ This workflow was returned for changes by{" "}
+                {workflow.latestRejectedStage.reviewerName || "a reviewer"} on{" "}
+                {workflow.latestRejectedStage.reviewedDate
+                  ? formatDate(
+                      new Date(workflow.latestRejectedStage.reviewedDate)
+                    )
+                  : ""}
+              </p>
+              {workflow.latestRejectedStage.comments && (
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-yellow-800 mb-1">
+                    Reviewer Comments:
+                  </p>
+                  <p className="text-sm text-yellow-900 italic bg-yellow-100/50 p-2 rounded">
+                    &quot;{workflow.latestRejectedStage.comments}&quot;
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Read-only message */}
           {isReadOnly && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">

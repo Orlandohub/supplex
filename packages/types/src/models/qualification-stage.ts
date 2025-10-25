@@ -67,3 +67,27 @@ export interface UpdateQualificationStageDto {
   comments?: string;
   attachments?: StageAttachment[];
 }
+
+/**
+ * Review Decision DTO
+ * Data required to approve or reject a workflow stage
+ */
+export interface ReviewDecisionDto {
+  workflowId: string;
+  stageId: string;
+  decision: "Approved" | "Rejected";
+  comments: string; // Required if Rejected
+}
+
+/**
+ * Stage With Reviewer Interface
+ * Extends QualificationStage to include reviewer user details
+ */
+export interface StageWithReviewer extends QualificationStage {
+  reviewer?: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+  } | null;
+}

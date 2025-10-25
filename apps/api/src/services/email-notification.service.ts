@@ -38,3 +38,79 @@ export async function sendWorkflowSubmittedEmail(
   // No-op for MVP
   return Promise.resolve();
 }
+
+export interface StageApprovedEmailData {
+  workflowId: string;
+  initiatorEmail: string;
+  initiatorName: string;
+  supplierName: string;
+  reviewerName: string;
+  stageNumber: number;
+  nextStage: string;
+  workflowLink: string;
+}
+
+/**
+ * Send stage approved email notification
+ * Notifies workflow initiator that a stage has been approved
+ * @param data - Email notification data
+ * @returns Promise<void>
+ */
+export async function sendStageApprovedEmail(
+  data: StageApprovedEmailData
+): Promise<void> {
+  // MVP: Log to console instead of sending actual email
+  // eslint-disable-next-line no-console
+  console.log("[EMAIL STUB] Stage Approved Email", {
+    to: data.initiatorEmail,
+    subject: `${data.supplierName} Qualification - Stage ${data.stageNumber} Approved`,
+    workflow_id: data.workflowId,
+    supplier: data.supplierName,
+    reviewer: data.reviewerName,
+    stage_number: data.stageNumber,
+    next_stage: data.nextStage,
+    link: data.workflowLink,
+    timestamp: new Date().toISOString(),
+  });
+
+  // No-op for MVP
+  return Promise.resolve();
+}
+
+export interface StageRejectedEmailData {
+  workflowId: string;
+  initiatorEmail: string;
+  initiatorName: string;
+  supplierName: string;
+  reviewerName: string;
+  stageNumber: number;
+  rejectionComments: string;
+  workflowLink: string;
+}
+
+/**
+ * Send stage rejected email notification
+ * Notifies workflow initiator that a stage has been rejected with feedback
+ * @param data - Email notification data
+ * @returns Promise<void>
+ */
+export async function sendStageRejectedEmail(
+  data: StageRejectedEmailData
+): Promise<void> {
+  // MVP: Log to console instead of sending actual email
+  // eslint-disable-next-line no-console
+  console.log("[EMAIL STUB] Stage Rejected Email", {
+    to: data.initiatorEmail,
+    subject: `${data.supplierName} Qualification - Changes Requested`,
+    workflow_id: data.workflowId,
+    supplier: data.supplierName,
+    reviewer: data.reviewerName,
+    stage_number: data.stageNumber,
+    rejection_comments: data.rejectionComments,
+    link: data.workflowLink,
+    timestamp: new Date().toISOString(),
+  });
+
+  // No-op for MVP
+  return Promise.resolve();
+}

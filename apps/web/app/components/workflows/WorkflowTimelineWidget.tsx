@@ -16,7 +16,8 @@ export function WorkflowTimelineWidget(_props: WorkflowTimelineWidgetProps) {
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Workflow History</h3>
       <p className="text-sm text-muted-foreground">
-        Full timeline functionality will be available in Story 2.10.
+        Timeline functionality will be available in Story 2.10.
+        Approval/rejection events are being recorded in the audit log.
       </p>
       {/* TODO: Story 2.10 - Implement full audit trail timeline with:
           - Latest 3 events from audit log
