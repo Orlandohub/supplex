@@ -225,6 +225,9 @@ Use this checklist when implementing new features:
 - [ ] Add null checks for joined data: `joinedTable?.field`
 - [ ] Test with authentication logs appearing in console
 - [ ] Test with real data to catch schema mismatches
+- [ ] Only set prefix on parent aggregator route, NOT on child routes (Issue 8)
+- [ ] Use consistent parameter names across routes for the same resource (Issue 8)
+- [ ] Test server startup after adding routes - prefix errors appear immediately (Issue 8)
 
 ### Frontend (Web) Code
 - [ ] Never access `process.env` directly - use `window.ENV` or loader data
@@ -626,6 +629,217 @@ export default function Dashboard() {
 | `useMatches()` | Access all matched route data | Array of all matched routes |
 
 **Best Practice:** Give each route its own loader for the data it needs. Only use `useRouteLoaderData()` when you need to avoid duplicate data fetching.
+
+---
+
+## Issue 8: ElysiaJS Route Prefix Duplication - Parameter Name Conflicts
+
+**Date**: October 24, 2025  
+**Affected Files**: `apps/api/src/routes/workflows/index.ts`, `apps/api/src/routes/workflows/detail.ts`, `apps/api/src/routes/workflows/documents.ts`, `apps/api/src/routes/workflows/upload-document.ts`, `apps/api/src/routes/workflows/remove-document.ts`
+
+### Problem
+API server crashed on startup with route registration error:
+```
+error: Cannot create route "/workflows/workflows/:workflowId/documents" with parameter "workflowId" because a route already exists with a different parameter name ("id") in the same location
+```
+
+The server could not start because routes had duplicate prefixes and conflicting parameter names.
+
+### Root Cause
+**Double Prefix**: Parent index route and child routes both defined the same prefix:
+
+```typescript
+// Parent: apps/api/src/routes/workflows/index.ts
+export const workflowsRoutes = new Elysia({ prefix: "/workflows" })  // ✅ Parent prefix
+  .use(workflowDetailRoute)
+  .use(workflowDocumentsRoute)
+  // ...
+
+// Child: apps/api/src/routes/workflows/detail.ts
+export const workflowDetailRoute = new Elysia({ prefix: "/workflows" })  // ❌ Duplicate prefix!
+  .use(authenticate)
+  .get("/:id", async ({ params, user, set }) => {
+    // ...
+  });
+
+// Child: apps/api/src/routes/workflows/documents.ts
+export const workflowDocumentsRoute = new Elysia({ prefix: "/workflows" })  // ❌ Duplicate prefix!
+  .use(authenticate)
+  .get("/:workflowId/documents", async ({ params, user, set }) => {
+    // ...
+  });
+```
+
+This created routes like:
+- `/workflows/workflows/:id` (should be `/workflows/:id`)
+- `/workflows/workflows/:workflowId/documents` (should be `/workflows/:workflowId/documents`)
+
+**Parameter Name Conflict**: Additionally, different routes used different parameter names (`:id` vs `:workflowId`) at the same path segment position, causing ElysiaJS to reject the routes.
+
+### Solution
+**1. Remove redundant prefixes from child routes:**
+
+```typescript
+// ✅ CORRECT - No prefix on child routes
+export const workflowDetailRoute = new Elysia()  // No prefix - parent provides it
+  .use(authenticate)
+  .get("/:workflowId", async ({ params, user, set }) => {
+    // ...
+  });
+
+export const workflowDocumentsRoute = new Elysia()  // No prefix
+  .use(authenticate)
+  .get("/:workflowId/documents", async ({ params, user, set }) => {
+    // ...
+  });
+```
+
+**2. Standardize parameter names across all routes:**
+
+```typescript
+// ✅ All routes use consistent parameter name
+"/:workflowId"                           // GET workflow detail
+"/:workflowId/documents"                 // GET workflow documents
+"/:workflowId/documents"                 // POST upload document
+"/:workflowId/documents/:documentId"     // DELETE remove document
+```
+
+### Prevention Guidelines
+1. **Only set prefix on the parent aggregator route** - child routes should NOT have prefixes
+2. **Standardize parameter names** - use consistent names for the same resource across all routes
+3. **Pattern**: `{resource}Id` for IDs (e.g., `workflowId`, `supplierId`, `documentId`)
+4. **Document route structure** in parent index file comments
+5. **Test server startup** after adding new routes - prefix errors appear immediately
+6. **Use descriptive parameter names** - prefer `:workflowId` over generic `:id` when route tree has multiple resources
+
+### Correct ElysiaJS Route Organization Pattern
+
+**Parent Aggregator (index.ts):**
+```typescript
+import { Elysia } from "elysia";
+import { workflowDetailRoute } from "./detail";
+import { workflowDocumentsRoute } from "./documents";
+
+/**
+ * Workflow Routes
+ * 
+ * Routes:
+ * - GET /api/workflows/:workflowId - Get workflow details
+ * - GET /api/workflows/:workflowId/documents - Get workflow documents
+ * - POST /api/workflows/:workflowId/documents - Upload document
+ */
+export const workflowsRoutes = new Elysia({ prefix: "/workflows" })  // ✅ Only parent has prefix
+  .use(workflowDetailRoute)
+  .use(workflowDocumentsRoute);
+```
+
+**Child Route (detail.ts):**
+```typescript
+import { Elysia, t } from "elysia";
+import { authenticate } from "../../lib/rbac/middleware";
+
+/**
+ * GET /api/workflows/:workflowId
+ * Get workflow details
+ */
+export const workflowDetailRoute = new Elysia()  // ✅ No prefix - parent provides "/workflows"
+  .use(authenticate)
+  .get(
+    "/:workflowId",  // ✅ Consistent parameter name
+    async ({ params, user, set }) => {
+      const workflow = await db.query.qualificationWorkflows.findFirst({
+        where: eq(qualificationWorkflows.id, params.workflowId),  // ✅ Use workflowId
+        // ...
+      });
+      // ...
+    },
+    {
+      params: t.Object({
+        workflowId: t.String({ format: "uuid" }),  // ✅ Match parameter name
+      }),
+    }
+  );
+```
+
+**Child Route (documents.ts):**
+```typescript
+import { Elysia, t } from "elysia";
+import { authenticate } from "../../lib/rbac/middleware";
+
+/**
+ * GET /api/workflows/:workflowId/documents
+ * Get all workflow documents
+ */
+export const workflowDocumentsRoute = new Elysia()  // ✅ No prefix
+  .use(authenticate)
+  .get(
+    "/:workflowId/documents",  // ✅ Same parameter name as detail route
+    async ({ params, user, set }) => {
+      const workflowDocs = await db.query.workflowDocuments.findMany({
+        where: eq(workflowDocuments.workflowId, params.workflowId),  // ✅ Consistent
+        // ...
+      });
+      // ...
+    },
+    {
+      params: t.Object({
+        workflowId: t.String({ format: "uuid" }),  // ✅ Consistent
+      }),
+    }
+  );
+```
+
+### Quick Checklist for ElysiaJS Route Files
+
+**When creating a new route module:**
+- [ ] Parent aggregator (`index.ts`) has prefix, child routes do NOT
+- [ ] All routes for same resource use consistent parameter names (e.g., all use `:workflowId`)
+- [ ] Route structure documented in parent file comments
+- [ ] Parameter validation matches parameter names in path
+- [ ] Server starts without route registration errors
+- [ ] Routes appear correctly in Swagger/OpenAPI docs (if enabled)
+
+### Common Mistakes to Avoid
+
+❌ **Bad - Prefix on both parent and child:**
+```typescript
+// Parent
+export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
+  .use(workflowDetailRoute);
+
+// Child - WRONG!
+export const workflowDetailRoute = new Elysia({ prefix: "/workflows" })  // Duplicate!
+  .get("/:id", handler);
+// Results in: /workflows/workflows/:id
+```
+
+❌ **Bad - Inconsistent parameter names:**
+```typescript
+// Route 1 uses :id
+export const workflowDetailRoute = new Elysia()
+  .get("/:id", handler);
+
+// Route 2 uses :workflowId - CONFLICT!
+export const workflowDocumentsRoute = new Elysia()
+  .get("/:workflowId/documents", handler);
+// ElysiaJS error: parameter name conflict at same position
+```
+
+✅ **Good - Clean route organization:**
+```typescript
+// Parent has prefix
+export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
+  .use(workflowDetailRoute)
+  .use(workflowDocumentsRoute);
+
+// Children have no prefix, consistent parameter names
+export const workflowDetailRoute = new Elysia()
+  .get("/:workflowId", handler);
+
+export const workflowDocumentsRoute = new Elysia()
+  .get("/:workflowId/documents", handler);
+// Results in: /workflows/:workflowId and /workflows/:workflowId/documents
+```
 
 ---
 

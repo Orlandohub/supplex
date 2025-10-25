@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { suppliers } from "./suppliers";
 import { users } from "./users";
@@ -94,3 +95,18 @@ export type InsertQualificationWorkflow =
   typeof qualificationWorkflows.$inferInsert;
 export type SelectQualificationWorkflow =
   typeof qualificationWorkflows.$inferSelect;
+
+// Relations
+export const qualificationWorkflowsRelations = relations(
+  qualificationWorkflows,
+  ({ one }) => ({
+    supplier: one(suppliers, {
+      fields: [qualificationWorkflows.supplierId],
+      references: [suppliers.id],
+    }),
+    initiator: one(users, {
+      fields: [qualificationWorkflows.initiatedBy],
+      references: [users.id],
+    }),
+  })
+);

@@ -8,6 +8,7 @@ import {
   date,
   index,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { suppliers } from "./suppliers";
 import { users } from "./users";
@@ -56,3 +57,14 @@ export const documents = pgTable(
 export type InsertDocument = typeof documents.$inferInsert;
 export type SelectDocument = typeof documents.$inferSelect;
 
+// Relations
+export const documentsRelations = relations(documents, ({ one }) => ({
+  uploadedByUser: one(users, {
+    fields: [documents.uploadedBy],
+    references: [users.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [documents.supplierId],
+    references: [suppliers.id],
+  }),
+}));

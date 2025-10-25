@@ -48,3 +48,24 @@ export interface UpdateWorkflowDocumentDto {
   documentId?: string;
   status?: ChecklistItemStatus;
 }
+
+/**
+ * Workflow Document with Details
+ * Extended workflow document with full document metadata and uploader info
+ */
+export interface WorkflowDocumentWithDetails extends WorkflowDocument {
+  document?: {
+    id: string;
+    filename: string;
+    documentType: string;
+    storagePath: string;
+    fileSize: number;
+    mimeType: string;
+    description: string | null;
+    expiryDate: Date | null;
+    uploadedBy: string;
+    uploadedByName: string; // User full name
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+}

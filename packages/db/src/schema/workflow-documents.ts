@@ -1,4 +1,5 @@
 import { pgTable, uuid, varchar, timestamp, index } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { qualificationWorkflows } from "./qualification-workflows";
 import { documents } from "./documents";
 
@@ -63,3 +64,18 @@ export const workflowDocuments = pgTable(
 // Type for inserting/selecting workflow documents
 export type InsertWorkflowDocument = typeof workflowDocuments.$inferInsert;
 export type SelectWorkflowDocument = typeof workflowDocuments.$inferSelect;
+
+// Relations
+export const workflowDocumentsRelations = relations(
+  workflowDocuments,
+  ({ one }) => ({
+    workflow: one(qualificationWorkflows, {
+      fields: [workflowDocuments.workflowId],
+      references: [qualificationWorkflows.id],
+    }),
+    document: one(documents, {
+      fields: [workflowDocuments.documentId],
+      references: [documents.id],
+    }),
+  })
+);

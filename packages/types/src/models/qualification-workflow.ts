@@ -91,3 +91,43 @@ export interface UpdateQualificationWorkflowDto {
   currentStage?: number;
   riskScore?: number;
 }
+
+/**
+ * Qualification Workflow with Supplier
+ * Extended workflow with supplier data and parsed checklist items
+ */
+export interface QualificationWorkflowWithSupplier
+  extends QualificationWorkflow {
+  supplier: {
+    id: string;
+    name: string;
+    taxId: string;
+    category: string;
+    status: string;
+    contactName: string;
+    contactEmail: string;
+    contactPhone: string;
+    riskScore: number | null;
+  };
+  checklistItems: RequiredDocumentItem[];
+}
+
+/**
+ * Workflow Completion Status
+ * Indicates whether a workflow is ready for submission
+ */
+export interface WorkflowCompletionStatus {
+  canSubmit: boolean;
+  requiredCount: number;
+  uploadedCount: number;
+  completionPercentage: number;
+  missingDocuments: string[];
+}
+
+/**
+ * Submit Workflow DTO
+ * Data for submitting workflow for stage approval
+ */
+export interface SubmitWorkflowDto {
+  workflowId: string;
+}

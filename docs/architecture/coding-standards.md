@@ -29,6 +29,13 @@
   - Use TypeBox (`t.*`) exclusively for route validation, never Zod (`z.*`)
   - For enums, use `t.Union([t.Literal(...), ...])` not Zod schemas
   - See [Issue 5](../troubleshooting/known-issues-and-fixes.md#issue-5-mixing-zod-and-typebox-schemas-in-elysiajs)
+- **ElysiaJS Route Organization:** (**CRITICAL**)
+  - ONLY parent aggregator (`index.ts`) should have a prefix
+  - Child routes must NOT have prefixes - parent provides them
+  - Use consistent parameter names across routes (e.g., all use `:workflowId`)
+  - Follow pattern: `{resourceName}Id` for IDs (e.g., `workflowId`, `supplierId`)
+  - See [Route Module Template](../templates/elysia-route-module-template.ts)
+  - See [Issue 8](../troubleshooting/known-issues-and-fixes.md#issue-8-elysiajs-route-prefix-duplication---parameter-name-conflicts)
 - **Environment Variables (Frontend):**
   - Always use centralized `config.apiUrl` - never access env vars directly
   - Follow 3-source pattern: `window.ENV`, `import.meta.env`, `process.env`
