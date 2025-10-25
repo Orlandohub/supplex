@@ -91,3 +91,43 @@ export interface StageWithReviewer extends QualificationStage {
     role: string;
   } | null;
 }
+
+/**
+ * Quality Checklist Item Interface
+ * Quality-specific checklist for Stage 2 review
+ * Stored in qualification_stages.attachments JSONB field
+ */
+export interface QualityChecklistItem {
+  qualityManualReviewed: boolean;
+  qualityCertificationsVerified: boolean;
+  qualityAuditFindings: string;
+}
+
+/**
+ * Stage History Summary Interface
+ * Summary of a single stage's completion for history view
+ */
+export interface StageHistorySummary {
+  stageNumber: number;
+  stageName: string;
+  reviewerName: string | null;
+  reviewedDate: Date | null;
+  decision: string;
+  comments: string | null;
+}
+
+/**
+ * Workflow History DTO
+ * Complete workflow history with all stages and metadata
+ */
+export interface WorkflowHistoryDto {
+  workflowId: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  riskScore: number | null;
+  documentCompletionPercent: number;
+  stages: StageHistorySummary[];
+  createdAt: Date;
+  updatedAt: Date;
+}

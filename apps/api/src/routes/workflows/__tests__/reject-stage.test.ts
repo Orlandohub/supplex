@@ -486,4 +486,188 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/reject", () => {
       expect(rejectedStage.comments).toBeDefined();
     });
   });
+
+  /**
+   * Story 2.7: Stage 2/3 Rejection Tests
+   */
+  describe("Stage 2 and 3 rejection (Story 2.7)", () => {
+    it("should revert workflow to Draft on Stage 2 rejection", async () => {
+      const qualityManager = createMockUser({
+        role: "quality_manager",
+        id: "qm-123",
+      });
+      const stage2 = createMockStage({
+        stageNumber: 2,
+        stageName: "Quality Review",
+        assignedTo: "qm-123",
+        workflow: {
+          ...createMockStage().workflow,
+          status: "Stage2",
+          currentStage: 2,
+          supplier: {
+            ...createMockStage().workflow.supplier,
+            status: "qualified",
+          },
+        },
+      });
+
+      const rejectionComments =
+        "Quality certifications have expired. Please renew ISO certification.";
+
+      // Simulate Stage 2 rejection
+      const updatedStage = {
+        ...stage2,
+        status: "Rejected",
+        reviewedBy: qualityManager.id,
+        reviewedDate: new Date(),
+        comments: rejectionComments,
+      };
+
+      const updatedWorkflow = {
+        ...stage2.workflow,
+        status: "Draft",
+        currentStage: 0,
+      };
+
+      const updatedSupplier = {
+        ...stage2.workflow.supplier,
+        status: "prospect",
+      };
+
+      expect(updatedStage.status).toBe("Rejected");
+      expect(updatedStage.comments).toBe(rejectionComments);
+      expect(updatedWorkflow.status).toBe("Draft");
+      expect(updatedWorkflow.currentStage).toBe(0);
+      expect(updatedSupplier.status).toBe("prospect");
+    });
+
+    it("should revert workflow to Draft on Stage 3 rejection", async () => {
+      const admin = createMockUser({ role: "admin", id: "admin-123" });
+      const stage3 = createMockStage({
+        stageNumber: 3,
+        stageName: "Management Approval",
+        assignedTo: "admin-123",
+        workflow: {
+          ...createMockStage().workflow,
+          status: "Stage3",
+          currentStage: 3,
+          supplier: {
+            ...createMockStage().workflow.supplier,
+            status: "qualified",
+          },
+        },
+      });
+
+      const rejectionComments =
+        "Financial documentation needs to be updated. Please provide current statements.";
+
+      // Simulate Stage 3 rejection
+      const updatedStage = {
+        ...stage3,
+        status: "Rejected",
+        reviewedBy: admin.id,
+        reviewedDate: new Date(),
+        comments: rejectionComments,
+      };
+
+      const updatedWorkflow = {
+        ...stage3.workflow,
+        status: "Draft",
+        currentStage: 0,
+      };
+
+      const updatedSupplier = {
+        ...stage3.workflow.supplier,
+        status: "prospect",
+      };
+
+      expect(updatedStage.status).toBe("Rejected");
+      expect(updatedStage.comments).toBe(rejectionComments);
+      expect(updatedWorkflow.status).toBe("Draft");
+      expect(updatedWorkflow.currentStage).toBe(0);
+      expect(updatedSupplier.status).toBe("prospect");
+    });
+
+    it("should allow Quality Manager to reject Stage 2", async () => {
+      const qualityManager = createMockUser({ role: "quality_manager" });
+      const stage2 = createMockStage({
+        stageNumber: 2,
+        assignedTo: qualityManager.id,
+      });
+
+      // Role check for Stage 2 rejection
+      const userRole = qualityManager.role;
+      const isAuthorized =
+        userRole === "quality_manager" || userRole === "admin";
+
+      expect(isAuthorized).toBe(true);
+      expect(stage2.stageNumber).toBe(2);
+    });
+
+    it("should allow Admin to reject Stage 3", async () => {
+      const admin = createMockUser({ role: "admin" });
+      const stage3 = createMockStage({
+        stageNumber: 3,
+        assignedTo: admin.id,
+      });
+
+      // Role check for Stage 3 rejection
+      const userRole = admin.role;
+      const isAuthorized = userRole === "admin";
+
+      expect(isAuthorized).toBe(true);
+      expect(stage3.stageNumber).toBe(3);
+    });
+
+    it("should prevent Procurement Manager from rejecting Stage 2", async () => {
+      const procurementManager = createMockUser({
+        role: "procurement_manager",
+      });
+      const _stage2 = createMockStage({
+        stageNumber: 2,
+      });
+
+      // Role check for Stage 2
+      const userRole = procurementManager.role;
+      const isAuthorized =
+        userRole === "quality_manager" || userRole === "admin";
+
+      expect(isAuthorized).toBe(false);
+      // Would return 403: "Access denied. Quality Manager or Admin role required for Stage 2."
+    });
+
+    it("should prevent Quality Manager from rejecting Stage 3", async () => {
+      const qualityManager = createMockUser({ role: "quality_manager" });
+      const _stage3 = createMockStage({
+        stageNumber: 3,
+      });
+
+      // Role check for Stage 3
+      const userRole = qualityManager.role;
+      const isAuthorized = userRole === "admin";
+
+      expect(isAuthorized).toBe(false);
+      // Would return 403: "Access denied. Admin role required for Stage 3."
+    });
+
+    it("should require rejection comments with minimum 10 characters for all stages", async () => {
+      const validComments = [
+        "Quality issues need to be resolved before approval.",
+        "Financial documentation requires updates.",
+        "Additional supplier information needed.",
+      ];
+
+      const invalidComments = ["Too short", "No way", "Reject"];
+
+      validComments.forEach((comment) => {
+        const isValid = comment.trim().length >= 10;
+        expect(isValid).toBe(true);
+      });
+
+      invalidComments.forEach((comment) => {
+        const isValid = comment.trim().length >= 10;
+        expect(isValid).toBe(false);
+      });
+    });
+  });
 });

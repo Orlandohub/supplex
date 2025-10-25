@@ -114,3 +114,35 @@ export async function sendStageRejectedEmail(
   // No-op for MVP
   return Promise.resolve();
 }
+
+export interface SupplierApprovalCongratulationsData {
+  supplierName: string;
+  supplierEmail: string;
+  workflowId: string;
+}
+
+/**
+ * Send supplier approval congratulations email
+ * Notifies supplier of final qualification approval (Stage 3 completion)
+ * Only sent if tenant.settings.enableSupplierApprovalEmails === true
+ * @param data - Email notification data
+ * @returns Promise<void>
+ */
+export async function sendSupplierApprovalCongratulations(
+  data: SupplierApprovalCongratulationsData
+): Promise<void> {
+  // MVP: Log to console instead of sending actual email
+  // eslint-disable-next-line no-console
+  console.log("[EMAIL STUB] Supplier Approval Congratulations Email", {
+    to: data.supplierEmail,
+    subject: `Congratulations! Your qualification has been approved`,
+    supplier: data.supplierName,
+    workflow_id: data.workflowId,
+    timestamp: new Date().toISOString(),
+  });
+
+  // No-op for MVP
+  // TODO Story 2.8: Implement with Resend.com
+  // TODO Story 2.8: Check tenant.settings.enableSupplierApprovalEmails before sending
+  return Promise.resolve();
+}

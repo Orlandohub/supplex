@@ -85,12 +85,31 @@ export async function loader(args: LoaderFunctionArgs) {
       };
     };
 
+    // Fetch workflow history if Stage 3 (for history summary display)
+    let workflowHistory = null;
+    if (apiResponse.data.stage?.stageNumber === 3) {
+      try {
+        const historyResponse = await client.api.workflows[id].history.get();
+        if (historyResponse.data && !historyResponse.error) {
+          const historyData = historyResponse.data as {
+            success: boolean;
+            data: any;
+          };
+          workflowHistory = historyData.data;
+        }
+      } catch (historyError) {
+        console.error("Failed to fetch workflow history:", historyError);
+        // Continue without history - not critical for review
+      }
+    }
+
     return json({
       workflow: apiResponse.data.workflow,
       supplier: apiResponse.data.supplier,
       documents: apiResponse.data.documents,
       stage: apiResponse.data.stage,
       initiator: apiResponse.data.initiator,
+      workflowHistory,
       error,
       token,
     });
@@ -104,8 +123,16 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export default function WorkflowReview() {
-  const { workflow, supplier, documents, stage, initiator, error, token } =
-    useLoaderData<typeof loader>();
+  const {
+    workflow,
+    supplier,
+    documents,
+    stage,
+    initiator,
+    workflowHistory,
+    error,
+    token,
+  } = useLoaderData<typeof loader>();
 
   // Show error toast if redirected with error
   useEffect(() => {
@@ -121,6 +148,7 @@ export default function WorkflowReview() {
       documents={documents}
       stage={stage}
       initiator={initiator}
+      workflowHistory={workflowHistory}
       token={token}
     />
   );

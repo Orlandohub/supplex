@@ -18,6 +18,7 @@ import { useNavigate } from "@remix-run/react";
 import { toast } from "sonner";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import { CheckCircle, Loader2 } from "lucide-react";
+import type { QualityChecklistItem } from "@supplex/types";
 
 interface ApproveStageModalProps {
   open: boolean;
@@ -25,6 +26,7 @@ interface ApproveStageModalProps {
   workflow: any;
   stage: any;
   comments: string;
+  qualityChecklist?: QualityChecklistItem;
   token: string;
 }
 
@@ -45,6 +47,7 @@ export function ApproveStageModal({
   workflow,
   stage,
   comments,
+  qualityChecklist,
   token,
 }: ApproveStageModalProps) {
   const [isApproving, setIsApproving] = useState(false);
@@ -59,14 +62,33 @@ export function ApproveStageModal({
         stage.id
       ].approve.post({
         comments: comments || undefined,
+        qualityChecklist: qualityChecklist || undefined,
       });
 
       if (response?.error) {
         throw new Error(response.error.message || "Failed to approve stage");
       }
 
-      toast.success("Stage 1 approved successfully", {
-        description: `The workflow will advance to Stage 2: Quality Review.`,
+      // Dynamic success messages based on stage
+      const stageNumber = stage.stageNumber;
+      let successTitle = "";
+      let successDescription = "";
+
+      if (stageNumber === 1) {
+        successTitle = "Stage 1 approved successfully";
+        successDescription =
+          "The workflow will advance to Stage 2: Quality Review.";
+      } else if (stageNumber === 2) {
+        successTitle = "Stage 2 approved successfully";
+        successDescription =
+          "The workflow will advance to Stage 3: Management Approval.";
+      } else if (stageNumber === 3) {
+        successTitle = "Qualification complete!";
+        successDescription = "Supplier approved. The workflow is now complete.";
+      }
+
+      toast.success(successTitle, {
+        description: successDescription,
       });
 
       // Navigate back to tasks page
@@ -85,7 +107,7 @@ export function ApproveStageModal({
       } else if (errorMsg.includes("NOT_FOUND")) {
         errorMessage = "Stage not found";
       } else if (errorMsg.includes("NO_REVIEWER")) {
-        errorMessage = "No reviewer available for Stage 2";
+        errorMessage = `No reviewer available for next stage`;
       }
 
       toast.error("Failed to approve stage", {
@@ -102,7 +124,7 @@ export function ApproveStageModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
-            Approve Stage 1: Procurement Review?
+            Approve Stage {stage.stageNumber}: {stage.stageName}?
           </DialogTitle>
           <DialogDescription>
             Review the details below before approving this stage.
@@ -147,10 +169,18 @@ export function ApproveStageModal({
           <div className="rounded-lg bg-green-50 border border-green-200 p-4">
             <p className="text-sm text-green-900">
               <strong>
-                This will advance the workflow to Stage 2: Quality Review.
+                {stage.stageNumber === 1
+                  ? "This will advance the workflow to Stage 2: Quality Review."
+                  : stage.stageNumber === 2
+                    ? "This will advance the workflow to Stage 3: Management Approval."
+                    : "This will complete the qualification workflow and approve the supplier."}
               </strong>
               <br />
-              The quality manager will be notified and can begin their review.
+              {stage.stageNumber === 1
+                ? "The quality manager will be notified and can begin their review."
+                : stage.stageNumber === 2
+                  ? "The management approver will be notified to give final approval."
+                  : "The supplier will be notified of their approved status."}
             </p>
           </div>
 

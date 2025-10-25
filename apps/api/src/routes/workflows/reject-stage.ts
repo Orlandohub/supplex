@@ -41,19 +41,7 @@ export const rejectStageRoute = new Elysia().use(authenticate).post(
         };
       }
 
-      // Role check: Procurement Manager or Admin only
-      if (userRole !== "procurement_manager" && userRole !== "admin") {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message:
-              "Access denied. Procurement Manager or Admin role required.",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
+      // Role check will be done after fetching stage to determine which stage is being rejected
 
       // Fetch stage with workflow info
       const stage = await db.query.qualificationStages.findFirst({
@@ -123,6 +111,51 @@ export const rejectStageRoute = new Elysia().use(authenticate).post(
         };
       }
 
+      // Role-based access control based on stage number
+      const stageNumber = stage.stageNumber;
+      if (stageNumber === 1) {
+        // Stage 1: Procurement Manager or Admin
+        if (userRole !== "procurement_manager" && userRole !== "admin") {
+          set.status = 403;
+          return {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message:
+                "Access denied. Procurement Manager or Admin role required for Stage 1.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+      } else if (stageNumber === 2) {
+        // Stage 2: Quality Manager or Admin
+        if (userRole !== "quality_manager" && userRole !== "admin") {
+          set.status = 403;
+          return {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message:
+                "Access denied. Quality Manager or Admin role required for Stage 2.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+      } else if (stageNumber === 3) {
+        // Stage 3: Admin only
+        if (userRole !== "admin") {
+          set.status = 403;
+          return {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Access denied. Admin role required for Stage 3.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+      }
+
       // Begin transaction
       const result = await db.transaction(async (tx) => {
         // 1. Update current stage to Rejected
@@ -160,7 +193,12 @@ export const rejectStageRoute = new Elysia().use(authenticate).post(
             status: "prospect",
             updatedAt: new Date(),
           })
-          .where(eq(suppliers.id, stage.workflow.supplierId))
+          .where(
+            and(
+              eq(suppliers.id, stage.workflow.supplierId),
+              eq(suppliers.tenantId, tenantId)
+            )
+          )
           .returning();
 
         const updatedSupplier = updatedSuppliers[0];
@@ -169,7 +207,7 @@ export const rejectStageRoute = new Elysia().use(authenticate).post(
         // TODO: Implement audit logging in Story 2.10
         // await createAuditLog(tx, {
         //   eventType: "stage_rejected",
-        //   stageNumber: 1,
+        //   stageNumber: stageNumber,
         //   reviewerId: userId,
         //   comments: body.comments,
         // });
@@ -188,7 +226,7 @@ export const rejectStageRoute = new Elysia().use(authenticate).post(
         initiatorName: stage.workflow.initiator?.fullName || "Unknown",
         supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
         reviewerName: userFullName,
-        stageNumber: 1,
+        stageNumber: stageNumber,
         rejectionComments: body.comments,
         workflowLink: `/workflows/${stage.workflowId}`,
       });

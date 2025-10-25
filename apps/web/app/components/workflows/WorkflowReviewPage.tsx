@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
+import { Checkbox } from "~/components/ui/checkbox";
 import {
   Building2,
   Mail,
@@ -15,6 +16,8 @@ import {
   FileText,
   Download,
   Eye,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { Link } from "@remix-run/react";
 
@@ -27,6 +30,7 @@ interface WorkflowReviewPageProps {
     fullName: string;
     email: string;
   };
+  workflowHistory?: any | null;
   token: string;
 }
 
@@ -48,11 +52,68 @@ export function WorkflowReviewPage({
   documents,
   stage,
   initiator,
+  workflowHistory,
   token,
 }: WorkflowReviewPageProps) {
   const [comments, setComments] = useState("");
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+
+  // Stage 2 Quality Checklist State
+  const [qualityManualReviewed, setQualityManualReviewed] = useState(false);
+  const [qualityCertificationsVerified, setQualityCertificationsVerified] =
+    useState(false);
+  const [qualityAuditFindings, setQualityAuditFindings] = useState("");
+  const [qualityChecklistError, setQualityChecklistError] = useState("");
+
+  // Validate quality checklist for Stage 2
+  const validateQualityChecklist = (): boolean => {
+    if (stage.stageNumber !== 2) {
+      return true; // No validation needed for other stages
+    }
+
+    // Check if quality checklist fields are complete
+    if (!qualityManualReviewed) {
+      setQualityChecklistError(
+        "Please confirm that the quality manual has been reviewed"
+      );
+      return false;
+    }
+
+    if (!qualityCertificationsVerified) {
+      setQualityChecklistError(
+        "Please confirm that quality certifications have been verified"
+      );
+      return false;
+    }
+
+    if (!qualityAuditFindings.trim()) {
+      setQualityChecklistError("Please provide quality audit findings");
+      return false;
+    }
+
+    if (qualityAuditFindings.trim().length < 10) {
+      setQualityChecklistError(
+        "Quality audit findings must be at least 10 characters"
+      );
+      return false;
+    }
+
+    setQualityChecklistError("");
+    return true;
+  };
+
+  // Handle approve button click with validation
+  const handleApproveClick = () => {
+    if (validateQualityChecklist()) {
+      setShowApproveModal(true);
+    } else {
+      // Scroll to quality checklist section to show error
+      document
+        .getElementById("quality-checklist")
+        ?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   // Get risk badge variant
   const getRiskBadgeVariant = (
@@ -312,6 +373,209 @@ export function WorkflowReviewPage({
         </CardContent>
       </Card>
 
+      {/* Stage 2: Quality Assessment Checklist */}
+      {stage.stageNumber === 2 && (
+        <Card id="quality-checklist">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" />
+              Quality Assessment Checklist
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {qualityChecklistError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive font-medium">
+                  {qualityChecklistError}
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="qualityManual"
+                checked={qualityManualReviewed}
+                onCheckedChange={(checked) => {
+                  setQualityManualReviewed(checked as boolean);
+                  if (checked && qualityChecklistError) {
+                    setQualityChecklistError("");
+                  }
+                }}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="qualityManual"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Quality manual reviewed
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Confirm that the supplier&apos;s quality manual has been
+                  reviewed and meets requirements
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="qualityCerts"
+                checked={qualityCertificationsVerified}
+                onCheckedChange={(checked) => {
+                  setQualityCertificationsVerified(checked as boolean);
+                  if (checked && qualityChecklistError) {
+                    setQualityChecklistError("");
+                  }
+                }}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="qualityCerts"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Quality certifications verified
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Verify that all quality certifications (ISO, etc.) are valid
+                  and current
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="auditFindings">
+                Quality Audit Findings{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="auditFindings"
+                placeholder="Document any quality audit findings, observations, or recommendations (minimum 10 characters)..."
+                value={qualityAuditFindings}
+                onChange={(e) => {
+                  setQualityAuditFindings(e.target.value);
+                  if (
+                    e.target.value.trim().length >= 10 &&
+                    qualityChecklistError
+                  ) {
+                    setQualityChecklistError("");
+                  }
+                }}
+                rows={3}
+                className="w-full"
+              />
+              <p className="text-sm text-muted-foreground">
+                Record any findings from the quality assessment review (
+                {qualityAuditFindings.length} characters, minimum 10 required)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stage 3: Workflow History Summary */}
+      {stage.stageNumber === 3 && workflowHistory && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Previous Approval History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Overall Workflow Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <Label className="text-muted-foreground">Risk Score</Label>
+                  <p className="text-2xl font-bold">
+                    {workflowHistory.riskScore?.toFixed(1) || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">
+                    Document Completion
+                  </Label>
+                  <p className="text-2xl font-bold">
+                    {workflowHistory.documentCompletionPercent}%
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">
+                    Workflow Status
+                  </Label>
+                  <p className="font-medium">{workflowHistory.status}</p>
+                </div>
+              </div>
+
+              {/* Stage-by-Stage History */}
+              <div className="space-y-3">
+                {workflowHistory.stages?.map((stageHistory: any) => (
+                  <div
+                    key={stageHistory.stageNumber}
+                    className="border rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline">
+                            Stage {stageHistory.stageNumber}
+                          </Badge>
+                          <span className="font-medium">
+                            {stageHistory.stageName}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <Label className="text-muted-foreground">
+                              Reviewer
+                            </Label>
+                            <p>
+                              {stageHistory.reviewerName || "Pending Review"}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">
+                              Review Date
+                            </Label>
+                            <p>
+                              {stageHistory.reviewedDate
+                                ? formatDate(stageHistory.reviewedDate)
+                                : "N/A"}
+                            </p>
+                          </div>
+                        </div>
+                        {stageHistory.comments && (
+                          <div className="mt-3">
+                            <Label className="text-muted-foreground">
+                              Comments
+                            </Label>
+                            <p className="text-sm mt-1">
+                              {stageHistory.comments}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <Badge
+                          variant={
+                            stageHistory.decision === "Approved"
+                              ? "default"
+                              : stageHistory.decision === "Rejected"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {stageHistory.decision}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Review Comments */}
       <Card>
         <CardHeader>
@@ -344,10 +608,14 @@ export function WorkflowReviewPage({
         <Button
           variant="default"
           size="lg"
-          onClick={() => setShowApproveModal(true)}
+          onClick={handleApproveClick}
           className="w-full md:w-auto"
         >
-          Approve & Advance to Stage 2
+          {stage.stageNumber === 1
+            ? "Approve & Advance to Stage 2"
+            : stage.stageNumber === 2
+              ? "Approve & Advance to Stage 3"
+              : "Approve & Complete Qualification"}
         </Button>
       </div>
 
@@ -358,6 +626,15 @@ export function WorkflowReviewPage({
         workflow={workflow}
         stage={stage}
         comments={comments}
+        qualityChecklist={
+          stage.stageNumber === 2
+            ? {
+                qualityManualReviewed,
+                qualityCertificationsVerified,
+                qualityAuditFindings,
+              }
+            : undefined
+        }
         token={token}
       />
 

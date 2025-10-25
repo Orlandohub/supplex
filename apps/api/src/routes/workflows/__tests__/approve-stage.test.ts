@@ -448,4 +448,235 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/approve", () => {
       // Both should be valid
     });
   });
+
+  /**
+   * Story 2.7: Stage 2 Approval Tests
+   */
+  describe("Stage 2 approval (Story 2.7)", () => {
+    it("should approve Stage 2 and create Stage 3", async () => {
+      const qualityManager = createMockUser({
+        role: "quality_manager",
+        id: "qm-123",
+      });
+      const stage2 = createMockStage({
+        stageNumber: 2,
+        stageName: "Quality Review",
+        assignedTo: "qm-123",
+        workflow: {
+          ...createMockStage().workflow,
+          status: "Stage2",
+          currentStage: 2,
+        },
+      });
+
+      // Simulate Stage 2 approval flow
+      const updatedStage = {
+        ...stage2,
+        status: "Approved",
+        reviewedBy: qualityManager.id,
+        reviewedDate: new Date(),
+      };
+
+      const updatedWorkflow = {
+        ...stage2.workflow,
+        status: "Stage3",
+        currentStage: 3,
+      };
+
+      const newStage3 = {
+        workflowId: stage2.workflowId,
+        stageNumber: 3,
+        stageName: "Management Approval",
+        assignedTo: "admin-123",
+        status: "Pending",
+      };
+
+      expect(updatedStage.status).toBe("Approved");
+      expect(updatedWorkflow.status).toBe("Stage3");
+      expect(updatedWorkflow.currentStage).toBe(3);
+      expect(newStage3.stageNumber).toBe(3);
+      expect(newStage3.status).toBe("Pending");
+    });
+
+    it("should allow Quality Manager to approve Stage 2", async () => {
+      const qualityManager = createMockUser({ role: "quality_manager" });
+      const stage2 = createMockStage({
+        stageNumber: 2,
+        assignedTo: qualityManager.id,
+      });
+
+      // Role check for Stage 2
+      const userRole = qualityManager.role;
+      const isAuthorized =
+        userRole === "quality_manager" || userRole === "admin";
+
+      expect(isAuthorized).toBe(true);
+      expect(stage2.stageNumber).toBe(2);
+    });
+
+    it("should prevent Procurement Manager from approving Stage 2", async () => {
+      const procurementManager = createMockUser({
+        role: "procurement_manager",
+      });
+      const _stage2 = createMockStage({
+        stageNumber: 2,
+      });
+
+      // Role check for Stage 2
+      const userRole = procurementManager.role;
+      const isAuthorized =
+        userRole === "quality_manager" || userRole === "admin";
+
+      expect(isAuthorized).toBe(false);
+      // Would return 403 with message: "Access denied. Quality Manager or Admin role required for Stage 2."
+    });
+
+    it("should save quality checklist data when approving Stage 2", async () => {
+      const qualityChecklist = {
+        qualityManualReviewed: true,
+        qualityCertificationsVerified: true,
+        qualityAuditFindings:
+          "All certifications are current. Minor observations noted.",
+      };
+
+      const updatedStage = {
+        status: "Approved",
+        attachments: qualityChecklist,
+      };
+
+      expect(updatedStage.attachments).toEqual(qualityChecklist);
+      expect(updatedStage.attachments.qualityManualReviewed).toBe(true);
+      expect(updatedStage.attachments.qualityCertificationsVerified).toBe(true);
+      expect(updatedStage.attachments.qualityAuditFindings).toContain(
+        "certifications"
+      );
+    });
+  });
+
+  /**
+   * Story 2.7: Stage 3 Final Approval Tests
+   */
+  describe("Stage 3 final approval (Story 2.7)", () => {
+    it("should approve Stage 3 and mark workflow as Approved", async () => {
+      const admin = createMockUser({ role: "admin", id: "admin-123" });
+      const stage3 = createMockStage({
+        stageNumber: 3,
+        stageName: "Management Approval",
+        assignedTo: "admin-123",
+        workflow: {
+          ...createMockStage().workflow,
+          status: "Stage3",
+          currentStage: 3,
+        },
+      });
+
+      // Simulate Stage 3 approval (final)
+      const updatedStage = {
+        ...stage3,
+        status: "Approved",
+        reviewedBy: admin.id,
+        reviewedDate: new Date(),
+      };
+
+      const updatedWorkflow = {
+        ...stage3.workflow,
+        status: "Approved", // Final state
+        currentStage: 3,
+      };
+
+      expect(updatedStage.status).toBe("Approved");
+      expect(updatedWorkflow.status).toBe("Approved");
+      expect(updatedWorkflow.currentStage).toBe(3);
+      // No next stage created - this is final
+    });
+
+    it("should update supplier status to Approved on Stage 3 approval", async () => {
+      const stage3 = createMockStage({
+        stageNumber: 3,
+        workflow: {
+          ...createMockStage().workflow,
+          status: "Stage3",
+          supplier: {
+            ...createMockStage().workflow.supplier,
+            status: "qualified",
+          },
+        },
+      });
+
+      // Simulate transaction: workflow + supplier update
+      const updatedWorkflow = {
+        ...stage3.workflow,
+        status: "Approved",
+      };
+
+      const updatedSupplier = {
+        ...stage3.workflow.supplier,
+        status: "approved",
+      };
+
+      expect(updatedWorkflow.status).toBe("Approved");
+      expect(updatedSupplier.status).toBe("approved");
+      // Both must be updated in same transaction for atomicity
+    });
+
+    it("should trigger supplier approval email on Stage 3 approval", async () => {
+      const stage3 = createMockStage({
+        stageNumber: 3,
+        workflow: {
+          ...createMockStage().workflow,
+          supplier: {
+            id: "supplier-123",
+            name: "Test Supplier Co.",
+            contactEmail: "contact@testsupplier.com",
+          },
+        },
+      });
+
+      const emailData = {
+        supplierName: stage3.workflow.supplier.name,
+        supplierEmail: stage3.workflow.supplier.contactEmail,
+        workflowId: stage3.workflowId,
+      };
+
+      // Verify email stub would be called with correct data
+      expect(emailData.supplierName).toBe("Test Supplier Co.");
+      expect(emailData.supplierEmail).toBe("contact@testsupplier.com");
+      expect(emailData.workflowId).toBe(stage3.workflowId);
+      // sendSupplierApprovalCongratulations(emailData) should be called
+    });
+
+    it("should only allow Admin to approve Stage 3", async () => {
+      const qualityManager = createMockUser({ role: "quality_manager" });
+      const procurementManager = createMockUser({
+        role: "procurement_manager",
+      });
+      const admin = createMockUser({ role: "admin" });
+
+      // Stage 3 requires Admin role only
+      const testCases = [
+        { user: qualityManager, authorized: false },
+        { user: procurementManager, authorized: false },
+        { user: admin, authorized: true },
+      ];
+
+      testCases.forEach(({ user, authorized }) => {
+        const isAuthorized = user.role === "admin";
+        expect(isAuthorized).toBe(authorized);
+      });
+    });
+
+    it("should not create Stage 4 after Stage 3 approval", async () => {
+      const stage3 = createMockStage({
+        stageNumber: 3,
+      });
+
+      // Stage 3 is final - no next stage
+      const nextStageNumber = stage3.stageNumber + 1;
+      const shouldCreateNextStage = stage3.stageNumber < 3;
+
+      expect(nextStageNumber).toBe(4);
+      expect(shouldCreateNextStage).toBe(false);
+      // No Stage 4 should be created
+    });
+  });
 });

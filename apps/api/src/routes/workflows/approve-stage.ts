@@ -1,10 +1,20 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
-import { qualificationStages, qualificationWorkflows } from "@supplex/db";
+import {
+  qualificationStages,
+  qualificationWorkflows,
+  suppliers,
+} from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
-import { getStage2Reviewer } from "../../services/reviewer-assignment.service";
-import { sendStageApprovedEmail } from "../../services/email-notification.service";
+import {
+  getStage2Reviewer,
+  getStage3Reviewer,
+} from "../../services/reviewer-assignment.service";
+import {
+  sendStageApprovedEmail,
+  sendSupplierApprovalCongratulations,
+} from "../../services/email-notification.service";
 
 /**
  * POST /api/workflows/:id/stages/:stageId/approve
@@ -25,19 +35,7 @@ export const approveStageRoute = new Elysia().use(authenticate).post(
       const userRole = user!.role as string;
       const userFullName = user!.fullName as string;
 
-      // Role check: Procurement Manager or Admin only
-      if (userRole !== "procurement_manager" && userRole !== "admin") {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message:
-              "Access denied. Procurement Manager or Admin role required.",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
+      // Role check will be done after fetching stage to determine which stage is being approved
 
       // Fetch stage with workflow info
       const stage = await db.query.qualificationStages.findFirst({
@@ -107,69 +105,185 @@ export const approveStageRoute = new Elysia().use(authenticate).post(
         };
       }
 
-      // Get Stage 2 reviewer
-      const stage2Reviewer = await getStage2Reviewer(tenantId);
-      if (!stage2Reviewer) {
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "NO_REVIEWER",
-            message: "No reviewer available for Stage 2",
-            timestamp: new Date().toISOString(),
-          },
-        };
+      // Role-based access control based on stage number
+      const stageNumber = stage.stageNumber;
+      if (stageNumber === 1) {
+        // Stage 1: Procurement Manager or Admin
+        if (userRole !== "procurement_manager" && userRole !== "admin") {
+          set.status = 403;
+          return {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message:
+                "Access denied. Procurement Manager or Admin role required for Stage 1.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+      } else if (stageNumber === 2) {
+        // Stage 2: Quality Manager or Admin
+        if (userRole !== "quality_manager" && userRole !== "admin") {
+          set.status = 403;
+          return {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message:
+                "Access denied. Quality Manager or Admin role required for Stage 2.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+      } else if (stageNumber === 3) {
+        // Stage 3: Admin only (or designated approver - checked via assignment)
+        if (userRole !== "admin") {
+          set.status = 403;
+          return {
+            success: false,
+            error: {
+              code: "FORBIDDEN",
+              message: "Access denied. Admin role required for Stage 3.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
       }
 
       // Begin transaction
       const result = await db.transaction(async (tx) => {
         // 1. Update current stage to Approved
+        // For Stage 2, include quality checklist in attachments JSONB field
+        const updateData: any = {
+          status: "Approved",
+          reviewedBy: userId,
+          reviewedDate: new Date(),
+          comments: body.comments || null,
+          updatedAt: new Date(),
+        };
+
+        // If Stage 2 and quality checklist provided, save to attachments
+        if (stageNumber === 2 && body.qualityChecklist) {
+          updateData.attachments = body.qualityChecklist;
+        }
+
         const approvedStages = await tx
           .update(qualificationStages)
-          .set({
-            status: "Approved",
-            reviewedBy: userId,
-            reviewedDate: new Date(),
-            comments: body.comments || null,
-            updatedAt: new Date(),
-          })
+          .set(updateData)
           .where(eq(qualificationStages.id, stage.id))
           .returning();
 
         const approvedStage = approvedStages[0];
 
-        // 2. Update workflow to Stage2, currentStage = 2
-        const updatedWorkflows = await tx
-          .update(qualificationWorkflows)
-          .set({
-            status: "Stage2",
-            currentStage: 2,
-            updatedAt: new Date(),
-          })
-          .where(eq(qualificationWorkflows.id, stage.workflowId))
-          .returning();
+        let updatedWorkflow;
+        let nextStage = null;
+        let updatedSupplier = null;
 
-        const updatedWorkflow = updatedWorkflows[0];
+        // 2. Stage-specific logic
+        if (stageNumber === 1) {
+          // Stage 1 → Stage 2 (Quality Review)
+          const stage2Reviewer = await getStage2Reviewer(tenantId);
+          if (!stage2Reviewer) {
+            throw new Error("No reviewer available for Stage 2");
+          }
 
-        // 3. Create Stage 2 record
-        const nextStages = await tx
-          .insert(qualificationStages)
-          .values({
-            workflowId: stage.workflowId,
-            stageNumber: 2,
-            stageName: "Quality Review",
-            assignedTo: stage2Reviewer.id,
-            status: "Pending",
-          })
-          .returning();
+          // Update workflow to Stage2
+          const updatedWorkflows = await tx
+            .update(qualificationWorkflows)
+            .set({
+              status: "Stage2",
+              currentStage: 2,
+              updatedAt: new Date(),
+            })
+            .where(eq(qualificationWorkflows.id, stage.workflowId))
+            .returning();
 
-        const nextStage = nextStages[0];
+          updatedWorkflow = updatedWorkflows[0];
 
-        // 4. Create audit log entry (placeholder for Story 2.10)
+          // Create Stage 2 record
+          const nextStages = await tx
+            .insert(qualificationStages)
+            .values({
+              workflowId: stage.workflowId,
+              stageNumber: 2,
+              stageName: "Quality Review",
+              assignedTo: stage2Reviewer.id,
+              status: "Pending",
+            })
+            .returning();
+
+          nextStage = nextStages[0];
+        } else if (stageNumber === 2) {
+          // Stage 2 → Stage 3 (Management Approval)
+          const stage3Reviewer = await getStage3Reviewer(tenantId);
+          if (!stage3Reviewer) {
+            throw new Error("No reviewer available for Stage 3");
+          }
+
+          // Update workflow to Stage3
+          const updatedWorkflows = await tx
+            .update(qualificationWorkflows)
+            .set({
+              status: "Stage3",
+              currentStage: 3,
+              updatedAt: new Date(),
+            })
+            .where(eq(qualificationWorkflows.id, stage.workflowId))
+            .returning();
+
+          updatedWorkflow = updatedWorkflows[0];
+
+          // Create Stage 3 record
+          const nextStages = await tx
+            .insert(qualificationStages)
+            .values({
+              workflowId: stage.workflowId,
+              stageNumber: 3,
+              stageName: "Management Approval",
+              assignedTo: stage3Reviewer.id,
+              status: "Pending",
+            })
+            .returning();
+
+          nextStage = nextStages[0];
+        } else if (stageNumber === 3) {
+          // Stage 3 → Approved (Final state)
+          // Update workflow to Approved
+          const updatedWorkflows = await tx
+            .update(qualificationWorkflows)
+            .set({
+              status: "Approved",
+              currentStage: 3,
+              updatedAt: new Date(),
+            })
+            .where(eq(qualificationWorkflows.id, stage.workflowId))
+            .returning();
+
+          updatedWorkflow = updatedWorkflows[0];
+
+          // Update supplier status to Approved
+          const updatedSuppliers = await tx
+            .update(suppliers)
+            .set({
+              status: "approved",
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(suppliers.id, stage.workflow.supplierId),
+                eq(suppliers.tenantId, tenantId)
+              )
+            )
+            .returning();
+
+          updatedSupplier = updatedSuppliers[0];
+        }
+
+        // 3. Create audit log entry (placeholder for Story 2.10)
         // TODO: Implement audit logging in Story 2.10
         // await createAuditLog(tx, {
         //   eventType: "stage_approved",
-        //   stageNumber: 1,
+        //   stageNumber: stageNumber,
         //   reviewerId: userId,
         //   comments: body.comments,
         // });
@@ -178,20 +292,34 @@ export const approveStageRoute = new Elysia().use(authenticate).post(
           workflow: updatedWorkflow,
           approvedStage,
           nextStage,
+          supplier: updatedSupplier,
         };
       });
 
-      // Queue email notification (stub for Story 2.8)
-      await sendStageApprovedEmail({
-        workflowId: stage.workflowId,
-        initiatorEmail: stage.workflow.initiator?.email || "",
-        initiatorName: stage.workflow.initiator?.fullName || "Unknown",
-        supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
-        reviewerName: userFullName,
-        stageNumber: 1,
-        nextStage: "Quality Review",
-        workflowLink: `/workflows/${stage.workflowId}`,
-      });
+      // Queue email notifications (stubs for Story 2.8)
+      if (stageNumber === 1 || stageNumber === 2) {
+        const nextStageName =
+          stageNumber === 1 ? "Quality Review" : "Management Approval";
+        await sendStageApprovedEmail({
+          workflowId: stage.workflowId,
+          initiatorEmail: stage.workflow.initiator?.email || "",
+          initiatorName: stage.workflow.initiator?.fullName || "Unknown",
+          supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
+          reviewerName: userFullName,
+          stageNumber: stageNumber,
+          nextStage: nextStageName,
+          workflowLink: `/workflows/${stage.workflowId}`,
+        });
+      } else if (stageNumber === 3) {
+        // Send congratulatory email to supplier on final approval (if enabled in tenant settings)
+        // TODO Story 2.8: Check tenant.settings.enableSupplierApprovalEmails before sending
+        // For now, always send (stub implementation)
+        await sendSupplierApprovalCongratulations({
+          supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
+          supplierEmail: stage.workflow.supplier?.contactEmail || "",
+          workflowId: stage.workflowId,
+        });
+      }
 
       set.status = 200;
       return {
@@ -218,6 +346,13 @@ export const approveStageRoute = new Elysia().use(authenticate).post(
     }),
     body: t.Object({
       comments: t.Optional(t.String()),
+      qualityChecklist: t.Optional(
+        t.Object({
+          qualityManualReviewed: t.Boolean(),
+          qualityCertificationsVerified: t.Boolean(),
+          qualityAuditFindings: t.String(),
+        })
+      ),
     }),
     detail: {
       summary: "Approve workflow stage",

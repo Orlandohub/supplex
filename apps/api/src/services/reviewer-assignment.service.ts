@@ -111,6 +111,82 @@ export async function getStage2Reviewer(
 }
 
 /**
+ * Get Stage 3 Reviewer (Management Approver)
+ * Implements fallback hierarchy for Stage 3 reviewer assignment
+ *
+ * Hierarchy:
+ * 1. Check tenant.settings.workflowReviewers.stage3 (if exists)
+ * 2. Fallback: First user with role = "admin" in tenant
+ * 3. Error: Return null if no users found
+ *
+ * @param tenantId - Tenant ID
+ * @returns ReviewerInfo or null if no reviewer available
+ */
+export async function getStage3Reviewer(
+  tenantId: string
+): Promise<ReviewerInfo | null> {
+  try {
+    // Try tenant settings first
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId),
+    });
+
+    if (tenant?.settings) {
+      const settings = tenant.settings as {
+        workflowReviewers?: {
+          stage1?: string;
+          stage2?: string;
+          stage3?: string;
+        };
+      };
+
+      if (settings.workflowReviewers?.stage3) {
+        const reviewer = await db.query.users.findFirst({
+          where: and(
+            eq(users.id, settings.workflowReviewers.stage3),
+            eq(users.tenantId, tenantId),
+            eq(users.isActive, true)
+          ),
+        });
+
+        if (reviewer) {
+          return {
+            id: reviewer.id,
+            fullName: reviewer.fullName,
+            email: reviewer.email,
+            role: reviewer.role,
+          };
+        }
+      }
+    }
+
+    // Fallback: First admin
+    const admin = await db.query.users.findFirst({
+      where: and(
+        eq(users.tenantId, tenantId),
+        eq(users.role, "admin"),
+        eq(users.isActive, true)
+      ),
+    });
+
+    if (admin) {
+      return {
+        id: admin.id,
+        fullName: admin.fullName,
+        email: admin.email,
+        role: admin.role,
+      };
+    }
+
+    // No reviewer found
+    return null;
+  } catch (error) {
+    console.error("Error getting Stage 3 reviewer:", error);
+    return null;
+  }
+}
+
+/**
  * Get Stage 1 Reviewer (Procurement Manager)
  * Reusable from Story 2.5 - included here for reference
  *

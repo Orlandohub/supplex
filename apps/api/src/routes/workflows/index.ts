@@ -13,6 +13,7 @@ import { myTasksCountRoute } from "./my-tasks-count";
 import { reviewRoute } from "./review";
 import { approveStageRoute } from "./approve-stage";
 import { rejectStageRoute } from "./reject-stage";
+import { workflowHistoryRoute } from "./history";
 
 /**
  * Workflow Routes
@@ -33,6 +34,7 @@ import { rejectStageRoute } from "./reject-stage";
  * - GET /api/workflows/:workflowId/review - Get workflow review page data
  * - POST /api/workflows/:workflowId/stages/:stageId/approve - Approve a workflow stage
  * - POST /api/workflows/:workflowId/stages/:stageId/reject - Reject a workflow stage
+ * - GET /api/workflows/:workflowId/history - Get workflow history with all stages
  */
 export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
   .use(initiateWorkflowRoute)
@@ -48,4 +50,5 @@ export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
   .use(myTasksCountRoute)
   .use(reviewRoute)
   .use(approveStageRoute)
-  .use(rejectStageRoute);
+  .use(rejectStageRoute)
+  .use(workflowHistoryRoute);
