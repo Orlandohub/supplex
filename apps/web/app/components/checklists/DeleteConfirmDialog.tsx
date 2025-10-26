@@ -10,7 +10,7 @@ import {
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import type { DocumentChecklist } from "@supplex/types";
 import { AlertTriangle } from "lucide-react";
 

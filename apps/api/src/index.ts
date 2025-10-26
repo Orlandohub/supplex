@@ -7,7 +7,16 @@ import { suppliersRoutes } from "./routes/suppliers";
 import { documentsRoutes } from "./routes/documents";
 import { checklistsRoutes } from "./routes/checklists";
 import { workflowsRoutes } from "./routes/workflows";
+import { adminRoutes } from "./routes/admin";
+import { unsubscribeRoute } from "./routes/unsubscribe";
 import { healthRoutes } from "./routes/health";
+import {
+  emailWorker as _emailWorker,
+  closeEmailWorker,
+  closeEmailQueue,
+  closeRedisConnection,
+  isRedisEnabled,
+} from "./queue";
 
 /**
  * Main Elysia application instance
@@ -93,13 +102,19 @@ const app = new Elysia()
   .use(suppliersRoutes)
   .use(documentsRoutes)
   .use(checklistsRoutes)
-  .use(workflowsRoutes);
+  .use(workflowsRoutes)
+  .use(adminRoutes)
+  .use(unsubscribeRoute);
 
 /**
  * Start the server only when running directly (not during tests)
  */
 if (import.meta.main) {
   const server = app.listen(config.port, () => {
+    const emailStatus = isRedisEnabled
+      ? "📧 Email Worker: Running (concurrency: 5)                   "
+      : "📧 Email Worker: Disabled (REDIS_URL not configured)        ";
+
     // eslint-disable-next-line no-console
     console.log(`
 ╔════════════════════════════════════════════════════════════════╗
@@ -111,6 +126,8 @@ if (import.meta.main) {
 ║   URL:          http://localhost:${config.port}${" ".repeat(27)} ║
 ║                                                                ║
 ║   Health Check: http://localhost:${config.port}/health${" ".repeat(21)} ║
+║                                                                ║
+║   ${emailStatus} ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
     `);
@@ -124,6 +141,17 @@ if (import.meta.main) {
     try {
       // Stop accepting new connections
       server.stop();
+
+      // Close email worker and queue
+      // eslint-disable-next-line no-console
+      console.log("🔄 Closing email worker...");
+      await closeEmailWorker();
+      await closeEmailQueue();
+
+      // Close Redis connection
+      // eslint-disable-next-line no-console
+      console.log("🔄 Closing Redis connection...");
+      await closeRedisConnection();
 
       // Close database connections, etc.
       // await db.close();

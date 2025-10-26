@@ -14,6 +14,8 @@ import { reviewRoute } from "./review";
 import { approveStageRoute } from "./approve-stage";
 import { rejectStageRoute } from "./reject-stage";
 import { workflowHistoryRoute } from "./history";
+import { listQualificationsRoute } from "./list-qualifications";
+import { exportQualificationsRoute } from "./export-qualifications";
 
 /**
  * Workflow Routes
@@ -21,6 +23,8 @@ import { workflowHistoryRoute } from "./history";
  *
  * Routes:
  * - POST /api/workflows/initiate - Initiate a new qualification workflow
+ * - GET /api/workflows/qualifications - List all qualification workflows with filtering
+ * - GET /api/workflows/qualifications/export - Export workflows to CSV
  * - GET /api/workflows/supplier/:supplierId - Get workflows for a supplier
  * - GET /api/workflows/:workflowId - Get workflow details with supplier and checklist
  * - GET /api/workflows/:workflowId/documents - Get all workflow documents
@@ -36,8 +40,15 @@ import { workflowHistoryRoute } from "./history";
  * - POST /api/workflows/:workflowId/stages/:stageId/reject - Reject a workflow stage
  * - GET /api/workflows/:workflowId/history - Get workflow history with all stages
  */
-export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
+export const workflowsRoutes = new Elysia({ prefix: "/api/workflows" })
+  // Static routes first (before dynamic routes)
+  // More specific routes before less specific ones
   .use(initiateWorkflowRoute)
+  .use(exportQualificationsRoute) // /qualifications/export (more specific)
+  .use(listQualificationsRoute) // /qualifications (less specific)
+  .use(myTasksCountRoute) // /my-tasks/count (more specific)
+  .use(myTasksRoute) // /my-tasks (less specific)
+  // Dynamic routes after (to avoid matching static routes)
   .use(supplierWorkflowsRoute)
   .use(workflowDetailRoute)
   .use(workflowDocumentsRoute)
@@ -46,8 +57,6 @@ export const workflowsRoutes = new Elysia({ prefix: "/workflows" })
   .use(completionStatusRoute)
   .use(assignedReviewerRoute)
   .use(submitRoute)
-  .use(myTasksRoute)
-  .use(myTasksCountRoute)
   .use(reviewRoute)
   .use(approveStageRoute)
   .use(rejectStageRoute)

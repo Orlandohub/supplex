@@ -219,16 +219,18 @@ export const rejectStageRoute = new Elysia().use(authenticate).post(
         };
       });
 
-      // Queue email notification (stub for Story 2.8)
+      // Queue email notification (Story 2.8)
       await sendStageRejectedEmail({
         workflowId: stage.workflowId,
+        initiatorId: stage.workflow.initiatedBy,
         initiatorEmail: stage.workflow.initiator?.email || "",
         initiatorName: stage.workflow.initiator?.fullName || "Unknown",
         supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
         reviewerName: userFullName,
         stageNumber: stageNumber,
         rejectionComments: body.comments,
-        workflowLink: `/workflows/${stage.workflowId}`,
+        workflowLink: `${process.env.FRONTEND_URL || "http://localhost:3000"}/workflows/${stage.workflowId}`,
+        tenantId,
       });
 
       set.status = 200;

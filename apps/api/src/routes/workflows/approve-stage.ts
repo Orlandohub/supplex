@@ -296,28 +296,32 @@ export const approveStageRoute = new Elysia().use(authenticate).post(
         };
       });
 
-      // Queue email notifications (stubs for Story 2.8)
+      // Queue email notifications (Story 2.8)
       if (stageNumber === 1 || stageNumber === 2) {
         const nextStageName =
           stageNumber === 1 ? "Quality Review" : "Management Approval";
         await sendStageApprovedEmail({
           workflowId: stage.workflowId,
+          initiatorId: stage.workflow.initiatedBy,
           initiatorEmail: stage.workflow.initiator?.email || "",
           initiatorName: stage.workflow.initiator?.fullName || "Unknown",
           supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
           reviewerName: userFullName,
           stageNumber: stageNumber,
           nextStage: nextStageName,
-          workflowLink: `/workflows/${stage.workflowId}`,
+          workflowLink: `${process.env.FRONTEND_URL || "http://localhost:3000"}/workflows/${stage.workflowId}`,
+          tenantId,
         });
       } else if (stageNumber === 3) {
-        // Send congratulatory email to supplier on final approval (if enabled in tenant settings)
-        // TODO Story 2.8: Check tenant.settings.enableSupplierApprovalEmails before sending
-        // For now, always send (stub implementation)
+        // Send congratulatory email to supplier on final approval
         await sendSupplierApprovalCongratulations({
           supplierName: stage.workflow.supplier?.name || "Unknown Supplier",
+          supplierContactName: stage.workflow.supplier?.contactName,
           supplierEmail: stage.workflow.supplier?.contactEmail || "",
+          supplierId: stage.workflow.supplierId,
           workflowId: stage.workflowId,
+          approverName: userFullName,
+          tenantId,
         });
       }
 

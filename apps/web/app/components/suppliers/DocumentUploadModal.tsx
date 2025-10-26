@@ -14,7 +14,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { DocumentTypeSelect } from "./DocumentTypeSelect";
 import { DocumentType } from "@supplex/types";
 import { Upload, X, FileIcon } from "lucide-react";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import { config } from "~/lib/config";
 
 interface DocumentUploadModalProps {

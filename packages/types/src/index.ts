@@ -58,6 +58,11 @@ export * from "./models/qualification-workflow";
 export * from "./models/qualification-stage";
 export * from "./models/document-checklist";
 export * from "./models/workflow-document";
+export * from "./models/workflow-list";
+
+// Email Notifications (Story 2.8)
+export * from "./models/email-notification";
+export * from "./models/notification-preferences";
 
 // Utilities
 export * from "./utils/risk-calculator";

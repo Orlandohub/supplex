@@ -1,0 +1,32 @@
+<h2 style="color: #dc3545; margin-bottom: 20px;">✗ Workflow Stage Rejected</h2>
+
+<p style="margin-bottom: 15px;">Hi {{recipientName}},</p>
+
+<p style="margin-bottom: 15px;">
+    A stage in your supplier qualification workflow has been rejected and requires your attention.
+</p>
+
+<div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; border-radius: 4px; margin: 20px 0;">
+    <p style="margin-bottom: 10px;"><strong>Supplier:</strong> {{supplierName}}</p>
+    <p style="margin-bottom: 10px;"><strong>Stage:</strong> Stage {{stageNumber}}</p>
+    <p style="margin-bottom: 10px;"><strong>Reviewed by:</strong> {{reviewerName}}</p>
+    <p style="margin-bottom: 0;"><strong>Date:</strong> {{reviewedDate}}</p>
+</div>
+
+<div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 4px; margin: 20px 0;">
+    <p style="margin-bottom: 5px;"><strong>Reviewer Comments:</strong></p>
+    <p style="margin-bottom: 0; white-space: pre-wrap;">{{comments}}</p>
+</div>
+
+<p style="margin-bottom: 20px;">
+    Please review the feedback and take the necessary actions to address the concerns.
+</p>
+
+<div style="text-align: center;">
+    <a href="{{workflowLink}}" class="button">Review Feedback</a>
+</div>
+
+<p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
+    This is an automated notification from Supplex. Please do not reply to this email.
+</p>
+

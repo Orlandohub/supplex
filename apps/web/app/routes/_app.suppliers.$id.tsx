@@ -19,7 +19,7 @@ import type { Supplier, Document, QualificationWorkflow } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
 import { Breadcrumb } from "~/components/ui/Breadcrumb";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 
 // Type for supplier data after Remix serialization (Dates become strings)
 type SerializedSupplier = Omit<

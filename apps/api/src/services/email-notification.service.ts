@@ -1,17 +1,124 @@
 /**
- * Email Notification Service (Stub for Story 2.8)
- * MVP placeholder - logs emails to console instead of sending
- * Future Story 2.8 will implement: Resend.com integration, email templates, BullMQ job queue
+ * Email Notification Service
+ *
+ * Handles queuing email notifications for workflow events
+ * - Checks notification preferences (tenant + user)
+ * - Enforces rate limiting
+ * - Creates email_notifications records
+ * - Queues jobs to BullMQ for async processing
  */
+
+import { db } from "../lib/db";
+import {
+  emailNotifications,
+  userNotificationPreferences,
+  tenants,
+  users,
+  EmailNotificationStatus,
+} from "@supplex/db";
+import { EmailEventType } from "@supplex/types";
+import { eq, and } from "drizzle-orm";
+import { queueEmailJob } from "../queue/email-queue";
+import { checkEmailRateLimit } from "../utils/email-rate-limiter";
+import * as jwt from "jsonwebtoken";
+
+/**
+ * Helper function to check if email should be sent
+ * Checks tenant settings and user preferences
+ */
+async function shouldSendEmail(
+  userId: string,
+  tenantId: string,
+  eventType: EmailEventType
+): Promise<boolean> {
+  try {
+    // 1. Check tenant setting
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId),
+    });
+
+    if (!tenant) {
+      console.warn(`[EMAIL] Tenant not found: ${tenantId}`);
+      return false;
+    }
+
+    // Map event type to tenant setting key
+    const eventKeyMap: Record<EmailEventType, string> = {
+      [EmailEventType.WORKFLOW_SUBMITTED]: "workflowSubmitted",
+      [EmailEventType.STAGE_APPROVED]: "stageApproved",
+      [EmailEventType.STAGE_REJECTED]: "stageRejected",
+      [EmailEventType.STAGE_ADVANCED]: "stageAdvanced",
+      [EmailEventType.WORKFLOW_APPROVED]: "workflowApproved",
+    };
+
+    const settingKey = eventKeyMap[eventType];
+    const tenantSettings = tenant.settings as Record<string, unknown> | null;
+    const emailSettings = tenantSettings?.emailNotifications as
+      | Record<string, boolean>
+      | undefined;
+    const tenantEnabled = emailSettings?.[settingKey] ?? true; // Default to enabled
+
+    if (!tenantEnabled) {
+      console.log(
+        `[EMAIL] Tenant ${tenantId} has disabled ${eventType} notifications`
+      );
+      return false;
+    }
+
+    // 2. Check user preference
+    const userPref = await db.query.userNotificationPreferences.findFirst({
+      where: and(
+        eq(userNotificationPreferences.userId, userId),
+        eq(userNotificationPreferences.eventType, eventType)
+      ),
+    });
+
+    const userEnabled = userPref?.emailEnabled ?? true; // Default to enabled
+
+    if (!userEnabled) {
+      console.log(
+        `[EMAIL] User ${userId} has disabled ${eventType} notifications`
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`[EMAIL] Error checking notification preferences:`, error);
+    // Default to allowing email on error
+    return true;
+  }
+}
+
+/**
+ * Generate unsubscribe token for email
+ */
+function generateUnsubscribeToken(
+  userId: string,
+  eventType: EmailEventType
+): string {
+  const secret =
+    process.env.UNSUBSCRIBE_JWT_SECRET ||
+    process.env.JWT_SECRET ||
+    "dev-secret";
+  const token = jwt.sign(
+    { userId, eventType },
+    secret,
+    { expiresIn: "90d" } // Token valid for 90 days
+  );
+  return token;
+}
 
 export interface WorkflowSubmittedEmailData {
   workflowId: string;
   reviewerId: string;
   reviewerEmail: string;
+  reviewerName?: string;
   initiatorName: string;
   supplierName: string;
   riskScore: string;
   workflowLink: string;
+  tenantId: string;
 }
 
 /**
@@ -22,25 +129,90 @@ export interface WorkflowSubmittedEmailData {
 export async function sendWorkflowSubmittedEmail(
   data: WorkflowSubmittedEmailData
 ): Promise<void> {
-  // MVP: Log to console instead of sending actual email
-  // eslint-disable-next-line no-console
-  console.log("[EMAIL STUB] Workflow Submitted Email", {
-    to: data.reviewerEmail,
-    subject: `Action Required: ${data.supplierName} Qualification`,
-    workflow_id: data.workflowId,
-    supplier: data.supplierName,
-    initiator: data.initiatorName,
-    risk_score: data.riskScore,
-    link: data.workflowLink,
-    timestamp: new Date().toISOString(),
-  });
+  const eventType = EmailEventType.WORKFLOW_SUBMITTED;
 
-  // No-op for MVP
-  return Promise.resolve();
+  try {
+    // 1. Check if email should be sent (tenant + user preferences)
+    const shouldSend = await shouldSendEmail(
+      data.reviewerId,
+      data.tenantId,
+      eventType
+    );
+
+    if (!shouldSend) {
+      console.log(
+        `[EMAIL] Skipping workflow submitted email - disabled by preferences`
+      );
+      return;
+    }
+
+    // 2. Check rate limiting
+    const withinLimit = await checkEmailRateLimit(data.reviewerId);
+
+    if (!withinLimit) {
+      console.warn(
+        `[EMAIL] Rate limit exceeded for user ${data.reviewerId}. Skipping email.`
+      );
+      return;
+    }
+
+    // 3. Get reviewer name
+    const reviewer = await db.query.users.findFirst({
+      where: eq(users.id, data.reviewerId),
+    });
+    const recipientName = reviewer?.fullName || data.reviewerName || "there";
+
+    // 4. Create email_notifications record
+    const subject = `Action Required: ${data.supplierName} Qualification`;
+    const [notification] = await db
+      .insert(emailNotifications)
+      .values({
+        tenantId: data.tenantId,
+        userId: data.reviewerId,
+        eventType,
+        recipientEmail: data.reviewerEmail,
+        subject,
+        status: EmailNotificationStatus.PENDING,
+        attemptCount: 0,
+      })
+      .returning();
+
+    // 5. Generate unsubscribe token
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const unsubscribeToken = generateUnsubscribeToken(
+      data.reviewerId,
+      eventType
+    );
+    const unsubscribeLink = `${frontendUrl}/unsubscribe/${unsubscribeToken}`;
+
+    // 6. Queue email job
+    await queueEmailJob({
+      notificationId: notification.id,
+      recipientEmail: data.reviewerEmail,
+      recipientName,
+      subject,
+      templateName: "workflow-submitted",
+      templateData: {
+        recipientName,
+        supplierName: data.supplierName,
+        initiatorName: data.initiatorName,
+        riskScore: data.riskScore,
+        submittedDate: new Date().toLocaleDateString(),
+        workflowLink: data.workflowLink,
+        unsubscribeLink,
+      },
+    });
+
+    console.log(`[EMAIL] Queued workflow submitted email: ${notification.id}`);
+  } catch (error) {
+    console.error(`[EMAIL] Error queuing workflow submitted email:`, error);
+    throw error;
+  }
 }
 
 export interface StageApprovedEmailData {
   workflowId: string;
+  initiatorId: string;
   initiatorEmail: string;
   initiatorName: string;
   supplierName: string;
@@ -48,6 +220,7 @@ export interface StageApprovedEmailData {
   stageNumber: number;
   nextStage: string;
   workflowLink: string;
+  tenantId: string;
 }
 
 /**
@@ -59,26 +232,85 @@ export interface StageApprovedEmailData {
 export async function sendStageApprovedEmail(
   data: StageApprovedEmailData
 ): Promise<void> {
-  // MVP: Log to console instead of sending actual email
-  // eslint-disable-next-line no-console
-  console.log("[EMAIL STUB] Stage Approved Email", {
-    to: data.initiatorEmail,
-    subject: `${data.supplierName} Qualification - Stage ${data.stageNumber} Approved`,
-    workflow_id: data.workflowId,
-    supplier: data.supplierName,
-    reviewer: data.reviewerName,
-    stage_number: data.stageNumber,
-    next_stage: data.nextStage,
-    link: data.workflowLink,
-    timestamp: new Date().toISOString(),
-  });
+  const eventType = EmailEventType.STAGE_APPROVED;
 
-  // No-op for MVP
-  return Promise.resolve();
+  try {
+    // 1. Check if email should be sent
+    const shouldSend = await shouldSendEmail(
+      data.initiatorId,
+      data.tenantId,
+      eventType
+    );
+
+    if (!shouldSend) {
+      console.log(
+        `[EMAIL] Skipping stage approved email - disabled by preferences`
+      );
+      return;
+    }
+
+    // 2. Check rate limiting
+    const withinLimit = await checkEmailRateLimit(data.initiatorId);
+
+    if (!withinLimit) {
+      console.warn(
+        `[EMAIL] Rate limit exceeded for user ${data.initiatorId}. Skipping email.`
+      );
+      return;
+    }
+
+    // 3. Create email_notifications record
+    const subject = `${data.supplierName} Qualification - Stage ${data.stageNumber} Approved`;
+    const [notification] = await db
+      .insert(emailNotifications)
+      .values({
+        tenantId: data.tenantId,
+        userId: data.initiatorId,
+        eventType,
+        recipientEmail: data.initiatorEmail,
+        subject,
+        status: EmailNotificationStatus.PENDING,
+        attemptCount: 0,
+      })
+      .returning();
+
+    // 4. Generate unsubscribe token and link
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const unsubscribeToken = generateUnsubscribeToken(
+      data.initiatorId,
+      eventType
+    );
+    const unsubscribeLink = `${frontendUrl}/unsubscribe/${unsubscribeToken}`;
+
+    // 5. Queue email job
+    await queueEmailJob({
+      notificationId: notification.id,
+      recipientEmail: data.initiatorEmail,
+      recipientName: data.initiatorName,
+      subject,
+      templateName: "stage-approved",
+      templateData: {
+        recipientName: data.initiatorName,
+        supplierName: data.supplierName,
+        stageNumber: data.stageNumber.toString(),
+        reviewerName: data.reviewerName,
+        reviewedDate: new Date().toLocaleDateString(),
+        nextStageMessage: data.nextStage || "",
+        workflowLink: data.workflowLink,
+        unsubscribeLink,
+      },
+    });
+
+    console.log(`[EMAIL] Queued stage approved email: ${notification.id}`);
+  } catch (error) {
+    console.error(`[EMAIL] Error queuing stage approved email:`, error);
+    throw error;
+  }
 }
 
 export interface StageRejectedEmailData {
   workflowId: string;
+  initiatorId: string;
   initiatorEmail: string;
   initiatorName: string;
   supplierName: string;
@@ -86,6 +318,7 @@ export interface StageRejectedEmailData {
   stageNumber: number;
   rejectionComments: string;
   workflowLink: string;
+  tenantId: string;
 }
 
 /**
@@ -97,52 +330,173 @@ export interface StageRejectedEmailData {
 export async function sendStageRejectedEmail(
   data: StageRejectedEmailData
 ): Promise<void> {
-  // MVP: Log to console instead of sending actual email
-  // eslint-disable-next-line no-console
-  console.log("[EMAIL STUB] Stage Rejected Email", {
-    to: data.initiatorEmail,
-    subject: `${data.supplierName} Qualification - Changes Requested`,
-    workflow_id: data.workflowId,
-    supplier: data.supplierName,
-    reviewer: data.reviewerName,
-    stage_number: data.stageNumber,
-    rejection_comments: data.rejectionComments,
-    link: data.workflowLink,
-    timestamp: new Date().toISOString(),
-  });
+  const eventType = EmailEventType.STAGE_REJECTED;
 
-  // No-op for MVP
-  return Promise.resolve();
+  try {
+    // 1. Check if email should be sent
+    const shouldSend = await shouldSendEmail(
+      data.initiatorId,
+      data.tenantId,
+      eventType
+    );
+
+    if (!shouldSend) {
+      console.log(
+        `[EMAIL] Skipping stage rejected email - disabled by preferences`
+      );
+      return;
+    }
+
+    // 2. Check rate limiting
+    const withinLimit = await checkEmailRateLimit(data.initiatorId);
+
+    if (!withinLimit) {
+      console.warn(
+        `[EMAIL] Rate limit exceeded for user ${data.initiatorId}. Skipping email.`
+      );
+      return;
+    }
+
+    // 3. Create email_notifications record
+    const subject = `${data.supplierName} Qualification - Changes Requested`;
+    const [notification] = await db
+      .insert(emailNotifications)
+      .values({
+        tenantId: data.tenantId,
+        userId: data.initiatorId,
+        eventType,
+        recipientEmail: data.initiatorEmail,
+        subject,
+        status: EmailNotificationStatus.PENDING,
+        attemptCount: 0,
+      })
+      .returning();
+
+    // 4. Generate unsubscribe token and link
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const unsubscribeToken = generateUnsubscribeToken(
+      data.initiatorId,
+      eventType
+    );
+    const unsubscribeLink = `${frontendUrl}/unsubscribe/${unsubscribeToken}`;
+
+    // 5. Queue email job
+    await queueEmailJob({
+      notificationId: notification.id,
+      recipientEmail: data.initiatorEmail,
+      recipientName: data.initiatorName,
+      subject,
+      templateName: "stage-rejected",
+      templateData: {
+        recipientName: data.initiatorName,
+        supplierName: data.supplierName,
+        stageNumber: data.stageNumber.toString(),
+        reviewerName: data.reviewerName,
+        reviewedDate: new Date().toLocaleDateString(),
+        comments: data.rejectionComments,
+        workflowLink: data.workflowLink,
+        unsubscribeLink,
+      },
+    });
+
+    console.log(`[EMAIL] Queued stage rejected email: ${notification.id}`);
+  } catch (error) {
+    console.error(`[EMAIL] Error queuing stage rejected email:`, error);
+    throw error;
+  }
 }
 
 export interface SupplierApprovalCongratulationsData {
   supplierName: string;
+  supplierContactName?: string;
   supplierEmail: string;
+  supplierId: string;
   workflowId: string;
+  approverName: string;
+  tenantId: string;
 }
 
 /**
  * Send supplier approval congratulations email
  * Notifies supplier of final qualification approval (Stage 3 completion)
- * Only sent if tenant.settings.enableSupplierApprovalEmails === true
+ * Uses supplier contact as recipient (no user preferences apply)
  * @param data - Email notification data
  * @returns Promise<void>
  */
 export async function sendSupplierApprovalCongratulations(
   data: SupplierApprovalCongratulationsData
 ): Promise<void> {
-  // MVP: Log to console instead of sending actual email
-  // eslint-disable-next-line no-console
-  console.log("[EMAIL STUB] Supplier Approval Congratulations Email", {
-    to: data.supplierEmail,
-    subject: `Congratulations! Your qualification has been approved`,
-    supplier: data.supplierName,
-    workflow_id: data.workflowId,
-    timestamp: new Date().toISOString(),
-  });
+  const eventType = EmailEventType.WORKFLOW_APPROVED;
 
-  // No-op for MVP
-  // TODO Story 2.8: Implement with Resend.com
-  // TODO Story 2.8: Check tenant.settings.enableSupplierApprovalEmails before sending
-  return Promise.resolve();
+  try {
+    // Note: For supplier emails, we don't check user preferences
+    // since the supplier contact is external and not a system user
+
+    // 1. Check tenant setting
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, data.tenantId),
+    });
+
+    if (!tenant) {
+      console.warn(`[EMAIL] Tenant not found: ${data.tenantId}`);
+      return;
+    }
+
+    const tenantSettings = tenant.settings as Record<string, unknown> | null;
+    const emailSettings = tenantSettings?.emailNotifications as
+      | Record<string, boolean>
+      | undefined;
+    const tenantEnabled = emailSettings?.workflowApproved ?? true;
+
+    if (!tenantEnabled) {
+      console.log(
+        `[EMAIL] Tenant ${data.tenantId} has disabled workflow approved notifications`
+      );
+      return;
+    }
+
+    // 2. Create email_notifications record (using supplierId as userId)
+    const subject = `Congratulations! Your Qualification Has Been Approved`;
+    const [notification] = await db
+      .insert(emailNotifications)
+      .values({
+        tenantId: data.tenantId,
+        userId: data.supplierId, // Use supplier ID since contact is not a system user
+        eventType,
+        recipientEmail: data.supplierEmail,
+        subject,
+        status: EmailNotificationStatus.PENDING,
+        attemptCount: 0,
+      })
+      .returning();
+
+    // 3. No unsubscribe link for supplier emails (external contact)
+    const recipientName = data.supplierContactName || data.supplierName;
+
+    // 4. Queue email job
+    await queueEmailJob({
+      notificationId: notification.id,
+      recipientEmail: data.supplierEmail,
+      recipientName,
+      subject,
+      templateName: "workflow-approved",
+      templateData: {
+        recipientName,
+        supplierName: data.supplierName,
+        approverName: data.approverName,
+        approvedDate: new Date().toLocaleDateString(),
+        unsubscribeLink: "#", // No unsubscribe for supplier emails
+      },
+    });
+
+    console.log(
+      `[EMAIL] Queued supplier approval congratulations email: ${notification.id}`
+    );
+  } catch (error) {
+    console.error(
+      `[EMAIL] Error queuing supplier approval congratulations email:`,
+      error
+    );
+    throw error;
+  }
 }

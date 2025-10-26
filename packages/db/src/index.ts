@@ -53,9 +53,18 @@ export {
   WorkflowStatus,
 } from "./schema/qualification-workflows";
 export {
+  qualificationStages,
+  StageStatus,
+} from "./schema/qualification-stages";
+export {
   workflowDocuments,
   ChecklistItemStatus,
 } from "./schema/workflow-documents";
+export {
+  emailNotifications,
+  EmailNotificationStatus,
+} from "./schema/email-notifications";
+export { userNotificationPreferences } from "./schema/user-notification-preferences";
 
 /**
  * Export types for TypeScript
@@ -75,9 +84,21 @@ export type {
   SelectQualificationWorkflow,
 } from "./schema/qualification-workflows";
 export type {
+  InsertQualificationStage,
+  SelectQualificationStage,
+} from "./schema/qualification-stages";
+export type {
   InsertWorkflowDocument,
   SelectWorkflowDocument,
 } from "./schema/workflow-documents";
+export type {
+  InsertEmailNotification,
+  SelectEmailNotification,
+} from "./schema/email-notifications";
+export type {
+  InsertUserNotificationPreference,
+  SelectUserNotificationPreference,
+} from "./schema/user-notification-preferences";
 
 /**
  * Export tenant context helpers

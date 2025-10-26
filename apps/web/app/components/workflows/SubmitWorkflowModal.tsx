@@ -15,7 +15,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { useRevalidator } from "@remix-run/react";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import type {

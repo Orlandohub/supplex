@@ -9,7 +9,7 @@ import {
 } from "~/components/ui/dialog";
 import { ChecklistForm } from "./ChecklistForm";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import type { DocumentChecklist } from "@supplex/types";
 
 // Type for checklist data with dates as strings (after serialization)

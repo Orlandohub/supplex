@@ -12,7 +12,7 @@ import {
 } from "~/components/ui/dialog";
 import { Eye, Trash2 } from "lucide-react";
 import { useRevalidator } from "@remix-run/react";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import { ChecklistStatusBadge } from "./ChecklistStatusBadge";
 
 interface UploadedDocumentsListProps {

@@ -3,8 +3,7 @@
  * Helper functions for supplier operations
  */
 
-import { db } from "@supplex/db";
-import { suppliers } from "@supplex/db/schema";
+import { db, suppliers } from "@supplex/db";
 import { eq } from "drizzle-orm";
 
 /**

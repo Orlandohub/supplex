@@ -98,7 +98,8 @@ export async function getSession(request: Request): Promise<{
     error,
   } = await supabase.auth.getUser();
 
-  if (error) {
+  // Only log unexpected auth errors (not "session missing" which is normal for logged-out users)
+  if (error && error.message !== "Auth session missing!") {
     console.error("Auth error:", error);
   }
 
@@ -206,7 +207,10 @@ export async function refreshTokens(request: Request): Promise<{
   } = await supabase.auth.refreshSession();
 
   if (error) {
-    console.error("Token refresh error:", error);
+    // Only log unexpected errors (session missing is normal for logged-out users)
+    if (error.message !== "Auth session missing!") {
+      console.error("Token refresh error:", error);
+    }
     throw redirect("/login");
   }
 

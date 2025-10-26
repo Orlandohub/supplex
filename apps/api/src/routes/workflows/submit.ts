@@ -4,19 +4,19 @@
  */
 
 import { Elysia, t } from "elysia";
-import { authenticate } from "~/middleware/authenticate";
-import { db } from "@supplex/db";
+import { authenticate } from "../../lib/rbac/middleware";
 import {
+  db,
   qualificationWorkflows,
   qualificationStages,
   workflowDocuments,
   suppliers,
   tenants,
   users,
-} from "@supplex/db/schema";
+} from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import type { RequiredDocumentItem } from "@supplex/types";
-import { sendWorkflowSubmittedEmail } from "~/services/email-notification.service";
+import { sendWorkflowSubmittedEmail } from "../../services/email-notification.service";
 
 /**
  * Get Stage 1 reviewer based on tenant settings or fallback
@@ -60,7 +60,7 @@ async function getStage1Reviewer(tenantId: string) {
 }
 
 export const submitRoute = new Elysia().use(authenticate).post(
-  "/:id/submit",
+  "/:workflowId/submit",
   async ({ params, user, set }) => {
     // Role check with null-safe pattern
     if (
@@ -81,7 +81,7 @@ export const submitRoute = new Elysia().use(authenticate).post(
     // Verify workflow exists and belongs to tenant
     const workflow = await db.query.qualificationWorkflows.findFirst({
       where: and(
-        eq(qualificationWorkflows.id, params.id),
+        eq(qualificationWorkflows.id, params.workflowId),
         eq(qualificationWorkflows.tenantId, user.tenantId),
         isNull(qualificationWorkflows.deletedAt)
       ),
@@ -208,15 +208,17 @@ export const submitRoute = new Elysia().use(authenticate).post(
       };
     });
 
-    // Queue email notification (stub for Story 2.8)
+    // Queue email notification (Story 2.8)
     await sendWorkflowSubmittedEmail({
       workflowId: workflow.id,
       reviewerId: reviewer.id,
       reviewerEmail: reviewer.email,
+      reviewerName: reviewer.fullName,
       initiatorName: user.fullName || user.email,
       supplierName: workflow.supplier?.name || "Unknown Supplier",
-      riskScore: workflow.riskScore || "0.00",
-      workflowLink: `${process.env.WEB_URL || "http://localhost:3000"}/workflows/${workflow.id}`,
+      riskScore: workflow.riskScore?.toString() || "0.00",
+      workflowLink: `${process.env.FRONTEND_URL || "http://localhost:3000"}/workflows/${workflow.id}`,
+      tenantId: user.tenantId,
     });
 
     set.status = 200;
@@ -227,7 +229,7 @@ export const submitRoute = new Elysia().use(authenticate).post(
   },
   {
     params: t.Object({
-      id: t.String({ format: "uuid" }),
+      workflowId: t.String({ format: "uuid" }),
     }),
   }
 );

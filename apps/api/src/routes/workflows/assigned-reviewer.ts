@@ -5,9 +5,8 @@
  */
 
 import { Elysia, t } from "elysia";
-import { authenticate } from "~/middleware/authenticate";
-import { db } from "@supplex/db";
-import { qualificationWorkflows, tenants, users } from "@supplex/db/schema";
+import { authenticate } from "../../lib/rbac/middleware";
+import { db, qualificationWorkflows, tenants, users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 
 /**
@@ -53,7 +52,7 @@ async function getStage1Reviewer(tenantId: string) {
 }
 
 export const assignedReviewerRoute = new Elysia().use(authenticate).get(
-  "/:id/assigned-reviewer",
+  "/:workflowId/assigned-reviewer",
   async ({ params, user, set }) => {
     try {
       const tenantId = user.tenantId;
@@ -61,7 +60,7 @@ export const assignedReviewerRoute = new Elysia().use(authenticate).get(
       // Verify workflow exists and belongs to tenant
       const workflow = await db.query.qualificationWorkflows.findFirst({
         where: and(
-          eq(qualificationWorkflows.id, params.id),
+          eq(qualificationWorkflows.id, params.workflowId),
           eq(qualificationWorkflows.tenantId, tenantId)
         ),
       });
@@ -115,7 +114,7 @@ export const assignedReviewerRoute = new Elysia().use(authenticate).get(
   },
   {
     params: t.Object({
-      id: t.String({ format: "uuid" }),
+      workflowId: t.String({ format: "uuid" }),
     }),
   }
 );

@@ -4,19 +4,18 @@
  */
 
 import { Elysia, t } from "elysia";
-import { authenticate } from "~/middleware/authenticate";
-import { db } from "@supplex/db";
-import { qualificationWorkflows, workflowDocuments } from "@supplex/db/schema";
+import { authenticate } from "../../lib/rbac/middleware";
+import { db, qualificationWorkflows, workflowDocuments } from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import type { RequiredDocumentItem } from "@supplex/types";
 
 export const completionStatusRoute = new Elysia().use(authenticate).get(
-  "/:id/completion-status",
+  "/:workflowId/completion-status",
   async ({ params, user, set }) => {
     // Verify workflow exists and belongs to user's tenant
     const workflow = await db.query.qualificationWorkflows.findFirst({
       where: and(
-        eq(qualificationWorkflows.id, params.id),
+        eq(qualificationWorkflows.id, params.workflowId),
         eq(qualificationWorkflows.tenantId, user.tenantId),
         isNull(qualificationWorkflows.deletedAt)
       ),
@@ -85,7 +84,7 @@ export const completionStatusRoute = new Elysia().use(authenticate).get(
   },
   {
     params: t.Object({
-      id: t.String({ format: "uuid" }),
+      workflowId: t.String({ format: "uuid" }),
     }),
   }
 );

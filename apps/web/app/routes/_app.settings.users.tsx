@@ -5,7 +5,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   UserListTable,
   UserListTableSkeleton,
@@ -53,9 +53,15 @@ export default function UsersSettingsPage() {
     "all" | "active" | "inactive"
   >("all");
 
-  // Redirect if not admin
+  // Redirect if not admin - must be in useEffect to avoid calling navigate during render
+  useEffect(() => {
+    if (!permissions.canManageUsers) {
+      navigate("/");
+    }
+  }, [permissions.canManageUsers, navigate]);
+
+  // Show nothing while redirecting
   if (!permissions.canManageUsers) {
-    navigate("/");
     return null;
   }
 

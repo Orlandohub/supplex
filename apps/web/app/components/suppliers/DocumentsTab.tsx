@@ -6,7 +6,7 @@ import { DocumentUploadModal } from "./DocumentUploadModal";
 import { DeleteDocumentModal } from "./DeleteDocumentModal";
 import { DocumentExpiryBadge } from "./DocumentExpiryBadge";
 import { usePermissions } from "~/hooks/usePermissions";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import { useRevalidator } from "@remix-run/react";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { Document } from "@supplex/types";

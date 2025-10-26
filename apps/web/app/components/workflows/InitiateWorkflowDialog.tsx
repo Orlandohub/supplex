@@ -9,7 +9,7 @@ import {
 import { InitiateWorkflowForm } from "./InitiateWorkflowForm";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import { useRevalidator } from "@remix-run/react";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import type { DocumentChecklist } from "@supplex/types";
 
 interface WorkflowFormData {

@@ -1,6 +1,11 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSearchParams, Link } from "@remix-run/react";
+import {
+  useLoaderData,
+  useSearchParams,
+  Link,
+  useNavigate,
+} from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
 
@@ -29,6 +34,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function VerifyEmail() {
   const { token, type } = useLoaderData<typeof loader>();
   const [_searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [verificationStatus, setVerificationStatus] = useState<
     "pending" | "success" | "error"
   >("pending");
@@ -63,8 +69,8 @@ export default function VerifyEmail() {
 
   const handleResendEmail = async () => {
     // This would need to be implemented with the user's email
-    // For now, redirect to signup
-    window.location.href = "/signup";
+    // For now, redirect to signup using Remix navigation
+    navigate("/signup");
   };
 
   if (verificationStatus === "success") {

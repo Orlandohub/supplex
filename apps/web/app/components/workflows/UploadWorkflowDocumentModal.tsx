@@ -12,7 +12,7 @@ import { Label } from "~/components/ui/label";
 import { Input } from "~/components/ui/input";
 import { Progress } from "~/components/ui/progress";
 import { useRevalidator } from "@remix-run/react";
-import { useToast } from "~/hooks/useToast";
+import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import { Upload, Link as LinkIcon } from "lucide-react";
 import type { RequiredDocumentItem, Document } from "@supplex/types";
