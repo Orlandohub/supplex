@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { useLoaderData, Link, useSearchParams, useNavigate } from "@remix-run/react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
@@ -15,19 +15,26 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { ClipboardList, AlertCircle } from "lucide-react";
-import { useState } from "react";
 
 interface TaskItem {
-  workflowId: string;
-  stageId: string;
-  supplierId: string;
-  supplierName: string;
-  initiatedBy: string;
+  taskId: string;
+  processId: string;
+  stepId: string;
+  taskTitle: string;
+  taskDescription: string | null;
+  taskStatus: string;
+  dueAt: string | null;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  processStatus: string;
+  processType: string;
   initiatedDate: string;
-  riskScore: number;
+  initiatedBy: string;
   daysPending: number;
-  stageNumber: number;
-  stageName: string;
+  createdAt: string;
+  completedAt: string | null;
+  isResubmission?: boolean;
 }
 
 export const meta: MetaFunction = () => {
@@ -35,15 +42,16 @@ export const meta: MetaFunction = () => {
     { title: "My Tasks | Supplex" },
     {
       name: "description",
-      content: "Review pending workflow approvals assigned to you.",
+      content: "Review pending workflow tasks assigned to you.",
     },
   ];
 };
 
 export async function loader(args: LoaderFunctionArgs) {
   const { session } = await requireAuth(args);
+  const url = new URL(args.request.url);
+  const statusFilter = url.searchParams.get("status") || "pending";
 
-  // Create Eden Treaty client with auth token
   const token = session?.access_token;
   if (!token) {
     throw new Response("Unauthorized", { status: 401 });
@@ -51,9 +59,10 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const client = createEdenTreatyClient(token);
 
-  // Fetch my tasks
   try {
-    const response = await client.api.workflows["my-tasks"].get();
+    const response = await client.api.workflows["my-tasks"].get({
+      query: { status: statusFilter as any },
+    });
 
     if (response.error) {
       console.error("API Error:", response.error);
@@ -69,6 +78,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
     return json({
       tasks: apiResponse.data.tasks,
+      statusFilter,
       token,
     });
   } catch (error) {
@@ -77,22 +87,40 @@ export async function loader(args: LoaderFunctionArgs) {
   }
 }
 
+function getStatusBadge(processStatus: string, isResubmission?: boolean) {
+  if (isResubmission) {
+    return (
+      <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+        Resubmission Required
+      </Badge>
+    );
+  }
+
+  const lower = processStatus.toLowerCase();
+  if (lower.includes("approved")) {
+    return (
+      <Badge className="bg-green-100 text-green-800 border-green-300">
+        {processStatus}
+      </Badge>
+    );
+  }
+
+  return <Badge variant="secondary">{processStatus}</Badge>;
+}
+
+function getTaskStatusBadge(taskStatus: string) {
+  if (taskStatus === "completed") {
+    return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+  }
+  return <Badge className="bg-blue-100 text-blue-800">Pending</Badge>;
+}
+
 export default function MyTasksPage() {
-  const { tasks } = useLoaderData<typeof loader>();
-  const [filterHighRisk, setFilterHighRisk] = useState(false);
+  const { tasks, statusFilter } = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
 
-  // Filter tasks based on risk score
-  const filteredTasks = filterHighRisk
-    ? tasks.filter((task) => task.riskScore >= 7)
-    : tasks;
-
-  // Get risk badge variant
-  const getRiskBadgeVariant = (
-    score: number
-  ): "default" | "secondary" | "destructive" | "outline" => {
-    if (score >= 7) return "destructive";
-    if (score >= 4) return "secondary";
-    return "default";
+  const handleFilterChange = (newFilter: string) => {
+    navigate(`/tasks?status=${newFilter}`);
   };
 
   return (
@@ -105,39 +133,44 @@ export default function MyTasksPage() {
             My Tasks
           </h1>
           <p className="text-muted-foreground mt-1">
-            Review and approve pending qualification workflows
+            Review and complete workflow tasks assigned to you
           </p>
         </div>
         {tasks.length > 0 && (
           <Badge variant="secondary" className="text-lg px-4 py-2">
-            {filteredTasks.length} pending
+            {tasks.length} {statusFilter === "completed" ? "completed" : statusFilter === "all" ? "total" : "pending"}
           </Badge>
         )}
       </div>
 
-      {/* Filter */}
-      {tasks.length > 0 && (
-        <div className="mb-4">
+      {/* Filter Buttons */}
+      <div className="flex gap-2 mb-6">
+        {[
+          { label: "Pending", value: "pending" },
+          { label: "Completed", value: "completed" },
+          { label: "All", value: "all" },
+        ].map((filter) => (
           <Button
-            variant={filterHighRisk ? "default" : "outline"}
-            onClick={() => setFilterHighRisk(!filterHighRisk)}
+            key={filter.value}
+            variant={statusFilter === filter.value ? "default" : "outline"}
             size="sm"
+            onClick={() => handleFilterChange(filter.value)}
           >
-            {filterHighRisk ? "Show All" : "High Risk Only"}
+            {filter.label}
           </Button>
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* Empty State */}
       {tasks.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <ClipboardList className="h-16 w-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">No Pending Reviews</h2>
+            <h2 className="text-2xl font-semibold mb-2">No Pending Tasks</h2>
             <p className="text-muted-foreground text-center max-w-md">
-              You don&apos;t have any workflows awaiting your review at this
-              time. New tasks will appear here when suppliers submit
-              qualification workflows.
+              You don&apos;t have any workflow tasks awaiting your action at this
+              time. New tasks will appear here when workflows require your
+              input or approval.
             </p>
           </CardContent>
         </Card>
@@ -149,28 +182,46 @@ export default function MyTasksPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Supplier Name</TableHead>
-                    <TableHead>Submitted By</TableHead>
-                    <TableHead>Submitted Date</TableHead>
-                    <TableHead>Risk Score</TableHead>
+                    <TableHead>Task</TableHead>
+                    <TableHead>Entity</TableHead>
+                    <TableHead>Initiated By</TableHead>
+                    <TableHead>Initiated Date</TableHead>
+                    <TableHead>Task Status</TableHead>
+                    <TableHead>Workflow Status</TableHead>
                     <TableHead>Days Pending</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTasks.map((task) => (
-                    <TableRow key={task.workflowId}>
+                  {tasks.map((task) => (
+                    <TableRow key={task.taskId}>
                       <TableCell className="font-medium">
-                        {task.supplierName}
+                        <div>
+                          <div>{task.taskTitle}</div>
+                          {task.taskDescription && (
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {task.taskDescription}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{task.entityName}</div>
+                          <div className="text-sm text-muted-foreground capitalize">
+                            {task.entityType}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>{task.initiatedBy}</TableCell>
                       <TableCell>
                         {new Date(task.initiatedDate).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getRiskBadgeVariant(task.riskScore)}>
-                          {task.riskScore.toFixed(1)}
-                        </Badge>
+                        {getTaskStatusBadge(task.taskStatus)}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(task.processStatus, task.isResubmission)}
                       </TableCell>
                       <TableCell>
                         <span
@@ -189,8 +240,8 @@ export default function MyTasksPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Button asChild size="sm">
-                          <Link to={`/workflows/${task.workflowId}/review`}>
-                            Review
+                          <Link to={`/workflows/processes/${task.processId}`}>
+                            View
                           </Link>
                         </Button>
                       </TableCell>
@@ -203,23 +254,25 @@ export default function MyTasksPage() {
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-4">
-            {filteredTasks.map((task) => (
-              <Card key={task.workflowId}>
+            {tasks.map((task) => (
+              <Card key={task.taskId}>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center justify-between">
-                    <span>{task.supplierName}</span>
-                    <Badge variant={getRiskBadgeVariant(task.riskScore)}>
-                      {task.riskScore.toFixed(1)}
-                    </Badge>
+                    <span>{task.taskTitle}</span>
+                    {getStatusBadge(task.processStatus, task.isResubmission)}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="text-sm">
-                    <span className="text-muted-foreground">Submitted by:</span>{" "}
+                    <span className="text-muted-foreground">Entity:</span>{" "}
+                    {task.entityName}
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Initiated by:</span>{" "}
                     {task.initiatedBy}
                   </div>
                   <div className="text-sm">
-                    <span className="text-muted-foreground">Submitted:</span>{" "}
+                    <span className="text-muted-foreground">Initiated:</span>{" "}
                     {new Date(task.initiatedDate).toLocaleDateString()}
                   </div>
                   <div className="text-sm">
@@ -235,9 +288,15 @@ export default function MyTasksPage() {
                       {task.daysPending === 1 ? "day" : "days"}
                     </span>
                   </div>
+                  {task.taskDescription && (
+                    <div className="text-sm pt-2">
+                      <span className="text-muted-foreground">Description:</span>
+                      <p className="mt-1">{task.taskDescription}</p>
+                    </div>
+                  )}
                   <Button asChild className="w-full mt-4">
-                    <Link to={`/workflows/${task.workflowId}/review`}>
-                      Review Workflow
+                    <Link to={`/workflows/processes/${task.processId}`}>
+                      View Workflow
                     </Link>
                   </Button>
                 </CardContent>

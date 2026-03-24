@@ -1,0 +1,10 @@
+# Bun Configuration for @supplex/db package
+# https://bun.sh/docs/runtime/bunfig
+
+[test]
+# Preload test-setup.ts before running any tests
+preload = ["./test-setup.ts"]
+
+# Optional: Set test timeout (in milliseconds)
+timeout = 30000
+

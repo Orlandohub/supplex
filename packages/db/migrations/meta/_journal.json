@@ -15,6 +15,90 @@
       "when": 1761318398626,
       "tag": "0001_flaky_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1761512139512,
+      "tag": "0002_warm_absorbing_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1737376800000,
+      "tag": "0003_create_email_notifications_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1737376860000,
+      "tag": "0004_create_user_notification_preferences_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1737376920000,
+      "tag": "0005_rename_qualification_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1737376980000,
+      "tag": "0006_add_workflow_engine_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1737377040000,
+      "tag": "0007_add_form_template_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1737377100000,
+      "tag": "0008_add_form_template_enums",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1737377160000,
+      "tag": "0009_add_form_submission_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1737377220000,
+      "tag": "0010_add_task_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1737677280000,
+      "tag": "0011_course_correct_remove_task_template",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1737677340000,
+      "tag": "0012_add_workflow_template_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1737848400000,
+      "tag": "0013_remove_process_type_from_workflow_template",
+      "breakpoints": true
     }
   ]
 }

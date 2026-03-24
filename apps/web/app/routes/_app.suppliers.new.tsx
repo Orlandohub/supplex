@@ -9,9 +9,12 @@ import { requireRole } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { UserRole } from "@supplex/types";
 import { SupplierForm } from "~/components/suppliers/SupplierForm";
-import { Breadcrumb } from "~/components/ui/Breadcrumb";
-import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "~/components/ui/button";
+import { useState, useEffect } from "react";
 import { DuplicateWarningModal } from "~/components/suppliers/DuplicateWarningModal";
+import { InvitationLinkModal } from "~/components/suppliers/InvitationLinkModal";
+import { useNavigate } from "@remix-run/react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -56,9 +59,10 @@ export async function action(args: ActionFunctionArgs) {
   // Parse form data
   const formData = await request.formData();
   const forceSave = formData.get("forceSave") === "true";
+  const createPlatformAccess = formData.get("createPlatformAccess") === "on";
 
   // Build supplier data object
-  const supplierData = {
+  const supplierData: any = {
     name: formData.get("name") as string,
     taxId: formData.get("taxId") as string,
     category: formData.get("category") as string,
@@ -78,14 +82,45 @@ export async function action(args: ActionFunctionArgs) {
     forceSave,
   };
 
+  // Add supplier contact if platform access is requested
+  if (createPlatformAccess) {
+    const contactName = formData.get("supplierContact.name") as string;
+    const contactEmail = formData.get("supplierContact.email") as string;
+    const contactPhone = (formData.get("supplierContact.phone") as string) || undefined;
+
+    if (contactName && contactEmail) {
+      supplierData.supplierContact = {
+        name: contactName,
+        email: contactEmail,
+        phone: contactPhone,
+      };
+    }
+  }
+
   try {
     const response = await client.api.suppliers.post(supplierData);
 
     // Handle duplicate detection (409 Conflict)
     if (response.error && response.status === 409) {
       const errorData = response.error.value as {
-        error?: { duplicates?: unknown[] };
+        error?: { code?: string; duplicates?: unknown[]; message?: string };
       };
+
+      // Check if it's a USER_EMAIL_EXISTS error
+      if (errorData?.error?.code === "USER_EMAIL_EXISTS") {
+        return json(
+          {
+            error: "email_exists",
+            message:
+              errorData.error.message ||
+              "A user with this email already exists",
+            formData: supplierData,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Otherwise it's a duplicate supplier
       return json(
         {
           error: "duplicate",
@@ -99,11 +134,12 @@ export async function action(args: ActionFunctionArgs) {
     // Handle validation errors (400 Bad Request)
     if (response.error && response.status === 400) {
       const errorData = response.error.value as {
-        error?: { errors?: unknown[] };
+        error?: { errors?: unknown[]; message?: string };
       };
       return json(
         {
           error: "validation",
+          message: errorData?.error?.message || "Validation failed",
           errors: errorData?.error?.errors || [],
           formData: supplierData,
         },
@@ -142,10 +178,24 @@ export async function action(args: ActionFunctionArgs) {
 
     const apiResponse = response.data as {
       success: boolean;
-      data: { supplier: { id: string } };
+      data: {
+        supplier: { id: string };
+        supplierUser?: { id: string; email: string; fullName: string };
+        invitationToken?: string;
+      };
     };
 
-    // Success - redirect to supplier detail page with success message
+    // If invitation token is present, return it for display in modal
+    if (apiResponse.data.invitationToken) {
+      return json({
+        success: true,
+        supplierId: apiResponse.data.supplier.id,
+        invitationToken: apiResponse.data.invitationToken,
+        supplierUser: apiResponse.data.supplierUser,
+      });
+    }
+
+    // Success without invitation - redirect to supplier detail page
     return redirect(
       `/suppliers/${apiResponse.data.supplier.id}?success=created`
     );
@@ -165,29 +215,35 @@ export async function action(args: ActionFunctionArgs) {
 export default function CreateSupplier() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const [showDuplicateModal, setShowDuplicateModal] = useState(
     actionData?.error === "duplicate"
   );
+  const [showInvitationModal, setShowInvitationModal] = useState(false);
 
   const isSubmitting = navigation.state === "submitting";
 
-  // Breadcrumb items
-  const breadcrumbItems = [
-    { label: "Home", href: "/" },
-    { label: "Suppliers", href: "/suppliers" },
-    { label: "Create", href: "", isCurrentPage: true },
-  ];
+  // Show invitation modal if we have an invitation token
+  useEffect(() => {
+    if (actionData?.success && actionData?.invitationToken) {
+      setShowInvitationModal(true);
+    }
+  }, [actionData]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Breadcrumb */}
-          <Breadcrumb items={breadcrumbItems} />
+          <div className="mb-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/suppliers")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Suppliers
+            </Button>
+          </div>
 
           {/* Page Title */}
-          <div className="mt-4">
+          <div>
             <h1 className="text-3xl font-bold text-gray-900">
               Create Supplier
             </h1>
@@ -220,6 +276,20 @@ export default function CreateSupplier() {
             // The form will be resubmitted with forceSave=true
             setShowDuplicateModal(false);
           }}
+        />
+      )}
+
+      {/* Invitation Link Modal */}
+      {showInvitationModal && actionData?.success && actionData?.invitationToken && (
+        <InvitationLinkModal
+          isOpen={showInvitationModal}
+          onClose={() => {
+            setShowInvitationModal(false);
+            // Navigate to supplier detail page after closing modal
+            navigate(`/suppliers/${actionData.supplierId}?success=created`);
+          }}
+          invitationToken={actionData.invitationToken}
+          supplierUser={actionData.supplierUser}
         />
       )}
     </div>

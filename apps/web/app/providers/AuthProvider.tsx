@@ -95,15 +95,28 @@ export function AuthProvider({
       // Listen for auth state changes
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, session) => {
+      } = supabase.auth.onAuthStateChange(async (event) => {
         // Debug: Auth state changed (removed to satisfy linter)
 
-        if (event === "SIGNED_IN" && session) {
+        if (event === "SIGNED_IN") {
+          // SECURITY: Validate user with server and get validated session
+          const { data: { user }, error: validationError } = await supabase.auth.getUser();
+          
+          if (validationError || !user) {
+            // eslint-disable-next-line no-console
+            console.error("User validation failed:", validationError);
+            clearAuth();
+            return;
+          }
+
+          // Get validated session after user validation
+          const { data: { session: validatedSession } } = await supabase.auth.getSession();
+
           // Fetch user record when signing in with tenant information
           const { data: userRecord, error: userError } = await supabase
             .from("users")
             .select("*, tenant:tenants(*)")
-            .eq("id", session.user.id)
+            .eq("id", user.id)
             .single();
 
           if (userError) {
@@ -111,14 +124,28 @@ export function AuthProvider({
             console.error("Error fetching user record:", userError);
           }
 
-          setAuth(session.user, session, userRecord);
+          setAuth(user, validatedSession, userRecord);
         } else if (event === "SIGNED_OUT") {
           clearAuth();
-        } else if (event === "TOKEN_REFRESHED" && session) {
-          // Update session on token refresh
-          setAuth(session.user, session, userRecord);
-        } else if (event === "USER_UPDATED" && session) {
-          // Refresh user data when profile is updated
+        } else if (event === "TOKEN_REFRESHED") {
+          // SECURITY: Validate user with server and get validated session
+          const { data: { user }, error: validationError } = await supabase.auth.getUser();
+          
+          if (validationError || !user) {
+            // eslint-disable-next-line no-console
+            console.error("Token refresh validation failed:", validationError);
+            clearAuth();
+            return;
+          }
+
+          // Get validated session after user validation
+          const { data: { session: validatedSession } } = await supabase.auth.getSession();
+
+          // Update session on token refresh - use current userRecord from store
+          const currentUserRecord = useAuth.getState().userRecord;
+          setAuth(user, validatedSession, currentUserRecord);
+        } else if (event === "USER_UPDATED") {
+          // Refresh user data when profile is updated (refreshAuth already validates)
           await refreshAuth();
         }
       });
@@ -126,8 +153,9 @@ export function AuthProvider({
       // Set up session monitoring for automatic refresh
       setupSessionMonitoring({
         onSessionRefresh: (session) => {
-          // Update auth state when session is refreshed
-          setAuth(session.user, session, userRecord);
+          // Update auth state when session is refreshed - use current userRecord from store
+          const currentUserRecord = useAuth.getState().userRecord;
+          setAuth(session.user, session, currentUserRecord);
         },
         onSessionExpired: () => {
           // Clear auth state when session expires

@@ -1,9 +1,9 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData, useNavigation, Link } from "@remix-run/react";
+import { json, redirect } from "@remix-run/node";
+import { useLoaderData, useNavigation, Link, useRouteLoaderData } from "@remix-run/react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { usePermissions } from "~/hooks/usePermissions";
+import type { AppLoaderData } from "~/routes/_app";
 import { SupplierTable } from "~/components/suppliers/SupplierTable";
 import { SupplierCard } from "~/components/suppliers/SupplierCard";
 import { SupplierSearchBar } from "~/components/suppliers/SupplierSearchBar";
@@ -13,7 +13,9 @@ import { EmptySupplierState } from "~/components/suppliers/EmptySupplierState";
 import { SupplierTableSkeleton } from "~/components/suppliers/SupplierTableSkeleton";
 import { Button } from "~/components/ui/button";
 import type { Supplier } from "@supplex/types";
+import { UserRole } from "@supplex/types";
 import { Plus } from "lucide-react";
+import { getSupplierForUser } from "~/lib/suppliers.server";
 
 // Type for supplier data after Remix serialization (Dates become strings)
 type SerializedSupplier = Omit<
@@ -43,7 +45,27 @@ export const meta: MetaFunction = () => {
 export async function loader(args: LoaderFunctionArgs) {
   const { request } = args;
   // Protect this route - require authentication
-  const { session } = await requireAuth(args);
+  const { user, userRecord, session } = await requireAuth(args);
+
+  // Redirect supplier_user to their own supplier detail page
+  // NOTE: This call is also made in parent loader (_app.tsx) but we repeat it for
+  // defense-in-depth security. The performance impact is minimal due to:
+  // 1. Parent loader's recent fetch being cached at network/API level
+  // 2. Session-cached userRecord (Quick Win #3) reducing auth overhead
+  if (userRecord.role === UserRole.SUPPLIER_USER) {
+    const token = session?.access_token;
+    if (!token) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+    
+    const supplierInfo = await getSupplierForUser(user.id, token);
+    
+    if (!supplierInfo) {
+      throw new Error("Supplier user is not associated with a supplier");
+    }
+    
+    return redirect(`/suppliers/${supplierInfo.id}`);
+  }
 
   // Extract query parameters from URL
   const url = new URL(request.url);
@@ -134,7 +156,10 @@ export default function SuppliersIndex() {
     };
   };
   const navigation = useNavigation();
-  const permissions = usePermissions();
+  
+  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
 
   // Check if we're loading
   const isLoading = navigation.state === "loading";
@@ -159,7 +184,7 @@ export default function SuppliersIndex() {
               </p>
             </div>
             {/* Add Supplier Button - Only visible to Admin and Procurement Manager */}
-            {permissions.canCreateSuppliers && (
+            {permissions?.canCreateSuppliers && (
               <Button asChild>
                 <Link to="/suppliers/new" className="inline-flex items-center">
                   <Plus className="mr-2 h-4 w-4" />

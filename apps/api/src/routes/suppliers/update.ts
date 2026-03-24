@@ -173,7 +173,6 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
         name: t.Optional(t.String()),
         taxId: t.Optional(t.String()),
         category: t.Optional(t.String()),
-        status: t.Optional(t.String()),
         contactName: t.Optional(t.String()),
         contactEmail: t.Optional(t.String()),
         contactPhone: t.Optional(t.String()),

@@ -53,19 +53,44 @@ export * from "./models/permissions";
 // Audit Logs
 export * from "./models/audit-log";
 
-// Qualification Workflows (Story 2.1)
-export * from "./models/qualification-workflow";
-export * from "./models/qualification-stage";
-export * from "./models/document-checklist";
-export * from "./models/workflow-document";
-export * from "./models/workflow-list";
+// Legacy qualification system removed as per SCP-2026-01-31-001
+// export * from "./models/qualification-workflow";
+// export * from "./models/qualification-stage";
+// export * from "./models/qualification-template";
+// export * from "./models/workflow-document";
+// export * from "./models/workflow-list";
 
 // Email Notifications (Story 2.8)
 export * from "./models/email-notification";
 export * from "./models/notification-preferences";
 
+// Workflow Events (Story 2.10)
+export * from "./workflow-events";
+
+// Workflow Engine (Story 2.2.1)
+export * from "./models/workflow-engine";
+
+// Form Templates (Story 2.2.2, 2.2.3)
+export * from "./models/form-template";
+export * from "./models/form-template-ui";
+
+// Form Submissions (Story 2.2.4)
+export * from "./models/form-submission";
+
+// Task Template Library (Story 2.2.5)
+export * from "./models/task";
+
+// Workflow Templates (Story 2.2.6)
+export * from "./models/workflow-template";
+
+// Comment Threads (Story 2.2.8)
+export * from "./models/comment-thread";
+
+// Document Templates (Story 2.2.11)
+export * from "./models/document-template";
+
 // Utilities
-export * from "./utils/risk-calculator";
+// export * from "./utils/risk-calculator"; // REMOVED - Legacy qualification system utility
 
 /**
  * Supabase Database Type Definition

@@ -5,9 +5,9 @@ import { Badge } from "~/components/ui/badge";
 import { DocumentUploadModal } from "./DocumentUploadModal";
 import { DeleteDocumentModal } from "./DeleteDocumentModal";
 import { DocumentExpiryBadge } from "./DocumentExpiryBadge";
-import { usePermissions } from "~/hooks/usePermissions";
+import type { AppLoaderData } from "~/routes/_app";
 import { useToast } from "~/hooks/use-toast";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator, useRouteLoaderData } from "@remix-run/react";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { Document } from "@supplex/types";
 import { Upload, Download, Trash2, FileText, ArrowUpDown } from "lucide-react";
@@ -45,7 +45,10 @@ export function DocumentsTab({
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
-  const permissions = usePermissions();
+  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
+  
   const { toast } = useToast();
   const revalidator = useRevalidator();
 
@@ -195,7 +198,7 @@ export function DocumentsTab({
         <p className="text-gray-600 mb-6">
           Upload your first document to get started
         </p>
-        {permissions.canUploadDocument && (
+        {permissions?.canUploadDocument && (
           <Button onClick={() => setIsUploadModalOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
@@ -219,7 +222,7 @@ export function DocumentsTab({
         <h3 className="text-lg font-semibold">
           Documents ({documents.length})
         </h3>
-        {permissions.canUploadDocument && (
+        {permissions?.canUploadDocument && (
           <Button onClick={() => setIsUploadModalOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
@@ -314,7 +317,7 @@ export function DocumentsTab({
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      {permissions.canDeleteDocument && (
+                      {permissions?.canDeleteDocument && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -379,7 +382,7 @@ export function DocumentsTab({
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
-                {permissions.canDeleteDocument && (
+                {permissions?.canDeleteDocument && (
                   <Button
                     variant="destructive"
                     size="sm"

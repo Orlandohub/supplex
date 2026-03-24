@@ -19,7 +19,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/seed.ts",
-    "create-auth-users": "tsx src/create-auth-users.ts"
+    "create-auth-users": "tsx src/create-auth-users.ts",
+    "create-test-users": "tsx src/create-test-users.ts"
   },
   "dependencies": {
     "@supplex/types": "workspace:*",

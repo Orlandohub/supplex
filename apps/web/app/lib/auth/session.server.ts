@@ -142,18 +142,87 @@ export async function requireAuth(request: Request): Promise<{
 }
 
 /**
- * Get authenticated user with tenant information
+ * Fast session check using getSession() (local JWT parse, no external HTTP call).
+ *
+ * SECURITY NOTE: This does NOT contact the Supabase Auth server to validate
+ * the session — it only checks JWT format and expiry from the cookie. This is
+ * safe for child loaders because:
+ *   1. The root layout (_app.tsx) already calls getUser() on initial page load.
+ *   2. The Elysia API server validates the JWT signature on every request.
+ *   3. PostgREST also validates the JWT when the Supabase client queries the DB.
  */
-export async function getAuthenticatedUser(request: Request): Promise<{
+export async function getSessionFast(request: Request): Promise<{
+  session: any;
+  user: any;
+  supabase: SupabaseClient<Database>;
+  response: Response;
+}> {
+  const response = new Response();
+  const supabase = createSupabaseServerClient(request, response);
+
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error || !session) {
+    return { session: null, user: null, supabase, response };
+  }
+
+  return { session, user: session.user, supabase, response };
+}
+
+/**
+ * Fast require-auth: redirects to login if no valid session cookie exists.
+ * Uses getSession() (local) instead of getUser() (remote HTTP call).
+ */
+export async function requireAuthFast(request: Request): Promise<{
+  user: any;
+  session: any;
+  supabase: SupabaseClient<Database>;
+  response: Response;
+}> {
+  const { session, user, supabase, response } = await getSessionFast(request);
+
+  if (!session || !user) {
+    const url = new URL(request.url);
+    const redirectTo = url.pathname + url.search;
+    throw redirect(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
+  }
+
+  return { user, session, supabase, response };
+}
+
+/**
+ * Fast version of getAuthenticatedUser — uses local session check + cached
+ * userRecord from the Remix cookie session. Avoids the ~200-500ms external
+ * HTTP call to Supabase Auth that getUser() makes on every invocation.
+ */
+export async function getAuthenticatedUserFast(request: Request): Promise<{
   user: any;
   session: any;
   supabase: SupabaseClient<Database>;
   response: Response;
   userRecord?: any;
 }> {
-  const { user, session, supabase, response } = await requireAuth(request);
+  const { user, session, supabase, response } = await requireAuthFast(request);
 
-  // Fetch user record from our database
+  const remixSession = await sessionStorage.getSession(
+    request.headers.get("Cookie")
+  );
+  const cachedUserRecord = remixSession.get("userRecord");
+  const cacheTimestamp = remixSession.get("userRecordTimestamp");
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const isCacheValid =
+    cachedUserRecord &&
+    cachedUserRecord.id === user.id &&
+    cacheTimestamp &&
+    Date.now() - cacheTimestamp < CACHE_TTL;
+
+  if (isCacheValid) {
+    return { user, session, supabase, response, userRecord: cachedUserRecord };
+  }
+
   const { data: userRecord, error } = await supabase
     .from("users")
     .select("*")
@@ -165,18 +234,141 @@ export async function getAuthenticatedUser(request: Request): Promise<{
     throw new Error("Failed to fetch user data");
   }
 
+  remixSession.set("userRecord", userRecord);
+  remixSession.set("userRecordTimestamp", Date.now());
+  response.headers.append(
+    "Set-Cookie",
+    await sessionStorage.commitSession(remixSession)
+  );
+
   return { user, session, supabase, response, userRecord };
 }
 
 /**
+ * Get authenticated user with tenant information
+ * PERFORMANCE: Caches userRecord in session to avoid DB queries on every request
+ */
+export async function getAuthenticatedUser(request: Request): Promise<{
+  user: any;
+  session: any;
+  supabase: SupabaseClient<Database>;
+  response: Response;
+  userRecord?: any;
+}> {
+  const { user, session, supabase, response } = await requireAuth(request);
+
+  // Try to get cached userRecord from session (Performance optimization)
+  const remixSession = await sessionStorage.getSession(
+    request.headers.get("Cookie")
+  );
+  const cachedUserRecord = remixSession.get("userRecord");
+
+  // Validate cache: check if it's for the same user and not too old
+  const cacheTimestamp = remixSession.get("userRecordTimestamp");
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const isCacheValid = 
+    cachedUserRecord && 
+    cachedUserRecord.id === user.id &&
+    cacheTimestamp &&
+    (Date.now() - cacheTimestamp) < CACHE_TTL;
+
+  if (isCacheValid) {
+    // Return cached user record (saves ~50-150ms DB query)
+    return { user, session, supabase, response, userRecord: cachedUserRecord };
+  }
+
+  // Cache miss or expired - fetch from database
+  const { data: userRecord, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching user record:", error);
+    throw new Error("Failed to fetch user data");
+  }
+
+  // Update session cache
+  remixSession.set("userRecord", userRecord);
+  remixSession.set("userRecordTimestamp", Date.now());
+  
+  // Add Set-Cookie header to persist updated session
+  response.headers.append(
+    "Set-Cookie",
+    await sessionStorage.commitSession(remixSession)
+  );
+
+  return { user, session, supabase, response, userRecord };
+}
+
+/**
+ * Get supplier info for a user (with session caching)
+ * PERFORMANCE: Caches supplierInfo in session to avoid API calls on every navigation
+ */
+export async function getSupplierInfoCached(
+  request: Request,
+  userId: string,
+  token: string,
+  fetchSupplierFn: (userId: string, token: string) => Promise<{ id: string; name: string } | null>
+): Promise<{ id: string; name: string } | null> {
+  // Try to get cached supplierInfo from session
+  const remixSession = await sessionStorage.getSession(
+    request.headers.get("Cookie")
+  );
+  const cachedSupplierInfo = remixSession.get("supplierInfo");
+
+  // Validate cache: check if it's for the same user and not too old
+  const cacheTimestamp = remixSession.get("supplierInfoTimestamp");
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const isCacheValid = 
+    cachedSupplierInfo && 
+    cachedSupplierInfo.userId === userId &&
+    cacheTimestamp &&
+    (Date.now() - cacheTimestamp) < CACHE_TTL;
+
+  if (isCacheValid) {
+    // Return cached supplier info (saves ~50-150ms API call)
+    return { id: cachedSupplierInfo.id, name: cachedSupplierInfo.name };
+  }
+
+  // Cache miss or expired - fetch from API
+  const supplierInfo = await fetchSupplierFn(userId, token);
+
+  if (supplierInfo) {
+    // Update session cache
+    remixSession.set("supplierInfo", { ...supplierInfo, userId });
+    remixSession.set("supplierInfoTimestamp", Date.now());
+    
+    // Note: We don't need to set headers here because the calling loader
+    // will handle committing the session if needed
+  }
+
+  return supplierInfo;
+}
+
+/**
+ * Invalidate supplier info cache in session
+ * Call this when supplier data is updated
+ */
+export async function invalidateSupplierInfoCache(request: Request): Promise<void> {
+  const remixSession = await sessionStorage.getSession(
+    request.headers.get("Cookie")
+  );
+  remixSession.unset("supplierInfo");
+  remixSession.unset("supplierInfoTimestamp");
+}
+
+/**
  * Sign out the current user
+ * Clears session cache including cached userRecord and supplierInfo
  */
 export async function signOut(request: Request): Promise<Response> {
   const { supabase, response } = await getSession(request);
 
   await supabase.auth.signOut();
 
-  // Clear session cookie
+  // Clear session cookie (also clears cached userRecord and supplierInfo)
   const session = await sessionStorage.getSession(
     request.headers.get("Cookie")
   );

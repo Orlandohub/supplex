@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { UserRole, createUserMetadata, AuditAction } from "@supplex/types";
 import { requireAdmin } from "../../lib/rbac/middleware";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
+import { authCache } from "../../lib/auth-cache";
 
 /**
  * PATCH /api/users/:id/role
@@ -112,6 +113,11 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
             error: "Failed to sync role with authentication system",
           };
         }
+
+        // Step 4: Invalidate auth cache
+        // This ensures the user's new role takes effect immediately
+        // instead of waiting for cache TTL (5 minutes) to expire
+        await authCache.invalidate(targetUserId);
 
         // Log audit event
         await logAuditEvent({

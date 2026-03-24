@@ -25,10 +25,14 @@ const configSchema = z.object({
 
   // CORS
   cors: z.object({
-    origin: z.string().default("http://localhost:5173"),
+    origin: z.union([
+      z.string(),
+      z.array(z.string()),
+      z.boolean(),
+    ]).default("http://localhost:5173"),
   }),
 
-  // JWT
+  // JWT (Supabase JWT Secret for local verification)
   jwt: z.object({
     secret: z.string().min(32),
   }),
@@ -57,10 +61,15 @@ function loadConfig() {
       url: process.env.DATABASE_URL || "",
     },
     cors: {
-      origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+      origin: process.env.CORS_ORIGIN 
+        ? (process.env.CORS_ORIGIN.includes(',') 
+          ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+          : process.env.CORS_ORIGIN)
+        : ["http://localhost:5173", "http://localhost:5174"],
     },
     jwt: {
       secret:
+        process.env.SUPABASE_JWT_SECRET ||
         process.env.JWT_SECRET ||
         "dev-secret-key-change-in-production-min-32-chars",
     },

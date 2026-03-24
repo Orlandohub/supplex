@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
 import { Link } from "@remix-run/react";
+import { config } from "~/lib/config";
 
 // Validation schema
 const loginSchema = z.object({
@@ -21,6 +22,28 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+// Dev login types
+interface DevUser {
+  id: string;
+  email: string;
+  role: string;
+  fullName: string;
+  isActive: boolean;
+  supplierId?: string;
+  supplierName?: string;
+}
+
+interface DevTenant {
+  id: string;
+  name: string;
+  users: DevUser[];
+  supplierUsers: DevUser[];
+}
+
+interface DevUsersResponse {
+  tenants: DevTenant[];
+}
+
 interface LoginFormProps {
   onSuccess?: () => void;
   redirectTo?: string;
@@ -32,9 +55,17 @@ export function LoginForm({
   redirectTo,
   className = "",
 }: LoginFormProps) {
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, setAuth } = useAuth();
   const [submitError, setSubmitError] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Dev Quick Login State
+  const isDevelopment = config.isDevelopment;
+  const [devUsers, setDevUsers] = useState<DevUsersResponse | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<string>("");
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [devLoading, setDevLoading] = useState(false);
+  const [devError, setDevError] = useState<string>("");
 
   const {
     register,
@@ -63,6 +94,16 @@ export function LoginForm({
       setValue("rememberMe", true);
     }
   }, [setValue]);
+
+  // Fetch dev users on mount (development only)
+  useEffect(() => {
+    if (isDevelopment) {
+      fetch(`${config.apiUrl}/api/auth/dev/users`)
+        .then((res) => res.json())
+        .then((data) => setDevUsers(data))
+        .catch((err) => console.error("Failed to load dev users:", err));
+    }
+  }, [isDevelopment]);
 
   // Save form data to localStorage as user types
   const watchedEmail = watch("email");
@@ -105,6 +146,57 @@ export function LoginForm({
     }
   };
 
+  // Dev Quick Login — uses signInWithPassword with a temporary password set by the API
+  const handleDevLogin = async () => {
+    if (!selectedUser) return;
+
+    setDevError("");
+    setDevLoading(true);
+
+    try {
+      // API sets a temp password for the user and returns their email
+      const response = await fetch(`${config.apiUrl}/api/auth/dev/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUser }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        setDevError(result.error || "Dev login failed");
+        setDevLoading(false);
+        return;
+      }
+
+      // Use the exact same signIn flow as normal login
+      const signInResult = await signIn(result.email, result.tempPassword, false);
+
+      if (!signInResult.success) {
+        setDevError(signInResult.error || "Dev login failed");
+        setDevLoading(false);
+        return;
+      }
+
+      onSuccess?.();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const targetUrl = redirectTo ? decodeURIComponent(redirectTo) : "/";
+      window.location.href = targetUrl;
+    } catch (error: any) {
+      console.error("Dev login error:", error);
+      setDevError(error.message || "Dev login failed");
+      setDevLoading(false);
+    }
+  };
+
+  // Get users for selected tenant
+  const selectedTenantData = devUsers?.tenants.find(
+    (t) => t.id === selectedTenant
+  );
+  const allUsersForTenant = selectedTenantData
+    ? [...selectedTenantData.users, ...selectedTenantData.supplierUsers]
+    : [];
+
   return (
     <div className={`w-full max-w-md mx-auto ${className}`}>
       {/* Header */}
@@ -113,7 +205,154 @@ export function LoginForm({
         <p className="text-gray-600">Sign in to your Supplex account</p>
       </div>
 
-      {/* Form */}
+      {/* Dev Quick Login Section (Development Only) */}
+      {isDevelopment && devUsers && (
+        <div className="mb-8 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl">🚀</span>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Dev Quick Login
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {/* Tenant Dropdown */}
+            <div>
+              <label
+                htmlFor="dev-tenant"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Tenant
+              </label>
+              <select
+                id="dev-tenant"
+                value={selectedTenant}
+                onChange={(e) => {
+                  setSelectedTenant(e.target.value);
+                  setSelectedUser("");
+                  setDevError("");
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                disabled={devLoading}
+              >
+                <option value="">Select tenant...</option>
+                {devUsers.tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* User Dropdown */}
+            {selectedTenant && (
+              <div>
+                <label
+                  htmlFor="dev-user"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  User
+                </label>
+                <select
+                  id="dev-user"
+                  value={selectedUser}
+                  onChange={(e) => {
+                    setSelectedUser(e.target.value);
+                    setDevError("");
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  disabled={devLoading}
+                >
+                  <option value="">Select user...</option>
+                  
+                  {/* Tenant Users */}
+                  {selectedTenantData && selectedTenantData.users.length > 0 && (
+                    <optgroup label="Tenant Users">
+                      {selectedTenantData.users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.fullName} ({user.role}) - {user.email}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {/* Supplier Users */}
+                  {selectedTenantData && selectedTenantData.supplierUsers.length > 0 && (
+                    <optgroup label="Supplier Users">
+                      {selectedTenantData.supplierUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.fullName} ({user.role}) - {user.email}
+                          {user.supplierName && ` [${user.supplierName}]`}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+            )}
+
+            {/* Dev Error */}
+            {devError && (
+              <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                {devError}
+              </div>
+            )}
+
+            {/* Quick Login Button */}
+            <button
+              type="button"
+              onClick={handleDevLogin}
+              disabled={!selectedUser || devLoading}
+              className={`
+                w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-900
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500
+                disabled:opacity-50 disabled:cursor-not-allowed
+                ${
+                  !selectedUser || devLoading
+                    ? "bg-yellow-200"
+                    : "bg-yellow-400 hover:bg-yellow-500"
+                }
+              `}
+            >
+              {devLoading ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Quick Login...
+                </>
+              ) : (
+                "Quick Login"
+              )}
+            </button>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-yellow-300">
+            <p className="text-xs text-gray-600 text-center">
+              Development only - Not visible in production
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Regular Login Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Email Field */}
         <div>
@@ -257,7 +496,7 @@ export function LoginForm({
                 />
               </svg>
               <div className="ml-3">
-                <p className="text-sm text-red-800">{submitError}</p>
+                <p className="text-sm text-red-800 whitespace-pre-line">{submitError}</p>
               </div>
             </div>
           </div>

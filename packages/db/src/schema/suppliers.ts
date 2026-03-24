@@ -8,9 +8,10 @@ import {
   index,
   unique,
 } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { users } from "./users";
+import { supplierStatus } from "./supplier-status";
 
 /**
  * Suppliers Table
@@ -41,6 +42,13 @@ export const suppliers = pgTable(
     certifications: jsonb("certifications").notNull().default([]),
     metadata: jsonb("metadata").notNull().default({}),
     riskScore: numeric("risk_score", { precision: 4, scale: 2 }),
+    supplierStatusId: uuid("supplier_status_id").references(
+      () => supplierStatus.id,
+      { onDelete: "set null" }
+    ),
+    supplierUserId: uuid("supplier_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id),
@@ -77,6 +85,10 @@ export const suppliers = pgTable(
     tenantTaxIdUnique: unique("suppliers_tenant_tax_id_unique").on(
       table.tenantId,
       table.taxId
+    ),
+    // Index on supplier_user_id for looking up supplier by user
+    supplierUserIdIdx: index("idx_suppliers_supplier_user_id").on(
+      table.supplierUserId
     ),
   })
 );

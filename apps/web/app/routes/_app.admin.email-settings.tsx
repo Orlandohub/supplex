@@ -5,15 +5,16 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, Form, useNavigation } from "@remix-run/react";
+import { useLoaderData, Form, useNavigation, useNavigate } from "@remix-run/react";
 import { useState, useEffect } from "react";
-import { requireAuth } from "~/lib/auth/require-auth";
+import { requireAdmin } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { Card } from "~/components/ui/card";
 import { Switch } from "~/components/ui/switch";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { useToast } from "~/hooks/use-toast";
+import { ArrowLeft } from "lucide-react";
 
 interface TenantEmailSettings {
   workflowSubmitted: boolean;
@@ -23,13 +24,9 @@ interface TenantEmailSettings {
   workflowApproved: boolean;
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const { session, userRecord } = await requireAuth({ request });
-
-  // Check if user is admin
-  if (userRecord?.role !== "admin") {
-    throw redirect("/");
-  }
+export async function loader(args: LoaderFunctionArgs) {
+  const { request } = args;
+  const { session, userRecord } = await requireAdmin(request);
 
   try {
     const token = session?.access_token;
@@ -68,13 +65,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-  const { session, userRecord } = await requireAuth({ request });
-
-  // Check if user is admin
-  if (userRecord?.role !== "admin") {
-    return json({ success: false, error: "Unauthorized" }, { status: 403 });
-  }
+export async function action(args: ActionFunctionArgs) {
+  const { request } = args;
+  const { session, userRecord } = await requireAdmin(request);
 
   try {
     const formData = await request.formData();
@@ -148,6 +141,7 @@ const notificationTypes = [
 export default function AdminEmailSettingsPage() {
   const { settings, error } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [localSettings, setLocalSettings] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
@@ -228,6 +222,13 @@ export default function AdminEmailSettingsPage() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-3xl mx-auto">
+        <div className="mb-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Settings
+          </Button>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">
             Email Notification Settings

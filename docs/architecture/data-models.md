@@ -93,6 +93,7 @@ export enum UserRole {
   PROCUREMENT_MANAGER = "procurement_manager",
   QUALITY_MANAGER = "quality_manager",
   VIEWER = "viewer",
+  SUPPLIER_USER = "supplier_user", // Added in Story 2.1.4
 }
 
 export interface User {
@@ -100,7 +101,7 @@ export interface User {
   tenantId: string;
   email: string;
   fullName: string;
-  role: UserRole;
+  role: UserRole; // Supports supplier_user role (Story 2.1.4)
   avatarUrl: string | null;
   isActive: boolean;
   lastLoginAt: Date | null;
@@ -118,6 +119,7 @@ export interface AuthenticatedUser extends User {
 ### Relationships
 
 - **Many-to-One** with Tenant (each user belongs to one tenant)
+- **One-to-One** with Supplier (supplier_user may be linked to one supplier as contact - Story 2.1.5)
 - **One-to-Many** with Qualification (user creates qualifications)
 - **One-to-Many** with Evaluation (user conducts evaluations)
 - **One-to-Many** with Complaint (user files/owns complaints)
@@ -197,6 +199,7 @@ export interface Supplier {
   certifications: SupplierCertification[];
   metadata: Record<string, any>; // Tenant-specific custom fields
   riskScore: number | null; // 1-10 scale
+  supplierUserId: string | null; // User ID of supplier contact (Story 2.1.5)
   createdBy: string; // User ID
   createdAt: Date;
   updatedAt: Date;
@@ -207,6 +210,7 @@ export interface Supplier {
 ### Relationships
 
 - **Many-to-One** with Tenant (supplier belongs to one tenant)
+- **Many-to-One** with User (supplier may have one contact user with platform access - Story 2.1.5)
 - **One-to-Many** with Qualification (supplier has qualification history)
 - **One-to-Many** with Evaluation (supplier receives periodic evaluations)
 - **One-to-Many** with Complaint (complaints filed against supplier)

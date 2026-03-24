@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
-import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticate } from "../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
 
 /**
  * GET /api/users
@@ -14,11 +15,20 @@ import { requireAdmin } from "../../lib/rbac/middleware";
  * Auth: Requires Admin role
  */
 export const listUsersRoute = new Elysia({ prefix: "/users" })
-  .use(requireAdmin)
+  .use(authenticate)
   .get(
     "/",
     async ({ query, user, set }: any) => {
       try {
+        // Check for admin role (following pattern from my-tasks-count.ts)
+        if (!user?.role || user.role !== UserRole.ADMIN) {
+          set.status = 403;
+          return {
+            success: false,
+            error: "Access denied. Admin role required.",
+          };
+        }
+
         const tenantId = user.tenantId as string;
 
         // Build query with optional status filter

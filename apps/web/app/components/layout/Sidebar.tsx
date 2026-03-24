@@ -1,9 +1,12 @@
 /**
  * Sidebar Component
  * Collapsible sidebar navigation with role-based menu filtering
+ * 
+ * Uses SSR permissions from parent loader to prevent flash of unauthorized content
  */
 
 import { Link, useLocation, useRouteLoaderData } from "@remix-run/react";
+import { Fragment } from "react";
 import {
   Home,
   Building2,
@@ -18,17 +21,17 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useNavigationStore } from "~/stores/navigationStore";
-import { usePermissions } from "~/hooks/usePermissions";
 import { cn } from "~/lib/utils";
-import { Badge } from "~/components/ui/badge";
+import type { AppLoaderData } from "~/routes/_app";
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  requiredPermissions?: keyof ReturnType<typeof usePermissions>;
+  requiredPermissions?: keyof AppLoaderData["permissions"];
   adminOnly?: boolean;
   showBadge?: boolean;
+  supplierUserExcluded?: boolean;
 }
 
 const navigationItems: NavItem[] = [
@@ -41,16 +44,16 @@ const navigationItems: NavItem[] = [
     name: "Suppliers",
     href: "/suppliers",
     icon: Building2,
+    supplierUserExcluded: true,
   },
   {
     name: "My Tasks",
     href: "/tasks",
     icon: ClipboardList,
-    showBadge: true,
   },
   {
-    name: "Qualifications",
-    href: "/qualifications",
+    name: "Workflows",
+    href: "/workflows",
     icon: CheckCircle,
   },
   {
@@ -79,27 +82,33 @@ const navigationItems: NavItem[] = [
     name: "API",
     href: "/api-docs",
     icon: Code,
+    supplierUserExcluded: true,
   },
 ];
 
 export function Sidebar() {
   const location = useLocation();
-  const permissions = usePermissions();
   const { isSidebarCollapsed, toggleSidebar } = useNavigationStore();
 
-  // Get task count from root loader
-  const appData = useRouteLoaderData<{ taskCount: number }>("routes/_app");
-  const taskCount = appData?.taskCount || 0;
+  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
 
-  // Filter navigation based on permissions
+  // Filter navigation based on SERVER-COMPUTED permissions
+  // This ensures correct HTML on initial render (no flash of unauthorized content)
   const visibleNavItems = navigationItems.filter((item) => {
     // If item is admin-only, check if user is admin
-    if (item.adminOnly && !permissions.isAdmin) {
+    if (item.adminOnly && !permissions?.isAdmin) {
+      return false;
+    }
+
+    // If item is excluded for supplier users, hide it
+    if (item.supplierUserExcluded && permissions?.isSupplierUser) {
       return false;
     }
 
     // If item requires specific permission, check it
-    if (item.requiredPermissions) {
+    if (item.requiredPermissions && permissions) {
       return permissions[item.requiredPermissions];
     }
 
@@ -147,57 +156,114 @@ export function Sidebar() {
 
       {/* Navigation Items */}
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-        {visibleNavItems.map((item) => {
+        {visibleNavItems.map((item, index) => {
           const Icon = item.icon;
-          const isActive =
-            location.pathname === item.href ||
-            (item.href !== "/" && location.pathname.startsWith(item.href));
+          
+          // Fix navigation highlighting - prevent parent routes from matching child routes
+          // e.g., /workflows shouldn't match /workflows/templates
+          let isActive = false;
+          
+          if (item.href === "/") {
+            // Home route - only match exactly
+            isActive = location.pathname === "/";
+          } else {
+            // Check if any other nav item has a longer href that starts with this item's href
+            const hasChildRoute = navigationItems.some(
+              (otherItem) =>
+                otherItem.href !== item.href &&
+                otherItem.href.startsWith(item.href + "/")
+            );
+            
+            if (hasChildRoute) {
+              // If this item has child routes, only match exactly
+              isActive = location.pathname === item.href;
+            } else {
+              // Otherwise, match this route and any sub-routes
+              isActive =
+                location.pathname === item.href ||
+                location.pathname.startsWith(item.href + "/");
+            }
+          }
 
           return (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-md",
-                "transition-colors duration-150",
-                isActive
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900",
-                isSidebarCollapsed && "justify-center"
-              )}
-              aria-current={isActive ? "page" : undefined}
-              title={isSidebarCollapsed ? item.name : undefined}
-            >
-              <Icon
+            <Fragment key={item.name}>
+              <Link
+                to={item.href}
                 className={cn(
-                  "h-5 w-5 flex-shrink-0",
+                  "group flex items-center px-3 py-2 text-sm font-medium rounded-md",
+                  "transition-colors duration-150",
                   isActive
-                    ? "text-blue-600"
-                    : "text-neutral-400 group-hover:text-neutral-500"
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900",
+                  isSidebarCollapsed && "justify-center"
                 )}
-              />
-              {!isSidebarCollapsed && (
-                <span className="ml-3 flex items-center gap-2">
-                  {item.name}
-                  {item.showBadge && taskCount > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="h-5 min-w-[20px] px-1.5 text-xs font-semibold"
-                    >
-                      {taskCount}
-                    </Badge>
+                aria-current={isActive ? "page" : undefined}
+                title={isSidebarCollapsed ? item.name : undefined}
+              >
+                <Icon
+                  className={cn(
+                    "h-5 w-5 flex-shrink-0",
+                    isActive
+                      ? "text-blue-600"
+                      : "text-neutral-400 group-hover:text-neutral-500"
                   )}
-                </span>
-              )}
-              {isSidebarCollapsed && item.showBadge && taskCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute top-1 right-1 h-4 w-4 p-0 text-[10px] flex items-center justify-center"
-                >
-                  {taskCount > 9 ? "9+" : taskCount}
-                </Badge>
-              )}
-            </Link>
+                />
+                {!isSidebarCollapsed && (
+                  <span className="ml-3 flex items-center gap-2">
+                    {item.name}
+                    {item.showBadge && (
+                      <span className="h-2 w-2 rounded-full bg-blue-600" />
+                    )}
+                  </span>
+                )}
+                {isSidebarCollapsed && item.showBadge && (
+                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-600" />
+                )}
+              </Link>
+              {/* Insert supplier name link for supplier_user after Dashboard */}
+              {index === 0 &&
+                permissions?.isSupplierUser &&
+                appData?.supplierInfo && (
+                  <Link
+                    key="supplier-user-link"
+                    to={`/suppliers/${appData.supplierInfo.id}`}
+                    className={cn(
+                      "group flex items-center px-3 py-2 text-sm font-medium rounded-md",
+                      "transition-colors duration-150",
+                      location.pathname.startsWith(
+                        `/suppliers/${appData.supplierInfo.id}`
+                      )
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900",
+                      isSidebarCollapsed && "justify-center"
+                    )}
+                    aria-current={
+                      location.pathname.startsWith(
+                        `/suppliers/${appData.supplierInfo.id}`
+                      )
+                        ? "page"
+                        : undefined
+                    }
+                    title={
+                      isSidebarCollapsed ? appData.supplierInfo.name : undefined
+                    }
+                  >
+                    <Building2
+                      className={cn(
+                        "h-5 w-5 flex-shrink-0",
+                        location.pathname.startsWith(
+                          `/suppliers/${appData.supplierInfo.id}`
+                        )
+                          ? "text-blue-600"
+                          : "text-neutral-400 group-hover:text-neutral-500"
+                      )}
+                    />
+                    {!isSidebarCollapsed && (
+                      <span className="ml-3">{appData.supplierInfo.name}</span>
+                    )}
+                  </Link>
+                )}
+            </Fragment>
           );
         })}
       </nav>

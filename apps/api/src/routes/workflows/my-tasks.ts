@@ -1,98 +1,152 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
-import { qualificationStages, qualificationWorkflows } from "@supplex/db";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { taskInstance, processInstance, stepInstance, suppliers } from "@supplex/db";
+import { eq, and, isNull, sql, asc, desc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 
 /**
- * GET /api/workflows/my-tasks
- * Get list of workflows pending review for current user
+ * GET /api/workflows/my-tasks?status=pending|completed|all
+ * Get list of workflow tasks assigned to current user (NEW WORKFLOW ENGINE)
+ *
+ * Returns tasks from task_instance table (new system)
+ * Filters by assignee (role or user) and optional status filter
+ * Default: all tasks, sorted by pending first then creation date ASC
  *
  * Auth: Requires authenticated user
  * Tenant Scoping: Returns only tasks for workflows in user's tenant
- *
- * AC 1, 2: Returns task queue with supplier name, initiator, date, risk score, days pending
  */
 export const myTasksRoute = new Elysia().use(authenticate).get(
   "/my-tasks",
-  async ({ user, set }) => {
+  async ({ user, set, query }) => {
     try {
       const userId = user!.id as string;
+      const userRole = user!.role as string;
       const tenantId = user!.tenantId as string;
 
-      // Query stages assigned to current user with Pending status
-      // Join with workflows to get supplier and initiator info
+      const statusFilter = (query as any)?.status as string | undefined;
+
+      const statusCondition =
+        statusFilter === "pending"
+          ? eq(taskInstance.status, "pending")
+          : statusFilter === "completed"
+            ? eq(taskInstance.status, "completed")
+            : undefined; // "all" or undefined → no status filter
+
+      const conditions = [
+        eq(taskInstance.tenantId, tenantId),
+        sql`(
+          (${taskInstance.assigneeType} = 'role' AND ${taskInstance.assigneeRole} = ${userRole})
+          OR
+          (${taskInstance.assigneeType} = 'user' AND ${taskInstance.assigneeUserId} = ${userId})
+        )`,
+        isNull(taskInstance.deletedAt),
+        isNull(processInstance.deletedAt),
+        isNull(stepInstance.deletedAt),
+      ];
+
+      if (statusCondition) {
+        conditions.push(statusCondition);
+      }
+
       const tasks = await db
         .select({
-          stageId: qualificationStages.id,
-          workflowId: qualificationStages.workflowId,
-          stageNumber: qualificationStages.stageNumber,
-          stageName: qualificationStages.stageName,
-          stageCreatedAt: qualificationStages.createdAt,
-          workflowStatus: qualificationWorkflows.status,
-          supplierId: qualificationWorkflows.supplierId,
-          riskScore: qualificationWorkflows.riskScore,
-          initiatedDate: qualificationWorkflows.initiatedDate,
+          taskId: taskInstance.id,
+          processId: taskInstance.processInstanceId,
+          stepId: taskInstance.stepInstanceId,
+          taskTitle: taskInstance.title,
+          taskDescription: taskInstance.description,
+          taskStatus: taskInstance.status,
+          dueAt: taskInstance.dueAt,
+          assigneeType: taskInstance.assigneeType,
+          assigneeRole: taskInstance.assigneeRole,
+          taskMetadata: taskInstance.metadata,
+          createdAt: taskInstance.createdAt,
+          completedAt: taskInstance.completedAt,
+          processStatus: processInstance.status,
+          processType: processInstance.processType,
+          entityType: processInstance.entityType,
+          entityId: processInstance.entityId,
+          initiatedDate: processInstance.initiatedDate,
+          initiatedBy: processInstance.initiatedBy,
+          stepStatus: stepInstance.status,
         })
-        .from(qualificationStages)
+        .from(taskInstance)
         .innerJoin(
-          qualificationWorkflows,
-          eq(qualificationStages.workflowId, qualificationWorkflows.id)
+          processInstance,
+          eq(taskInstance.processInstanceId, processInstance.id)
         )
-        .where(
-          and(
-            eq(qualificationStages.assignedTo, userId),
-            eq(qualificationStages.status, "Pending"),
-            eq(qualificationWorkflows.tenantId, tenantId),
-            isNull(qualificationStages.deletedAt),
-            isNull(qualificationWorkflows.deletedAt)
-          )
+        .innerJoin(
+          stepInstance,
+          eq(taskInstance.stepInstanceId, stepInstance.id)
         )
-        .orderBy(sql`${qualificationStages.createdAt} ASC`); // Oldest first
+        .where(and(...conditions))
+        .orderBy(
+          asc(sql`CASE WHEN ${taskInstance.status} = 'pending' THEN 0 ELSE 1 END`),
+          asc(taskInstance.createdAt)
+        );
 
-      // Now fetch supplier and initiator details for each task
-      const enrichedTasks = await Promise.all(
+      // Now fetch entity details (supplier name, etc.) for each task
+      // For MVP, we'll focus on entity_type = 'supplier'
+      const tasksWithDetails = await Promise.all(
         tasks.map(async (task) => {
-          // Get workflow with supplier and initiator
-          const workflow = await db.query.qualificationWorkflows.findFirst({
-            where: eq(qualificationWorkflows.id, task.workflowId),
-            with: {
-              supplier: true,
-              initiator: true,
-            },
-          });
+          let entityName = "Unknown";
+          
+          if (task.entityType === "supplier" && task.entityId) {
+            // Query supplier name
+            const supplier = await db.query.suppliers.findFirst({
+              where: (suppliers, { eq, and, isNull }) => 
+                and(
+                  eq(suppliers.id, task.entityId),
+                  isNull(suppliers.deletedAt)
+                ),
+              columns: { name: true },
+            });
+            entityName = supplier?.name || "Unknown Supplier";
+          }
 
-          if (!workflow) {
-            return null;
+          // Get initiator name
+          let initiatedByName = "Unknown User";
+          if (task.initiatedBy) {
+            const initiator = await db.query.users.findFirst({
+              where: (users, { eq }) => eq(users.id, task.initiatedBy),
+              columns: { fullName: true },
+            });
+            initiatedByName = initiator?.fullName || "Unknown User";
           }
 
           // Calculate days pending
           const daysPending = Math.floor(
-            (Date.now() - task.stageCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
+            (new Date().getTime() - new Date(task.createdAt).getTime()) /
+              (1000 * 60 * 60 * 24)
           );
 
           return {
-            workflowId: task.workflowId,
-            stageId: task.stageId,
-            supplierId: task.supplierId,
-            supplierName: workflow.supplier?.name || "Unknown Supplier",
-            initiatedBy: workflow.initiator?.fullName || "Unknown User",
+            taskId: task.taskId,
+            processId: task.processId,
+            stepId: task.stepId,
+            taskTitle: task.taskTitle,
+            taskDescription: task.taskDescription,
+            taskStatus: task.taskStatus,
+            dueAt: task.dueAt,
+            entityType: task.entityType,
+            entityId: task.entityId,
+            entityName,
+            processStatus: task.processStatus,
+            processType: task.processType,
             initiatedDate: task.initiatedDate,
-            riskScore: task.riskScore ? parseFloat(task.riskScore) : 0,
+            initiatedBy: initiatedByName,
             daysPending,
-            stageNumber: task.stageNumber,
-            stageName: task.stageName,
+            createdAt: task.createdAt,
+            completedAt: task.completedAt,
+            isResubmission: !!(task.taskMetadata as any)?.isResubmission,
           };
         })
       );
 
-      // Filter out any null results (shouldn't happen but being safe)
-      const validTasks = enrichedTasks.filter((task) => task !== null);
-
       return {
         success: true,
         data: {
-          tasks: validTasks,
+          tasks: tasksWithDetails,
         },
       };
     } catch (error: unknown) {
@@ -109,9 +163,16 @@ export const myTasksRoute = new Elysia().use(authenticate).get(
     }
   },
   {
+    query: t.Object({
+      status: t.Optional(t.Union([
+        t.Literal("pending"),
+        t.Literal("completed"),
+        t.Literal("all"),
+      ])),
+    }),
     detail: {
-      summary: "Get my pending tasks",
-      description: "Fetches list of workflows awaiting review by current user",
+      summary: "Get my tasks (New Workflow Engine)",
+      description: "Fetches list of workflow tasks from task_instance table assigned to current user. Supports status filter.",
       tags: ["Workflows", "Tasks"],
     },
   }

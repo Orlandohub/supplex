@@ -5,6 +5,7 @@ This directory contains troubleshooting guides, known issues, and their solution
 ## Quick Links
 
 - 📋 **[Known Issues & Fixes](./known-issues-and-fixes.md)** - Common problems encountered during development and their solutions
+- 🛡️ **[Environment Files Protection](./ENV-FILES-PROTECTION.md)** - **CRITICAL**: How AI agents must handle .env files
 
 ## When to Use This Documentation
 

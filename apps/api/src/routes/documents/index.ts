@@ -3,6 +3,7 @@ import { listDocuments } from "./list";
 import { uploadDocument } from "./upload";
 import { downloadDocument } from "./download";
 import { deleteDocument } from "./delete";
+import { viewDocumentRoute } from "../workflows/steps/documents/view";
 
 /**
  * Document Management Routes
@@ -11,10 +12,12 @@ import { deleteDocument } from "./delete";
  * - GET /api/suppliers/:supplierId/documents - List documents for a supplier
  * - POST /api/suppliers/:supplierId/documents - Upload document with metadata
  * - GET /api/documents/:id/download - Generate signed URL for download
+ * - GET /api/documents/:id/view - Generate signed URL for in-browser viewing
  * - DELETE /api/documents/:id - Soft delete document
  */
 export const documentsRoutes = new Elysia()
   .use(listDocuments)
   .use(uploadDocument)
   .use(downloadDocument)
+  .use(viewDocumentRoute)
   .use(deleteDocument);

@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { tenants } from "@supplex/db";
 import { eq } from "drizzle-orm";
-import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticate } from "../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
 
 /**
  * GET /api/admin/email-settings
@@ -10,12 +11,21 @@ import { requireAdmin } from "../../lib/rbac/middleware";
  *
  * Auth: Requires Admin role
  */
-export const getEmailSettingsRoute = new Elysia({ prefix: "/admin" })
-  .use(requireAdmin)
+export const getEmailSettingsRoute = new Elysia()
+  .use(authenticate)
   .get(
     "/email-settings",
     async ({ user, set }: any) => {
       try {
+        // Check for admin role with null checks
+        if (!user?.role || user.role !== UserRole.ADMIN) {
+          set.status = 403;
+          return {
+            success: false,
+            error: "Access denied. Admin role required.",
+          };
+        }
+
         const tenantId = user.tenantId as string;
 
         // Fetch tenant
@@ -80,12 +90,21 @@ export const getEmailSettingsRoute = new Elysia({ prefix: "/admin" })
  *
  * Auth: Requires Admin role
  */
-export const updateEmailSettingsRoute = new Elysia({ prefix: "/admin" })
-  .use(requireAdmin)
+export const updateEmailSettingsRoute = new Elysia()
+  .use(authenticate)
   .put(
     "/email-settings",
     async ({ body, user, set }: any) => {
       try {
+        // Check for admin role with null checks
+        if (!user?.role || user.role !== UserRole.ADMIN) {
+          set.status = 403;
+          return {
+            success: false,
+            error: "Access denied. Admin role required.",
+          };
+        }
+
         const tenantId = user.tenantId as string;
         const {
           workflowSubmitted,

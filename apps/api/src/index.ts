@@ -2,13 +2,20 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { config } from "./config";
 import { registerRoute } from "./routes/auth/register";
+import { acceptInvitationRoute } from "./routes/auth/accept-invitation";
+import { devListUsersRoute } from "./routes/auth/dev-list-users";
+import { devLoginRoute } from "./routes/auth/dev-login";
 import { usersRoutes } from "./routes/users";
 import { suppliersRoutes } from "./routes/suppliers";
 import { documentsRoutes } from "./routes/documents";
-import { checklistsRoutes } from "./routes/checklists";
+// import { checklistsRoutes } from "./routes/checklists"; // Legacy - removed Migration 0017
 import { workflowsRoutes } from "./routes/workflows";
 import { adminRoutes } from "./routes/admin";
 import { unsubscribeRoute } from "./routes/unsubscribe";
+import { formTemplatesRoutes } from "./routes/form-templates";
+import { formSubmissionsRoutes } from "./routes/form-submissions";
+import { documentTemplatesRoutes } from "./routes/document-templates";
+import { workflowTemplatesRoutes } from "./routes/workflow-templates";
 import { healthRoutes } from "./routes/health";
 import {
   emailWorker as _emailWorker,
@@ -96,14 +103,30 @@ const app = new Elysia()
   }))
   // Health check routes (with database connectivity check)
   .use(healthRoutes)
-  // API routes
-  .group("/api", (app) => app.use(registerRoute))
+  // API routes - Auth
+  .group("/api", (app) => {
+    // Always register standard auth routes
+    app = app.use(registerRoute).use(acceptInvitationRoute);
+    
+    // Conditionally register dev-only auth routes
+    if (config.nodeEnv === "development") {
+      console.log("⚠️  Development quick login enabled");
+      app = app.use(devListUsersRoute).use(devLoginRoute);
+    }
+    
+    return app;
+  })
+  // Other API routes (each has its own /api prefix)
   .use(usersRoutes)
   .use(suppliersRoutes)
   .use(documentsRoutes)
-  .use(checklistsRoutes)
+  // .use(checklistsRoutes) // Legacy - removed Migration 0017
   .use(workflowsRoutes)
   .use(adminRoutes)
+  .use(formTemplatesRoutes)
+  .use(formSubmissionsRoutes)
+  .use(documentTemplatesRoutes)
+  .use(workflowTemplatesRoutes)
   .use(unsubscribeRoute);
 
 /**

@@ -5,7 +5,7 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigation, useNavigate } from "@remix-run/react";
 import { useState, useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -14,6 +14,7 @@ import { Switch } from "~/components/ui/switch";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { useToast } from "~/hooks/use-toast";
+import { ArrowLeft } from "lucide-react";
 
 interface NotificationPreferences {
   workflowSubmitted: boolean;
@@ -133,6 +134,7 @@ const notificationTypes = [
 export default function NotificationPreferencesPage() {
   const { preferences, error } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [localPreferences, setLocalPreferences] = useState(preferences);
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
@@ -227,6 +229,13 @@ export default function NotificationPreferencesPage() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-3xl mx-auto">
+        <div className="mb-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Settings
+          </Button>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">
             Email Notifications

@@ -17,6 +17,7 @@ import {
   canDeleteSuppliers,
   isAdmin,
   isViewer,
+  isSupplierUser,
 } from "../lib/rbac/permissions";
 
 export interface Permissions {
@@ -48,13 +49,35 @@ export interface Permissions {
   // Role Checks
   isAdmin: boolean;
   isViewer: boolean;
+  isSupplierUser: boolean;
 }
 
 /**
  * Hook to access user permissions
  * Returns an object with boolean flags for all permissions
  *
- * @example
+ * ⚠️ IMPORTANT: For SSR routes (loaders/components), prefer using permissions
+ * from the parent _app loader to avoid flash of unauthorized content (FOUC).
+ * 
+ * This hook is best for:
+ * - Client-side only logic (event handlers, effects)
+ * - Non-SSR components (modals, dialogs)
+ * - Gradual migration from old pattern
+ *
+ * @example SSR-First Pattern (Recommended):
+ * ```tsx
+ * // In your component
+ * const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+ * const permissions = appData?.permissions;
+ * 
+ * return (
+ *   <>
+ *     {permissions?.canEditSupplier && <EditButton />}
+ *   </>
+ * );
+ * ```
+ *
+ * @example Client-Side Only (This Hook):
  * ```tsx
  * const permissions = usePermissions();
  *
@@ -108,5 +131,6 @@ export function usePermissions(): Permissions {
     // Role Checks
     isAdmin: isAdmin(userContext),
     isViewer: isViewer(userContext),
+    isSupplierUser: isSupplierUser(userContext),
   };
 }

@@ -5,7 +5,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useSearchParams, useNavigate } from "@remix-run/react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { Card } from "~/components/ui/card";
@@ -13,6 +13,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { ArrowLeft } from "lucide-react";
 
 interface EmailLog {
   id: string;
@@ -123,6 +124,7 @@ const statusBadgeVariants: Record<
 export default function AdminEmailLogsPage() {
   const { logs, pagination, filters, error } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const handleFilterChange = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -148,6 +150,13 @@ export default function AdminEmailLogsPage() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Settings
+        </Button>
+      </div>
+
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-900">Email Logs</h1>
         <p className="mt-2 text-sm text-gray-700">

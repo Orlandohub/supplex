@@ -49,6 +49,8 @@ export interface Supplier {
   certifications: SupplierCertification[];
   metadata: Record<string, unknown>;
   riskScore: number | null; // 1-10 scale
+  supplierStatusId: string | null; // FK to supplier_status lookup table
+  supplierUserId: string | null; // Link to supplier contact user
   createdBy: string; // User ID
   createdAt: Date;
   updatedAt: Date;
@@ -90,6 +92,8 @@ export const SupplierSchema = z.object({
   certifications: z.array(SupplierCertificationSchema),
   metadata: z.record(z.unknown()),
   riskScore: z.number().min(1).max(10).nullable(),
+  supplierStatusId: z.string().uuid().nullable(),
+  supplierUserId: z.string().uuid().nullable(),
   createdBy: z.string().uuid(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -104,14 +108,21 @@ export const InsertSupplierSchema = SupplierSchema.omit({
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
+  supplierStatusId: true, // Set by the backend
+  supplierUserId: true, // This is set by the backend, not sent in the request
 }).extend({
-  status: SupplierStatusSchema.default(SupplierStatus.PROSPECT),
+  status: SupplierStatusSchema.nullish().default(SupplierStatus.PROSPECT),
   performanceScore: z.number().min(1).max(5).nullable().optional(),
   contactPhone: z.string().max(50).optional(),
   website: z.string().url("Invalid URL format").optional().or(z.literal("")),
   certifications: z.array(SupplierCertificationSchema).default([]),
   metadata: z.record(z.any()).default({}),
   riskScore: z.number().min(1).max(10).nullable().optional(),
+  supplierContact: z.object({
+    name: z.string().min(1).max(200),
+    email: z.string().email().max(255),
+    phone: z.string().max(50).optional(),
+  }).optional(),
 });
 
 export const UpdateSupplierSchema = InsertSupplierSchema.partial();
@@ -143,6 +154,8 @@ export interface SerializedSupplier {
   certifications: SerializedSupplierCertification[];
   metadata: Record<string, unknown>;
   riskScore: number | null;
+  supplierStatusId: string | null;
+  supplierUserId: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

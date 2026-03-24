@@ -27,7 +27,7 @@ CREATE TABLE users (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     email VARCHAR(255) NOT NULL,
     full_name VARCHAR(200) NOT NULL,
-    role VARCHAR(50) NOT NULL,
+    role VARCHAR(50) NOT NULL, -- Supports: admin, procurement_manager, quality_manager, viewer, supplier_user (Story 2.1.4)
     avatar_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     last_login_at TIMESTAMP WITH TIME ZONE,
@@ -52,6 +52,7 @@ CREATE TABLE suppliers (
     certifications JSONB DEFAULT '[]',
     metadata JSONB DEFAULT '{}',
     risk_score NUMERIC(4, 2),
+    supplier_user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- Added in Story 2.1.5
     created_by UUID NOT NULL REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -62,6 +63,7 @@ CREATE TABLE suppliers (
 -- Indexes for Performance
 CREATE INDEX idx_suppliers_tenant_id ON suppliers(tenant_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_suppliers_status ON suppliers(tenant_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_suppliers_supplier_user_id ON suppliers(supplier_user_id); -- Added in Story 2.1.5
 ```
 
 _(Full schema continues with all tables, indexes, triggers, and RLS policies...)_

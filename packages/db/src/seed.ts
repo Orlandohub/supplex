@@ -62,7 +62,7 @@ async function seed() {
 
   // Dynamically import db AFTER env vars are loaded
   const { db } = await import("./index.js");
-  const { tenants, users, suppliers, contacts, documents, documentChecklists } =
+  const { tenants, users, suppliers, contacts, documents, qualificationTemplates } =
     await import("./schema/index.js");
 
   try {
@@ -306,7 +306,7 @@ async function seed() {
     // Create default document checklist for Tenant 1
     console.log("   Creating default document checklist:");
     const [checklist1] = await db
-      .insert(documentChecklists)
+      .insert(qualificationTemplates)
       .values({
         tenantId: tenant1.id,
         templateName: "ISO 9001 Standard Qualification",
@@ -548,7 +548,7 @@ async function seed() {
     // Create default document checklist for Tenant 2
     console.log("   Creating default document checklist:");
     const [checklist2] = await db
-      .insert(documentChecklists)
+      .insert(qualificationTemplates)
       .values({
         tenantId: tenant2.id,
         templateName: "ISO 9001 Standard Qualification",

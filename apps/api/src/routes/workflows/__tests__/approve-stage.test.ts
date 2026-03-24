@@ -291,7 +291,7 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/approve", () => {
       // 3. Create new Stage 2 record
       const transactionSteps = [
         { step: "update_stage", entity: "qualificationStages" },
-        { step: "update_workflow", entity: "qualificationWorkflows" },
+        { step: "update_workflow", entity: "qualificationProcess" },
         { step: "create_next_stage", entity: "qualificationStages" },
       ];
 

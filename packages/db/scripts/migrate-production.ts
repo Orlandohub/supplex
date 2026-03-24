@@ -18,6 +18,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { existsSync } from "fs";
 import { resolve } from "path";
+import { config } from "dotenv";
 
 // Colors for terminal output
 const colors = {
@@ -41,7 +42,7 @@ async function runMigrations() {
 
   // Step 1: Validate environment
   log("Step 1: Validating environment...", "blue");
-
+  config({ path: resolve(import.meta.dir, "../.env") });
   const DATABASE_URL = process.env.DATABASE_URL;
   if (!DATABASE_URL) {
     log("✗ DATABASE_URL environment variable not set", "red");

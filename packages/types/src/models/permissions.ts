@@ -45,6 +45,12 @@ export enum PermissionAction {
   // Settings & Configuration
   ACCESS_SETTINGS = "access_settings",
   MANAGE_TENANT_SETTINGS = "manage_tenant_settings",
+
+  // Supplier-specific permissions
+  VIEW_OWN_SUPPLIER = "view_own_supplier",
+  EDIT_OWN_SUPPLIER = "edit_own_supplier",
+  VIEW_OWN_TASKS = "view_own_tasks",
+  MANAGE_NOTIFICATION_SETTINGS = "manage_notification_settings",
 }
 
 /**
@@ -119,6 +125,13 @@ export const PERMISSION_MATRIX: Record<UserRole, PermissionAction[]> = {
     PermissionAction.VIEW_COMPLAINTS,
     PermissionAction.VIEW_ANALYTICS,
   ],
+  [UserRole.SUPPLIER_USER]: [
+    // Supplier-specific access only
+    PermissionAction.VIEW_OWN_SUPPLIER,
+    PermissionAction.EDIT_OWN_SUPPLIER,
+    PermissionAction.VIEW_OWN_TASKS,
+    PermissionAction.MANAGE_NOTIFICATION_SETTINGS,
+  ],
 };
 
 /**
@@ -176,6 +189,34 @@ export function canAccessSettings(userRole: UserRole): boolean {
  */
 export function canUploadDocuments(userRole: UserRole): boolean {
   return hasPermission(userRole, PermissionAction.UPLOAD_DOCUMENTS);
+}
+
+/**
+ * Check if a user can view their own supplier information
+ */
+export function canViewOwnSupplier(userRole: UserRole): boolean {
+  return hasPermission(userRole, PermissionAction.VIEW_OWN_SUPPLIER);
+}
+
+/**
+ * Check if a user can edit their own supplier information
+ */
+export function canEditOwnSupplier(userRole: UserRole): boolean {
+  return hasPermission(userRole, PermissionAction.EDIT_OWN_SUPPLIER);
+}
+
+/**
+ * Check if a user can view their own task list
+ */
+export function canViewOwnTasks(userRole: UserRole): boolean {
+  return hasPermission(userRole, PermissionAction.VIEW_OWN_TASKS);
+}
+
+/**
+ * Check if a user can manage notification settings
+ */
+export function canManageNotificationSettings(userRole: UserRole): boolean {
+  return hasPermission(userRole, PermissionAction.MANAGE_NOTIFICATION_SETTINGS);
 }
 
 /**

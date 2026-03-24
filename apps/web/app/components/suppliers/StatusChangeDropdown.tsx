@@ -6,20 +6,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { usePermissions } from "~/hooks/usePermissions";
+import { useRouteLoaderData } from "@remix-run/react";
+import type { AppLoaderData } from "~/routes/_app";
 import { StatusChangeConfirmModal } from "./StatusChangeConfirmModal";
 import type { SupplierStatus } from "@supplex/types";
+import { Badge } from "~/components/ui/badge";
+
+interface SupplierStatusOption {
+  id: string;
+  name: string;
+}
 
 interface StatusChangeDropdownProps {
   currentStatus: SupplierStatus;
   supplierId: string;
   supplierName: string;
+  supplierStatuses?: SupplierStatusOption[];
 }
 
-/**
- * Status options with labels
- */
-const statusOptions: Array<{ value: SupplierStatus; label: string }> = [
+const FALLBACK_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "prospect", label: "Prospect" },
   { value: "qualified", label: "Qualified" },
   { value: "approved", label: "Approved" },
@@ -27,28 +32,27 @@ const statusOptions: Array<{ value: SupplierStatus; label: string }> = [
   { value: "blocked", label: "Blocked" },
 ];
 
-/**
- * Status Change Dropdown Component
- * 
- * Allows users with appropriate permissions to change supplier status
- * - Only visible to Admin and Procurement Manager roles
- * - Shows confirmation modal before submitting change
- * - Displays success/error notifications after submission
- */
 export function StatusChangeDropdown({
   currentStatus,
   supplierId,
   supplierName,
+  supplierStatuses,
 }: StatusChangeDropdownProps) {
-  const permissions = usePermissions();
-  const [selectedStatus, setSelectedStatus] = useState<SupplierStatus | null>(
-    null
-  );
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
+  
+  const [selectedStatus, setSelectedStatus] = useState<SupplierStatus | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Only show to users with edit permissions
-  if (!permissions.canEditSupplier) {
-    return null;
+  // Use tenant-provided statuses if available, otherwise fall back to hardcoded
+  const statusOptions = supplierStatuses && supplierStatuses.length > 0
+    ? supplierStatuses.map((s) => ({ value: s.name as SupplierStatus, label: s.name.charAt(0).toUpperCase() + s.name.slice(1) }))
+    : FALLBACK_OPTIONS.map((o) => ({ value: o.value as SupplierStatus, label: o.label }));
+
+  // Non-admin users only see a read-only badge
+  if (!permissions?.canEditSupplier) {
+    const label = statusOptions.find((o) => o.value === currentStatus)?.label || currentStatus;
+    return <Badge variant="outline">{label}</Badge>;
   }
 
   const handleStatusSelect = (value: string) => {
@@ -90,7 +94,6 @@ export function StatusChangeDropdown({
         </Select>
       </div>
 
-      {/* Confirmation Modal */}
       {selectedStatus && (
         <StatusChangeConfirmModal
           isOpen={isModalOpen}

@@ -4,6 +4,114 @@ This document captures issues encountered during development, their root causes,
 
 ---
 
+## Issue 9: Remix Route Nesting - Edit Route Not Rendering (Child Route Without Outlet)
+
+**Date**: December 17, 2025  
+**Affected Files**: `apps/web/app/routes/_app.suppliers.$id.edit.tsx` → renamed to `_app.suppliers.$id_.edit.tsx`
+
+### Problem
+When clicking the Edit button on supplier detail page, the URL changed to `/suppliers/:id/edit` but the page still showed the detail view (tabs and read-only content) instead of the editable form. No form fields were visible on the edit page.
+
+### Root Cause
+**Remix v2 Flat File Routing Nesting Convention:**
+- File named `_app.suppliers.$id.edit.tsx` creates a **child route** nested under `_app.suppliers.$id.tsx`
+- Child routes require the parent to render an `<Outlet />` component for the child to display
+- The parent route (`_app.suppliers.$id.tsx`) had no `<Outlet />`, so the child route (edit form) never rendered
+- When navigating to `/suppliers/123/edit`, Remix matched both parent and child, rendered parent component, but had nowhere to render the child
+
+**Route Hierarchy Created:**
+```
+/suppliers/:id (parent)
+  └─ /suppliers/:id/edit (child) ← Never renders without Outlet
+```
+
+### Symptoms
+- ✅ Edit button navigation works (URL changes correctly)
+- ❌ Edit page shows detail view instead of form
+- ❌ No input fields visible
+- ❌ No JavaScript errors in console
+- ❌ Same component renders as detail page
+
+### Solution
+**Rename route file to use trailing underscore to create sibling routes:**
+
+**OLD (child route):**
+```
+_app.suppliers.$id.edit.tsx
+```
+
+**NEW (sibling route):**
+```
+_app.suppliers.$id_.edit.tsx
+```
+
+The **trailing underscore after `$id_`** tells Remix to create a sibling route instead of a nested child route.
+
+**Corrected Route Hierarchy:**
+```
+/suppliers/:id       ← Sibling (detail page)
+/suppliers/:id/edit  ← Sibling (edit page, independent)
+```
+
+### Prevention Guidelines
+
+#### 1. **Understand Remix Flat File Routing Conventions:**
+- **Dots (.)** create segments and nesting
+- **`$param.segment`** creates a child route under `$param`
+- **`$param_.segment`** (trailing underscore) creates a sibling route at the same level
+- **Child routes REQUIRE parent to have `<Outlet />`**
+
+#### 2. **Use Sibling Routes for Independent Pages:**
+For routes that should render completely different content (like detail vs. edit), use sibling routes:
+```
+✅ _app.resource.$id.tsx        → /resource/:id (detail)
+✅ _app.resource.$id_.edit.tsx  → /resource/:id/edit (sibling edit page)
+
+❌ _app.resource.$id.tsx        → /resource/:id (detail)
+❌ _app.resource.$id.edit.tsx   → /resource/:id/edit (child, needs Outlet)
+```
+
+#### 3. **Use Child Routes Only When Sharing Layout:**
+Use child routes (without trailing underscore) only when the child should render within the parent's layout:
+```typescript
+// Parent with shared layout
+export default function ResourceLayout() {
+  return (
+    <div>
+      <Header />
+      <Outlet /> {/* ← REQUIRED for child routes */}
+      <Footer />
+    </div>
+  );
+}
+```
+
+#### 4. **Route Naming Checklist:**
+Before creating a new route file, ask:
+- **Q:** Should this page share the parent's layout?
+  - **Yes** → Use child route (`$id.segment.tsx`) + add `<Outlet />` to parent
+  - **No** → Use sibling route (`$id_.segment.tsx`)
+
+#### 5. **Testing Edit Routes:**
+When implementing edit functionality:
+1. ✅ Click edit button → URL should change
+2. ✅ Edit page should show DIFFERENT content than detail page
+3. ✅ Check for form input fields (not just display text)
+4. ✅ If you see the same content as detail page → check for child route without Outlet
+
+### Related Files
+- ✅ `apps/web/app/routes/_app.suppliers.$id_.edit.tsx` - Edit route (now sibling)
+- ✅ `apps/web/app/routes/_app.suppliers.$id.tsx` - Detail route (no Outlet needed)
+- ✅ `apps/web/app/components/suppliers/SupplierForm.tsx` - Edit form component
+- ✅ `apps/web/app/components/suppliers/SupplierDetailTabs.tsx` - Detail view component (Edit button)
+
+### Additional Notes
+- This same pattern applies to any resource with detail/edit pages (workflows, evaluations, etc.)
+- Always test navigation to edit pages during development
+- Document route hierarchies in complex features
+
+---
+
 ## Issue 1: Authentication Middleware - `user.role` is Undefined
 
 **Date**: October 23, 2025  

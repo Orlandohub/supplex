@@ -1,19 +1,31 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
-import { requireAuth as requireAuthSession, getAuthenticatedUser } from './session.server';
+import { getAuthenticatedUser, getAuthenticatedUserFast } from './session.server';
 import type { UserRole } from '@supplex/types';
 
 /**
- * Require authentication for a loader function
+ * Require authentication for a loader function (fast path).
+ * Uses local JWT check instead of remote getUser() call (~200-500ms saving).
+ * Safe because the root layout validates with getUser() on initial load and
+ * the API server validates the JWT on every request.
  */
 export async function requireAuth(args: LoaderFunctionArgs) {
-  return await requireAuthSession(args.request);
+  return await getAuthenticatedUserFast(args.request);
+}
+
+/**
+ * Secure authentication that contacts Supabase Auth server (getUser()).
+ * Use this ONLY in the root layout loader (_app.tsx) for the initial
+ * session validation. All other loaders should use requireAuth (fast).
+ */
+export async function requireAuthSecure(args: LoaderFunctionArgs) {
+  return await getAuthenticatedUser(args.request);
 }
 
 /**
  * Require authentication for an action function
  */
 export async function requireAuthAction(args: ActionFunctionArgs) {
-  return await requireAuthSession(args.request);
+  return await getAuthenticatedUser(args.request);
 }
 
 /**

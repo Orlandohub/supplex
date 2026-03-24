@@ -36,7 +36,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           };
         }
 
-        // Fetch supplier with user information (created_by, updated_by)
+        // Fetch supplier with user information (created_by)
         const result = await db
           .select({
             supplier: suppliers,
@@ -72,6 +72,22 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
 
         const { supplier, createdByUser } = result[0];
 
+        // Fetch supplier user if supplierUserId exists
+        let supplierUser = null;
+        if (supplier.supplierUserId) {
+          supplierUser = await db.query.users.findFirst({
+            where: eq(users.id, supplier.supplierUserId),
+            columns: {
+              id: true,
+              email: true,
+              fullName: true,
+              role: true,
+              status: true,
+              isActive: true,
+            },
+          });
+        }
+
         // Enrich supplier with user information
         const enrichedSupplier = {
           ...supplier,
@@ -83,6 +99,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           success: true,
           data: {
             supplier: enrichedSupplier,
+            supplierUser,
           },
         };
       } catch (error: any) {

@@ -132,6 +132,14 @@ export function isViewer(user: UserContext | null): boolean {
 }
 
 /**
+ * Check if user is a supplier user
+ */
+export function isSupplierUser(user: UserContext | null): boolean {
+  if (!user) return false;
+  return user.role === UserRole.SUPPLIER_USER;
+}
+
+/**
  * Get user-friendly role display name
  */
 export function getRoleDisplayName(role: UserRole): string {
@@ -140,6 +148,7 @@ export function getRoleDisplayName(role: UserRole): string {
     [UserRole.PROCUREMENT_MANAGER]: "Procurement Manager",
     [UserRole.QUALITY_MANAGER]: "Quality Manager",
     [UserRole.VIEWER]: "Viewer",
+    [UserRole.SUPPLIER_USER]: "Supplier User",
   };
 
   return roleNames[role];
@@ -154,6 +163,7 @@ export function getRoleColor(role: UserRole): string {
     [UserRole.PROCUREMENT_MANAGER]: "blue",
     [UserRole.QUALITY_MANAGER]: "green",
     [UserRole.VIEWER]: "gray",
+    [UserRole.SUPPLIER_USER]: "blue",
   };
 
   return roleColors[role];

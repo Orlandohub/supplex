@@ -20,26 +20,65 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { UnsavedChangesModal } from "./UnsavedChangesModal";
+import { Lock } from "lucide-react";
+
+// Status labels mapping
+const statusLabels = {
+  [SupplierStatus.PROSPECT]: "Prospect",
+  [SupplierStatus.QUALIFIED]: "Qualified",
+  [SupplierStatus.APPROVED]: "Approved",
+  [SupplierStatus.CONDITIONAL]: "Conditional",
+  [SupplierStatus.BLOCKED]: "Blocked",
+};
 
 // Form validation schema
-const supplierFormSchema = z.object({
-  name: z.string().min(1, "Company name is required").max(200),
-  taxId: z.string().min(1, "Tax ID is required").max(50),
-  category: z.nativeEnum(SupplierCategory),
-  status: z.nativeEnum(SupplierStatus),
-  contactName: z.string().min(1, "Contact name is required").max(200),
-  contactEmail: z.string().email("Invalid email format").max(255),
-  contactPhone: z.string().max(50).optional().or(z.literal("")),
-  address: z.object({
-    street: z.string().min(1, "Street is required"),
-    city: z.string().min(1, "City is required"),
-    state: z.string().min(1, "State is required"),
-    postalCode: z.string().min(1, "Postal code is required"),
-    country: z.string().min(1, "Country is required"),
-  }),
-  website: z.string().url("Invalid URL format").optional().or(z.literal("")),
-  notes: z.string().optional().or(z.literal("")),
-});
+const supplierFormSchema = z
+  .object({
+    name: z.string().min(1, "Company name is required").max(200),
+    taxId: z.string().min(1, "Tax ID is required").max(50),
+    category: z.nativeEnum(SupplierCategory),
+    contactName: z.string().min(1, "Contact name is required").max(200),
+    contactEmail: z.string().email("Invalid email format").max(255),
+    contactPhone: z.string().max(50).optional().or(z.literal("")),
+    address: z.object({
+      street: z.string().min(1, "Street is required"),
+      city: z.string().min(1, "City is required"),
+      state: z.string().min(1, "State is required"),
+      postalCode: z.string().min(1, "Postal code is required"),
+      country: z.string().min(1, "Country is required"),
+    }),
+    website: z.string().url("Invalid URL format").optional().or(z.literal("")),
+    notes: z.string().optional().or(z.literal("")),
+    createPlatformAccess: z.boolean().optional().default(false),
+    supplierContact: z
+      .object({
+        name: z.string().min(1).max(200),
+        email: z.string().email("Invalid email format").max(255),
+        phone: z.string().max(50).optional().or(z.literal("")),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // If createPlatformAccess is true, supplierContact must be provided
+      if (data.createPlatformAccess && !data.supplierContact) {
+        return false;
+      }
+      if (data.createPlatformAccess && data.supplierContact) {
+        // Validate required fields
+        return (
+          data.supplierContact.name?.trim().length > 0 &&
+          data.supplierContact.email?.trim().length > 0
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        "Supplier contact name and email are required when creating platform access",
+      path: ["supplierContact"],
+    }
+  );
 
 type SupplierFormData = z.infer<typeof supplierFormSchema>;
 
@@ -75,7 +114,6 @@ export function SupplierForm({
           name: supplier.name,
           taxId: supplier.taxId,
           category: supplier.category,
-          status: supplier.status,
           contactName: supplier.contactName,
           contactEmail: supplier.contactEmail,
           contactPhone: supplier.contactPhone || "",
@@ -87,7 +125,6 @@ export function SupplierForm({
           name: "",
           taxId: "",
           category: SupplierCategory.RAW_MATERIALS,
-          status: SupplierStatus.PROSPECT,
           contactName: "",
           contactEmail: "",
           contactPhone: "",
@@ -100,12 +137,15 @@ export function SupplierForm({
           },
           website: "",
           notes: "",
+          createPlatformAccess: false,
+          supplierContact: undefined,
         },
   });
 
   const { formState, watch } = form;
   const { errors, isDirty, isValid } = formState;
   const formValues = watch();
+  const watchCreatePlatformAccess = watch("createPlatformAccess");
 
   // Load draft from localStorage on mount
   useEffect(() => {
@@ -274,50 +314,18 @@ export function SupplierForm({
                 )}
               </div>
 
-              {/* Status */}
+              {/* Status - Read-Only */}
               <div>
-                <Label htmlFor="status">
-                  Status <span className="text-red-500">*</span>
-                </Label>
-                <Controller
-                  name="status"
-                  control={form.control}
-                  render={({ field }) => (
-                    <>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={SupplierStatus.PROSPECT}>
-                            Prospect
-                          </SelectItem>
-                          <SelectItem value={SupplierStatus.QUALIFIED}>
-                            Qualified
-                          </SelectItem>
-                          <SelectItem value={SupplierStatus.APPROVED}>
-                            Approved
-                          </SelectItem>
-                          <SelectItem value={SupplierStatus.CONDITIONAL}>
-                            Conditional
-                          </SelectItem>
-                          <SelectItem value={SupplierStatus.BLOCKED}>
-                            Blocked
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <input type="hidden" name="status" value={field.value} />
-                    </>
-                  )}
-                />
-                {errors.status && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.status.message}
-                  </p>
-                )}
+                <Label htmlFor="status">Qualification Status</Label>
+                <div className="mt-1 flex items-center space-x-2 px-3 py-2 border rounded-md bg-gray-50">
+                  <Lock className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-700">
+                    {statusLabels[supplier?.status || SupplierStatus.PROSPECT]}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  Status is automatically managed by the qualification process
+                </p>
               </div>
 
               {/* Website */}
@@ -504,6 +512,100 @@ export function SupplierForm({
               </div>
             </div>
           </div>
+
+          {/* Supplier Contact (Platform Access) Section - Only show in create mode */}
+          {mode === "create" && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                Supplier Contact (Platform Access)
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Create a user account for this supplier to access the platform and
+                manage their tasks.
+              </p>
+
+              {/* Checkbox to enable platform access */}
+              <div className="mb-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    {...form.register("createPlatformAccess")}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Create platform access for supplier
+                  </span>
+                </label>
+              </div>
+
+              {/* Supplier Contact Fields - Show when checkbox is checked */}
+              {watchCreatePlatformAccess && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-blue-200">
+                  {/* Supplier Contact Name */}
+                  <div>
+                    <Label htmlFor="supplierContact.name">
+                      Contact Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="supplierContact.name"
+                      type="text"
+                      className="mt-1"
+                      placeholder="Enter contact name"
+                      {...form.register("supplierContact.name")}
+                    />
+                    {errors.supplierContact?.name && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.supplierContact.name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Supplier Contact Email */}
+                  <div>
+                    <Label htmlFor="supplierContact.email">
+                      Contact Email <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="supplierContact.email"
+                      type="email"
+                      className="mt-1"
+                      placeholder="contact@supplier.com"
+                      {...form.register("supplierContact.email")}
+                    />
+                    {errors.supplierContact?.email && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.supplierContact.email.message}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      This email will be used for platform login
+                    </p>
+                  </div>
+
+                  {/* Supplier Contact Phone */}
+                  <div>
+                    <Label htmlFor="supplierContact.phone">Contact Phone</Label>
+                    <Input
+                      id="supplierContact.phone"
+                      type="tel"
+                      className="mt-1"
+                      placeholder="+1 (555) 123-4567"
+                      {...form.register("supplierContact.phone")}
+                    />
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="md:col-span-2 bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>ℹ️ Note:</strong> This user will be assigned the
+                      &apos;Supplier User&apos; role and can view their own supplier
+                      information and tasks only.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Notes Section */}
           <div>

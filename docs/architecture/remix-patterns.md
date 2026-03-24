@@ -15,7 +15,8 @@ This document defines the standard patterns for implementing Remix routes in the
 3. [Preventing Unnecessary Revalidation](#preventing-unnecessary-revalidation)
 4. [Mutations with Revalidation](#mutations-with-revalidation)
 5. [URL-Based State Management](#url-based-state-management)
-6. [Complete Example](#complete-example)
+6. [SSR-First Permissions (No Flash)](#ssr-first-permissions-no-flash)
+7. [Complete Example](#complete-example)
 
 ---
 
@@ -605,6 +606,236 @@ When implementing a new route, follow this checklist:
 - [ ] No unnecessary API calls on URL changes
 - [ ] Mutations trigger revalidation
 - [ ] No auth logs on URL-only changes
+
+---
+
+## SSR-First Permissions (No Flash)
+
+### Problem: Flash of Unauthorized Content (FOUC)
+
+When permissions are computed client-side (e.g., in a `usePermissions()` hook), users see restricted UI elements briefly during page load:
+
+1. Server renders HTML with default state
+2. Client downloads JavaScript
+3. React hydrates
+4. `usePermissions()` hook runs
+5. Elements disappear (~100-500ms flash)
+
+This violates SSR best practices and creates poor UX.
+
+### ✅ DO: Compute Permissions in Root Loader
+
+**Pattern:**
+
+```typescript
+// apps/web/app/routes/_app.tsx
+import { UserRole, PermissionAction, hasPermission } from "@supplex/types";
+
+export type AppLoaderData = {
+  user: User;
+  userRecord: UserRecord;
+  permissions: {
+    // Role flags
+    isAdmin: boolean;
+    isSupplierUser: boolean;
+    isViewer: boolean;
+    
+    // Permission flags
+    canManageUsers: boolean;
+    canCreateSuppliers: boolean;
+    canEditSuppliers: boolean;
+    canViewAnalytics: boolean;
+    // ... add more as needed
+  };
+};
+
+export async function loader(args: LoaderFunctionArgs) {
+  const { user, userRecord } = await requireAuth(args);
+  
+  // Compute permissions ONCE on server
+  const permissions = {
+    // Role checks
+    isAdmin: userRecord.role === UserRole.ADMIN,
+    isSupplierUser: userRecord.role === UserRole.SUPPLIER_USER,
+    isViewer: userRecord.role === UserRole.VIEWER,
+    
+    // Permission checks (using permission matrix)
+    canManageUsers: hasPermission(userRecord.role, PermissionAction.MANAGE_USERS),
+    canCreateSuppliers: hasPermission(userRecord.role, PermissionAction.CREATE_SUPPLIERS),
+    canEditSuppliers: hasPermission(userRecord.role, PermissionAction.EDIT_SUPPLIERS),
+    canViewAnalytics: hasPermission(userRecord.role, PermissionAction.VIEW_ANALYTICS),
+  };
+  
+  return json({
+    user,
+    userRecord,
+    permissions, // ← Send to client
+  });
+}
+```
+
+**Why:**
+- ✅ Server renders correct HTML immediately (no flash)
+- ✅ Permissions calculated once, not per component
+- ✅ SEO-friendly (search engines see correct content)
+- ✅ Works without JavaScript (progressive enhancement)
+- ✅ Follows Remix "loaders over useEffect" pattern
+
+### ✅ DO: Use Loader Data in Components
+
+**Pattern:**
+
+```typescript
+// apps/web/app/components/layout/Sidebar.tsx
+import { useRouteLoaderData } from "@remix-run/react";
+import type { AppLoaderData } from "~/routes/_app";
+
+export function Sidebar() {
+  // Get permissions from parent loader (SSR-safe)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
+  
+  // Filter navigation based on SERVER permissions
+  const visibleNavItems = navigationItems.filter((item) => {
+    if (item.adminOnly && !permissions?.isAdmin) return false;
+    if (item.supplierUserExcluded && permissions?.isSupplierUser) return false;
+    return true;
+  });
+  
+  return (
+    <nav>
+      {visibleNavItems.map((item) => (
+        <Link key={item.name} to={item.href}>
+          {item.name}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+```
+
+**Why:**
+- ✅ Correct HTML on initial render
+- ✅ No flash of unauthorized content
+- ✅ Simple, readable code
+
+### ✅ DO: Use in Child Routes
+
+**Pattern:**
+
+```typescript
+// apps/web/app/routes/_app.qualifications.tsx
+import { useRouteLoaderData } from "@remix-run/react";
+import type { AppLoaderData } from "~/routes/_app";
+
+export default function QualificationsPage() {
+  const { workflows } = useLoaderData<LoaderData>();
+  
+  // Get permissions from parent loader
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
+  
+  return (
+    <Tabs>
+      <TabsList>
+        <TabsTrigger value="all">All</TabsTrigger>
+        <TabsTrigger value="myTasks">My Tasks</TabsTrigger>
+        {/* Hide for supplier users - NO FLASH */}
+        {!permissions?.isSupplierUser && (
+          <TabsTrigger value="myInitiated">My Initiated</TabsTrigger>
+        )}
+      </TabsList>
+    </Tabs>
+  );
+}
+```
+
+### ❌ DON'T: Use Client-Side Hooks for SSR
+
+**Anti-pattern:**
+
+```typescript
+// ❌ WRONG - Causes flash of unauthorized content
+export function Sidebar() {
+  const permissions = usePermissions(); // Client-side only
+  
+  // Server renders all items → Client hides them → User sees flash
+  return (
+    <nav>
+      {!permissions.isSupplierUser && <Link to="/api">API</Link>}
+    </nav>
+  );
+}
+```
+
+**Why this is wrong:**
+- ❌ Flash of unauthorized content (FOUC)
+- ❌ Permissions computed per component (wasteful)
+- ❌ Not SEO-friendly
+- ❌ Breaks without JavaScript
+
+### When to Use usePermissions Hook
+
+The `usePermissions()` hook is still useful for:
+- ✅ Event handlers (onClick, onSubmit)
+- ✅ useEffect logic (side effects)
+- ✅ Non-SSR components (modals, dialogs)
+- ✅ Gradual migration (backward compatibility)
+
+**Example:**
+
+```typescript
+// ✅ CORRECT - Event handler (client-only logic)
+export function DeleteButton({ id }: { id: string }) {
+  const permissions = usePermissions();
+  
+  const handleDelete = async () => {
+    if (!permissions.canDeleteSuppliers) {
+      toast.error("Permission denied");
+      return;
+    }
+    await deleteSupplier(id);
+  };
+  
+  return <Button onClick={handleDelete}>Delete</Button>;
+}
+```
+
+### Benefits of SSR-First Permissions
+
+| Benefit | Impact |
+|---------|--------|
+| **No Flash** | Better UX, looks professional |
+| **Performance** | Permissions calculated once on server |
+| **SEO** | Search engines see correct content |
+| **Progressive Enhancement** | Works without JavaScript |
+| **Security** | Server-side validation (can't bypass) |
+| **Remix Pattern** | Follows framework best practices |
+
+### Migration Strategy
+
+**Phase 1: Add to Root Loader (Non-Breaking)**
+```typescript
+// Add permissions to _app.tsx loader
+export type AppLoaderData = {
+  // ... existing fields
+  permissions: { /* ... */ };
+};
+```
+
+**Phase 2: Update Components Gradually**
+```typescript
+// Update components one at a time
+// - Sidebar.tsx
+// - Qualifications page
+// - Other pages
+```
+
+**Phase 3: Keep usePermissions for Client-Only**
+```typescript
+// Document in hook:
+// "Use loader data for SSR, hook for client-only logic"
+```
 
 ---
 

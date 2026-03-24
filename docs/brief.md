@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-**Supplex** is a multi-tenant SaaS platform that enables mid-sized manufacturing companies to manage their complete supplier lifecycle—from qualification and onboarding through continuous evaluation and complaints management.
+**Supplex** is a multi-tenant SaaS platform that enables companies to manage their complete supplier lifecycle—from qualification and onboarding through continuous evaluation and complaints management.
 
 The platform addresses a critical market gap: 68% of mid-market companies (50-500 employees) still rely on Excel and email for supplier management, exposing them to compliance risks, audit failures, and operational inefficiencies. Enterprise solutions like SAP Ariba ($150K+/year, 6-12 month implementation) are prohibitively expensive, while existing alternatives lack supplier-focused depth.
 
@@ -32,7 +32,7 @@ The platform addresses a critical market gap: 68% of mid-market companies (50-50
 
 ### Current State
 
-Mid-sized manufacturing companies (50-500 employees) manage 20-200 active suppliers who are critical to their operations, quality, and customer satisfaction. Despite this dependency, 68% of these companies still rely on Excel spreadsheets, email, and shared drives to manage supplier qualification, performance tracking, and complaint resolution.
+Mid-sized companies (50-500 employees) manage 20-200 active suppliers who are critical to their operations, quality, and customer satisfaction. Despite this dependency, 68% of these companies still rely on Excel spreadsheets, email, and shared drives to manage supplier qualification, performance tracking, and complaint resolution.
 
 ### The Pain Points
 

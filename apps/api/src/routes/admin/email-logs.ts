@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { emailNotifications } from "@supplex/db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticate } from "../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
 
 /**
  * GET /api/admin/email-logs
@@ -18,12 +19,21 @@ import { requireAdmin } from "../../lib/rbac/middleware";
  *
  * Auth: Requires Admin role
  */
-export const emailLogsRoute = new Elysia({ prefix: "/admin" })
-  .use(requireAdmin)
+export const emailLogsRoute = new Elysia()
+  .use(authenticate)
   .get(
     "/email-logs",
     async ({ query, user, set }: any) => {
       try {
+        // Check for admin role with null checks
+        if (!user?.role || user.role !== UserRole.ADMIN) {
+          set.status = 403;
+          return {
+            success: false,
+            error: "Access denied. Admin role required.",
+          };
+        }
+
         const tenantId = user.tenantId as string;
         const {
           status,

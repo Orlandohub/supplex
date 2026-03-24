@@ -10,9 +10,9 @@ import {
   TenantContextError,
 } from "../../helpers/tenant-context";
 import {
-  qualificationWorkflows,
+  qualificationProcess,
   qualificationStages,
-  documentChecklists,
+  qualificationTemplates,
   workflowDocuments,
   WorkflowStatus,
   StageStatus,
@@ -24,45 +24,45 @@ describe("Qualification Workflows Table", () => {
 
   describe("Schema Definition", () => {
     it("should have correct column structure", () => {
-      expect(qualificationWorkflows.id).toBeDefined();
-      expect(qualificationWorkflows.tenantId).toBeDefined();
-      expect(qualificationWorkflows.supplierId).toBeDefined();
-      expect(qualificationWorkflows.status).toBeDefined();
-      expect(qualificationWorkflows.initiatedBy).toBeDefined();
-      expect(qualificationWorkflows.initiatedDate).toBeDefined();
-      expect(qualificationWorkflows.currentStage).toBeDefined();
-      expect(qualificationWorkflows.riskScore).toBeDefined();
-      expect(qualificationWorkflows.createdAt).toBeDefined();
-      expect(qualificationWorkflows.updatedAt).toBeDefined();
-      expect(qualificationWorkflows.deletedAt).toBeDefined();
+      expect(qualificationProcess.id).toBeDefined();
+      expect(qualificationProcess.tenantId).toBeDefined();
+      expect(qualificationProcess.supplierId).toBeDefined();
+      expect(qualificationProcess.status).toBeDefined();
+      expect(qualificationProcess.initiatedBy).toBeDefined();
+      expect(qualificationProcess.initiatedDate).toBeDefined();
+      expect(qualificationProcess.currentStage).toBeDefined();
+      expect(qualificationProcess.riskScore).toBeDefined();
+      expect(qualificationProcess.createdAt).toBeDefined();
+      expect(qualificationProcess.updatedAt).toBeDefined();
+      expect(qualificationProcess.deletedAt).toBeDefined();
     });
 
     it("should have tenant_id column for isolation", () => {
-      expect(qualificationWorkflows.tenantId).toBeDefined();
-      expect(qualificationWorkflows.tenantId.name).toBe("tenant_id");
+      expect(qualificationProcess.tenantId).toBeDefined();
+      expect(qualificationProcess.tenantId.name).toBe("tenant_id");
     });
 
     it("should have deleted_at for soft deletes", () => {
-      expect(qualificationWorkflows.deletedAt).toBeDefined();
-      expect(qualificationWorkflows.deletedAt.name).toBe("deleted_at");
+      expect(qualificationProcess.deletedAt).toBeDefined();
+      expect(qualificationProcess.deletedAt.name).toBe("deleted_at");
     });
 
     it("should have correct table name", () => {
-      expect(qualificationWorkflows[Symbol.for("drizzle:Name")]).toBe(
-        "qualification_workflows"
+      expect(qualificationProcess[Symbol.for("drizzle:Name")]).toBe(
+        "qualification_process"
       );
     });
 
     it("should have supplier_id foreign key", () => {
-      expect(qualificationWorkflows.supplierId).toBeDefined();
-      expect(qualificationWorkflows.supplierId.name).toBe("supplier_id");
+      expect(qualificationProcess.supplierId).toBeDefined();
+      expect(qualificationProcess.supplierId.name).toBe("supplier_id");
     });
   });
 
   describe("Tenant Isolation", () => {
     it("should create tenant filter condition", () => {
       const condition = withTenantId(
-        qualificationWorkflows.tenantId,
+        qualificationProcess.tenantId,
         validTenantId
       );
       expect(condition).toBeDefined();
@@ -71,8 +71,8 @@ describe("Qualification Workflows Table", () => {
 
     it("should create combined tenant and soft-delete filter", () => {
       const condition = withTenantIdAndNotDeleted(
-        qualificationWorkflows.tenantId,
-        qualificationWorkflows.deletedAt,
+        qualificationProcess.tenantId,
+        qualificationProcess.deletedAt,
         validTenantId
       );
       expect(condition).toBeDefined();
@@ -80,14 +80,14 @@ describe("Qualification Workflows Table", () => {
     });
 
     it("should throw error for empty tenant ID", () => {
-      expect(() => withTenantId(qualificationWorkflows.tenantId, "")).toThrow(
+      expect(() => withTenantId(qualificationProcess.tenantId, "")).toThrow(
         TenantContextError
       );
     });
 
     it("should throw error for null tenant ID", () => {
       expect(() =>
-        withTenantId(qualificationWorkflows.tenantId, null as any)
+        withTenantId(qualificationProcess.tenantId, null as any)
       ).toThrow(TenantContextError);
     });
   });
@@ -163,29 +163,29 @@ describe("Document Checklists Table", () => {
 
   describe("Schema Definition", () => {
     it("should have correct column structure", () => {
-      expect(documentChecklists.id).toBeDefined();
-      expect(documentChecklists.tenantId).toBeDefined();
-      expect(documentChecklists.templateName).toBeDefined();
-      expect(documentChecklists.requiredDocuments).toBeDefined();
-      expect(documentChecklists.isDefault).toBeDefined();
-      expect(documentChecklists.createdAt).toBeDefined();
-      expect(documentChecklists.updatedAt).toBeDefined();
-      expect(documentChecklists.deletedAt).toBeDefined();
+      expect(qualificationTemplates.id).toBeDefined();
+      expect(qualificationTemplates.tenantId).toBeDefined();
+      expect(qualificationTemplates.templateName).toBeDefined();
+      expect(qualificationTemplates.requiredDocuments).toBeDefined();
+      expect(qualificationTemplates.isDefault).toBeDefined();
+      expect(qualificationTemplates.createdAt).toBeDefined();
+      expect(qualificationTemplates.updatedAt).toBeDefined();
+      expect(qualificationTemplates.deletedAt).toBeDefined();
     });
 
     it("should have tenant_id column for isolation", () => {
-      expect(documentChecklists.tenantId).toBeDefined();
-      expect(documentChecklists.tenantId.name).toBe("tenant_id");
+      expect(qualificationTemplates.tenantId).toBeDefined();
+      expect(qualificationTemplates.tenantId.name).toBe("tenant_id");
     });
 
     it("should have deleted_at for soft deletes", () => {
-      expect(documentChecklists.deletedAt).toBeDefined();
-      expect(documentChecklists.deletedAt.name).toBe("deleted_at");
+      expect(qualificationTemplates.deletedAt).toBeDefined();
+      expect(qualificationTemplates.deletedAt.name).toBe("deleted_at");
     });
 
     it("should have correct table name", () => {
-      expect(documentChecklists[Symbol.for("drizzle:Name")]).toBe(
-        "document_checklists"
+      expect(qualificationTemplates[Symbol.for("drizzle:Name")]).toBe(
+        "qualification_templates"
       );
     });
   });
@@ -193,7 +193,7 @@ describe("Document Checklists Table", () => {
   describe("Tenant Isolation", () => {
     it("should create tenant filter condition", () => {
       const condition = withTenantId(
-        documentChecklists.tenantId,
+        qualificationTemplates.tenantId,
         validTenantId
       );
       expect(condition).toBeDefined();
@@ -202,8 +202,8 @@ describe("Document Checklists Table", () => {
 
     it("should create combined tenant and soft-delete filter", () => {
       const condition = withTenantIdAndNotDeleted(
-        documentChecklists.tenantId,
-        documentChecklists.deletedAt,
+        qualificationTemplates.tenantId,
+        qualificationTemplates.deletedAt,
         validTenantId
       );
       expect(condition).toBeDefined();
@@ -211,7 +211,7 @@ describe("Document Checklists Table", () => {
     });
 
     it("should throw error for empty tenant ID", () => {
-      expect(() => withTenantId(documentChecklists.tenantId, "")).toThrow(
+      expect(() => withTenantId(qualificationTemplates.tenantId, "")).toThrow(
         TenantContextError
       );
     });
@@ -273,8 +273,8 @@ describe("Cross-Tenant Isolation Enforcement", () => {
   const tenantB = "660e8400-e29b-41d4-a716-446655440001";
 
   it("should generate different conditions for different tenants - workflows", () => {
-    const conditionA = withTenantId(qualificationWorkflows.tenantId, tenantA);
-    const conditionB = withTenantId(qualificationWorkflows.tenantId, tenantB);
+    const conditionA = withTenantId(qualificationProcess.tenantId, tenantA);
+    const conditionB = withTenantId(qualificationProcess.tenantId, tenantB);
 
     expect(conditionA).toBeDefined();
     expect(conditionB).toBeDefined();
@@ -283,8 +283,8 @@ describe("Cross-Tenant Isolation Enforcement", () => {
   });
 
   it("should generate different conditions for different tenants - checklists", () => {
-    const conditionA = withTenantId(documentChecklists.tenantId, tenantA);
-    const conditionB = withTenantId(documentChecklists.tenantId, tenantB);
+    const conditionA = withTenantId(qualificationTemplates.tenantId, tenantA);
+    const conditionB = withTenantId(qualificationTemplates.tenantId, tenantB);
 
     expect(conditionA).toBeDefined();
     expect(conditionB).toBeDefined();
@@ -294,28 +294,28 @@ describe("Cross-Tenant Isolation Enforcement", () => {
 
   it("should enforce tenant context in all workflow tables", () => {
     // Empty tenant ID should fail for workflows
-    expect(() => withTenantId(qualificationWorkflows.tenantId, "")).toThrow(
+    expect(() => withTenantId(qualificationProcess.tenantId, "")).toThrow(
       TenantContextError
     );
 
     // Empty tenant ID should fail for checklists
-    expect(() => withTenantId(documentChecklists.tenantId, "")).toThrow(
+    expect(() => withTenantId(qualificationTemplates.tenantId, "")).toThrow(
       TenantContextError
     );
 
     // Valid tenant IDs should succeed
     expect(() =>
-      withTenantId(qualificationWorkflows.tenantId, tenantA)
+      withTenantId(qualificationProcess.tenantId, tenantA)
     ).not.toThrow();
     expect(() =>
-      withTenantId(documentChecklists.tenantId, tenantA)
+      withTenantId(qualificationTemplates.tenantId, tenantA)
     ).not.toThrow();
   });
 });
 
 describe("Type Inference", () => {
   it("should infer correct insert types for workflows", () => {
-    type WorkflowInsert = typeof qualificationWorkflows.$inferInsert;
+    type WorkflowInsert = typeof qualificationProcess.$inferInsert;
 
     const mockWorkflow: Partial<WorkflowInsert> = {
       tenantId: "550e8400-e29b-41d4-a716-446655440000",
@@ -342,7 +342,7 @@ describe("Type Inference", () => {
   });
 
   it("should infer correct insert types for checklists", () => {
-    type ChecklistInsert = typeof documentChecklists.$inferInsert;
+    type ChecklistInsert = typeof qualificationTemplates.$inferInsert;
 
     const mockChecklist: Partial<ChecklistInsert> = {
       tenantId: "550e8400-e29b-41d4-a716-446655440000",
@@ -367,7 +367,7 @@ describe("Type Inference", () => {
   });
 
   it("should infer correct select types for workflows", () => {
-    type WorkflowSelect = typeof qualificationWorkflows.$inferSelect;
+    type WorkflowSelect = typeof qualificationProcess.$inferSelect;
 
     const mockWorkflow: Partial<WorkflowSelect> = {
       id: "550e8400-e29b-41d4-a716-446655440000",

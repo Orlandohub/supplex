@@ -1,22 +1,38 @@
 import { useState } from "react";
-import { useSearchParams } from "@remix-run/react";
+import { useSearchParams, useRouteLoaderData } from "@remix-run/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Button } from "~/components/ui/button";
+import { Button, buttonVariants } from "~/components/ui/button";
 import { SupplierOverview } from "./SupplierOverview";
 import { StatusChangeDropdown } from "./StatusChangeDropdown";
 import { DeleteSupplierModal } from "./DeleteSupplierModal";
 import { DocumentsTab } from "./DocumentsTab";
-import { QualificationsTab } from "../workflows/QualificationsTab";
+import { WorkflowsTab } from "../workflows/WorkflowsTab";
 import { InitiateWorkflowDialog } from "../workflows/InitiateWorkflowDialog";
-import { usePermissions } from "~/hooks/usePermissions";
+import type { AppLoaderData } from "~/routes/_app";
 import { Edit, Trash2, History, CheckCircle } from "lucide-react";
+import { SupplierFormsTab } from "./SupplierFormsTab";
 import { Link } from "@remix-run/react";
+import { cn } from "~/lib/utils";
 import type {
   SupplierStatus,
   SupplierCategory,
   Document,
-  QualificationWorkflow,
 } from "@supplex/types";
+
+// Process Instance type for new workflow engine
+interface ProcessInstance {
+  id: string;
+  processType: string;
+  status: string;
+  initiatedDate: string;
+  completedDate?: string | null;
+  entityType: string;
+  entityId: string;
+  activeStep?: {
+    id: string;
+    assignedTo?: string | null;
+  } | null;
+}
 
 interface SupplierDetailTabsProps {
   supplier: {
@@ -49,8 +65,27 @@ interface SupplierDetailTabsProps {
     createdByName?: string;
     createdByEmail?: string | null;
   };
+  supplierUser?: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    status: string;
+    isActive: boolean;
+  } | null;
   documents: Document[];
-  workflows: QualificationWorkflow[];
+  workflows: ProcessInstance[];
+  formSubmissions: Array<{
+    id: string;
+    status: string;
+    submittedAt: string | null;
+    createdAt: string;
+    formTemplateName: string;
+    workflowName: string;
+    stepName: string;
+    processInstanceId: string;
+  }>;
+  supplierStatuses?: Array<{ id: string; name: string }>;
   token: string;
 }
 
@@ -71,63 +106,78 @@ interface SupplierDetailTabsProps {
  */
 export function SupplierDetailTabs({
   supplier,
+  supplierUser,
   documents,
   workflows,
+  formSubmissions,
+  supplierStatuses,
   token,
 }: SupplierDetailTabsProps) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const permissions = usePermissions();
+  const [searchParams] = useSearchParams();
+  
+  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
+  const _currentUser = appData?.user;
+  
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
-  // Get active tab from URL or default to "overview"
-  const activeTab = searchParams.get("tab") || "overview";
+  // Use client-side state for instant tab switching
+  // Initialize from URL param on mount
+  const initialTab = searchParams.get("tab") || "overview";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const handleTabChange = (value: string) => {
-    setSearchParams({ tab: value });
+    // Update local state immediately (instant UI update)
+    setActiveTab(value);
+    
+    // Update URL without triggering navigation (for bookmarking)
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", value);
+    window.history.replaceState({}, "", url.toString());
   };
 
   return (
     <div className="space-y-6">
       {/* Action Buttons Row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-        {/* Status Change Dropdown */}
-        <div className="flex-1">
-          <StatusChangeDropdown
-            currentStatus={supplier.status}
-            supplierId={supplier.id}
-            supplierName={supplier.name}
-          />
-        </div>
+        {/* Status Change (Admin only) */}
+        <StatusChangeDropdown
+          currentStatus={supplier.status}
+          supplierId={supplier.id}
+          supplierName={supplier.name}
+          supplierStatuses={supplierStatuses}
+        />
 
         {/* Action Buttons */}
         <div className="flex space-x-3">
-          {/* Start Qualification Button - Only visible for Prospect status (AC 1) */}
+          {/* Start Process Button - Only visible for Prospect status */}
           {supplier.status === "prospect" &&
-            (permissions.isProcurementManager || permissions.isAdmin) && (
+            permissions?.canCreateSuppliers && (
               <Button
                 onClick={() => setIsWorkflowModalOpen(true)}
                 className="flex items-center space-x-2"
               >
                 <CheckCircle className="h-4 w-4" />
-                <span>Start Qualification</span>
+                <span>Start Process</span>
               </Button>
             )}
 
-          {permissions.canEditSupplier && (
-            <Button
-              asChild
-              variant="outline"
-              className="flex items-center space-x-2"
+          {permissions?.canEditSuppliers && (
+            <Link
+              to={`/suppliers/${supplier.id}/edit`}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "inline-flex items-center gap-2"
+              )}
             >
-              <Link to={`/suppliers/${supplier.id}/edit`}>
-                <Edit className="h-4 w-4" />
-                <span>Edit</span>
-              </Link>
-            </Button>
+              <Edit className="h-4 w-4" />
+              <span>Edit</span>
+            </Link>
           )}
 
-          {permissions.isAdmin && (
+          {permissions?.isAdmin && (
             <Button
               variant="destructive"
               onClick={() => setIsDeleteModalOpen(true)}
@@ -142,14 +192,22 @@ export function SupplierDetailTabs({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="qualifications">
-            Qualifications
+          <TabsTrigger value="workflows">
+            Workflows
             {workflows.length > 0 && (
               <span className="ml-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
                 {workflows.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="forms">
+            Forms
+            {formSubmissions.length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                {formSubmissions.length}
               </span>
             )}
           </TabsTrigger>
@@ -158,7 +216,7 @@ export function SupplierDetailTabs({
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-6">
-          <SupplierOverview supplier={supplier} />
+          <SupplierOverview supplier={supplier} supplierUser={supplierUser} token={token} />
         </TabsContent>
 
         {/* Documents Tab */}
@@ -170,16 +228,22 @@ export function SupplierDetailTabs({
           />
         </TabsContent>
 
-        {/* Qualifications Tab (AC 8) */}
-        <TabsContent value="qualifications" className="mt-6">
-          <QualificationsTab
+        {/* Workflows Tab (Story 2.2.9 - AC 6) */}
+        <TabsContent value="workflows" className="mt-6">
+          <WorkflowsTab
             workflows={workflows}
-            onStartQualification={
-              supplier.status === "prospect"
+            supplierId={supplier.id}
+            onStartProcess={
+              supplier.status === "prospect" && permissions?.canCreateSuppliers
                 ? () => setIsWorkflowModalOpen(true)
                 : undefined
             }
           />
+        </TabsContent>
+
+        {/* Forms Tab (Story 2.2.16 - AC 26-30) */}
+        <TabsContent value="forms" className="mt-6">
+          <SupplierFormsTab submissions={formSubmissions} supplierName={supplier.name} supplierId={supplier.id} />
         </TabsContent>
 
         {/* History Tab - Placeholder */}

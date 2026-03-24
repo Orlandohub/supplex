@@ -1,13 +1,14 @@
 /**
  * Mobile Navigation Component
  * Bottom tab bar for mobile with "More" drawer
+ * Uses SSR permissions from parent loader to prevent flash
  */
 
-import { Link, useLocation } from "@remix-run/react";
+import { Link, useLocation, useRouteLoaderData } from "@remix-run/react";
 import { Home, Building2, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "~/lib/utils";
-import { usePermissions } from "~/hooks/usePermissions";
+import type { AppLoaderData } from "~/routes/_app";
 import {
   CheckCircle,
   BarChart3,
@@ -21,7 +22,7 @@ interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  requiredPermissions?: keyof ReturnType<typeof usePermissions>;
+  requiredPermissions?: keyof AppLoaderData["permissions"];
   adminOnly?: boolean;
 }
 
@@ -31,7 +32,7 @@ const primaryNavItems: NavItem[] = [
 ];
 
 const moreNavItems: NavItem[] = [
-  { name: "Qualifications", href: "/qualifications", icon: CheckCircle },
+  { name: "Workflows", href: "/workflows", icon: CheckCircle },
   { name: "Evaluations", href: "/evaluations", icon: BarChart3 },
   { name: "Complaints", href: "/complaints", icon: AlertTriangle },
   {
@@ -46,8 +47,11 @@ const moreNavItems: NavItem[] = [
 
 export function MobileNavigation() {
   const location = useLocation();
-  const permissions = usePermissions();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  
+  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
 
   // Close drawer when route changes
   useEffect(() => {
@@ -66,10 +70,10 @@ export function MobileNavigation() {
     };
   }, [isMoreOpen]);
 
-  // Filter navigation based on permissions
+  // Filter navigation based on SERVER permissions (prevents flash)
   const visibleMoreItems = moreNavItems.filter((item) => {
-    if (item.adminOnly && !permissions.isAdmin) return false;
-    if (item.requiredPermissions) return permissions[item.requiredPermissions];
+    if (item.adminOnly && !permissions?.isAdmin) return false;
+    if (item.requiredPermissions && permissions) return permissions[item.requiredPermissions];
     return true;
   });
 

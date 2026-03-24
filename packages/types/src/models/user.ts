@@ -6,6 +6,7 @@ export enum UserRole {
   PROCUREMENT_MANAGER = "procurement_manager",
   QUALITY_MANAGER = "quality_manager",
   VIEWER = "viewer",
+  SUPPLIER_USER = "supplier_user",
 }
 
 // TypeScript Interface

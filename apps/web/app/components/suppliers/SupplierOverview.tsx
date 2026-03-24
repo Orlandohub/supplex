@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { StatusBadge } from "./StatusBadge";
+import { SupplierContactCard } from "./SupplierContactCard";
 import type { SupplierCategory, SupplierStatus } from "@supplex/types";
 import { MapPin, Mail, Phone, Globe, User } from "lucide-react";
 
@@ -35,6 +36,15 @@ interface SupplierOverviewProps {
     createdByName?: string;
     createdByEmail?: string | null;
   };
+  supplierUser?: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    status: string;
+    isActive: boolean;
+  } | null;
+  token: string;
 }
 
 /**
@@ -71,8 +81,34 @@ function formatDate(dateString: string): string {
  * - Metadata and notes
  * - Audit information (created by, dates)
  */
-export function SupplierOverview({ supplier }: SupplierOverviewProps) {
+export function SupplierOverview({ supplier, supplierUser, token }: SupplierOverviewProps) {
   const address = supplier.address;
+
+  const _getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800";
+      case "pending_activation":
+        return "bg-yellow-100 text-yellow-800";
+      case "deactivated":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const _getStatusLabel = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Active";
+      case "pending_activation":
+        return "Pending Activation";
+      case "deactivated":
+        return "Deactivated";
+      default:
+        return status;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -157,6 +193,7 @@ export function SupplierOverview({ supplier }: SupplierOverviewProps) {
               )}
             </div>
           </div>
+
 
           {/* Address */}
           <div>
@@ -264,6 +301,9 @@ export function SupplierOverview({ supplier }: SupplierOverviewProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Platform Access Card */}
+      <SupplierContactCard supplierUser={supplierUser} supplierId={supplier.id} token={token} />
 
       {/* Metadata Card */}
       <Card>

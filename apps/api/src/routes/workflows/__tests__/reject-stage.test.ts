@@ -260,7 +260,7 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/reject", () => {
       // 3. Update supplier to prospect
       const transactionSteps = [
         { step: "update_stage", entity: "qualificationStages" },
-        { step: "update_workflow", entity: "qualificationWorkflows" },
+        { step: "update_workflow", entity: "qualificationProcess" },
         { step: "update_supplier", entity: "suppliers" },
       ];
 

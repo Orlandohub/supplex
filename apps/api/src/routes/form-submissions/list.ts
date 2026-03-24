@@ -1,0 +1,112 @@
+import { Elysia, t } from "elysia";
+import { db } from "../../lib/db";
+import {
+  formSubmission,
+  formTemplate,
+} from "@supplex/db";
+import { eq, and, isNull, desc } from "drizzle-orm";
+import { authenticate } from "../../lib/rbac/middleware";
+
+/**
+ * GET /api/form-submissions
+ * List user's form submissions
+ *
+ * Auth: Requires authenticated user
+ * Tenant: Enforces tenant isolation
+ * Query Parameters:
+ * - status: filter by submission status (draft|submitted)
+ * - processInstanceId: filter by workflow process instance
+ * - stepInstanceId: filter by workflow step instance
+ * Returns: Array of submissions with metadata (no answers for performance)
+ */
+export const listSubmissionsRoute = new Elysia().use(authenticate).get(
+  "/",
+  async ({ query, user, set }: any) => {
+    try {
+      const tenantId = user.tenantId as string;
+      const userId = user.id as string;
+      const { status, processInstanceId, stepInstanceId } = query;
+
+      // Build query conditions
+      const conditions = [
+        eq(formSubmission.tenantId, tenantId),
+        eq(formSubmission.submittedBy, userId),
+        isNull(formSubmission.deletedAt),
+      ];
+
+      // Add status filter if provided
+      if (status) {
+        conditions.push(eq(formSubmission.status, status));
+      }
+
+      // Add processInstanceId filter if provided
+      if (processInstanceId) {
+        conditions.push(
+          eq(formSubmission.processInstanceId, processInstanceId)
+        );
+      }
+
+      // Add stepInstanceId filter if provided
+      if (stepInstanceId) {
+        conditions.push(
+          eq(formSubmission.stepInstanceId, stepInstanceId)
+        );
+      }
+
+      // Fetch submissions with template metadata
+      const submissions = await db
+        .select({
+          submission: formSubmission,
+          template: {
+            id: formTemplate.id,
+            name: formTemplate.name,
+            status: formTemplate.status,
+          },
+        })
+        .from(formSubmission)
+        .innerJoin(
+          formTemplate,
+          eq(formSubmission.formTemplateId, formTemplate.id)
+        )
+        .where(and(...conditions))
+        .orderBy(desc(formSubmission.updatedAt));
+
+      set.status = 200;
+      return {
+        success: true,
+        data: {
+          submissions: submissions.map((row) => ({
+            ...row.submission,
+            formTemplate: row.template,
+          })),
+        },
+      };
+    } catch (error: any) {
+      console.error("Error listing submissions:", error);
+
+      set.status = 500;
+      return {
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to list submissions",
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  },
+  {
+    query: t.Object({
+      status: t.Optional(
+        t.Union([
+          t.Literal("draft"),
+          t.Literal("submitted"),
+          t.Literal("archived"),
+        ])
+      ),
+      processInstanceId: t.Optional(t.String({ format: "uuid" })),
+      stepInstanceId: t.Optional(t.String({ format: "uuid" })),
+    }),
+  }
+);
+

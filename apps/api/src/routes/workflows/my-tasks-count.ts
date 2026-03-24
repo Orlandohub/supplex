@@ -1,15 +1,18 @@
 import { Elysia } from "elysia";
 import { db } from "../../lib/db";
-import { qualificationStages, qualificationWorkflows } from "@supplex/db";
+import { taskInstance } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 
 /**
  * GET /api/workflows/my-tasks/count
- * Get count of workflows pending review for current user (for badge display)
+ * Get count of workflow tasks pending for current user (NEW WORKFLOW ENGINE)
+ *
+ * Returns count of open tasks from task_instance table
+ * Used for navigation badge display
  *
  * Auth: Requires authenticated user
- * Tenant Scoping: Counts only tasks for workflows in user's tenant
+ * Tenant Scoping: Counts only tasks in user's tenant
  *
  * AC 1, 3: Returns count of pending tasks for navigation badge
  */
@@ -18,23 +21,24 @@ export const myTasksCountRoute = new Elysia().use(authenticate).get(
   async ({ user, set }) => {
     try {
       const userId = user!.id as string;
+      const userRole = user!.role as string;
       const tenantId = user!.tenantId as string;
 
-      // Efficient count query with JOIN to ensure tenant isolation
+      // Efficient count query for open tasks assigned to current user
       const result = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(qualificationStages)
-        .innerJoin(
-          qualificationWorkflows,
-          eq(qualificationStages.workflowId, qualificationWorkflows.id)
-        )
+        .from(taskInstance)
         .where(
           and(
-            eq(qualificationStages.assignedTo, userId),
-            eq(qualificationStages.status, "Pending"),
-            eq(qualificationWorkflows.tenantId, tenantId),
-            isNull(qualificationStages.deletedAt),
-            isNull(qualificationWorkflows.deletedAt)
+            eq(taskInstance.tenantId, tenantId),
+            eq(taskInstance.status, "pending"),
+            // Task is assigned to current user (by role OR by userId)
+            sql`(
+              (${taskInstance.assigneeType} = 'role' AND ${taskInstance.assigneeRole} = ${userRole})
+              OR
+              (${taskInstance.assigneeType} = 'user' AND ${taskInstance.assigneeUserId} = ${userId})
+            )`,
+            isNull(taskInstance.deletedAt)
           )
         );
 
@@ -61,8 +65,8 @@ export const myTasksCountRoute = new Elysia().use(authenticate).get(
   },
   {
     detail: {
-      summary: "Get my pending tasks count",
-      description: "Returns count of workflows awaiting review (for badge)",
+      summary: "Get my pending tasks count (New Workflow Engine)",
+      description: "Returns count of workflow tasks from task_instance table awaiting action (for badge)",
       tags: ["Workflows", "Tasks"],
     },
   }

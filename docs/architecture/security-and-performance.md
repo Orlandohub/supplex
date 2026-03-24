@@ -47,4 +47,24 @@
 - Redis caching (5-60s TTL)
 - Efficient indexes on all foreign keys
 
+**Development-Only Features:**
+
+When implementing development-only features (e.g., quick login, debug endpoints):
+
+- MUST check `config.nodeEnv === 'development'` at route level
+- MUST return 404 or 403 in non-development environments
+- MUST document in architecture/authentication.md
+- MUST include clear code comments explaining environment gating
+- SHOULD log warnings if accessed in non-dev environments
+
+Example:
+```typescript
+// DEV-ONLY ENDPOINT - Returns 404 in production
+if (config.nodeEnv !== 'development') {
+  return res.status(404).json({ error: 'Not found' });
+}
+```
+
+Development features must never compromise production security. When in doubt, prefer explicit environment checks over implicit assumptions.
+
 ---

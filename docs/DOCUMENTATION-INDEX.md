@@ -33,6 +33,7 @@ Complete reference for all documentation in the project.
 ### Troubleshooting (`docs/troubleshooting/`)
 - **[README](./troubleshooting/README.md)** - Troubleshooting index
 - **[Known Issues & Fixes](./troubleshooting/known-issues-and-fixes.md)** - Common problems and solutions
+- **[Environment Files Protection](./troubleshooting/ENV-FILES-PROTECTION.md)** - 🛡️ **CRITICAL** for AI agents
 
 ### Implementation Notes (`docs/implementation-notes/`)
 - **[Remix Loader Pattern Optimization](./implementation-notes/remix-loader-pattern-optimization.md)** - Case study of performance optimization

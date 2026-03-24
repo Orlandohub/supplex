@@ -9,6 +9,10 @@ import {
   canManageCAPA,
   canAccessSettings,
   canUploadDocuments,
+  canViewOwnSupplier,
+  canEditOwnSupplier,
+  canViewOwnTasks,
+  canManageNotificationSettings,
   getRolePermissions,
   hasAnyPermission,
   hasAllPermissions,
@@ -22,6 +26,7 @@ describe("Permission System", () => {
       expect(PERMISSION_MATRIX[UserRole.PROCUREMENT_MANAGER]).toBeDefined();
       expect(PERMISSION_MATRIX[UserRole.QUALITY_MANAGER]).toBeDefined();
       expect(PERMISSION_MATRIX[UserRole.VIEWER]).toBeDefined();
+      expect(PERMISSION_MATRIX[UserRole.SUPPLIER_USER]).toBeDefined();
     });
 
     it("admin should have all permissions", () => {
@@ -196,6 +201,121 @@ describe("Permission System", () => {
           PermissionAction.MANAGE_USERS, // Procurement manager doesn't have this
         ])
       ).toBe(false);
+    });
+  });
+
+  describe("supplier_user permissions", () => {
+    it("should have VIEW_OWN_SUPPLIER permission", () => {
+      expect(
+        hasPermission(UserRole.SUPPLIER_USER, PermissionAction.VIEW_OWN_SUPPLIER)
+      ).toBe(true);
+    });
+
+    it("should have EDIT_OWN_SUPPLIER permission", () => {
+      expect(
+        hasPermission(UserRole.SUPPLIER_USER, PermissionAction.EDIT_OWN_SUPPLIER)
+      ).toBe(true);
+    });
+
+    it("should have VIEW_OWN_TASKS permission", () => {
+      expect(
+        hasPermission(UserRole.SUPPLIER_USER, PermissionAction.VIEW_OWN_TASKS)
+      ).toBe(true);
+    });
+
+    it("should have MANAGE_NOTIFICATION_SETTINGS permission", () => {
+      expect(
+        hasPermission(
+          UserRole.SUPPLIER_USER,
+          PermissionAction.MANAGE_NOTIFICATION_SETTINGS
+        )
+      ).toBe(true);
+    });
+
+    it("should NOT have VIEW_SUPPLIERS permission (cannot view other suppliers)", () => {
+      expect(
+        hasPermission(UserRole.SUPPLIER_USER, PermissionAction.VIEW_SUPPLIERS)
+      ).toBe(false);
+    });
+
+    it("should NOT have MANAGE_TENANT_SETTINGS permission (cannot access tenant config)", () => {
+      expect(
+        hasPermission(
+          UserRole.SUPPLIER_USER,
+          PermissionAction.MANAGE_TENANT_SETTINGS
+        )
+      ).toBe(false);
+    });
+
+    it("should NOT have MANAGE_USERS permission (cannot manage users)", () => {
+      expect(
+        hasPermission(UserRole.SUPPLIER_USER, PermissionAction.MANAGE_USERS)
+      ).toBe(false);
+    });
+
+    it("canViewOwnSupplier() should return true for supplier_user", () => {
+      expect(canViewOwnSupplier(UserRole.SUPPLIER_USER)).toBe(true);
+    });
+
+    it("canViewOwnSupplier() should return false for viewer", () => {
+      expect(canViewOwnSupplier(UserRole.VIEWER)).toBe(false);
+    });
+
+    it("canEditOwnSupplier() should return true for supplier_user", () => {
+      expect(canEditOwnSupplier(UserRole.SUPPLIER_USER)).toBe(true);
+    });
+
+    it("canEditOwnSupplier() should return false for viewer", () => {
+      expect(canEditOwnSupplier(UserRole.VIEWER)).toBe(false);
+    });
+
+    it("canViewOwnTasks() should return true for supplier_user", () => {
+      expect(canViewOwnTasks(UserRole.SUPPLIER_USER)).toBe(true);
+    });
+
+    it("canViewOwnTasks() should return false for viewer", () => {
+      expect(canViewOwnTasks(UserRole.VIEWER)).toBe(false);
+    });
+
+    it("canManageNotificationSettings() should return true for supplier_user", () => {
+      expect(canManageNotificationSettings(UserRole.SUPPLIER_USER)).toBe(true);
+    });
+
+    it("canManageNotificationSettings() should return false for viewer", () => {
+      expect(canManageNotificationSettings(UserRole.VIEWER)).toBe(false);
+    });
+
+    it("should only have supplier-specific permissions (no tenant-wide access)", () => {
+      const supplierUserPermissions = PERMISSION_MATRIX[UserRole.SUPPLIER_USER];
+      
+      // Should have exactly 4 permissions
+      expect(supplierUserPermissions.length).toBe(4);
+      
+      // Should only have supplier-specific permissions
+      expect(supplierUserPermissions).toContain(
+        PermissionAction.VIEW_OWN_SUPPLIER
+      );
+      expect(supplierUserPermissions).toContain(
+        PermissionAction.EDIT_OWN_SUPPLIER
+      );
+      expect(supplierUserPermissions).toContain(PermissionAction.VIEW_OWN_TASKS);
+      expect(supplierUserPermissions).toContain(
+        PermissionAction.MANAGE_NOTIFICATION_SETTINGS
+      );
+      
+      // Should NOT have any tenant-wide permissions
+      expect(supplierUserPermissions).not.toContain(
+        PermissionAction.VIEW_SUPPLIERS
+      );
+      expect(supplierUserPermissions).not.toContain(
+        PermissionAction.EDIT_SUPPLIERS
+      );
+      expect(supplierUserPermissions).not.toContain(
+        PermissionAction.MANAGE_USERS
+      );
+      expect(supplierUserPermissions).not.toContain(
+        PermissionAction.MANAGE_TENANT_SETTINGS
+      );
     });
   });
 

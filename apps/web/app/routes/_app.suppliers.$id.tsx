@@ -7,19 +7,25 @@ import { json, redirect } from "@remix-run/node";
 import {
   useLoaderData,
   useNavigation,
+  useNavigate,
   isRouteErrorResponse,
   useRouteError,
   Link,
   useSearchParams,
+  useRouteLoaderData,
 } from "@remix-run/react";
+import type { AppLoaderData } from "./_app";
 import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { Supplier, Document, QualificationWorkflow } from "@supplex/types";
+import { UserRole } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
-import { Breadcrumb } from "~/components/ui/Breadcrumb";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "~/components/ui/button";
 import { useToast } from "~/hooks/use-toast";
+import { getSupplierForUser } from "~/lib/suppliers.server";
 
 // Type for supplier data after Remix serialization (Dates become strings)
 type SerializedSupplier = Omit<
@@ -66,12 +72,37 @@ export async function loader(args: LoaderFunctionArgs) {
   const { params } = args;
 
   // Protect this route - require authentication
-  const { session } = await requireAuth(args);
+  const { user, userRecord, session } = await requireAuth(args);
 
   // Get supplier ID from URL params
   const { id } = params;
   if (!id) {
     throw new Response("Supplier ID is required", { status: 400 });
+  }
+
+  // Check if supplier_user is trying to access another supplier's page
+  // NOTE: This validation is also done in parent loader (_app.tsx) but we repeat it here
+  // for defense-in-depth security (direct URL access protection). The API call is fast
+  // due to the parent loader's recent fetch being cached at the network/API level.
+  if (userRecord.role === UserRole.SUPPLIER_USER) {
+    const token = session?.access_token;
+    if (!token) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+    
+    const supplierInfo = await getSupplierForUser(user.id, token);
+    
+    if (!supplierInfo) {
+      throw new Error("Supplier user is not associated with a supplier");
+    }
+    
+    // If trying to access a different supplier's page, throw 403
+    if (supplierInfo.id !== id) {
+      throw new Response("You do not have permission to view this supplier", {
+        status: 403,
+        statusText: "Forbidden",
+      });
+    }
   }
 
   // Create Eden Treaty client with auth token
@@ -84,11 +115,12 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Fetch supplier, documents, and workflows in parallel for optimal performance
   try {
-    const [supplierResponse, documentsResponse, workflowsResponse] =
+    const [supplierResponse, documentsResponse, workflowsResponse, supplierStatusesResponse] =
       await Promise.all([
         client.api.suppliers[id].get(),
         client.api.suppliers[id].documents.get(),
-        client.api.workflows.supplier[id].get(),
+        client.api.workflows.supplier[id].processes.get(),
+        client.api.admin["supplier-statuses"].get(),
       ]);
 
     // Handle supplier API errors
@@ -117,6 +149,14 @@ export async function loader(args: LoaderFunctionArgs) {
           createdByName?: string;
           createdByEmail?: string | null;
         };
+        supplierUser?: {
+          id: string;
+          email: string;
+          fullName: string;
+          role: string;
+          status: string;
+          isActive: boolean;
+        } | null;
       };
     };
 
@@ -139,22 +179,41 @@ export async function loader(args: LoaderFunctionArgs) {
     let workflows: QualificationWorkflow[] = [];
     if (workflowsResponse.error) {
       console.error("Workflows API Error:", workflowsResponse.error);
-      // Don't fail the entire page if workflows fail - just show empty list
     } else if (
       workflowsResponse.data &&
       typeof workflowsResponse.data === "object"
     ) {
       const workflowsData = workflowsResponse.data as {
-        data?: { workflows?: QualificationWorkflow[] };
+        data?: { processes?: QualificationWorkflow[] };
       };
-      workflows = workflowsData.data?.workflows || [];
+      workflows = workflowsData.data?.processes || [];
+    }
+
+    // Fetch supplier form submissions (non-fatal)
+    let formSubmissions: any[] = [];
+    try {
+      const formsResponse = await client.api["form-submissions"]["by-supplier"][id].get();
+      if (!formsResponse.error && formsResponse.data) {
+        const formsData = formsResponse.data as any;
+        formSubmissions = formsData?.data?.submissions || [];
+      }
+    } catch (err) {
+      console.error("Form submissions API Error:", err);
+    }
+
+    let supplierStatuses: { id: string; name: string }[] = [];
+    if (!supplierStatusesResponse.error && supplierStatusesResponse.data) {
+      supplierStatuses = ((supplierStatusesResponse.data as any)?.data || []) as { id: string; name: string }[];
     }
 
     return json({
       supplier: supplierApiResponse.data.supplier,
+      supplierUser: supplierApiResponse.data.supplierUser || null,
       documents,
       workflows,
-      token, // Pass token for download/delete operations
+      formSubmissions,
+      supplierStatuses,
+      token,
     });
   } catch (error) {
     console.error("Failed to fetch supplier:", error);
@@ -262,6 +321,49 @@ export async function action(args: ActionFunctionArgs) {
       return redirect("/suppliers?message=supplier-deleted");
     }
 
+    if (intent === "add-contact") {
+      // Handle add contact
+      const name = formData.get("name") as string;
+      const email = formData.get("email") as string;
+      const phone = formData.get("phone") as string;
+
+      try {
+        const response = await client.api.suppliers[id].contact.post({
+          name,
+          email,
+          phone: phone || undefined,
+        });
+
+        if (response.error) {
+          return json(
+            {
+              success: false,
+              error: response.error.value,
+            },
+            { status: response.status || 500 }
+          );
+        }
+
+        return json({
+          success: true,
+          data: response.data,
+          message: response.data?.message || "Contact added successfully",
+        });
+      } catch (error) {
+        console.error("Error adding contact:", error);
+        return json(
+          {
+            success: false,
+            error: {
+              code: "INTERNAL_ERROR",
+              message: "Failed to add contact",
+            },
+          },
+          { status: 500 }
+        );
+      }
+    }
+
     return json({ error: "Invalid intent" }, { status: 400 });
   } catch (error) {
     console.error("Action error:", error);
@@ -270,19 +372,30 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function SupplierDetail() {
-  const { supplier, documents, workflows, token } = useLoaderData<
+  const { supplier, supplierUser, documents, workflows, formSubmissions, supplierStatuses, token } = useLoaderData<
     typeof loader
   >() as {
     supplier: SerializedSupplier;
+    supplierUser: {
+      id: string;
+      email: string;
+      fullName: string;
+      role: string;
+      status: string;
+      isActive: boolean;
+    } | null;
     documents: Document[];
     workflows: QualificationWorkflow[];
+    formSubmissions: any[];
+    supplierStatuses: { id: string; name: string }[];
     token: string;
   };
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if we're loading
+  // Check if we're loading (only for actual route navigation, not tab switches)
   const isLoading = navigation.state === "loading";
 
   // Show success toast based on URL params
@@ -303,12 +416,6 @@ export default function SupplierDetail() {
     }
   }, [searchParams, toast]);
 
-  // Breadcrumb items
-  const breadcrumbItems = [
-    { label: "Home", href: "/" },
-    { label: "Suppliers", href: "/suppliers" },
-    { label: supplier.name, href: "", isCurrentPage: true },
-  ];
 
   if (isLoading) {
     return (
@@ -327,11 +434,15 @@ export default function SupplierDetail() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Breadcrumb */}
-          <Breadcrumb items={breadcrumbItems} />
+          <div className="mb-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/suppliers")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Suppliers
+            </Button>
+          </div>
 
           {/* Page Title */}
-          <div className="mt-4">
+          <div>
             <h1 className="text-3xl font-bold text-gray-900">
               {supplier.name}
             </h1>
@@ -343,8 +454,11 @@ export default function SupplierDetail() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <SupplierDetailTabs
           supplier={supplier}
+          supplierUser={supplierUser}
           documents={documents}
           workflows={workflows}
+          formSubmissions={formSubmissions}
+          supplierStatuses={supplierStatuses}
           token={token}
         />
       </div>
@@ -353,10 +467,13 @@ export default function SupplierDetail() {
 }
 
 /**
- * Error Boundary for handling 404 and other errors
+ * Error Boundary for handling 404, 403, and other errors
  */
 export function ErrorBoundary() {
   const error = useRouteError();
+  const appData = useRouteLoaderData<{
+    supplierInfo: { id: string; name: string } | null;
+  }>("routes/_app");
 
   if (isRouteErrorResponse(error)) {
     if (error.status === 404) {
@@ -404,6 +521,70 @@ export function ErrorBoundary() {
               </svg>
               Back to Suppliers
             </Link>
+          </div>
+        </div>
+      );
+    }
+
+    if (error.status === 403) {
+      // Check if user is supplier_user (has supplierInfo)
+      const isSupplierUser = appData?.supplierInfo !== null && appData?.supplierInfo !== undefined;
+
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-12 max-w-md text-center">
+            <div className="mb-6">
+              <svg
+                className="mx-auto h-16 w-16 text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Access Denied
+            </h1>
+            <p className="text-gray-600 mb-6">
+              You do not have permission to view this supplier
+            </p>
+            <div className="flex flex-col gap-3">
+              {isSupplierUser && appData?.supplierInfo && (
+                <Link
+                  to={`/suppliers/${appData.supplierInfo.id}`}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Go to My Supplier
+                </Link>
+              )}
+              {!isSupplierUser && (
+                <Link
+                  to="/suppliers"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <svg
+                    className="mr-2 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                  Back to Suppliers
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       );

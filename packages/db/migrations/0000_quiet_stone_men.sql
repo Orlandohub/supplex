@@ -249,6 +249,10 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
+-- Clean up orphaned workflow_documents before adding FK constraint
+DELETE FROM "workflow_documents" 
+WHERE "workflow_id" NOT IN (SELECT "id" FROM "qualification_workflows");
+--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "workflow_documents" ADD CONSTRAINT "workflow_documents_workflow_id_qualification_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."qualification_workflows"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION

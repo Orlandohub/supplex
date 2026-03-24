@@ -96,6 +96,35 @@ export const useAuth = create<AuthState>()(
               console.error("Error fetching user record:", userError);
             }
 
+            // Check if user is deactivated
+            if (userRecord && !userRecord.is_active) {
+              console.log("[AUTH] User is deactivated, fetching admin contact info");
+              
+              // Fetch admin contact info
+              const { data: adminUsers } = await supabase
+                .from("users")
+                .select("full_name, email")
+                .eq("tenant_id", userRecord.tenant_id)
+                .eq("role", "admin")
+                .eq("is_active", true)
+                .limit(1);
+
+              const adminUser = adminUsers?.[0];
+              const adminInfo = adminUser 
+                ? `${adminUser.full_name}\n${adminUser.email}`
+                : "your company's admin";
+
+              // Sign out immediately (revoke the session that was just created)
+              console.log("[AUTH] Signing out deactivated user");
+              await supabase.auth.signOut();
+
+              set({ isLoading: false });
+              return {
+                success: false,
+                error: `Your user has been deactivated, please contact your company's admin:\n${adminInfo}`,
+              };
+            }
+
             get().setAuth(data.user, data.session, userRecord);
 
             // Handle "Remember Me" functionality
