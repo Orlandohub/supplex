@@ -37,7 +37,6 @@ export const supplierProcessesRoute = new Elysia()
           )
           .orderBy(desc(processInstance.initiatedDate));
 
-        // Batch-fetch all steps for these processes to avoid N+1 queries
         const processIds = processes.map((p) => p.id);
         const allSteps = processIds.length > 0
           ? await db
@@ -64,7 +63,12 @@ export const supplierProcessesRoute = new Elysia()
 
         const processesWithStepInfo = processes.map((process) => {
           const steps = stepsByProcess.get(process.id) || [];
-          const activeStep = steps.find((s) => s.status === "active") || null;
+
+          // Use currentStepInstanceId FK when available, fall back to status lookup
+          const activeStep = process.currentStepInstanceId
+            ? steps.find((s) => s.id === process.currentStepInstanceId) || null
+            : steps.find((s) => s.status === "active") || null;
+
           const lastCompletedStep = steps.find(
             (s) => s.status === "completed" || s.status === "validated"
           ) || null;

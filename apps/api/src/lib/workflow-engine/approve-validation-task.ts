@@ -6,8 +6,8 @@
  */
 
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { taskInstance, stepInstance, processInstance, workflowStepTemplate } from "@supplex/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { taskInstance, stepInstance, processInstance } from "@supplex/db";
+import { eq, and } from "drizzle-orm";
 import { transitionToNextStep } from "./transition-to-next-step";
 
 interface ApproveValidationTaskParams {
@@ -53,9 +53,7 @@ export async function approveValidationTask(
       };
     }
 
-    // Verify this is a validation task
-    const metadata = task.metadata as any;
-    if (!metadata?.isValidationTask) {
+    if (task.taskType !== "validation") {
       return {
         success: false,
         allValidationsComplete: false,
@@ -87,9 +85,8 @@ export async function approveValidationTask(
         )
       );
 
-    // Filter for validation tasks only
     const validationTasks = allValidationTasks.filter(
-      (t) => (t.metadata as any)?.isValidationTask === true
+      (t) => t.taskType === "validation"
     );
 
     const allComplete = validationTasks.every((t) => t.status === "completed");
@@ -112,26 +109,11 @@ export async function approveValidationTask(
         };
       }
 
-      // Get process instance to resolve step template
+      // Get process instance
       const [process] = await db
         .select()
         .from(processInstance)
         .where(eq(processInstance.id, step.processInstanceId));
-
-      const workflowTemplateId = (process?.metadata as any)?.workflowTemplateId;
-      const stepTemplate = workflowTemplateId
-        ? (await db
-            .select()
-            .from(workflowStepTemplate)
-            .where(
-              and(
-                eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
-                eq(workflowStepTemplate.tenantId, tenantId),
-                eq(workflowStepTemplate.stepOrder, step.stepOrder),
-                isNull(workflowStepTemplate.deletedAt)
-              )
-            ))[0]
-        : undefined;
 
       if (!process) {
         return {
@@ -151,20 +133,7 @@ export async function approveValidationTask(
         })
         .where(eq(stepInstance.id, task.stepInstanceId));
 
-      // Set process status to "[StepName] - Approved"
-      if (stepTemplate?.name) {
-        await db
-          .update(processInstance)
-          .set({
-            status: `${stepTemplate.name} - Approved`,
-            updatedAt: new Date(),
-          })
-          .where(eq(processInstance.id, process.id));
-
-        console.log(`[Validation] Process status set to: ${stepTemplate.name} - Approved`);
-      }
-
-      // Activate next step
+      // Transition handles setting process status to "{NextStep} - In Progress" or "Complete"
       const transitionResult = await transitionToNextStep(
         task.stepInstanceId,
         process.id,

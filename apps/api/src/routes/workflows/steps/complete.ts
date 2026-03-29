@@ -17,7 +17,8 @@ import {
   commentThread,
   formSubmission,
 } from "@supplex/db";
-import { eq, and, or, isNull, sql } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
+import { WorkflowProcessStatus } from "@supplex/types";
 import { approveValidationTask } from "../../../lib/workflow-engine/approve-validation-task";
 import { completeStep } from "../../../lib/workflow-engine/complete-step";
 import { createTasksForStep } from "../../../lib/workflow-engine/create-tasks-for-step";
@@ -72,7 +73,7 @@ export const completeStepRoute = new Elysia()
           };
         }
 
-        const workflowTemplateId = (process.metadata as any)?.workflowTemplateId;
+        const workflowTemplateId = process.workflowTemplateId;
 
         const stepTemplates = await db
           .select()
@@ -185,8 +186,7 @@ export const completeStepRoute = new Elysia()
               )
             );
 
-          // If it's a validation task, use special validation approval logic
-          if (userTask && (userTask.metadata as any)?.isValidationTask) {
+          if (userTask && userTask.taskType === "validation") {
             const validationResult = await approveValidationTask(db, {
               tenantId: user.tenantId,
               taskInstanceId: userTask.id,
@@ -293,9 +293,7 @@ export const completeStepRoute = new Elysia()
               )
             );
 
-          // If it's a validation task, handle decline: stay on the SAME step
-          // (validation is a phase within a step, not a separate step)
-          if (userTask && (userTask.metadata as any)?.isValidationTask) {
+          if (userTask && userTask.taskType === "validation") {
             const stepTemplateForValidation = workflowTemplateId
               ? (await db
                   .select()
@@ -320,30 +318,23 @@ export const completeStepRoute = new Elysia()
               commentedBy: user.id,
             });
 
-            // 2. Mark validation task as completed (declined)
             await db
               .update(taskInstance)
               .set({
                 status: "completed",
+                outcome: "declined",
                 completedBy: user.id,
                 completedAt: new Date(),
-                metadata: sql`jsonb_build_object('action', 'declined', 'isValidationTask', true)`,
               })
               .where(eq(taskInstance.id, userTask.id));
 
-            // 2b. Auto-close all other pending validation tasks for this step
+            // Auto-close all other pending validation tasks for this step
             await db
               .update(taskInstance)
               .set({
                 status: "completed",
+                outcome: "auto_closed",
                 completedAt: new Date(),
-                metadata: sql`jsonb_build_object(
-                  'autoCompleted', true,
-                  'declinedBy', ${user.id}::text,
-                  'declinedByRole', ${user.role}::text,
-                  'action', 'auto_closed_decline',
-                  'isValidationTask', true
-                )`,
               })
               .where(
                 and(
@@ -371,16 +362,13 @@ export const completeStepRoute = new Elysia()
                 )
               );
 
-            // 5. Update process status to indicate rejection
-            if (stepTemplateForValidation?.name) {
-              await db
-                .update(processInstance)
-                .set({
-                  status: `${stepTemplateForValidation.name} - Rejected`,
-                  updatedAt: new Date(),
-                })
-                .where(eq(processInstance.id, process.id));
-            }
+            await db
+              .update(processInstance)
+              .set({
+                status: WorkflowProcessStatus.DECLINED_RESUBMIT,
+                updatedAt: new Date(),
+              })
+              .where(eq(processInstance.id, process.id));
 
             // 6. Create new tasks for the same step (submitter gets a task to re-edit)
             if (stepTemplateForValidation) {

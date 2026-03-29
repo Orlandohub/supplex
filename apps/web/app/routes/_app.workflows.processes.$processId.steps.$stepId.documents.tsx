@@ -69,7 +69,7 @@ export async function loader(args: LoaderFunctionArgs) {
     (t: any) =>
       t.stepInstanceId === stepId &&
       t.status === "pending" &&
-      (t.metadata as any)?.isValidationTask &&
+      t.taskType === "validation" &&
       (t.assigneeUserId === userId ||
         (t.assigneeType === "role" && t.assigneeRole === userRole))
   );
@@ -113,7 +113,7 @@ export default function WorkflowStepDocumentsPage() {
     processId,
     stepId,
     stepName,
-    stepStatus,
+    stepStatus: _stepStatus,
     documents,
     summary,
     isValidationMode,
@@ -276,7 +276,7 @@ export default function WorkflowStepDocumentsPage() {
     }
   };
 
-  const isViewable = (mimeType: string | null) => {
+  const _isViewable = (mimeType: string | null) => {
     if (!mimeType) return false;
     return mimeType === "application/pdf" || mimeType.startsWith("image/");
   };

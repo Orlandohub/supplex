@@ -97,13 +97,13 @@ export async function returnToPreviousStep(
     .set({ status: "active" })
     .where(eq(stepInstance.id, targetStep.id));
 
-  // Get workflowTemplateId from process metadata for accurate template lookup
+  // Get workflowTemplateId from process for accurate template lookup
   const [process] = await db
     .select()
     .from(processInstance)
     .where(eq(processInstance.id, processId));
 
-  const workflowTemplateId = (process?.metadata as any)?.workflowTemplateId;
+  const workflowTemplateId = process?.workflowTemplateId;
 
   const stepTemplates = await db
     .select()

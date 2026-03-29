@@ -18,6 +18,7 @@ import {
   workflowStepTemplate,
   formSubmission,
   workflowStepDocument,
+  suppliers,
 } from "@supplex/db";
 import { isNull, asc, eq, and, aliasedTable } from "drizzle-orm";
 import { authenticate } from "../../../lib/rbac/middleware";
@@ -92,6 +93,8 @@ export const getProcessRoute = new Elysia()
             completedBy: taskInstance.completedBy,
             status: taskInstance.status,
             dueAt: taskInstance.dueAt,
+            taskType: taskInstance.taskType,
+            outcome: taskInstance.outcome,
             metadata: taskInstance.metadata,
             createdAt: taskInstance.createdAt,
             updatedAt: taskInstance.updatedAt,
@@ -118,7 +121,7 @@ export const getProcessRoute = new Elysia()
           );
 
         // Query step templates to get requiresValidation info
-        const workflowTemplateId = (process.metadata as any)?.workflowTemplateId;
+        const workflowTemplateId = process.workflowTemplateId;
         let stepTemplates: { stepOrder: number; requiresValidation: boolean; validationConfig: any }[] = [];
         if (workflowTemplateId) {
           stepTemplates = await db
@@ -142,16 +145,12 @@ export const getProcessRoute = new Elysia()
           stepTemplates.map((t) => [t.stepOrder, t])
         );
 
-        // Enrich steps with validation info from templates
         const enrichedSteps = steps.map((s) => {
           const tmpl = stepTemplateMap.get(s.stepOrder);
-          const meta = (s.metadata as any) || {};
           return {
             ...s,
-            requiresValidation:
-              tmpl?.requiresValidation ?? meta.requiresValidation ?? false,
-            validationConfig:
-              tmpl?.validationConfig ?? meta.validationConfig ?? {},
+            requiresValidation: tmpl?.requiresValidation ?? false,
+            validationConfig: tmpl?.validationConfig ?? {},
           };
         });
 
@@ -253,10 +252,20 @@ export const getProcessRoute = new Elysia()
           });
         }
 
+        // Resolve supplier name from entity reference
+        let supplierName: string | null = null;
+        if (process.entityType === "supplier") {
+          const [supplier] = await db
+            .select({ name: suppliers.name })
+            .from(suppliers)
+            .where(eq(suppliers.id, process.entityId));
+          supplierName = supplier?.name ?? null;
+        }
+
         return {
           success: true,
           data: {
-            process,
+            process: { ...process, supplierName },
             steps: enrichedSteps,
             tasks,
             comments,

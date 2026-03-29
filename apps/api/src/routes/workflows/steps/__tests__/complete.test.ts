@@ -76,7 +76,7 @@ describe("Step Completion", () => {
         processType: "test",
         entityType: "test",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
       })

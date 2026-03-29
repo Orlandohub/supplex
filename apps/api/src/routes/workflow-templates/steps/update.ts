@@ -169,8 +169,6 @@ export const updateStepRoute = new Elysia()
             declineReturnsToStepOffset: body.declineReturnsToStepOffset ?? 1,
             requiresValidation: body.requiresValidation ?? false,
             validationConfig: body.validationConfig ?? {},
-            completionStatus: body.completionStatus !== undefined ? body.completionStatus : step.completionStatus,
-            workflowStatusId: body.workflowStatusId !== undefined ? (body.workflowStatusId || null) : step.workflowStatusId,
             metadata: body.metadata || {},
             updatedAt: new Date(),
           })
@@ -231,8 +229,6 @@ export const updateStepRoute = new Elysia()
             requireAllApprovals: t.Optional(t.Boolean()),
           })
         ),
-        completionStatus: t.Optional(t.Union([t.String({ maxLength: 100 }), t.Null()])),
-        workflowStatusId: t.Optional(t.Nullable(t.String())),
         metadata: t.Optional(t.Any()),
       }),
     }

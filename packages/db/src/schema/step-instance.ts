@@ -11,6 +11,7 @@ import { relations, sql } from "drizzle-orm";
 import { processInstance } from "./process-instance";
 import { tenants } from "./tenants";
 import { users } from "./users";
+import { workflowStepTemplate } from "./workflow-step-template";
 
 /**
  * Step Type Enum Values
@@ -66,6 +67,8 @@ export const stepInstance = pgTable(
     stepOrder: integer("step_order").notNull(),
     stepName: varchar("step_name", { length: 200 }).notNull(),
     stepType: varchar("step_type", { length: 50 }).notNull(),
+    workflowStepTemplateId: uuid("workflow_step_template_id")
+      .references(() => workflowStepTemplate.id, { onDelete: "set null" }),
     status: varchar("status", { length: 50 })
       .notNull()
       .default(StepStatus.PENDING),
@@ -114,6 +117,10 @@ export const stepInstanceRelations = relations(stepInstance, ({ one }) => ({
   processInstance: one(processInstance, {
     fields: [stepInstance.processInstanceId],
     references: [processInstance.id],
+  }),
+  stepTemplate: one(workflowStepTemplate, {
+    fields: [stepInstance.workflowStepTemplateId],
+    references: [workflowStepTemplate.id],
   }),
   assignedUser: one(users, {
     fields: [stepInstance.assignedTo],

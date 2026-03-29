@@ -46,7 +46,7 @@ interface WorkflowsTabProps {
  */
 export function WorkflowsTab({
   workflows,
-  supplierId,
+  supplierId: _supplierId,
   onStartProcess,
 }: WorkflowsTabProps) {
   // Empty state when no workflows exist
@@ -58,7 +58,7 @@ export function WorkflowsTab({
           No Workflow Processes
         </h3>
         <p className="text-gray-600 mb-6">
-          No workflow processes started yet. Click 'Start Process' to begin.
+          No workflow processes started yet. Click &apos;Start Process&apos; to begin.
         </p>
         {onStartProcess && (
           <Button onClick={onStartProcess} className="mx-auto">
@@ -80,20 +80,27 @@ export function WorkflowsTab({
     });
   };
 
-  // Get status badge variant based on status
+  const STATUS_DISPLAY: Record<string, string> = {
+    in_progress: "In Progress",
+    pending_validation: "Pending Validation",
+    declined_resubmit: "Declined - Re-Submit",
+    complete: "Complete",
+    cancelled: "Cancelled",
+  };
+
+  const getStatusLabel = (status: string, stepName?: string | null): string => {
+    const label = STATUS_DISPLAY[status] || status;
+    if (status === "complete" || status === "cancelled") return label;
+    return stepName ? `${stepName} - ${label}` : label;
+  };
+
   const getStatusVariant = (
     status: string
   ): "default" | "secondary" | "destructive" | "outline" => {
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes("complete") || statusLower.includes("approved")) {
-      return "default";
-    }
-    if (statusLower.includes("pending") || statusLower.includes("progress")) {
-      return "secondary";
-    }
-    if (statusLower.includes("reject") || statusLower.includes("failed")) {
-      return "destructive";
-    }
+    if (status === "complete") return "default";
+    if (status === "in_progress") return "secondary";
+    if (status === "pending_validation") return "outline";
+    if (status === "declined_resubmit") return "destructive";
     return "outline";
   };
 
@@ -125,18 +132,17 @@ export function WorkflowsTab({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {workflows.map((workflow) => {
-                  const workflowName = (workflow.metadata as any)?.workflowName || workflow.processType || "Workflow";
                   return (
                     <tr
                       key={workflow.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {workflowName}
+                        {(workflow as any).workflowName || workflow.processType || "Workflow"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge variant={getStatusVariant(workflow.status)}>
-                          {workflow.status}
+                          {getStatusLabel(workflow.status, workflow.activeStep?.stepName)}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -175,16 +181,15 @@ export function WorkflowsTab({
       {/* Mobile Card View */}
       <div className="md:hidden space-y-4">
         {workflows.map((workflow) => {
-          const workflowName = (workflow.metadata as any)?.workflowName || workflow.processType || "Workflow";
           return (
             <Card key={workflow.id} className="p-4">
               <div className="space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="font-medium text-gray-900">
-                    {workflowName}
+                    {(workflow as any).workflowName || workflow.processType || "Workflow"}
                   </div>
                   <Badge variant={getStatusVariant(workflow.status)}>
-                    {workflow.status}
+                    {getStatusLabel(workflow.status, workflow.activeStep?.stepName)}
                   </Badge>
                 </div>
                 <div className="text-sm text-gray-600 space-y-1">

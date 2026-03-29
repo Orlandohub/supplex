@@ -53,13 +53,10 @@ export async function createValidationTasks(
       assigneeUserId: null,
       title: `Validate: ${stepTemplate.name}`,
       description: `Review and approve or decline this step. ${stepTemplate.taskDescription || ""}`.trim(),
+      taskType: "validation",
       status: "pending",
       dueAt: null,
-      metadata: {
-        isValidationTask: true,
-        originalStepName: stepTemplate.name,
-        validationConfig,
-      },
+      metadata: {},
       createdAt: new Date(),
       updatedAt: new Date(),
     });

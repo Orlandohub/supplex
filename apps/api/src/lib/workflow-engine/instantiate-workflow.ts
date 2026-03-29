@@ -14,6 +14,7 @@ import {
   stepInstance,
 } from "@supplex/db";
 import { eq, and, asc, isNull } from "drizzle-orm";
+import { WorkflowProcessStatus } from "@supplex/types";
 import { createTasksForStep } from "./create-tasks-for-step";
 
 interface InstantiateWorkflowParams {
@@ -90,14 +91,11 @@ export async function instantiateWorkflow(
         processType: metadata?.processType || "workflow_execution",
         entityType,
         entityId,
-        status: "active",
+        status: "in_progress",
+        workflowTemplateId,
         initiatedBy,
         initiatedDate: new Date(),
-        metadata: {
-          ...metadata,
-          workflowName: template.name,
-          workflowTemplateId,
-        },
+        metadata: metadata || {},
       })
       .returning();
 
@@ -143,6 +141,7 @@ export async function instantiateWorkflow(
           stepOrder: stepTemplate.stepOrder,
           stepName: stepTemplate.name,
           stepType: stepTemplate.stepType,
+          workflowStepTemplateId: stepTemplate.id,
           status: isFirstStep ? "active" : "blocked",
           metadata: {},
         })
@@ -156,10 +155,25 @@ export async function instantiateWorkflow(
       }
     }
 
+    const firstStep = createdSteps.find((s) => s.stepOrder === 1);
+    await db
+      .update(processInstance)
+      .set({
+        status: WorkflowProcessStatus.IN_PROGRESS,
+        currentStepInstanceId: firstStep?.id ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(processInstance.id, process.id));
+
+    const [updatedProcess] = await db
+      .select()
+      .from(processInstance)
+      .where(eq(processInstance.id, process.id));
+
     return {
       success: true,
       data: {
-        processInstance: process,
+        processInstance: updatedProcess,
         steps: createdSteps,
       },
     };

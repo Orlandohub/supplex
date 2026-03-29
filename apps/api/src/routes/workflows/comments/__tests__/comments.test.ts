@@ -81,7 +81,7 @@ describe("Comment Thread Data Model", () => {
         processType: "test_process",
         entityType: "supplier",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
       })
@@ -110,7 +110,7 @@ describe("Comment Thread Data Model", () => {
         processType: "test_process",
         entityType: "supplier",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: otherUserId,
         initiatedDate: new Date(),
       })

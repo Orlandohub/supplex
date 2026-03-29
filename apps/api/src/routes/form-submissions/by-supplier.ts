@@ -32,7 +32,7 @@ export const bySupplierRoute = new Elysia().use(authenticate).get(
           createdAt: formSubmission.createdAt,
           formTemplateName: formTemplate.name,
           processInstanceId: formSubmission.processInstanceId,
-          processMetadata: processInstance.metadata,
+          workflowName: processInstance.workflowName,
           stepName: stepInstance.stepName,
         })
         .from(formSubmission)
@@ -71,8 +71,7 @@ export const bySupplierRoute = new Elysia().use(authenticate).get(
             submittedAt: s.submittedAt,
             createdAt: s.createdAt,
             formTemplateName: s.formTemplateName,
-            workflowName:
-              (s.processMetadata as any)?.workflowName || "Workflow",
+            workflowName: s.workflowName || "Workflow",
             stepName: s.stepName,
             processInstanceId: s.processInstanceId,
           })),

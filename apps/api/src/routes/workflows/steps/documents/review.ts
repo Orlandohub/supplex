@@ -7,6 +7,7 @@ import {
   taskInstance,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
+import { WorkflowProcessStatus } from "@supplex/types";
 import { authenticate } from "../../../../lib/rbac/middleware";
 import { transitionToNextStep } from "../../../../lib/workflow-engine/transition-to-next-step";
 import { createTasksForStep } from "../../../../lib/workflow-engine/create-tasks-for-step";
@@ -136,23 +137,20 @@ export const reviewStepDocumentsRoute = new Elysia()
             )
           );
 
-        // Update process status
         await db
           .update(processInstance)
           .set({
-            status: `${step.stepName} - Documents Declined`,
+            status: WorkflowProcessStatus.DECLINED_RESUBMIT,
             updatedAt: new Date(),
           })
           .where(eq(processInstance.id, step.processInstanceId));
 
         // Re-create tasks for the step (for the uploader to re-upload)
-        const workflowTemplateId = (
-          (await db
-            .select({ metadata: processInstance.metadata })
-            .from(processInstance)
-            .where(eq(processInstance.id, step.processInstanceId))
-          )[0]?.metadata as any
-        )?.workflowTemplateId;
+        const [proc] = await db
+          .select({ workflowTemplateId: processInstance.workflowTemplateId })
+          .from(processInstance)
+          .where(eq(processInstance.id, step.processInstanceId));
+        const workflowTemplateId = proc?.workflowTemplateId;
 
         if (workflowTemplateId) {
           const { workflowStepTemplate } = await import("@supplex/db");

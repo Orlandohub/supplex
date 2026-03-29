@@ -31,11 +31,6 @@ interface User {
   role: string;
 }
 
-interface WorkflowStatusOption {
-  id: string;
-  name: string;
-}
-
 interface WorkflowTypeOption {
   id: string;
   name: string;
@@ -45,12 +40,11 @@ interface WorkflowTypeOption {
 interface Props {
   template: WorkflowTemplate;
   users: User[];
-  workflowStatuses?: WorkflowStatusOption[];
   workflowTypes?: WorkflowTypeOption[];
   token: string;
 }
 
-export function WorkflowTemplateEditor({ template, users, workflowStatuses = [], workflowTypes = [], token }: Props) {
+export function WorkflowTemplateEditor({ template, users, workflowTypes = [], token }: Props) {
   const [activeTab, setActiveTab] = useState("metadata");
   const [isPublishing, setIsPublishing] = useState(false);
   const revalidator = useRevalidator();
@@ -66,7 +60,8 @@ export function WorkflowTemplateEditor({ template, users, workflowStatuses = [],
       const response = await client.api["workflow-templates"][template.id].publish.patch();
 
       if (response.error) {
-        throw new Error("Failed to toggle publish status");
+        const body = (response.error as { value?: { error?: { message?: string } } })?.value;
+        throw new Error(body?.error?.message || "Failed to toggle publish status");
       }
 
       const newStatus = template.status === "draft" ? "published" : "draft";
@@ -83,7 +78,8 @@ export function WorkflowTemplateEditor({ template, users, workflowStatuses = [],
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to update template status",
+        description:
+          error instanceof Error ? error.message : "Failed to update template status",
         variant: "destructive",
       });
     } finally {
@@ -99,7 +95,9 @@ export function WorkflowTemplateEditor({ template, users, workflowStatuses = [],
           <Badge variant={template.status === "published" ? "default" : "secondary"}>
             {template.status.charAt(0).toUpperCase() + template.status.slice(1)}
           </Badge>
-          {!template.active && <Badge variant="outline">Inactive</Badge>}
+          {template.status === "published" && !template.active && (
+            <Badge variant="outline">Inactive</Badge>
+          )}
         </div>
         
         {/* Action Buttons - Always visible */}
@@ -137,7 +135,6 @@ export function WorkflowTemplateEditor({ template, users, workflowStatuses = [],
             canEdit={canEdit}
             users={users}
             token={token}
-            workflowStatuses={workflowStatuses}
           />
         </TabsContent>
       </Tabs>

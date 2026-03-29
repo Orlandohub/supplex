@@ -15,14 +15,39 @@ export enum ProcessType {
 }
 
 /**
- * Process Status Enum
- * Represents the current state of a process instance
+ * Workflow Process Status — maps to the `workflow_process_status` PostgreSQL ENUM.
+ * Only these values can appear in process_instance.status.
  */
-export enum ProcessStatus {
-  ACTIVE = "active",
-  COMPLETED = "completed",
+export enum WorkflowProcessStatus {
+  IN_PROGRESS = "in_progress",
+  PENDING_VALIDATION = "pending_validation",
+  DECLINED_RESUBMIT = "declined_resubmit",
+  COMPLETE = "complete",
   CANCELLED = "cancelled",
-  BLOCKED = "blocked",
+}
+
+/** Human-readable display labels for each status */
+export const WORKFLOW_STATUS_DISPLAY: Record<string, string> = {
+  [WorkflowProcessStatus.IN_PROGRESS]: "In Progress",
+  [WorkflowProcessStatus.PENDING_VALIDATION]: "Pending Validation",
+  [WorkflowProcessStatus.DECLINED_RESUBMIT]: "Declined - Re-Submit",
+  [WorkflowProcessStatus.COMPLETE]: "Complete",
+  [WorkflowProcessStatus.CANCELLED]: "Cancelled",
+};
+
+/**
+ * Build a display string for a workflow status.
+ * For non-terminal statuses, prepends the current step name.
+ */
+export function formatWorkflowStatus(
+  status: string,
+  stepName?: string | null
+): string {
+  const label = WORKFLOW_STATUS_DISPLAY[status] || status;
+  if (status === WorkflowProcessStatus.COMPLETE || status === WorkflowProcessStatus.CANCELLED) {
+    return label;
+  }
+  return stepName ? `${stepName} - ${label}` : label;
 }
 
 /**
@@ -58,7 +83,9 @@ export interface ProcessInstance {
   processType: ProcessType;
   entityType: string;
   entityId: string;
-  status: ProcessStatus;
+  status: WorkflowProcessStatus;
+  currentStepInstanceId: string | null;
+  workflowTemplateId: string | null;
   initiatedBy: string;
   initiatedDate: Date;
   completedDate: Date | null;

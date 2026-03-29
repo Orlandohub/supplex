@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   timestamp,
@@ -10,6 +11,7 @@ import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { users } from "./users";
 import { stepInstance } from "./step-instance";
+import { workflowTemplate } from "./workflow-template";
 
 /**
  * Process Type Enum Values
@@ -24,14 +26,22 @@ export const ProcessType = {
 export type ProcessTypeType = (typeof ProcessType)[keyof typeof ProcessType];
 
 /**
- * Process Status Enum Values
- * Represents the current state of a process instance
+ * Workflow Process Status — PostgreSQL ENUM (migration 0027)
  */
+export const workflowProcessStatusEnum = pgEnum("workflow_process_status", [
+  "in_progress",
+  "pending_validation",
+  "declined_resubmit",
+  "complete",
+  "cancelled",
+]);
+
 export const ProcessStatus = {
-  ACTIVE: "active",
-  COMPLETED: "completed",
+  IN_PROGRESS: "in_progress",
+  PENDING_VALIDATION: "pending_validation",
+  DECLINED_RESUBMIT: "declined_resubmit",
+  COMPLETE: "complete",
   CANCELLED: "cancelled",
-  BLOCKED: "blocked",
 } as const;
 
 export type ProcessStatusType =
@@ -60,9 +70,14 @@ export const processInstance = pgTable(
     processType: varchar("process_type", { length: 100 }).notNull(),
     entityType: varchar("entity_type", { length: 100 }).notNull(),
     entityId: uuid("entity_id").notNull(),
-    status: varchar("status", { length: 50 })
+    status: workflowProcessStatusEnum("status")
       .notNull()
-      .default(ProcessStatus.ACTIVE),
+      .default("in_progress"),
+    currentStepInstanceId: uuid("current_step_instance_id")
+      .references(() => stepInstance.id, { onDelete: "set null" }),
+    workflowTemplateId: uuid("workflow_template_id")
+      .references(() => workflowTemplate.id, { onDelete: "set null" }),
+    workflowName: varchar("workflow_name", { length: 255 }),
     initiatedBy: uuid("initiated_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -94,6 +109,14 @@ export const processInstance = pgTable(
     tenantEntityIdx: index("idx_process_instance_tenant_entity")
       .on(table.tenantId, table.entityType, table.entityId)
       .where(sql`${table.deletedAt} IS NULL`),
+    // Default sort path: tenant + updated_at DESC
+    tenantUpdatedIdx: index("idx_process_instance_tenant_updated")
+      .on(table.tenantId, table.updatedAt)
+      .where(sql`${table.deletedAt} IS NULL`),
+    // Status-filtered sort path: tenant + status + updated_at DESC
+    tenantStatusUpdatedIdx: index("idx_process_instance_tenant_status_updated")
+      .on(table.tenantId, table.status, table.updatedAt)
+      .where(sql`${table.deletedAt} IS NULL`),
   })
 );
 
@@ -111,6 +134,15 @@ export const processInstanceRelations = relations(
     initiator: one(users, {
       fields: [processInstance.initiatedBy],
       references: [users.id],
+    }),
+    currentStep: one(stepInstance, {
+      fields: [processInstance.currentStepInstanceId],
+      references: [stepInstance.id],
+      relationName: "currentStep",
+    }),
+    template: one(workflowTemplate, {
+      fields: [processInstance.workflowTemplateId],
+      references: [workflowTemplate.id],
     }),
     steps: many(stepInstance),
   })

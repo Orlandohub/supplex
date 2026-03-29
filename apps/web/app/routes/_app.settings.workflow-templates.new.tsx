@@ -74,7 +74,7 @@ export async function action(args: ActionFunctionArgs) {
       );
     }
 
-    const template = response.data?.data?.template;
+    const template = response.data?.data as any;
     if (!template?.id) {
       return json(
         { error: "Invalid response from server" },
@@ -96,7 +96,7 @@ export async function action(args: ActionFunctionArgs) {
 export default function NewWorkflowTemplatePage() {
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
-  const [processType, setProcessType] = useState("supplier_qualification");
+  const [processType, setProcessType] = useState("");
 
   return (
     <div className="container mx-auto py-6 space-y-6 max-w-2xl">
@@ -152,12 +152,12 @@ export default function NewWorkflowTemplatePage() {
               <Label htmlFor="processType">Process Type *</Label>
               <Select
                 name="processType"
-                value={processType}
+                value={processType || undefined}
                 onValueChange={setProcessType}
                 required
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select process type" />
+                  <SelectValue placeholder="Choose process type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="supplier_qualification">

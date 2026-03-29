@@ -71,15 +71,12 @@ export const listStepDocumentsRoute = new Elysia()
         )
         .orderBy(asc(workflowStepDocument.requiredDocumentName));
 
-      // Also fetch the document template info for descriptions
-      const workflowTemplateId = (
-        (await db
-          .select({ metadata: processInstance.metadata })
-          .from(processInstance)
-          .where(eq(processInstance.id, step.processInstanceId))
-          .limit(1)
-        )[0]?.metadata as any
-      )?.workflowTemplateId;
+      const [proc] = await db
+        .select({ workflowTemplateId: processInstance.workflowTemplateId })
+        .from(processInstance)
+        .where(eq(processInstance.id, step.processInstanceId))
+        .limit(1);
+      const workflowTemplateId = proc?.workflowTemplateId;
 
       let requiredDocsInfo: { name: string; description?: string; required?: boolean; type?: string; expiryRequired?: boolean }[] = [];
       if (workflowTemplateId) {

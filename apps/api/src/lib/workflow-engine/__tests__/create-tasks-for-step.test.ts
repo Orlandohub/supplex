@@ -59,7 +59,7 @@ describe("createTasksForStep Helper", () => {
         processType: "supplier_qualification",
         entityType: "supplier",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
       })

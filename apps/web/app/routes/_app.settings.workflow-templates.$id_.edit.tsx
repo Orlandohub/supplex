@@ -72,21 +72,18 @@ export async function loader(args: LoaderFunctionArgs) {
 
     const template = templateResponse.data?.data as WorkflowTemplate;
 
-    // Fetch users, workflow statuses, and workflow types in parallel
-    const [usersResponse, workflowStatusesResponse, workflowTypesResponse] = await Promise.all([
+    // Fetch users and workflow types in parallel
+    const [usersResponse, workflowTypesResponse] = await Promise.all([
       client.api.users.get(),
-      client.api.admin["workflow-statuses"].get(),
       client.api.admin["workflow-types"].get(),
     ]);
 
     const users = usersResponse.data?.data?.users || [];
-    const workflowStatuses = (workflowStatusesResponse.data as any)?.data || [];
     const workflowTypes = (workflowTypesResponse.data as any)?.data || [];
 
     return json({
       template,
       users,
-      workflowStatuses,
       workflowTypes,
       token,
     });
@@ -102,7 +99,7 @@ export function shouldRevalidate() {
 }
 
 export default function WorkflowTemplateEditPage() {
-  const { template, users, workflowStatuses, workflowTypes, token } = useLoaderData<typeof loader>();
+  const { template, users, workflowTypes, token } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
   return (
@@ -137,7 +134,6 @@ export default function WorkflowTemplateEditPage() {
         <WorkflowTemplateEditor
           template={template}
           users={users}
-          workflowStatuses={workflowStatuses}
           workflowTypes={workflowTypes}
           token={token}
         />

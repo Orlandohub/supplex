@@ -104,7 +104,7 @@ export { documentTemplate } from "./schema/document-template";
 export { commentThread } from "./schema/comment-thread";
 export { workflowStepDocument } from "./schema/workflow-step-document";
 export { supplierStatus } from "./schema/supplier-status";
-export { workflowStatus } from "./schema/workflow-status";
+// export { workflowStatus } from "./schema/workflow-status"; // REMOVED - Migration 0026
 export { workflowType } from "./schema/workflow-type";
 export { workflowEvent } from "./schema/workflow-event";
 

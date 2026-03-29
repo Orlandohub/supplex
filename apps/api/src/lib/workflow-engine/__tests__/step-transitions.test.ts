@@ -119,13 +119,11 @@ describe("Step Transition Helpers", () => {
         processType: "workflow_execution",
         entityType: "supplier",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
-        metadata: {
-          workflowTemplateId: templateId,
-          workflowName: "Test Workflow",
-        },
+        workflowTemplateId: templateId,
+        metadata: {},
       })
       .returning();
 
@@ -217,13 +215,11 @@ describe("Step Transition Helpers", () => {
         processType: "workflow_execution",
         entityType: "supplier",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
-        metadata: {
-          workflowTemplateId: templateId,
-          workflowName: "Test Workflow",
-        },
+        workflowTemplateId: templateId,
+        metadata: {},
       })
       .returning();
 
@@ -287,13 +283,11 @@ describe("Step Transition Helpers", () => {
         processType: "workflow_execution",
         entityType: "supplier",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
-        metadata: {
-          workflowTemplateId: templateId,
-          workflowName: "Test Workflow",
-        },
+        workflowTemplateId: templateId,
+        metadata: {},
       })
       .returning();
 

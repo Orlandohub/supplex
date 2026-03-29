@@ -158,7 +158,7 @@ describe("POST /api/workflows/instantiate", () => {
         processType: requestBody.metadata.processType,
         entityType: requestBody.entityType,
         entityId: requestBody.entityId,
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
         metadata: requestBody.metadata,
@@ -167,7 +167,7 @@ describe("POST /api/workflows/instantiate", () => {
 
     expect(process).toBeDefined();
     expect(process.tenantId).toBe(tenantId);
-    expect(process.status).toBe("active");
+    expect(process.status).toBe("in_progress");
     expect(process.initiatedBy).toBe(userId);
 
     // Get workflow steps and create step instances
@@ -295,7 +295,7 @@ describe("POST /api/workflows/instantiate", () => {
         processType: "test",
         entityType: "test",
         entityId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         initiatedBy: userId,
         initiatedDate: new Date(),
       })

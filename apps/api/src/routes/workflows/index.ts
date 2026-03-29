@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { instantiateRoute } from "./instantiate";
 import { getProcessRoute } from "./processes/get";
 import { listProcessesRoute } from "./processes/list";
+import { sendReminderRoute } from "./processes/send-reminder";
 import { getStepRoute } from "./steps/get";
 import { completeStepRoute } from "./steps/complete";
 import { stepDocumentsRoutes } from "./steps/documents/index";
@@ -19,8 +20,9 @@ import { auditLogRoute } from "./audit-log";
  *
  * Routes:
  * - POST /api/workflows/instantiate - Instantiate a workflow from template
- * - GET /api/workflows/processes - List all workflow processes for tenant
+ * - GET /api/workflows/processes - List all workflow processes for tenant (paginated)
  * - GET /api/workflows/processes/:id - Get process details
+ * - POST /api/workflows/processes/:id/send-reminder - Send reminder to supplier assignee
  * - GET /api/workflows/steps/:id - Get step details
  * - POST /api/workflows/steps/:id/complete - Complete a step (submit/approve/decline)
  * - GET /api/workflows/steps/:id/comments - Get step comments
@@ -28,13 +30,11 @@ import { auditLogRoute } from "./audit-log";
  * - GET /api/workflows/my-tasks - Get tasks for current user
  * - GET /api/workflows/my-tasks/count - Get task count for badge
  * - GET /api/workflows/supplier/:supplierId/processes - Get all processes for a supplier
- * 
- * Legacy qualification routes removed as per SCP-2026-01-31-001
  */
 export const workflowsRoutes = new Elysia({ prefix: "/api/workflows" })
-  // Workflow engine routes only
   .use(instantiateRoute)
   .use(listProcessesRoute)
+  .use(sendReminderRoute)
   .use(myTasksCountRoute)
   .use(myTasksRoute)
   .use(supplierProcessesRoute)

@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate, workflowStepTemplate } from "@supplex/db";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, ne, sql } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 import { UserRole } from "@supplex/types";
 import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
@@ -88,6 +88,34 @@ export const publishWorkflowTemplateRoute = new Elysia()
                 code: "VALIDATION_ERROR",
                 message:
                   "Cannot publish template without steps. Please add at least one step.",
+                timestamp: new Date().toISOString(),
+              },
+            };
+          }
+
+          // Duplicate name: only one published template per tenant with a given name
+          const [nameConflict] = await db
+            .select({ id: workflowTemplate.id })
+            .from(workflowTemplate)
+            .where(
+              and(
+                eq(workflowTemplate.tenantId, tenantId),
+                eq(workflowTemplate.status, "published"),
+                isNull(workflowTemplate.deletedAt),
+                ne(workflowTemplate.id, templateId),
+                sql`LOWER(TRIM(${workflowTemplate.name})) = LOWER(TRIM(${template.name}))`
+              )
+            )
+            .limit(1);
+
+          if (nameConflict) {
+            set.status = 409;
+            return {
+              success: false,
+              error: {
+                code: "DUPLICATE_TEMPLATE_NAME",
+                message:
+                  "A published workflow template with this name already exists. Rename this template before publishing.",
                 timestamp: new Date().toISOString(),
               },
             };

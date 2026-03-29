@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   text,
@@ -37,6 +38,44 @@ export const TaskInstanceStatus = {
 
 export type TaskInstanceStatusType =
   (typeof TaskInstanceStatus)[keyof typeof TaskInstanceStatus];
+
+/**
+ * Task Type — PostgreSQL ENUM (migration 0028)
+ * Categorises what kind of task this is.
+ */
+export const taskTypeEnum = pgEnum("task_type", [
+  "action",
+  "validation",
+  "resubmission",
+]);
+
+export const TaskType = {
+  ACTION: "action",
+  VALIDATION: "validation",
+  RESUBMISSION: "resubmission",
+} as const;
+
+export type TaskTypeType = (typeof TaskType)[keyof typeof TaskType];
+
+/**
+ * Task Outcome — PostgreSQL ENUM (migration 0028)
+ * Records what happened when the task was completed. NULL while pending.
+ */
+export const taskOutcomeEnum = pgEnum("task_outcome", [
+  "submitted",
+  "approved",
+  "declined",
+  "auto_closed",
+]);
+
+export const TaskOutcome = {
+  SUBMITTED: "submitted",
+  APPROVED: "approved",
+  DECLINED: "declined",
+  AUTO_CLOSED: "auto_closed",
+} as const;
+
+export type TaskOutcomeType = (typeof TaskOutcome)[keyof typeof TaskOutcome];
 
 /**
  * Task Instance Table
@@ -94,9 +133,11 @@ export const taskInstance = pgTable(
     }),
     completionTimeDays: integer("completion_time_days"),
     dueAt: timestamp("due_at", { withTimezone: true, mode: "date" }),
+    taskType: taskTypeEnum("task_type").notNull().default("action"),
     status: varchar("status", { length: 50 })
       .notNull()
       .default(TaskInstanceStatus.PENDING),
+    outcome: taskOutcomeEnum("outcome"),
     completedBy: uuid("completed_by").references(() => users.id, {
       onDelete: "restrict",
     }),

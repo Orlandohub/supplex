@@ -131,10 +131,6 @@ export interface WorkflowStepTemplate {
   requiresValidation: boolean; // When true, system auto-creates validation tasks
   validationConfig: ValidationConfig | Record<string, never>; // Approver roles configuration
 
-  // Completion status tracking (legacy text field kept for backward compat)
-  completionStatus: string | null;
-  workflowStatusId: string | null; // FK to workflow_status - preferred over completionStatus
-
   metadata: Record<string, any>; // Extensible configuration
   createdAt: Date;
   updatedAt: Date;

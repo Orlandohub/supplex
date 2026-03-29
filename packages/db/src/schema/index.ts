@@ -34,6 +34,6 @@ export * from "./document-template";
 export * from "./comment-thread";
 export * from "./workflow-step-document";
 export * from "./supplier-status";
-export * from "./workflow-status";
+// export * from "./workflow-status"; // REMOVED - Migration 0026: workflow status simplified to fixed values
 export * from "./workflow-type";
 export * from "./workflow-event";

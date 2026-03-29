@@ -17,6 +17,7 @@ import {
   supplierStatus,
 } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
+import { WorkflowProcessStatus } from "@supplex/types";
 import { createTasksForStep } from "./create-tasks-for-step";
 import { seedStepDocuments } from "./seed-step-documents";
 
@@ -85,6 +86,15 @@ export async function transitionToNextStep(
       .set({ status: "active" })
       .where(eq(stepInstance.id, nextStep.id));
 
+    await db
+      .update(processInstance)
+      .set({
+        status: WorkflowProcessStatus.IN_PROGRESS,
+        currentStepInstanceId: nextStep.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(processInstance.id, processId));
+
     // Get workflow step template for next step to create tasks
     const [process] = await db
       .select()
@@ -95,11 +105,11 @@ export async function transitionToNextStep(
       throw new Error(`Process instance not found: ${processId}`);
     }
 
-    const workflowTemplateId = (process.metadata as any)?.workflowTemplateId;
+    const workflowTemplateId = process.workflowTemplateId;
     
     if (!workflowTemplateId) {
       throw new Error(
-        `workflowTemplateId not found in process metadata for process ${processId}`
+        `workflowTemplateId not found for process ${processId}`
       );
     }
 
@@ -146,11 +156,11 @@ export async function transitionToNextStep(
       processCompleted: false,
     };
   } else {
-    // No next step - complete the process
     await db
       .update(processInstance)
       .set({
-        status: "completed",
+        status: WorkflowProcessStatus.COMPLETE,
+        currentStepInstanceId: null,
         completedDate: new Date(),
       })
       .where(eq(processInstance.id, processId));
@@ -162,7 +172,7 @@ export async function transitionToNextStep(
       .where(eq(processInstance.id, processId));
 
     if (process?.entityType === "supplier" && process.entityId) {
-      const wfTemplateId = (process.metadata as any)?.workflowTemplateId;
+      const wfTemplateId = process.workflowTemplateId;
       if (wfTemplateId) {
         const [wfTemplate] = await db
           .select({ workflowTypeId: workflowTemplate.workflowTypeId })

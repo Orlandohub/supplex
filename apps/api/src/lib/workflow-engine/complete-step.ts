@@ -16,6 +16,7 @@ import {
   documentTemplate,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
+import { WorkflowProcessStatus } from "@supplex/types";
 import { transitionToNextStep } from "./transition-to-next-step";
 import { createValidationTasks } from "./create-validation-tasks";
 
@@ -86,13 +87,12 @@ export async function completeStep(
         );
 
       if (docs.length > 0) {
-        // Look up document template to determine which docs are required
-        let requiredDocNames = new Set<string>();
+      let requiredDocNames = new Set<string>();
         const [proc] = await db
-          .select({ metadata: processInstance.metadata })
+          .select({ workflowTemplateId: processInstance.workflowTemplateId })
           .from(processInstance)
           .where(eq(processInstance.id, step.processInstanceId));
-        const wfTemplateId = (proc?.metadata as any)?.workflowTemplateId;
+        const wfTemplateId = proc?.workflowTemplateId;
 
         if (wfTemplateId) {
           const [stepTmpl] = await db
@@ -179,15 +179,6 @@ export async function completeStep(
         })
         .where(eq(stepInstance.id, stepInstanceId));
 
-      // Mark process as cancelled
-      await db
-        .update(processInstance)
-        .set({
-          status: "cancelled",
-          completedDate: new Date(),
-        })
-        .where(eq(processInstance.id, process.id));
-
       // Mark all tasks for this step as completed
       await db
         .update(taskInstance)
@@ -249,8 +240,7 @@ export async function completeStep(
           )
         );
 
-      // Resolve step template via process metadata + step order
-      const workflowTemplateId = (process.metadata as any)?.workflowTemplateId;
+      const workflowTemplateId = process.workflowTemplateId;
 
       console.log(`[completeStep] Step ${stepInstanceId}: workflowTemplateId=${workflowTemplateId}, stepOrder=${step.stepOrder}`);
 
@@ -289,6 +279,14 @@ export async function completeStep(
           })
           .where(eq(stepInstance.id, stepInstanceId));
 
+        await db
+          .update(processInstance)
+          .set({
+            status: WorkflowProcessStatus.PENDING_VALIDATION,
+            updatedAt: new Date(),
+          })
+          .where(eq(processInstance.id, process.id));
+
         console.log(`[Validation] Step requires validation, tasks created. Step status: awaiting_validation`);
 
         return {
@@ -299,17 +297,6 @@ export async function completeStep(
             awaitingValidation: true,
           },
         };
-      }
-
-      // If completion_status is defined, update process status
-      if (stepTemplate?.completionStatus) {
-        await db
-          .update(processInstance)
-          .set({
-            status: stepTemplate.completionStatus,
-            updatedAt: new Date(),
-          })
-          .where(eq(processInstance.id, step.processInstanceId));
       }
 
       const transitionResult = await transitionToNextStep(

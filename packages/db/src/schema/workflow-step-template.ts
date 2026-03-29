@@ -17,7 +17,6 @@ import { workflowTemplate } from "./workflow-template";
 import { formTemplate } from "./form-template";
 import { documentTemplate } from "./document-template";
 import { stepApprover } from "./step-approver";
-import { workflowStatus } from "./workflow-status";
 import { workflowType } from "./workflow-type";
 
 /**
@@ -163,13 +162,6 @@ export const workflowStepTemplate = pgTable(
     requiresValidation: boolean("requires_validation").notNull().default(false),
     validationConfig: jsonb("validation_config").notNull().default({}),
 
-    // Completion status tracking (legacy text field kept for backward compat)
-    completionStatus: varchar("completion_status", { length: 100 }),
-    workflowStatusId: uuid("workflow_status_id").references(
-      () => workflowStatus.id,
-      { onDelete: "set null" }
-    ),
-
     // Extensible configuration
     metadata: jsonb("metadata").notNull().default({}),
 
@@ -236,10 +228,6 @@ export const workflowStepTemplateRelations = relations(
     assigneeUser: one(users, {
       fields: [workflowStepTemplate.assigneeUserId],
       references: [users.id],
-    }),
-    workflowStatus: one(workflowStatus, {
-      fields: [workflowStepTemplate.workflowStatusId],
-      references: [workflowStatus.id],
     }),
     approvers: many(stepApprover),
   })

@@ -72,8 +72,6 @@ interface WorkflowStep {
     approverRoles: string[];
     requireAllApprovals?: boolean;
   } | null;
-  completionStatus: string | null;
-  workflowStatusId: string | null;
   approvers?: StepApprover[];
 }
 
@@ -92,17 +90,11 @@ interface User {
   role: string;
 }
 
-interface WorkflowStatusOption {
-  id: string;
-  name: string;
-}
-
 interface Props {
   templateId: string;
   canEdit: boolean;
   users: User[];
   token: string;
-  workflowStatuses?: WorkflowStatusOption[];
 }
 
 // Validation schema for step creation/editing
@@ -119,8 +111,6 @@ const stepSchema = z.object({
   approverCount: z.number().int().positive().optional(),
   requiresValidation: z.boolean().default(false),
   validationApproverRoles: z.array(z.string()).optional(),
-  completionStatus: z.string().max(100).optional(),
-  workflowStatusId: z.string().uuid().optional().nullable(),
 }).refine((data) => {
   // If requiresValidation is true, validationApproverRoles must be non-empty
   if (data.requiresValidation) {
@@ -144,7 +134,6 @@ export function WorkflowStepBuilder({
   canEdit,
   users,
   token,
-  workflowStatuses = [],
 }: Props) {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -245,8 +234,6 @@ export function WorkflowStepBuilder({
         dueDays: step.dueDays || undefined,
         assigneeRole: step.assigneeRole || undefined,
         formTemplateId: step.formTemplateId || undefined,
-        completionStatus: step.completionStatus || undefined,
-        workflowStatusId: step.workflowStatusId || null,
         documentTemplateId: step.documentTemplateId || undefined,
         multiApprover: step.multiApprover,
         approverCount: step.approverCount || undefined,
@@ -620,12 +607,6 @@ export function WorkflowStepBuilder({
                         {step.validationConfig?.approverRoles?.join(", ") || "configured"}
                       </div>
                     )}
-                    {step.workflowStatusId && (
-                      <div>
-                        <span className="font-medium">Status on Completion:</span>{" "}
-                        {workflowStatuses.find((ws) => ws.id === step.workflowStatusId)?.name || "Unknown"}
-                      </div>
-                    )}
                   </div>
 
                   {/* Multi-Approver Configuration */}
@@ -756,40 +737,6 @@ export function WorkflowStepBuilder({
                     </FormControl>
                     <FormDescription>
                       Number of days to complete this task (optional)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Workflow Status on Completion */}
-              <FormField
-                control={form.control}
-                name="workflowStatusId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Workflow Status on Completion (Optional)</FormLabel>
-                    <Select
-                      onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
-                      value={field.value || "__none__"}
-                      disabled={!canEdit}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select workflow status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None (keep unchanged)</SelectItem>
-                        {workflowStatuses.map((ws) => (
-                          <SelectItem key={ws.id} value={ws.id}>
-                            {ws.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      What status should the workflow display when this step completes? Configure statuses in the Workflow Statuses tab.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -1015,6 +962,7 @@ export function WorkflowStepBuilder({
                         {["admin", "procurement_manager", "quality_manager"].map((role) => (
                           <div key={role} className="flex items-center space-x-2">
                             <Checkbox
+                              id={`validation-role-${role}`}
                               checked={field.value?.includes(role)}
                               onCheckedChange={(checked) => {
                                 const current = field.value || [];
@@ -1025,7 +973,7 @@ export function WorkflowStepBuilder({
                                 }
                               }}
                             />
-                            <label className="text-sm font-medium leading-none">
+                            <label htmlFor={`validation-role-${role}`} className="text-sm font-medium leading-none">
                               {role === "admin" ? "Admin" :
                                role === "procurement_manager" ? "Procurement Manager" :
                                "Quality Manager"}

@@ -24,8 +24,8 @@ describe("Auto-Validation Task Creation", () => {
   let tenant: { id: string };
   let user: { id: string };
   let template: { id: string };
-  let stepTemplate: { id: string; workflowStepTemplateId: string };
-  let process: { id: string };
+  let _stepTemplate: { id: string; workflowStepTemplateId: string };
+  let _process: { id: string };
 
   beforeAll(async () => {
     [tenant] = await db
@@ -79,7 +79,7 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    const [step2] = await db
+    const [_step2] = await db
       .insert(workflowStepTemplate)
       .values({
         workflowTemplateId: template.id,
@@ -97,7 +97,7 @@ describe("Auto-Validation Task Creation", () => {
         tenantId: tenant.id,
         workflowTemplateId: template.id,
         supplierId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         createdBy: user.id,
       })
       .returning();
@@ -144,7 +144,7 @@ describe("Auto-Validation Task Creation", () => {
       validationTasks.some((t) => t.assigneeRole === "procurement_manager")
     ).toBe(true);
     expect(
-      validationTasks.every((t) => (t.metadata as any)?.isValidationTask === true)
+      validationTasks.every((t) => t.taskType === "validation")
     ).toBe(true);
 
     // Verify step status is awaiting_validation
@@ -178,7 +178,7 @@ describe("Auto-Validation Task Creation", () => {
         tenantId: tenant.id,
         workflowTemplateId: template.id,
         supplierId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         createdBy: user.id,
       })
       .returning();
@@ -229,7 +229,7 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    const [step2] = await db
+    const [_step2] = await db
       .insert(workflowStepTemplate)
       .values({
         workflowTemplateId: template.id,
@@ -246,7 +246,7 @@ describe("Auto-Validation Task Creation", () => {
         tenantId: tenant.id,
         workflowTemplateId: template.id,
         supplierId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         createdBy: user.id,
       })
       .returning();
@@ -312,7 +312,7 @@ describe("Auto-Validation Task Creation", () => {
         tenantId: tenant.id,
         workflowTemplateId: template.id,
         supplierId: crypto.randomUUID(),
-        status: "active",
+        status: "in_progress",
         createdBy: user.id,
       })
       .returning();

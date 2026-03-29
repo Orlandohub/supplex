@@ -42,10 +42,14 @@ export function WorkflowProcessList({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
 
-  // Filter processes
   const filteredProcesses = processes.filter((process) => {
     if (statusFilter === "all") return true;
-    return process.status === statusFilter;
+    if (statusFilter === "in_progress") return process.status === "in_progress";
+    if (statusFilter === "pending_validation") return process.status === "pending_validation";
+    if (statusFilter === "declined") return process.status === "declined_resubmit";
+    if (statusFilter === "completed") return process.status === "complete";
+    if (statusFilter === "cancelled") return process.status === "cancelled";
+    return true;
   });
 
   // Sort processes
@@ -58,18 +62,25 @@ export function WorkflowProcessList({
     return 0;
   });
 
-  // Get status badge color
+  const STATUS_DISPLAY: Record<string, string> = {
+    in_progress: "In Progress",
+    pending_validation: "Pending Validation",
+    declined_resubmit: "Declined - Re-Submit",
+    complete: "Complete",
+    cancelled: "Cancelled",
+  };
+
+  const getStatusLabel = (status: string): string => {
+    return STATUS_DISPLAY[status] || status;
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-blue-100 text-blue-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    if (status === "complete") return "bg-green-100 text-green-800";
+    if (status === "in_progress") return "bg-blue-100 text-blue-800";
+    if (status === "pending_validation") return "bg-amber-100 text-amber-800";
+    if (status === "declined_resubmit") return "bg-red-100 text-red-800";
+    if (status === "cancelled") return "bg-gray-100 text-gray-800";
+    return "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -88,7 +99,9 @@ export function WorkflowProcessList({
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All</option>
-              <option value="active">Active</option>
+              <option value="in_progress">In Progress</option>
+              <option value="pending_validation">Pending Validation</option>
+              <option value="declined">Declined</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -159,7 +172,7 @@ export function WorkflowProcessList({
                   </p>
                 </div>
                 <Badge className={getStatusColor(process.status)}>
-                  {process.status}
+                  {getStatusLabel(process.status)}
                 </Badge>
               </div>
 

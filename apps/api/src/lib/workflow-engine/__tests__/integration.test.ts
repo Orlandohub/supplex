@@ -175,7 +175,7 @@ describe("Workflow Engine Integration Tests", () => {
       .where(eq(processInstance.id, processId));
 
     expect(process).toBeDefined();
-    expect(process.status).toBe("active");
+    expect(process.status).toBe("in_progress");
     expect(process.entityType).toBe("supplier");
     expect(process.entityId).toBe("supplier-123");
 

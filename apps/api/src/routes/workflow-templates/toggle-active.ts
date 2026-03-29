@@ -57,6 +57,19 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
           };
         }
 
+        if (existing.status !== "published") {
+          set.status = 400;
+          return {
+            success: false,
+            error: {
+              code: "INVALID_STATE",
+              message:
+                "Active/inactive is only available for published templates. Publish the template first.",
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+
         // Toggle active status
         const [updated] = await db
           .update(workflowTemplate)

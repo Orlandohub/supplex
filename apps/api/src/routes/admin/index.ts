@@ -5,7 +5,7 @@ import {
   updateEmailSettingsRoute,
 } from "./email-settings";
 import { supplierStatusRoutes } from "./supplier-statuses";
-import { workflowStatusRoutes } from "./workflow-statuses";
+// import { workflowStatusRoutes } from "./workflow-statuses"; // REMOVED - Migration 0026
 import { workflowTypeRoutes } from "./workflow-types";
 
 /**
@@ -18,5 +18,4 @@ export const adminRoutes = new Elysia({ prefix: "/api/admin" })
   .use(getEmailSettingsRoute)
   .use(updateEmailSettingsRoute)
   .use(supplierStatusRoutes)
-  .use(workflowStatusRoutes)
   .use(workflowTypeRoutes);

@@ -5,7 +5,7 @@
 
 import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { requireAuth } from "~/lib/auth/require-auth";
@@ -58,12 +58,6 @@ interface WorkflowTemplateListItem {
   updatedAt: Date;
 }
 
-interface WorkflowStatusItem {
-  id: string;
-  name: string;
-  displayOrder: number;
-}
-
 interface WorkflowTypeItem {
   id: string;
   name: string;
@@ -94,21 +88,18 @@ export async function loader(args: LoaderFunctionArgs) {
   const client = createEdenTreatyClient(token);
 
   try {
-    const [templatesResponse, statusesResponse, typesResponse, supplierStatusesResponse] = await Promise.all([
+    const [templatesResponse, typesResponse, supplierStatusesResponse] = await Promise.all([
       client.api["workflow-templates"].get({ query: { limit: 100, offset: 0 } }),
-      client.api.admin["workflow-statuses"].get(),
       client.api.admin["workflow-types"].get(),
       client.api.admin["supplier-statuses"].get(),
     ]);
 
     const templates = (templatesResponse.data?.data || []) as WorkflowTemplateListItem[];
-    const workflowStatuses = ((statusesResponse.data as any)?.data || []) as WorkflowStatusItem[];
     const workflowTypes = ((typesResponse.data as any)?.data || []) as WorkflowTypeItem[];
     const supplierStatuses = ((supplierStatusesResponse.data as any)?.data || []) as SupplierStatusItem[];
 
     return json({
       templates,
-      workflowStatuses,
       workflowTypes,
       supplierStatuses,
       token,
@@ -118,7 +109,6 @@ export async function loader(args: LoaderFunctionArgs) {
     console.error("Error fetching workflow templates:", error);
     return json({
       templates: [] as WorkflowTemplateListItem[],
-      workflowStatuses: [] as WorkflowStatusItem[],
       workflowTypes: [] as WorkflowTypeItem[],
       supplierStatuses: [] as SupplierStatusItem[],
       token,
@@ -128,146 +118,8 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 // Allow programmatic revalidation (useRevalidator) but skip on navigation
-export function shouldRevalidate({ formAction, defaultShouldRevalidate }: { formAction: string | null; defaultShouldRevalidate: boolean }) {
+export function shouldRevalidate({ formAction: _formAction, defaultShouldRevalidate }: { formAction: string | null; defaultShouldRevalidate: boolean }) {
   return defaultShouldRevalidate;
-}
-
-function WorkflowStatusesTab({ token }: { token: string }) {
-  const { workflowStatuses } = useLoaderData<typeof loader>();
-  const revalidator = useRevalidator();
-  const { toast } = useToast();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingStatus, setEditingStatus] = useState<WorkflowStatusItem | null>(null);
-  const [name, setName] = useState("");
-  const [displayOrder, setDisplayOrder] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const handleOpenCreate = () => {
-    setEditingStatus(null);
-    setName("");
-    setDisplayOrder(workflowStatuses.length);
-    setIsDialogOpen(true);
-  };
-
-  const handleOpenEdit = (status: WorkflowStatusItem) => {
-    setEditingStatus(status);
-    setName(status.name);
-    setDisplayOrder(status.displayOrder);
-    setIsDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (isSubmitting || !name.trim()) return;
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(
-        `${window.ENV?.API_URL || "http://localhost:3001"}/api/admin/workflow-statuses${editingStatus ? `/${editingStatus.id}` : ""}`,
-        {
-          method: editingStatus ? "PATCH" : "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), displayOrder }),
-        }
-      );
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error);
-      toast({ title: editingStatus ? "Status Updated" : "Status Created" });
-      setIsDialogOpen(false);
-      revalidator.revalidate();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (deletingId) return;
-    setDeletingId(id);
-    try {
-      const res = await fetch(
-        `${window.ENV?.API_URL || "http://localhost:3001"}/api/admin/workflow-statuses/${id}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
-      );
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error);
-      toast({ title: "Status Deleted" });
-      revalidator.revalidate();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Workflow Statuses</h2>
-        <Button size="sm" onClick={handleOpenCreate}>
-          <Plus className="h-4 w-4 mr-2" /> Add Status
-        </Button>
-      </div>
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Order</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {workflowStatuses.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                  No workflow statuses configured. Create one to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              workflowStatuses.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>{s.displayOrder}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(s)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" disabled={deletingId === s.id} onClick={() => handleDelete(s.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingStatus ? "Edit Status" : "Create Status"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Under Review" />
-            </div>
-            <div>
-              <Label>Display Order</Label>
-              <Input type="number" value={displayOrder} onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button disabled={isSubmitting || !name.trim()} onClick={handleSave}>
-              {editingStatus ? "Update" : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
 }
 
 function WorkflowTypesTab({ token }: { token: string }) {
@@ -532,13 +384,8 @@ export default function WorkflowTemplatesPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="templates">Templates</TabsTrigger>
-            <TabsTrigger value="statuses">Workflow Statuses</TabsTrigger>
             <TabsTrigger value="types">Workflow Types</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="statuses">
-            <WorkflowStatusesTab token={token} />
-          </TabsContent>
 
           <TabsContent value="types">
             <WorkflowTypesTab token={token} />
@@ -594,7 +441,9 @@ export default function WorkflowTemplatesPage() {
               <Card
                 key={template.id}
                 className={`cursor-pointer hover:border-primary transition-colors ${
-                  !template.active ? "opacity-60 bg-muted/30" : ""
+                  template.status === "published" && !template.active
+                    ? "opacity-60 bg-muted/30"
+                    : ""
                 }`}
                 onClick={() => handleEditTemplate(template.id)}
               >
@@ -605,7 +454,7 @@ export default function WorkflowTemplatesPage() {
                       <Badge variant={getStatusBadgeVariant(template.status)}>
                         {template.status}
                       </Badge>
-                      {!template.active && (
+                      {template.status === "published" && !template.active && (
                         <Badge variant="outline" className="bg-gray-100">
                           Inactive
                         </Badge>
@@ -629,26 +478,31 @@ export default function WorkflowTemplatesPage() {
                       </div>
                     </div>
                     
-                    {/* Active Toggle */}
-                    <div 
-                      className="flex items-center justify-between pt-3 border-t"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Label 
-                        htmlFor={`active-${template.id}`}
-                        className="text-sm font-medium cursor-pointer"
+                    {template.status === "published" && (
+                      <div
+                        className="flex items-center justify-between pt-3 border-t"
+                        role="group"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}
                       >
-                        {template.active ? "Active" : "Inactive"}
-                      </Label>
-                      <Switch
-                        id={`active-${template.id}`}
-                        checked={template.active}
-                        disabled={isToggling}
-                        onCheckedChange={(checked) => 
-                          handleToggleActive(template.id, template.active, { stopPropagation: () => {} } as any)
-                        }
-                      />
-                    </div>
+                        <Label
+                          htmlFor={`active-${template.id}`}
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          {template.active ? "Active" : "Inactive"}
+                        </Label>
+                        <Switch
+                          id={`active-${template.id}`}
+                          checked={template.active}
+                          disabled={isToggling}
+                          onCheckedChange={() =>
+                            handleToggleActive(template.id, template.active, {
+                              stopPropagation: () => {},
+                            } as any)
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

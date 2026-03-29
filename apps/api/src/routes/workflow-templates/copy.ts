@@ -104,7 +104,6 @@ export const copyWorkflowTemplate = new Elysia()
               multiApprover: step.multiApprover,
               approverCount: step.approverCount,
               declineReturnsToStepOffset: step.declineReturnsToStepOffset,
-              completionStatus: step.completionStatus,
               metadata: step.metadata,
             })
             .returning();

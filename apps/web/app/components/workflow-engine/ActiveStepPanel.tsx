@@ -90,8 +90,7 @@ export function ActiveStepPanel({
   const allTasksCompleted = userTasks.every((t) => t.status === "completed");
 
   // Detect if this step was previously rejected/declined
-  const statusLower = processStatus.toLowerCase();
-  const wasRejected = statusLower.includes("rejected") || statusLower.includes("declined");
+  const wasRejected = processStatus === "declined_resubmit";
   const latestRejectionComment = wasRejected
     ? stepComments
         .filter((c) => c.entityType === "form" || c.entityType === "document")

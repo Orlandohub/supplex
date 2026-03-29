@@ -164,8 +164,6 @@ export const createStepRoute = new Elysia()
             declineReturnsToStepOffset: body.declineReturnsToStepOffset || 1,
             requiresValidation: body.requiresValidation || false,
             validationConfig: body.validationConfig || {},
-            completionStatus: body.completionStatus || null,
-            workflowStatusId: body.workflowStatusId || null,
             metadata: body.metadata || {},
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -226,8 +224,6 @@ export const createStepRoute = new Elysia()
           })
         ),
         metadata: t.Optional(t.Any()),
-        completionStatus: t.Optional(t.String({ maxLength: 100 })),
-        workflowStatusId: t.Optional(t.Nullable(t.String())),
       }),
     }
   );

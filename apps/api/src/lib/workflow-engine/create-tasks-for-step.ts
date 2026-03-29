@@ -265,8 +265,8 @@ export async function createTasksForStep(
           assigneeUserId,
           completionTimeDays: stepTemplate.dueDays || undefined,
           dueAt: dueAt,
+          taskType: options?.isResubmission ? "resubmission" : "action",
           status: "pending",
-          ...(options?.isResubmission ? { metadata: { isResubmission: true } } : {}),
         })
         .returning();
 
@@ -305,8 +305,8 @@ export async function createTasksForStep(
         assigneeUserId,
         completionTimeDays: stepTemplate.dueDays || undefined,
         dueAt: dueAt,
+        taskType: options?.isResubmission ? "resubmission" : "action",
         status: "pending",
-        ...(options?.isResubmission ? { metadata: { isResubmission: true } } : {}),
       })
       .returning();
 

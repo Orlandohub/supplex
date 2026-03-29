@@ -1,20 +1,18 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, Link, useSearchParams, useNavigate } from "@remix-run/react";
+import {
+  useLoaderData,
+  useNavigation,
+  Link,
+  useSearchParams,
+} from "@remix-run/react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
-import { ClipboardList, AlertCircle } from "lucide-react";
+import { DebouncedSearchInput } from "~/components/ui/debounced-search-input";
+import { ClipboardList } from "lucide-react";
+
+/* ===== Types ===== */
 
 interface TaskItem {
   taskId: string;
@@ -29,39 +27,52 @@ interface TaskItem {
   entityName: string;
   processStatus: string;
   processType: string;
+  workflowName: string | null;
   initiatedDate: string;
   initiatedBy: string;
   daysPending: number;
   createdAt: string;
   completedAt: string | null;
+  stepName?: string;
   isResubmission?: boolean;
 }
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "My Tasks | Supplex" },
-    {
-      name: "description",
-      content: "Review pending workflow tasks assigned to you.",
-    },
-  ];
-};
+interface Counts {
+  pending: number;
+  dueToday: number;
+  overdue: number;
+  waitingReview: number;
+  completedThisWeek: number;
+}
+
+/* ===== Meta ===== */
+
+export const meta: MetaFunction = () => [
+  { title: "My Tasks | Supplex" },
+  { name: "description", content: "Review and complete workflow tasks assigned to you." },
+];
+
+/* ===== Loader ===== */
 
 export async function loader(args: LoaderFunctionArgs) {
   const { session } = await requireAuth(args);
-  const url = new URL(args.request.url);
-  const statusFilter = url.searchParams.get("status") || "pending";
-
   const token = session?.access_token;
-  if (!token) {
-    throw new Response("Unauthorized", { status: 401 });
+  if (!token) throw new Response("Unauthorized", { status: 401 });
+
+  const url = new URL(args.request.url);
+  const queryParams: Record<string, string> = {};
+  for (const key of ["view", "search", "status"]) {
+    const val = url.searchParams.get(key);
+    if (val && val !== "all") {
+      queryParams[key] = val;
+    }
   }
 
   const client = createEdenTreatyClient(token);
 
   try {
     const response = await client.api.workflows["my-tasks"].get({
-      query: { status: statusFilter as any },
+      query: queryParams as any,
     });
 
     if (response.error) {
@@ -69,242 +80,338 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to load tasks", { status: 500 });
     }
 
-    const apiResponse = response.data as {
-      success: boolean;
-      data: {
-        tasks: TaskItem[];
-      };
-    };
+    const data = response.data as any;
+    if (!data?.success || !data.data) throw new Response("Invalid API response", { status: 500 });
 
     return json({
-      tasks: apiResponse.data.tasks,
-      statusFilter,
+      tasks: data.data.tasks as TaskItem[],
+      counts: data.data.counts as Counts,
       token,
     });
   } catch (error) {
-    console.error("Failed to fetch tasks:", error);
+    if (error instanceof Response) throw error;
+    console.error("Loader error:", error);
     throw new Response("Failed to load tasks", { status: 500 });
   }
 }
 
-function getStatusBadge(processStatus: string, isResubmission?: boolean) {
-  if (isResubmission) {
-    return (
-      <Badge className="bg-amber-100 text-amber-800 border-amber-300">
-        Resubmission Required
-      </Badge>
-    );
-  }
+/* ===== Helpers ===== */
 
-  const lower = processStatus.toLowerCase();
-  if (lower.includes("approved")) {
-    return (
-      <Badge className="bg-green-100 text-green-800 border-green-300">
-        {processStatus}
-      </Badge>
-    );
-  }
+const PROCESS_STATUS_DISPLAY: Record<string, string> = {
+  in_progress: "In Progress",
+  pending_validation: "Pending Validation",
+  declined_resubmit: "Declined - Resubmit",
+  complete: "Complete",
+  cancelled: "Cancelled",
+};
 
-  return <Badge variant="secondary">{processStatus}</Badge>;
+const PROCESS_STATUS_CLASSES: Record<string, string> = {
+  in_progress: "border-blue-200 bg-blue-50 text-blue-700",
+  pending_validation: "border-amber-200 bg-amber-50 text-amber-700",
+  declined_resubmit: "border-red-200 bg-red-50 text-red-700",
+  complete: "border-green-200 bg-green-50 text-green-700",
+  cancelled: "border-gray-200 bg-gray-100 text-gray-500",
+};
+
+const TASK_STATUS_CLASSES: Record<string, string> = {
+  pending: "border-blue-200 bg-blue-50 text-blue-700",
+  completed: "border-green-200 bg-green-50 text-green-700",
+};
+
+function prettifyType(type: string): string {
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getTaskStatusBadge(taskStatus: string) {
-  if (taskStatus === "completed") {
-    return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+function dueUrgency(task: TaskItem): { primary: string; secondary: string; tone: "red" | "amber" | "gray" | "muted" } {
+  if (task.taskStatus === "completed") {
+    if (task.completedAt) {
+      const diff = Date.now() - new Date(task.completedAt).getTime();
+      const days = Math.floor(diff / 86_400_000);
+      const label = days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days}d ago`;
+      return { primary: "Completed", secondary: label, tone: "gray" };
+    }
+    return { primary: "Completed", secondary: "", tone: "gray" };
   }
-  return <Badge className="bg-blue-100 text-blue-800">Pending</Badge>;
+
+  if (!task.dueAt) {
+    return { primary: "No due date", secondary: "", tone: "muted" };
+  }
+
+  const now = new Date();
+  const due = new Date(task.dueAt);
+  const diffMs = due.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / 86_400_000);
+  const timeStr = due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+  if (diffDays < 0) {
+    return { primary: "Overdue", secondary: `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? "s" : ""}`, tone: "red" };
+  }
+
+  const isToday = due.toDateString() === now.toDateString();
+  if (isToday) {
+    return { primary: "Today", secondary: timeStr, tone: "amber" };
+  }
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (due.toDateString() === tomorrow.toDateString()) {
+    return { primary: "Tomorrow", secondary: timeStr, tone: "amber" };
+  }
+
+  const dateStr = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return { primary: dateStr, secondary: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, tone: "muted" };
 }
+
+/* ===== Constants ===== */
+
+const VIEW_TABS = [
+  { value: "pending", label: "Pending" },
+  { value: "due_today", label: "Due Today" },
+  { value: "overdue", label: "Overdue" },
+  { value: "waiting_review", label: "Waiting Review" },
+  { value: "completed_this_week", label: "Completed This Week" },
+  { value: "all", label: "All" },
+] as const;
+
+const EMPTY_STATES: Record<string, { title: string; desc: string }> = {
+  pending:              { title: "No Pending Tasks",           desc: "You don't have any workflow tasks awaiting your action right now." },
+  due_today:            { title: "Nothing Due Today",          desc: "No tasks are due today. You're all caught up!" },
+  overdue:              { title: "No Overdue Tasks",           desc: "All your tasks are on track. No overdue items detected." },
+  waiting_review:       { title: "No Tasks Waiting Review",    desc: "No validation tasks are waiting for your review." },
+  completed_this_week:  { title: "No Completions This Week",   desc: "No tasks have been completed this week yet." },
+  all:                  { title: "No Tasks Found",             desc: "You don't have any workflow tasks assigned to you." },
+};
+
+const DUE_TONE: Record<string, string> = {
+  red: "text-red-600",
+  amber: "text-amber-600",
+  gray: "text-gray-400",
+  muted: "text-gray-600",
+};
+
+/* ===== Page Component ===== */
 
 export default function MyTasksPage() {
-  const { tasks, statusFilter } = useLoaderData<typeof loader>();
-  const navigate = useNavigate();
+  const { tasks, counts } = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isLoading = navigation.state === "loading";
 
-  const handleFilterChange = (newFilter: string) => {
-    navigate(`/tasks?status=${newFilter}`);
-  };
+  const currentView = searchParams.get("view") || "pending";
+  const currentSearch = searchParams.get("search") || "";
+
+  function updateParams(updates: Record<string, string | null>) {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (!value || value === "all") next.delete(key);
+      else next.set(key, value);
+    }
+    setSearchParams(next);
+  }
+
+  function resetToPage1(updates: Record<string, string | null>) {
+    updateParams({ ...updates, page: null });
+  }
+
+  function tabCount(v: string): number | null {
+    if (v === "due_today") return counts.dueToday;
+    if (v === "overdue") return counts.overdue;
+    if (v === "waiting_review") return counts.waitingReview;
+    if (v === "pending") return counts.pending;
+    return null;
+  }
+
+  const empty = EMPTY_STATES[currentView] ?? EMPTY_STATES.all;
+
+  const summaryCards = [
+    { label: "Pending", count: counts.pending, view: "pending" },
+    { label: "Due Today", count: counts.dueToday, view: "due_today" },
+    { label: "Overdue", count: counts.overdue, view: "overdue", warn: true },
+    { label: "Waiting Review", count: counts.waitingReview, view: "waiting_review" },
+    { label: "Completed This Week", count: counts.completedThisWeek, view: "completed_this_week" },
+  ];
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <ClipboardList className="h-8 w-8" />
-            My Tasks
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Review and complete workflow tasks assigned to you
-          </p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+
+        {/* ── Top Panel ── */}
+        <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200 space-y-5">
+
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">My Tasks</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Review and complete workflow tasks assigned to you.
+            </p>
+          </div>
+
+          {/* Summary strip */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            {summaryCards.map((c) => {
+              const active = currentView === c.view;
+              return (
+                <button
+                  key={c.view}
+                  onClick={() => resetToPage1({ view: c.view === "pending" ? null : c.view, search: null })}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    active
+                      ? "border-gray-400 bg-gray-50 ring-1 ring-gray-300"
+                      : "border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    {c.label}
+                  </div>
+                  <div className={`mt-1 text-2xl font-semibold tabular-nums ${
+                    c.warn && c.count > 0 ? "text-red-600" : "text-gray-900"
+                  }`}>
+                    {c.count}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* View tabs */}
+          <div className="flex flex-wrap gap-1.5">
+            {VIEW_TABS.map((tab) => {
+              const active = currentView === tab.value || (currentView === "pending" && tab.value === "pending" && !searchParams.has("view"));
+              const cnt = tabCount(tab.value);
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => resetToPage1({ view: tab.value === "pending" ? null : tab.value, search: null })}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    active ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {tab.label}
+                  {cnt != null && cnt > 0 && (
+                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${
+                      active
+                        ? tab.value === "overdue" ? "bg-red-500 text-white" : "bg-white/20 text-white"
+                        : tab.value === "overdue" ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-600"
+                    }`}>
+                      {cnt}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search */}
+          <DebouncedSearchInput
+            value={currentSearch}
+            onChange={(v) => resetToPage1({ search: v || null })}
+            placeholder="Search tasks, suppliers, workflows..."
+            className="w-full"
+          />
         </div>
+
+        {/* ── Empty state ── */}
+        {!isLoading && tasks.length === 0 && (
+          <div className="rounded-lg bg-white p-12 shadow-sm ring-1 ring-gray-200 text-center">
+            <ClipboardList className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              {currentSearch ? "No Results" : empty.title}
+            </h2>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              {currentSearch ? `No tasks found matching "${currentSearch}"` : empty.desc}
+            </p>
+          </div>
+        )}
+
+        {/* ── Task List ── */}
         {tasks.length > 0 && (
-          <Badge variant="secondary" className="text-lg px-4 py-2">
-            {tasks.length} {statusFilter === "completed" ? "completed" : statusFilter === "all" ? "total" : "pending"}
-          </Badge>
+          <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden ${
+            isLoading ? "opacity-60 pointer-events-none" : ""
+          }`}>
+            <div className="divide-y divide-gray-100">
+              {tasks.map((task) => (
+                <TaskRow key={task.taskId} task={task} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ===== Row Component ===== */
+
+function TaskRow({ task }: { task: TaskItem }) {
+  const urgency = dueUrgency(task);
+  const isCompleted = task.taskStatus === "completed";
+
+  return (
+    <div className="grid gap-x-6 gap-y-4 px-6 py-5 lg:grid-cols-3 lg:items-start">
+
+      {/* ── Section 1: Task Identity ── */}
+      <div className="space-y-1.5">
+        <div className="font-semibold text-gray-900">{task.taskTitle}</div>
+        <div>
+          <div className="font-medium text-gray-900">{task.entityName}</div>
+          <div className="text-sm text-gray-500 capitalize">{task.entityType}</div>
+        </div>
+        {task.workflowName && (
+          <div className="text-sm text-gray-400">{task.workflowName}</div>
+        )}
+        {!task.workflowName && (
+          <div className="text-sm text-gray-400">{prettifyType(task.processType)}</div>
         )}
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex gap-2 mb-6">
-        {[
-          { label: "Pending", value: "pending" },
-          { label: "Completed", value: "completed" },
-          { label: "All", value: "all" },
-        ].map((filter) => (
-          <Button
-            key={filter.value}
-            variant={statusFilter === filter.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleFilterChange(filter.value)}
-          >
-            {filter.label}
-          </Button>
-        ))}
+      {/* ── Section 2: Due Date (prominent) ── */}
+      <div className="flex flex-col justify-center">
+        <div className="text-xs text-gray-500 mb-0.5">Due</div>
+        <div className={`text-lg font-semibold ${DUE_TONE[urgency.tone]}`}>
+          {urgency.primary}
+        </div>
+        {urgency.secondary && (
+          <div className={`text-sm font-medium ${DUE_TONE[urgency.tone]}`}>
+            {urgency.secondary}
+          </div>
+        )}
       </div>
 
-      {/* Empty State */}
-      {tasks.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <ClipboardList className="h-16 w-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">No Pending Tasks</h2>
-            <p className="text-muted-foreground text-center max-w-md">
-              You don&apos;t have any workflow tasks awaiting your action at this
-              time. New tasks will appear here when workflows require your
-              input or approval.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Desktop Table */}
-          <div className="hidden md:block">
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Task</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>Initiated By</TableHead>
-                    <TableHead>Initiated Date</TableHead>
-                    <TableHead>Task Status</TableHead>
-                    <TableHead>Workflow Status</TableHead>
-                    <TableHead>Days Pending</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tasks.map((task) => (
-                    <TableRow key={task.taskId}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <div>{task.taskTitle}</div>
-                          {task.taskDescription && (
-                            <div className="text-sm text-muted-foreground truncate max-w-xs">
-                              {task.taskDescription}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{task.entityName}</div>
-                          <div className="text-sm text-muted-foreground capitalize">
-                            {task.entityType}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{task.initiatedBy}</TableCell>
-                      <TableCell>
-                        {new Date(task.initiatedDate).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {getTaskStatusBadge(task.taskStatus)}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(task.processStatus, task.isResubmission)}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={
-                            task.daysPending > 7
-                              ? "text-destructive font-semibold"
-                              : ""
-                          }
-                        >
-                          {task.daysPending}{" "}
-                          {task.daysPending === 1 ? "day" : "days"}
-                          {task.daysPending > 7 && (
-                            <AlertCircle className="inline ml-1 h-4 w-4" />
-                          )}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button asChild size="sm">
-                          <Link to={`/workflows/processes/${task.processId}`}>
-                            View
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+      {/* ── Section 3: Status + Action ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          <div>
+            <div className="text-xs text-gray-500 mb-0.5">Task</div>
+            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${
+              TASK_STATUS_CLASSES[task.taskStatus] ?? "border-gray-200 bg-gray-50 text-gray-600"
+            }`}>
+              {task.taskStatus === "completed" ? "Completed" : "Pending"}
+            </span>
           </div>
-
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-4">
-            {tasks.map((task) => (
-              <Card key={task.taskId}>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    <span>{task.taskTitle}</span>
-                    {getStatusBadge(task.processStatus, task.isResubmission)}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Entity:</span>{" "}
-                    {task.entityName}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Initiated by:</span>{" "}
-                    {task.initiatedBy}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Initiated:</span>{" "}
-                    {new Date(task.initiatedDate).toLocaleDateString()}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Days pending:</span>{" "}
-                    <span
-                      className={
-                        task.daysPending > 7
-                          ? "text-destructive font-semibold"
-                          : ""
-                      }
-                    >
-                      {task.daysPending}{" "}
-                      {task.daysPending === 1 ? "day" : "days"}
-                    </span>
-                  </div>
-                  {task.taskDescription && (
-                    <div className="text-sm pt-2">
-                      <span className="text-muted-foreground">Description:</span>
-                      <p className="mt-1">{task.taskDescription}</p>
-                    </div>
-                  )}
-                  <Button asChild className="w-full mt-4">
-                    <Link to={`/workflows/processes/${task.processId}`}>
-                      View Workflow
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+          <div>
+            <div className="text-xs text-gray-500 mb-0.5">Workflow step</div>
+            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${
+              PROCESS_STATUS_CLASSES[task.processStatus] ?? "border-gray-200 bg-gray-50 text-gray-600"
+            }`}>
+              {task.stepName
+                ? `${task.stepName} - ${PROCESS_STATUS_DISPLAY[task.processStatus] ?? task.processStatus}`
+                : PROCESS_STATUS_DISPLAY[task.processStatus] ?? task.processStatus}
+            </span>
           </div>
-        </>
-      )}
+          {task.isResubmission && (
+            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 text-amber-700 px-2.5 py-0.5 text-[11px] font-medium leading-tight">
+              Re-Submit
+            </span>
+          )}
+        </div>
+        <div className="shrink-0">
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/workflows/processes/${task.processId}`}>
+              {isCompleted ? "View" : "Open"}
+            </Link>
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

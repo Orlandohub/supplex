@@ -5,7 +5,7 @@
  * Updated: Story 2.2.14 - Uses formTemplateId instead of versionId
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
 import { useState } from "react";
 
@@ -96,7 +96,7 @@ export async function loader(args: LoaderFunctionArgs) {
           workflowContext = {
             processInstanceId: submission.processInstanceId,
             workflowName:
-              (process?.metadata as any)?.workflowName ||
+              process?.workflowName ||
               process?.processType?.replace(/_/g, " ") ||
               "Workflow",
             stepName: currentStep?.stepName || "Form Step",
@@ -301,10 +301,11 @@ export default function FormExecutionPage() {
 
           {showDeclineForm ? (
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-900">
+              <label htmlFor="decline-reason" className="block text-sm font-medium text-gray-900">
                 Reason for declining
               </label>
               <textarea
+                id="decline-reason"
                 value={declineComment}
                 onChange={(e) => setDeclineComment(e.target.value)}
                 placeholder="Please explain why this submission is being declined..."

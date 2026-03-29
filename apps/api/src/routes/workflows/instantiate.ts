@@ -21,6 +21,7 @@ import { createTasksForStep } from "../../lib/workflow-engine/create-tasks-for-s
 import { seedStepDocuments } from "../../lib/workflow-engine/seed-step-documents";
 import { authenticate } from "../../lib/rbac/middleware";
 import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
+import { WorkflowProcessStatus } from "@supplex/types";
 
 export const instantiateRoute = new Elysia()
   .use(authenticate)
@@ -78,14 +79,12 @@ export const instantiateRoute = new Elysia()
             processType: metadata?.processType || "workflow_execution",
             entityType: entityType || "workflow",
             entityId: entityId || workflowTemplateId,
-            status: "active",
+            status: "in_progress",
+            workflowTemplateId,
+            workflowName: template.name,
             initiatedBy: user.id,
             initiatedDate: new Date(),
-            metadata: {
-              ...metadata,
-              workflowName: template.name,
-              workflowTemplateId,
-            },
+            metadata: metadata || {},
           })
           .returning();
 
@@ -131,12 +130,9 @@ export const instantiateRoute = new Elysia()
               stepOrder: stepTemplate.stepOrder,
               stepName: stepTemplate.name,
               stepType: stepTemplate.stepType,
+              workflowStepTemplateId: stepTemplate.id,
               status: isFirstStep ? "active" : "blocked",
-              metadata: {
-                requiresValidation: stepTemplate.requiresValidation || false,
-                validationConfig: stepTemplate.validationConfig || {},
-                workflowStepTemplateId: stepTemplate.id,
-              },
+              metadata: {},
             })
             .returning();
 
@@ -164,6 +160,15 @@ export const instantiateRoute = new Elysia()
 
         const firstStep = createdSteps.find((s) => s.stepOrder === 1);
 
+        await db
+          .update(processInstance)
+          .set({
+            status: WorkflowProcessStatus.IN_PROGRESS,
+            currentStepInstanceId: firstStep?.id ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(processInstance.id, process.id));
+
         logWorkflowEvent({
           tenantId: user.tenantId,
           processInstanceId: process.id,
@@ -183,7 +188,7 @@ export const instantiateRoute = new Elysia()
           data: {
             processInstanceId: process.id,
             firstStepId: firstStep?.id,
-            status: process.status,
+            status: WorkflowProcessStatus.IN_PROGRESS,
             initiatedDate: process.initiatedDate,
             totalSteps: createdSteps.length,
           },
