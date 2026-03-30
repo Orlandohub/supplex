@@ -51,18 +51,18 @@ export const getStepRoute = new Elysia()
           };
         }
 
-        // Query workflow step template configuration (simplified query)
-        const stepTemplates = await db
-          .select()
-          .from(workflowStepTemplate)
-          .where(
-            and(
-              eq(workflowStepTemplate.tenantId, user.tenantId),
-              eq(workflowStepTemplate.stepOrder, step.stepOrder)
-            )
-          );
-
-        const stepTemplate = stepTemplates[0] || null;
+        // Query workflow step template via direct FK
+        const stepTemplate = step.workflowStepTemplateId
+          ? (await db
+              .select()
+              .from(workflowStepTemplate)
+              .where(
+                and(
+                  eq(workflowStepTemplate.id, step.workflowStepTemplateId),
+                  eq(workflowStepTemplate.tenantId, user.tenantId)
+                )
+              ))[0] || null
+          : null;
 
         // Query tasks for this step
         const tasks = await db

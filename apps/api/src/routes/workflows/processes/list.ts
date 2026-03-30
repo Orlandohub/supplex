@@ -187,7 +187,7 @@ export const listProcessesRoute = new Elysia()
         const completedStepCountSq = sql<number>`(
           SELECT COUNT(*)::int FROM step_instance si
           WHERE si.process_instance_id = ${processInstance.id}
-            AND si.status = 'completed'
+            AND si.status IN ('completed', 'validated')
             AND si.deleted_at IS NULL
         )`.as("completedStepCount");
 

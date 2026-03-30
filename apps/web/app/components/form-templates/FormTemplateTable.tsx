@@ -176,7 +176,6 @@ export function FormTemplateTable({
                           e.stopPropagation();
                         }
                       }}
-                      role="group"
                       tabIndex={-1}
                     >
                       <Button

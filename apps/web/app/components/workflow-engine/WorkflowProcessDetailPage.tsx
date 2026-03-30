@@ -208,7 +208,7 @@ export function WorkflowProcessDetailPage({
         : "Internal review in progress";
 
   // Progress stats
-  const completedSteps = steps.filter((s) => s.status === "complete").length;
+  const completedSteps = steps.filter((s) => s.status === "completed" || s.status === "validated").length;
   const totalSteps = steps.length;
   const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
@@ -270,7 +270,7 @@ export function WorkflowProcessDetailPage({
               {(entityLabel || waitingContext) && (
                 <p className="mt-1 text-sm text-gray-500">
                   {entityLabel}
-                  {waitingContext && <> &middot; {waitingContext}</>}
+                  {waitingContext && <span> &middot; {waitingContext}</span>}
                 </p>
               )}
             </div>
@@ -351,111 +351,9 @@ export function WorkflowProcessDetailPage({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Task Assignments</h3>
-            {(() => {
-              const assignedUsers = getAssignedUsersForStep(activeStep.id);
-
-              if (assignedUsers.length === 0) {
-                return (
-                  <p className="text-gray-500 text-sm">
-                    No tasks assigned for the current step.
-                  </p>
-                );
-              }
-
-              return (
-                <>
-                  {/* Desktop: Table */}
-                  <div className="hidden md:block">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Task</th>
-                          <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Assigned To</th>
-                          <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Created On</th>
-                          <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Completed On</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assignedUsers.map((u) => (
-                          <tr
-                            key={u.taskId}
-                            className={`border-b last:border-0 ${u.status === "pending" ? "bg-blue-50/50 border-l-2 border-l-blue-500" : ""}`}
-                          >
-                            <td className="py-3 px-2 text-sm">
-                              <div className="flex items-center space-x-2">
-                                <span>{u.taskTitle}</span>
-                                <Badge
-                                  className={
-                                    u.status === "completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : u.isResubmission
-                                        ? "bg-amber-100 text-amber-800"
-                                        : "bg-blue-100 text-blue-800"
-                                  }
-                                >
-                                  {u.status === "completed" ? "Completed" : u.isResubmission ? "Re-submission" : "Pending"}
-                                </Badge>
-                              </div>
-                            </td>
-                            <td className="py-3 px-2 text-sm font-medium">{u.fullName}</td>
-                            <td className="py-3 px-2 text-sm text-gray-600">
-                              {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
-                            </td>
-                            <td className="py-3 px-2 text-sm text-gray-600">
-                              {u.completedAt ? new Date(u.completedAt).toLocaleDateString() : "-"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile: Card List */}
-                  <div className="md:hidden space-y-3">
-                    {assignedUsers.map((u) => (
-                      <div
-                        key={u.taskId}
-                        className={`p-4 border rounded-lg space-y-2 ${u.status === "pending" ? "border-l-2 border-l-blue-500 bg-blue-50/30" : ""}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-500">Task</p>
-                            <p className="text-sm font-medium">{u.taskTitle}</p>
-                          </div>
-                          <Badge
-                            className={
-                              u.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : u.isResubmission
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-blue-100 text-blue-800"
-                            }
-                          >
-                            {u.status === "completed" ? "Completed" : u.isResubmission ? "Re-submission" : "Pending"}
-                          </Badge>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Assigned To</p>
-                          <p className="text-sm font-medium">{u.fullName}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Created On</p>
-                          <p className="text-sm text-gray-600">
-                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Completed On</p>
-                          <p className="text-sm text-gray-600">
-                            {u.completedAt ? new Date(u.completedAt).toLocaleDateString() : "-"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              );
-            })()}
+            <TaskAssignmentsContent
+              assignedUsers={getAssignedUsersForStep(activeStep.id)}
+            />
           </Card>
         </div>
       )}
@@ -547,6 +445,122 @@ export function WorkflowProcessDetailPage({
   );
 }
 
+interface AssignedUser {
+  taskId: string;
+  taskTitle: string;
+  status: string;
+  isResubmission: boolean;
+  fullName: string;
+  createdAt: string | null;
+  completedAt: string | null;
+}
+
+function TaskAssignmentsContent({ assignedUsers }: { assignedUsers: AssignedUser[] }) {
+  if (assignedUsers.length === 0) {
+    return (
+      <div>
+        <p className="text-gray-500 text-sm">
+          No tasks assigned for the current step.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Desktop: Table */}
+      <div className="hidden md:block">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Task</th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Assigned To</th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Created On</th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Completed On</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assignedUsers.map((u) => (
+              <tr
+                key={u.taskId}
+                className={`border-b last:border-0 ${u.status === "pending" ? "bg-blue-50/50 border-l-2 border-l-blue-500" : ""}`}
+              >
+                <td className="py-3 px-2 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <span>{u.taskTitle}</span>
+                    <Badge
+                      className={
+                        u.status === "completed"
+                          ? "bg-green-100 text-green-800"
+                          : u.isResubmission
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-blue-100 text-blue-800"
+                      }
+                    >
+                      {u.status === "completed" ? "Completed" : u.isResubmission ? "Re-submission" : "Pending"}
+                    </Badge>
+                  </div>
+                </td>
+                <td className="py-3 px-2 text-sm font-medium">{u.fullName}</td>
+                <td className="py-3 px-2 text-sm text-gray-600">
+                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
+                </td>
+                <td className="py-3 px-2 text-sm text-gray-600">
+                  {u.completedAt ? new Date(u.completedAt).toLocaleDateString() : "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile: Card List */}
+      <div className="md:hidden space-y-3">
+        {assignedUsers.map((u) => (
+          <div
+            key={u.taskId}
+            className={`p-4 border rounded-lg space-y-2 ${u.status === "pending" ? "border-l-2 border-l-blue-500 bg-blue-50/30" : ""}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Task</p>
+                <p className="text-sm font-medium">{u.taskTitle}</p>
+              </div>
+              <Badge
+                className={
+                  u.status === "completed"
+                    ? "bg-green-100 text-green-800"
+                    : u.isResubmission
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-blue-100 text-blue-800"
+                }
+              >
+                {u.status === "completed" ? "Completed" : u.isResubmission ? "Re-submission" : "Pending"}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Assigned To</p>
+              <p className="text-sm font-medium">{u.fullName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Created On</p>
+              <p className="text-sm text-gray-600">
+                {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Completed On</p>
+              <p className="text-sm text-gray-600">
+                {u.completedAt ? new Date(u.completedAt).toLocaleDateString() : "-"}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const EVENT_DOT_COLORS: Record<string, string> = {
   process_instantiated: "bg-blue-500",
   process_completed: "bg-green-500",
@@ -626,53 +640,49 @@ function WorkflowHistory({
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Workflow History</h3>
 
-      {loading && (
-        <p className="text-gray-500 text-sm py-4 text-center">Loading history...</p>
-      )}
-
-      {error && (
-        <p className="text-red-500 text-sm py-4 text-center">{error}</p>
-      )}
-
-      {loaded && !loading && events.length === 0 && (
-        <p className="text-gray-500 text-sm py-4 text-center">
-          No history events yet. Events will appear here as actions are performed.
-        </p>
-      )}
-
-      {events.length > 0 && (
-        <div className="space-y-4">
-          {events.map((event) => (
-            <div
-              key={event.id}
-              className="flex items-start space-x-4 pb-4 border-b last:border-0"
-            >
+      <div>
+        {loading ? (
+          <p className="text-gray-500 text-sm py-4 text-center">Loading history...</p>
+        ) : error ? (
+          <p className="text-red-500 text-sm py-4 text-center">{error}</p>
+        ) : loaded && events.length === 0 ? (
+          <p className="text-gray-500 text-sm py-4 text-center">
+            No history events yet. Events will appear here as actions are performed.
+          </p>
+        ) : events.length > 0 ? (
+          <div className="space-y-4">
+            {events.map((event) => (
               <div
-                className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${
-                  EVENT_DOT_COLORS[event.eventType] || "bg-gray-400"
-                }`}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">{event.eventDescription}</p>
-                <p className="text-sm text-gray-500">
-                  by {event.actorName}{" "}
-                  <span className="text-gray-400">
-                    ({event.actorRole.replace(/_/g, " ")})
-                  </span>
-                </p>
-                {event.comment && (
-                  <p className="text-sm text-gray-600 mt-1 italic">
-                    &ldquo;{event.comment}&rdquo;
+                key={event.id}
+                className="flex items-start space-x-4 pb-4 border-b last:border-0"
+              >
+                <div
+                  className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${
+                    EVENT_DOT_COLORS[event.eventType] || "bg-gray-400"
+                  }`}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900">{event.eventDescription}</p>
+                  <p className="text-sm text-gray-500">
+                    by {event.actorName}{" "}
+                    <span className="text-gray-400">
+                      ({event.actorRole.replace(/_/g, " ")})
+                    </span>
                   </p>
-                )}
+                  {event.comment && (
+                    <p className="text-sm text-gray-600 mt-1 italic">
+                      &ldquo;{event.comment}&rdquo;
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 whitespace-nowrap">
+                  {new Date(event.createdAt).toLocaleString()}
+                </p>
               </div>
-              <p className="text-xs text-gray-400 whitespace-nowrap">
-                {new Date(event.createdAt).toLocaleString()}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : null}
+      </div>
     </Card>
   );
 }
