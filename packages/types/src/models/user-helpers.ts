@@ -1,8 +1,24 @@
 import { UserRole } from "./user";
 
 /**
- * User Metadata Structure for Supabase Auth
- * This structure is stored in auth.users.user_metadata field
+ * Authorization claims stored in Supabase app_metadata (not user-modifiable).
+ * Written only via Admin/service_role API.
+ */
+export interface UserAuthMetadata {
+  role: UserRole;
+  tenant_id: string;
+}
+
+/**
+ * Profile data stored in Supabase user_metadata (user-modifiable, non-sensitive).
+ */
+export interface UserProfileMetadata {
+  full_name: string;
+}
+
+/**
+ * @deprecated Use UserAuthMetadata + UserProfileMetadata instead.
+ * Kept temporarily for downstream migration — will be removed in SEC-010.
  */
 export interface UserMetadata {
   role: UserRole;
@@ -30,7 +46,32 @@ export interface AuthenticatedUser {
 }
 
 /**
- * Helper to create user metadata for Supabase Auth
+ * Create authorization claims for Supabase app_metadata.
+ */
+export function createUserAuthMetadata(
+  role: UserRole,
+  tenantId: string
+): UserAuthMetadata {
+  return {
+    role,
+    tenant_id: tenantId,
+  };
+}
+
+/**
+ * Create profile data for Supabase user_metadata.
+ */
+export function createUserProfileMetadata(
+  fullName: string
+): UserProfileMetadata {
+  return {
+    full_name: fullName,
+  };
+}
+
+/**
+ * @deprecated Use createUserAuthMetadata + createUserProfileMetadata instead.
+ * Kept temporarily for downstream migration — will be removed in SEC-010.
  */
 export function createUserMetadata(
   role: UserRole,
@@ -45,24 +86,26 @@ export function createUserMetadata(
 }
 
 /**
- * Helper to extract user role from Supabase Auth metadata
+ * Extract user role from Supabase Auth metadata (app_metadata).
+ * Throws on missing or invalid role — silent downgrade to VIEWER is a security risk.
  */
 export function extractRoleFromMetadata(
   metadata: Record<string, any> | undefined
 ): UserRole {
   if (!metadata || !metadata.role) {
-    // Default to viewer if no role is set
-    return UserRole.VIEWER;
+    throw new Error(
+      `Missing role in auth metadata. Got: ${JSON.stringify(metadata ?? null)}`
+    );
   }
 
-  // Validate that the role is a valid UserRole
   const role = metadata.role as string;
   if (Object.values(UserRole).includes(role as UserRole)) {
     return role as UserRole;
   }
 
-  // Default to viewer if invalid role
-  return UserRole.VIEWER;
+  throw new Error(
+    `Invalid role "${role}" in auth metadata. Valid roles: ${Object.values(UserRole).join(", ")}`
+  );
 }
 
 /**

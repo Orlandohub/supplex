@@ -2,7 +2,9 @@ import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { verifyDocumentAccess } from "../../lib/rbac/entity-authorization";
 import { supabaseAdmin } from "../../lib/supabase";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/documents/:id/download
@@ -15,7 +17,7 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
   .use(authenticate)
   .get(
     "/documents/:id/download",
-    async ({ params, user, set }) => {
+    async ({ params, user, set, requestLogger }: any) => {
       const { id } = params;
 
       // Fetch document and verify tenant ownership
@@ -32,8 +34,13 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
         .limit(1);
 
       if (!document) {
-        set.status = 404;
-        throw new Error("Document not found or does not belong to your tenant");
+        throw Errors.notFound("Document not found or does not belong to your tenant");
+      }
+
+      // Entity-level authorization: supplier_user can only download their own documents
+      const access = await verifyDocumentAccess(user, document, db);
+      if (!access.allowed) {
+        throw Errors.forbidden(access.reason || "Access denied");
       }
 
       try {
@@ -44,12 +51,8 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
             .createSignedUrl(document.storagePath, 300);
 
         if (signedUrlError || !signedUrlData) {
-          console.error(
-            "[DOWNLOAD] Signed URL generation error:",
-            signedUrlError
-          );
-          set.status = 500;
-          throw new Error(
+          requestLogger.error({ err: signedUrlError }, "signed URL generation error");
+          throw Errors.internal(
             `Failed to generate download URL: ${signedUrlError?.message || "Unknown error"}`
           );
         }
@@ -60,9 +63,9 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
           mimeType: document.mimeType,
         };
       } catch (error) {
-        console.error("[DOWNLOAD] Error:", error);
-        set.status = 500;
-        throw new Error("Failed to generate download URL");
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error generating download URL");
+        throw Errors.internal("Failed to generate download URL");
       }
     },
     {

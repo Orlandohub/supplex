@@ -2,9 +2,9 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate, workflowStepTemplate } from "@supplex/db";
 import { eq, and, isNull, ne, sql } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
 import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PATCH /api/workflow-templates/:id/publish
@@ -19,23 +19,10 @@ import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-eve
  * Returns: Updated template
  */
 export const publishWorkflowTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .patch(
     "/:templateId/publish",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { templateId } = params;
@@ -54,16 +41,7 @@ export const publishWorkflowTemplateRoute = new Elysia()
           .limit(1);
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_NOT_FOUND",
-              message:
-                "Workflow template not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
         }
 
         // If publishing (draft → published), validate structure
@@ -81,16 +59,7 @@ export const publishWorkflowTemplateRoute = new Elysia()
             );
 
           if (!stepCount || stepCount.count === 0) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "VALIDATION_ERROR",
-                message:
-                  "Cannot publish template without steps. Please add at least one step.",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest("Cannot publish template without steps. Please add at least one step.", "VALIDATION_ERROR");
           }
 
           // Duplicate name: only one published template per tenant with a given name
@@ -109,16 +78,7 @@ export const publishWorkflowTemplateRoute = new Elysia()
             .limit(1);
 
           if (nameConflict) {
-            set.status = 409;
-            return {
-              success: false,
-              error: {
-                code: "DUPLICATE_TEMPLATE_NAME",
-                message:
-                  "A published workflow template with this name already exists. Rename this template before publishing.",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.conflict("A published workflow template with this name already exists. Rename this template before publishing.", "DUPLICATE_TEMPLATE_NAME");
           }
         }
 
@@ -152,17 +112,9 @@ export const publishWorkflowTemplateRoute = new Elysia()
           message: `Template ${newStatus === "published" ? "published" : "unpublished"} successfully`,
         };
       } catch (error: any) {
-        console.error("Error toggling publish status:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to toggle publish status",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow template publish toggle failed");
+        throw Errors.internal("Failed to toggle publish status");
       }
     },
     {

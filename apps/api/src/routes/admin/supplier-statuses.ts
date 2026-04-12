@@ -2,19 +2,11 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { supplierStatus, suppliers } from "@supplex/db";
 import { eq, and, count } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
-
+import { Errors } from "../../lib/errors";
 export const supplierStatusRoutes = new Elysia()
-  .use(authenticate)
   .get(
     "/supplier-statuses",
-    async ({ user, set }) => {
-      if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
-      }
-
+    async ({ user, set }: any) => {
       const rows = await db
         .select()
         .from(supplierStatus)
@@ -26,12 +18,7 @@ export const supplierStatusRoutes = new Elysia()
   )
   .post(
     "/supplier-statuses",
-    async ({ body, user, set }) => {
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Access denied. Admin role required." };
-      }
-
+    async ({ body, user, set }: any) => {
       const { name, displayOrder, isDefault } = body;
 
       const [created] = await db
@@ -56,12 +43,7 @@ export const supplierStatusRoutes = new Elysia()
   )
   .patch(
     "/supplier-statuses/:id",
-    async ({ params, body, user, set }) => {
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Access denied. Admin role required." };
-      }
-
+    async ({ params, body, user, set }: any) => {
       const [existing] = await db
         .select()
         .from(supplierStatus)
@@ -73,8 +55,7 @@ export const supplierStatusRoutes = new Elysia()
         );
 
       if (!existing) {
-        set.status = 404;
-        return { success: false, error: "Supplier status not found" };
+        throw Errors.notFound("Supplier status not found");
       }
 
       const [updated] = await db
@@ -101,12 +82,7 @@ export const supplierStatusRoutes = new Elysia()
   )
   .delete(
     "/supplier-statuses/:id",
-    async ({ params, user, set }) => {
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Access denied. Admin role required." };
-      }
-
+    async ({ params, user, set }: any) => {
       const [existing] = await db
         .select()
         .from(supplierStatus)
@@ -118,8 +94,7 @@ export const supplierStatusRoutes = new Elysia()
         );
 
       if (!existing) {
-        set.status = 404;
-        return { success: false, error: "Supplier status not found" };
+        throw Errors.notFound("Supplier status not found");
       }
 
       const [usageCount] = await db
@@ -128,11 +103,9 @@ export const supplierStatusRoutes = new Elysia()
         .where(eq(suppliers.supplierStatusId, params.id));
 
       if (usageCount && usageCount.cnt > 0) {
-        set.status = 409;
-        return {
-          success: false,
-          error: `Cannot delete: status is assigned to ${usageCount.cnt} supplier(s)`,
-        };
+        throw Errors.conflict(
+          `Cannot delete: status is assigned to ${usageCount.cnt} supplier(s)`
+        );
       }
 
       await db

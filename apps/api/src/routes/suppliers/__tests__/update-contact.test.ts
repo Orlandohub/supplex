@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { Elysia, t } from "elysia";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import { UserRole } from "@supplex/types";
+import { withApiErrorHandler } from "../../../lib/test-utils";
 
 /**
  * Backend Unit Tests for Supplier Contact Update Endpoint
@@ -37,7 +38,7 @@ const validSupplierId = "550e8400-e29b-41d4-a716-446655440000";
 
 // Create a simplified test route that mimics the authorization logic
 function createTestRoute(user: AuthContext["user"]) {
-  return new Elysia({ prefix: "/suppliers" })
+  return withApiErrorHandler(new Elysia({ prefix: "/suppliers" })
     .derive(() => ({ user, headers: {} as Record<string, string | undefined> }))
     .patch(
       "/:id/contact",
@@ -53,7 +54,6 @@ function createTestRoute(user: AuthContext["user"]) {
             error: {
               code: "FORBIDDEN",
               message: "Access denied. Required role: Admin or Procurement Manager",
-              timestamp: new Date().toISOString(),
             },
           };
         }
@@ -65,7 +65,6 @@ function createTestRoute(user: AuthContext["user"]) {
           error: {
             code: "NOT_FOUND",
             message: "Supplier contact user not found",
-            timestamp: new Date().toISOString(),
           },
         };
       },
@@ -79,7 +78,7 @@ function createTestRoute(user: AuthContext["user"]) {
           isActive: t.Optional(t.Boolean()),
         }),
       }
-    );
+    ));
 }
 
 describe("Supplier Contact Update API", () => {
@@ -258,7 +257,6 @@ describe("Supplier Contact Update API", () => {
       expect(result).toHaveProperty("error");
       expect(result.error).toHaveProperty("code");
       expect(result.error).toHaveProperty("message");
-      expect(result.error).toHaveProperty("timestamp");
     });
 
     it("should not expose stack traces in errors", async () => {

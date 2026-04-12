@@ -21,7 +21,7 @@ export const listWorkflowTemplatesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/",
-    async ({ query, user, set }: any) => {
+    async ({ query, user, set, requestLogger }: any) => {
 
       try {
         const tenantId = user.tenantId as string;
@@ -65,7 +65,7 @@ export const listWorkflowTemplatesRoute = new Elysia()
           data: templates,
         };
       } catch (error: any) {
-        console.error("Error listing workflow templates:", error);
+        requestLogger.error({ err: error }, "Workflow template list failed");
         set.status = 500;
         return {
           success: false,

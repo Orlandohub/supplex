@@ -8,6 +8,7 @@
  */
 
 import { Elysia, t } from "elysia";
+import { ApiError, Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
 import {
   stepInstance,
@@ -17,19 +18,18 @@ import {
 } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { authenticate } from "../../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
+import { verifyStepProcessAccess } from "../../../lib/rbac/entity-authorization";
 
 export const getStepRoute = new Elysia()
   .use(authenticate)
   .get(
     "/steps/:stepInstanceId",
-    async ({ params, user }) => {
+    async ({ params, user, set, requestLogger }: any) => {
       const { stepInstanceId } = params;
 
       if (!user?.id || !user?.tenantId) {
-        return {
-          success: false,
-          error: "Unauthorized",
-        };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       try {
@@ -45,11 +45,16 @@ export const getStepRoute = new Elysia()
           );
 
         if (!step) {
-          return {
-            success: false,
-            error: "Step instance not found",
-          };
+          throw Errors.notFound("Step instance not found");
         }
+
+        // Entity-level authorization: supplier_user can only access their own processes
+        const access = await verifyStepProcessAccess(user, stepInstanceId, db);
+        if (!access.allowed) {
+          throw Errors.forbidden(access.reason || "Access denied");
+        }
+
+        const isSupplierUser = user.role === UserRole.SUPPLIER_USER;
 
         // Query workflow step template via direct FK
         const stepTemplate = step.workflowStepTemplateId
@@ -87,22 +92,27 @@ export const getStepRoute = new Elysia()
           )
           .orderBy(commentThread.createdAt);
 
+        const filteredTasks = isSupplierUser
+          ? tasks.filter(
+              (t) =>
+                t.assigneeUserId === user.id ||
+                t.assigneeRole === "supplier_user"
+            )
+          : tasks;
+
         return {
           success: true,
           data: {
             step,
             stepTemplate,
-            tasks,
+            tasks: filteredTasks,
             comments,
           },
         };
       } catch (error) {
-        console.error("Error fetching step:", error);
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : "Failed to fetch step",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error fetching step");
+        throw Errors.internal("Failed to fetch step");
       }
     },
     {

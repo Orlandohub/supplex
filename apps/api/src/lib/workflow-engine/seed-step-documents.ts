@@ -1,35 +1,32 @@
 /**
  * Seed Workflow Step Documents
  * Story: 2.2.17 - Workflow Document Upload
+ * Updated: Story 2.2.19 - Transaction threading (tx required)
  *
  * When a document step activates, create one workflow_step_document row
  * per required document in the linked document template.
  */
 
-import { db as defaultDb } from "../db";
+import type { DbOrTx } from "@supplex/db";
 import {
   workflowStepDocument,
   workflowStepTemplate,
   documentTemplate,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-
-interface RequiredDocumentItem {
-  name: string;
-  description?: string;
-  required?: boolean;
-  type?: string;
-}
+import type { Logger } from "pino";
+import type { RequiredDocumentItem } from "@supplex/types";
+import defaultLogger from "../logger";
 
 export async function seedStepDocuments(
+  tx: DbOrTx,
   stepInstanceId: string,
   processInstanceId: string,
   workflowStepTemplateId: string,
   tenantId: string,
-  db: NodePgDatabase<any> = defaultDb
+  log?: Logger
 ): Promise<number> {
-  const [stepTmpl] = await db
+  const [stepTmpl] = await tx
     .select({
       documentTemplateId: workflowStepTemplate.documentTemplateId,
       stepType: workflowStepTemplate.stepType,
@@ -47,7 +44,7 @@ export async function seedStepDocuments(
     return 0;
   }
 
-  const [docTmpl] = await db
+  const [docTmpl] = await tx
     .select({ requiredDocuments: documentTemplate.requiredDocuments })
     .from(documentTemplate)
     .where(eq(documentTemplate.id, stepTmpl.documentTemplateId));
@@ -57,8 +54,7 @@ export async function seedStepDocuments(
   const requiredDocs = docTmpl.requiredDocuments as RequiredDocumentItem[];
   if (requiredDocs.length === 0) return 0;
 
-  // Check if rows already exist (idempotency for re-activation after decline)
-  const existing = await db
+  const existing = await tx
     .select({ requiredDocumentName: workflowStepDocument.requiredDocumentName })
     .from(workflowStepDocument)
     .where(
@@ -74,7 +70,7 @@ export async function seedStepDocuments(
 
   if (toInsert.length === 0) return 0;
 
-  await db.insert(workflowStepDocument).values(
+  await tx.insert(workflowStepDocument).values(
     toInsert.map((doc) => ({
       tenantId,
       processInstanceId,
@@ -84,8 +80,7 @@ export async function seedStepDocuments(
     }))
   );
 
-  console.log(
-    `[seedStepDocuments] Seeded ${toInsert.length} document rows for step ${stepInstanceId}`
-  );
+  const seedLog = (log || defaultLogger).child({ action: "seedStepDocuments", tenantId, stepId: stepInstanceId });
+  seedLog.info({ seededCount: toInsert.length }, "seeded document rows for step");
   return toInsert.length;
 }

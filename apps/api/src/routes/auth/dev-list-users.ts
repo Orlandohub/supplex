@@ -3,6 +3,7 @@ import { config } from "../../config";
 import { db } from "../../lib/db";
 import { tenants, users, suppliers } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
+import { Errors } from "../../lib/errors";
 
 /**
  * Development Quick Login - List Users Endpoint
@@ -13,11 +14,10 @@ import { eq, and, isNull } from "drizzle-orm";
  * Security: Environment check ensures this route is never accessible in production.
  */
 export const devListUsersRoute = new Elysia({ prefix: "/auth" })
-  .get("/dev/users", async ({ set }) => {
+  .get("/dev/users", async ({ set, requestLogger }) => {
     // CRITICAL: Environment check FIRST - reject in production
     if (config.nodeEnv !== "development") {
-      set.status = 404;
-      return { error: "Not found" };
+      throw Errors.notFound("Not found");
     }
 
     try {
@@ -95,11 +95,8 @@ export const devListUsersRoute = new Elysia({ prefix: "/auth" })
         tenants: tenantsWithUsers,
       };
     } catch (error) {
-      console.error("❌ Dev list users error:", error);
-      set.status = 500;
-      return {
-        error: "Failed to fetch users for development quick login",
-      };
+      requestLogger.error({ err: error }, "Dev list users error");
+      throw Errors.internal("Failed to fetch users for development quick login");
     }
   }, {
     detail: {

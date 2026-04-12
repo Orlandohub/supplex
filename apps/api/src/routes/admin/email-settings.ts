@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { tenants } from "@supplex/db";
 import { eq } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import type { AuthContext } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/admin/email-settings
@@ -12,20 +12,10 @@ import { UserRole } from "@supplex/types";
  * Auth: Requires Admin role
  */
 export const getEmailSettingsRoute = new Elysia()
-  .use(authenticate)
   .get(
     "/email-settings",
-    async ({ user, set }: any) => {
+    async ({ user, set, requestLogger }: any) => {
       try {
-        // Check for admin role with null checks
-        if (!user?.role || user.role !== UserRole.ADMIN) {
-          set.status = 403;
-          return {
-            success: false,
-            error: "Access denied. Admin role required.",
-          };
-        }
-
         const tenantId = user.tenantId as string;
 
         // Fetch tenant
@@ -34,11 +24,7 @@ export const getEmailSettingsRoute = new Elysia()
         });
 
         if (!tenant) {
-          set.status = 404;
-          return {
-            success: false,
-            error: "Tenant not found",
-          };
+          throw Errors.notFound("Tenant not found");
         }
 
         // Extract email notification settings
@@ -64,12 +50,9 @@ export const getEmailSettingsRoute = new Elysia()
           data: settings,
         };
       } catch (error: any) {
-        console.error("Error fetching email settings:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Email settings fetch failed");
+        throw Errors.internal("Internal server error");
       }
     },
     {
@@ -91,20 +74,10 @@ export const getEmailSettingsRoute = new Elysia()
  * Auth: Requires Admin role
  */
 export const updateEmailSettingsRoute = new Elysia()
-  .use(authenticate)
   .put(
     "/email-settings",
-    async ({ body, user, set }: any) => {
+    async ({ body, user, set, requestLogger }: any) => {
       try {
-        // Check for admin role with null checks
-        if (!user?.role || user.role !== UserRole.ADMIN) {
-          set.status = 403;
-          return {
-            success: false,
-            error: "Access denied. Admin role required.",
-          };
-        }
-
         const tenantId = user.tenantId as string;
         const {
           workflowSubmitted,
@@ -120,11 +93,7 @@ export const updateEmailSettingsRoute = new Elysia()
         });
 
         if (!tenant) {
-          set.status = 404;
-          return {
-            success: false,
-            error: "Tenant not found",
-          };
+          throw Errors.notFound("Tenant not found");
         }
 
         // Merge email notification settings into tenant settings
@@ -167,12 +136,9 @@ export const updateEmailSettingsRoute = new Elysia()
           message: "Email settings updated successfully",
         };
       } catch (error: any) {
-        console.error("Error updating email settings:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Email settings update failed");
+        throw Errors.internal("Internal server error");
       }
     },
     {

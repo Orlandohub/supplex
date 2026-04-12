@@ -5,9 +5,9 @@ import {
   workflowStepTemplate,
   formTemplate,
 } from "@supplex/db";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
 import { eq, and, isNull, desc } from "drizzle-orm";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * POST /api/workflow-templates/:workflowId/steps
@@ -20,23 +20,10 @@ import { eq, and, isNull, desc } from "drizzle-orm";
  * Returns: Created step
  */
 export const createStepRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .post(
     "/:workflowId/steps",
-    async ({ params, body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -51,28 +38,12 @@ export const createStepRoute = new Elysia()
         });
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
         // Enforce immutability
         if (template.status !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message: "Cannot modify published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest("Cannot modify published template. Please copy the template to make changes.", "TEMPLATE_PUBLISHED");
         }
 
         // Validate form template if provided
@@ -86,45 +57,27 @@ export const createStepRoute = new Elysia()
           });
 
           if (!formTemplateRecord) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "INVALID_FORM_TEMPLATE",
-                message: "Form template not found",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest("Form template not found", "INVALID_FORM_TEMPLATE");
           }
 
           // Verify it's published (only published templates should be referenced in workflow templates)
           if (formTemplateRecord.status !== "published") {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "FORM_TEMPLATE_NOT_PUBLISHED",
-                message: "Only published form templates can be used in workflow templates",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest("Only published form templates can be used in workflow templates", "FORM_TEMPLATE_NOT_PUBLISHED");
           }
         }
 
-        // Document template validation removed - legacy feature (Migration 0017)
+        // Mandatory template selection (Story 2.2.18)
+        if (body.stepType === "form" && !body.formTemplateId) {
+          throw Errors.badRequest("A form template is required for form steps", "MISSING_FORM_TEMPLATE");
+        }
+        if (body.stepType === "document" && !body.documentTemplateId) {
+          throw Errors.badRequest("A document template is required for document steps", "MISSING_DOCUMENT_TEMPLATE");
+        }
 
         // Validation config validation (Story 2.2.15)
         if (body.requiresValidation) {
           if (!body.validationConfig?.approverRoles || body.validationConfig.approverRoles.length === 0) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "INVALID_VALIDATION_CONFIG",
-                message: "When requiresValidation is true, validationConfig.approverRoles must be a non-empty array",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest("When requiresValidation is true, validationConfig.approverRoles must be a non-empty array", "INVALID_VALIDATION_CONFIG");
           }
         }
 
@@ -159,8 +112,6 @@ export const createStepRoute = new Elysia()
             formActionMode: body.formActionMode || null,
             documentTemplateId: body.documentTemplateId || null,
             documentActionMode: body.documentActionMode || null,
-            multiApprover: body.multiApprover || false,
-            approverCount: body.approverCount || null,
             declineReturnsToStepOffset: body.declineReturnsToStepOffset || 1,
             requiresValidation: body.requiresValidation || false,
             validationConfig: body.validationConfig || {},
@@ -175,16 +126,9 @@ export const createStepRoute = new Elysia()
           data: newStep,
         };
       } catch (error: any) {
-        console.error("Error creating step:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create step",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow step creation failed");
+        throw Errors.internal("Failed to create step");
       }
     },
     {
@@ -213,14 +157,13 @@ export const createStepRoute = new Elysia()
         documentActionMode: t.Optional(t.Nullable(
           t.Union([t.Literal("upload"), t.Literal("validate")])
         )),
-        multiApprover: t.Optional(t.Boolean()),
-        approverCount: t.Optional(t.Number()),
         declineReturnsToStepOffset: t.Optional(t.Number()),
         requiresValidation: t.Optional(t.Boolean()),
         validationConfig: t.Optional(
           t.Object({
             approverRoles: t.Array(t.String()),
             requireAllApprovals: t.Optional(t.Boolean()),
+            validationDueDays: t.Optional(t.Number()),
           })
         ),
         metadata: t.Optional(t.Any()),

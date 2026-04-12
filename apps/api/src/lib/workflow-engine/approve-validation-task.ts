@@ -1,14 +1,21 @@
 /**
  * Approve Validation Task Helper
  * Story: 2.2.15 - Auto-Validation Task Creation
- * 
- * Handles approval of validation tasks and activates next step when all validations complete
+ * Updated: Story 2.2.19 - Transaction threading, atomic CAS transitions
+ * Updated: WFH-002 - Transaction integrity fix (throw post-CAS, remove outer try-catch)
+ *
+ * Error contract:
+ *   Task CAS miss (already processed)   → return { success: false, ... }
+ *   Step CAS miss (concurrent claim)     → return { success: true, nextStepActivated: false }
+ *   Post-CAS unexpected errors           → throw (caller's transaction rolls back)
  */
 
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { taskInstance, stepInstance, processInstance } from "@supplex/db";
+import type { DbOrTx } from "@supplex/db";
+import { taskInstance, stepInstance, StepStatus, processInstance } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { transitionToNextStep } from "./transition-to-next-step";
+import type { Logger } from "pino";
+import defaultLogger from "../logger";
 
 interface ApproveValidationTaskParams {
   tenantId: string;
@@ -27,147 +34,120 @@ interface ApproveValidationTaskResult {
 }
 
 export async function approveValidationTask(
-  db: NodePgDatabase<any>,
-  params: ApproveValidationTaskParams
+  tx: DbOrTx,
+  params: ApproveValidationTaskParams,
+  log?: Logger
 ): Promise<ApproveValidationTaskResult> {
   const { tenantId, taskInstanceId, userId } = params;
+  const valLog = (log || defaultLogger).child({ action: "approveValidationTask", tenantId, taskId: taskInstanceId });
 
-  try {
-    // Get the validation task
-    const [task] = await db
-      .select()
-      .from(taskInstance)
-      .where(
-        and(
-          eq(taskInstance.id, taskInstanceId),
-          eq(taskInstance.tenantId, tenantId)
-        )
-      );
+  // Gate CAS: only succeed if task is currently 'pending'
+  const [completedTask] = await tx
+    .update(taskInstance)
+    .set({
+      status: "completed",
+      outcome: "approved",
+      completedBy: userId,
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(taskInstance.id, taskInstanceId),
+        eq(taskInstance.tenantId, tenantId),
+        eq(taskInstance.status, "pending")
+      )
+    )
+    .returning();
 
-    if (!task) {
-      return {
-        success: false,
-        allValidationsComplete: false,
-        nextStepActivated: false,
-        error: "Task not found",
-      };
-    }
-
-    if (task.taskType !== "validation") {
-      return {
-        success: false,
-        allValidationsComplete: false,
-        nextStepActivated: false,
-        error: "This is not a validation task",
-      };
-    }
-
-    // Mark validation task as completed
-    await db
-      .update(taskInstance)
-      .set({
-        status: "completed",
-        completedBy: userId,
-        completedAt: new Date(),
-      })
-      .where(eq(taskInstance.id, taskInstanceId));
-
-    console.log(`[Validation] Task ${taskInstanceId} approved by user ${userId}`);
-
-    // Get all validation tasks for this step
-    const allValidationTasks = await db
-      .select()
-      .from(taskInstance)
-      .where(
-        and(
-          eq(taskInstance.stepInstanceId, task.stepInstanceId),
-          eq(taskInstance.tenantId, tenantId)
-        )
-      );
-
-    const validationTasks = allValidationTasks.filter(
-      (t) => t.taskType === "validation"
-    );
-
-    const allComplete = validationTasks.every((t) => t.status === "completed");
-
-    if (allComplete) {
-      console.log(`[Validation] All validation tasks complete for step ${task.stepInstanceId}`);
-
-      // Get step instance
-      const [step] = await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, task.stepInstanceId));
-
-      if (!step) {
-        return {
-          success: false,
-          allValidationsComplete: true,
-          nextStepActivated: false,
-          error: "Step instance not found",
-        };
-      }
-
-      // Get process instance
-      const [process] = await db
-        .select()
-        .from(processInstance)
-        .where(eq(processInstance.id, step.processInstanceId));
-
-      if (!process) {
-        return {
-          success: false,
-          allValidationsComplete: true,
-          nextStepActivated: false,
-          error: "Process instance not found",
-        };
-      }
-
-      // Update step status to validated
-      await db
-        .update(stepInstance)
-        .set({
-          status: "validated",
-          updatedAt: new Date(),
-        })
-        .where(eq(stepInstance.id, task.stepInstanceId));
-
-      // Transition handles setting process status to "{NextStep} - In Progress" or "Complete"
-      const transitionResult = await transitionToNextStep(
-        task.stepInstanceId,
-        process.id,
-        tenantId,
-        db
-      );
-
-      console.log(`[Validation] Next step activated: ${transitionResult.nextStepActivated}`);
-
-      return {
-        success: true,
-        allValidationsComplete: true,
-        nextStepActivated: transitionResult.nextStepActivated,
-        processCompleted: transitionResult.processCompleted,
-        nextStepId: transitionResult.nextStepId,
-      };
-    } else {
-      console.log(`[Validation] Waiting for more approvals. ${validationTasks.filter(t => t.status === "completed").length}/${validationTasks.length} complete`);
-
-      const remaining = validationTasks.filter(t => t.status === "pending").length;
-      return {
-        success: true,
-        allValidationsComplete: false,
-        remainingApprovals: remaining,
-        nextStepActivated: false,
-      };
-    }
-  } catch (error) {
-    console.error("Error approving validation task:", error);
+  if (!completedTask) {
     return {
       success: false,
       allValidationsComplete: false,
       nextStepActivated: false,
-      error: error instanceof Error ? error.message : "Failed to approve validation task",
+      error: "Task already processed",
     };
   }
+
+  // ═══ POINT OF NO RETURN — errors throw from here ═══
+
+  if (completedTask.taskType !== "validation") {
+    throw new Error("Approved task is not a validation task");
+  }
+
+  valLog.info({ userId }, "validation task approved");
+
+  // Check remaining pending validation tasks for this step
+  const pendingValidations = await tx
+    .select({ id: taskInstance.id })
+    .from(taskInstance)
+    .where(
+      and(
+        eq(taskInstance.stepInstanceId, completedTask.stepInstanceId),
+        eq(taskInstance.tenantId, tenantId),
+        eq(taskInstance.taskType, "validation"),
+        eq(taskInstance.status, "pending")
+      )
+    );
+
+  if (pendingValidations.length > 0) {
+    valLog.info({ remaining: pendingValidations.length }, "waiting for more approvals");
+    return {
+      success: true,
+      allValidationsComplete: false,
+      remainingApprovals: pendingValidations.length,
+      nextStepActivated: false,
+    };
+  }
+
+  // All validations complete — attempt atomic CAS to claim the transition
+  const [transitioned] = await tx
+    .update(stepInstance)
+    .set({
+      status: StepStatus.VALIDATED,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(stepInstance.id, completedTask.stepInstanceId),
+        eq(stepInstance.status, StepStatus.AWAITING_VALIDATION)
+      )
+    )
+    .returning();
+
+  if (!transitioned) {
+    // Concurrent request already claimed the transition — our task approval stands
+    return {
+      success: true,
+      allValidationsComplete: true,
+      nextStepActivated: false,
+    };
+  }
+
+  valLog.info({ stepId: completedTask.stepInstanceId }, "all validation tasks complete for step");
+
+  const [process] = await tx
+    .select()
+    .from(processInstance)
+    .where(eq(processInstance.id, transitioned.processInstanceId));
+
+  if (!process) {
+    throw new Error(`Process instance not found: ${transitioned.processInstanceId}`);
+  }
+
+  const transitionResult = await transitionToNextStep(
+    tx,
+    completedTask.stepInstanceId,
+    process.id,
+    tenantId
+  );
+
+  valLog.info({ nextStepActivated: transitionResult.nextStepActivated }, "transition after validation");
+
+  return {
+    success: true,
+    allValidationsComplete: true,
+    nextStepActivated: transitionResult.nextStepActivated,
+    processCompleted: transitionResult.processCompleted,
+    nextStepId: transitionResult.nextStepId,
+  };
 }

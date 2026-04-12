@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { getPublishedFormTemplatesRoute } from "../get-published-by-tenant";
+import { withApiErrorHandler } from "../../../lib/test-utils";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import { UserRole } from "@supplex/types";
 
@@ -50,9 +51,9 @@ const mockOtherTenantUser: AuthContext["user"] = {
 describe("GET /api/form-templates/published", () => {
   describe("Authentication and Authorization", () => {
     it("should return 200 for authenticated Admin user", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -65,9 +66,9 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should allow Procurement Manager to access published templates", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockProcurementUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -80,9 +81,9 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should allow Quality Manager to access published templates", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockQualityUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -95,9 +96,9 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should return 401 for unauthenticated requests", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: null }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -111,9 +112,9 @@ describe("GET /api/form-templates/published", () => {
 
   describe("Response Format", () => {
     it("should return success response with templates array", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -130,9 +131,9 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should format templates as dropdown options with id and label", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -164,13 +165,13 @@ describe("GET /api/form-templates/published", () => {
     it("should only return templates from user's tenant", async () => {
       // This test would require actual database setup to verify
       // For now, we test that the endpoint accepts the request
-      const app1 = new Elysia()
+      const app1 = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
-      const app2 = new Elysia()
+      const app2 = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockOtherTenantUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response1 = await app1.handle(
         new Request("http://localhost/published", {
@@ -192,9 +193,9 @@ describe("GET /api/form-templates/published", () => {
 
   describe("Status Filtering", () => {
     it("should only return published templates (not draft or archived)", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -217,9 +218,9 @@ describe("GET /api/form-templates/published", () => {
     it("should return 500 on database error", async () => {
       // This would be tested with a mocked DB failure
       // For now, we just verify the response structure
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -231,16 +232,16 @@ describe("GET /api/form-templates/published", () => {
         const result = (await response.json()) as any;
         expect(result.success).toBe(false);
         expect(result.error).toBeDefined();
-        expect(result.error.code).toBe("INTERNAL_ERROR");
+        expect(result.error.code).toBe("INTERNAL_SERVER_ERROR");
       }
     });
   });
 
   describe("Alphabetical Sorting", () => {
     it("should return templates sorted alphabetically by name", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute);
+        .use(getPublishedFormTemplatesRoute));
 
       const response = await app.handle(
         new Request("http://localhost/published", {

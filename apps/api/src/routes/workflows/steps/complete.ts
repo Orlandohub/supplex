@@ -1,6 +1,7 @@
 /**
  * Step Completion API Route
  * Story: 2.2.8 - Workflow Execution Engine
+ * Updated: Story 2.2.19 - Transaction wrapping, atomic CAS
  * 
  * POST /api/workflows/steps/:stepInstanceId/complete
  * 
@@ -8,6 +9,7 @@
  */
 
 import { Elysia, t } from "elysia";
+import { ApiError, Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
 import {
   stepInstance,
@@ -23,137 +25,138 @@ import { approveValidationTask } from "../../../lib/workflow-engine/approve-vali
 import { completeStep } from "../../../lib/workflow-engine/complete-step";
 import { createTasksForStep } from "../../../lib/workflow-engine/create-tasks-for-step";
 import { authenticate } from "../../../lib/rbac/middleware";
-import { logWorkflowEvent, WorkflowEventType } from "../../../services/workflow-event-logger";
+import { verifyTaskAssignment } from "../../../lib/rbac/entity-authorization";
+import { logWorkflowEventTx, WorkflowEventType } from "../../../services/workflow-event-logger";
 
 export const completeStepRoute = new Elysia()
   .use(authenticate)
   .post(
     "/steps/:stepInstanceId/complete",
-    async ({ params, body, user }) => {
+    async ({ params, body, user, set, requestLogger, correlationId: corrId }: any) => {
       const { stepInstanceId } = params;
       const { action, comment: declineComment } = body;
 
-      // Validate user authentication
       if (!user?.id || !user?.tenantId) {
-        return {
-          success: false,
-          error: "Unauthorized",
-        };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       try {
-        // Query step instance (with tenant filter)
-        const [step] = await db
-          .select()
-          .from(stepInstance)
-          .where(
-            and(
-              eq(stepInstance.id, stepInstanceId),
-              eq(stepInstance.tenantId, user.tenantId)
-            )
-          );
-
-        if (!step) {
-          return {
-            success: false,
-            error: "Step instance not found",
-          };
-        }
-
-        // Query process instance
-        const [process] = await db
-          .select()
-          .from(processInstance)
-          .where(eq(processInstance.id, step.processInstanceId));
-
-        if (!process) {
-          return {
-            success: false,
-            error: "Process instance not found",
-          };
-        }
-
-        const workflowTemplateId = process.workflowTemplateId;
-
-        const stepTemplates = await db
-          .select()
-          .from(workflowStepTemplate)
-          .where(
-            and(
-              eq(workflowStepTemplate.tenantId, user.tenantId),
-              ...(workflowTemplateId
-                ? [eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId)]
-                : []),
-              eq(workflowStepTemplate.stepOrder, step.stepOrder),
-              isNull(workflowStepTemplate.deletedAt)
-            )
-          );
-
-        if (stepTemplates.length === 0) {
-          return {
-            success: false,
-            error: "Workflow step template not found",
-          };
-        }
-
-        const stepTemplate = stepTemplates[0];
-
-        // Handle different actions
         if (action === "submit") {
-          // Use the engine's completeStep() which handles validation checks
-          const result = await completeStep(db, {
-            tenantId: user.tenantId,
+          // Verify the user has an assigned action/resubmission task for this step
+          const taskCheck = await verifyTaskAssignment(
+            user,
             stepInstanceId,
-            completedBy: user.id,
-            outcome: "completed",
-          });
-
-          if (!result.success) {
-            return { success: false, error: result.error || "Failed to complete step" };
+            ["action", "resubmission"],
+            db
+          );
+          if (!taskCheck.allowed) {
+            throw Errors.forbidden("Not authorized to submit this step: no pending task assigned to you");
           }
 
-          const isResubmission = step.status === "active" && step.completedDate !== null;
-          const isDocumentStep = stepTemplate.stepType === "document";
-          logWorkflowEvent({
-            tenantId: user.tenantId,
-            processInstanceId: process.id,
-            stepInstanceId: stepInstanceId,
-            eventType: isResubmission
-              ? WorkflowEventType.FORM_RESUBMITTED
-              : isDocumentStep ? WorkflowEventType.DOCUMENT_UPLOADED : WorkflowEventType.FORM_SUBMITTED,
-            eventDescription: isResubmission
-              ? `Step ${step.stepOrder}: ${step.stepName} — ${isDocumentStep ? "Documents resubmitted" : "Form resubmitted"}`
-              : `Step ${step.stepOrder}: ${step.stepName} — ${isDocumentStep ? "Documents submitted" : "Form submitted"}`,
-            actorUserId: user.id,
-            actorName: user.fullName,
-            actorRole: user.role,
+          // Wrap engine mutation + event logging in a single transaction
+          const result = await db.transaction(async (tx) => {
+            const stepResult = await completeStep(tx, {
+              tenantId: user.tenantId,
+              stepInstanceId,
+              completedBy: user.id,
+              outcome: "completed",
+            });
+
+            if (!stepResult.success) {
+              throw new Error(stepResult.error || "Step completion failed");
+            }
+
+            // Read step + process + template inside tx for event context
+            const [stepForLog] = await tx
+              .select()
+              .from(stepInstance)
+              .where(eq(stepInstance.id, stepInstanceId));
+
+            const [processForLog] = stepForLog
+              ? await tx
+                  .select()
+                  .from(processInstance)
+                  .where(eq(processInstance.id, stepForLog.processInstanceId))
+              : [undefined];
+
+            if (stepForLog && processForLog) {
+              const [stepTmpl] = processForLog.workflowTemplateId
+                ? await tx
+                    .select()
+                    .from(workflowStepTemplate)
+                    .where(
+                      and(
+                        eq(workflowStepTemplate.workflowTemplateId, processForLog.workflowTemplateId),
+                        eq(workflowStepTemplate.tenantId, user.tenantId),
+                        eq(workflowStepTemplate.stepOrder, stepForLog.stepOrder),
+                        isNull(workflowStepTemplate.deletedAt)
+                      )
+                    )
+                : [undefined];
+              const isDocumentStep = stepTmpl?.stepType === "document";
+              const isResubmission = stepResult.data?.wasResubmission ?? false;
+
+              await logWorkflowEventTx(tx, {
+                tenantId: user.tenantId,
+                processInstanceId: processForLog.id,
+                stepInstanceId: stepInstanceId,
+                eventType: isResubmission
+                  ? WorkflowEventType.FORM_RESUBMITTED
+                  : isDocumentStep ? WorkflowEventType.DOCUMENT_UPLOADED : WorkflowEventType.FORM_SUBMITTED,
+                eventDescription: isResubmission
+                  ? `Step ${stepForLog.stepOrder}: ${stepForLog.stepName} — ${isDocumentStep ? "Documents resubmitted" : "Form resubmitted"}`
+                  : `Step ${stepForLog.stepOrder}: ${stepForLog.stepName} — ${isDocumentStep ? "Documents submitted" : "Form submitted"}`,
+                actorUserId: user.id,
+                actorName: user.fullName,
+                actorRole: user.role,
+                correlationId: corrId,
+              });
+
+              if (stepResult.data?.processCompleted) {
+                await logWorkflowEventTx(tx, {
+                  tenantId: user.tenantId,
+                  processInstanceId: processForLog.id,
+                  eventType: WorkflowEventType.PROCESS_COMPLETED,
+                  eventDescription: "Workflow completed",
+                  actorUserId: user.id,
+                  actorName: user.fullName,
+                  actorRole: user.role,
+                  correlationId: corrId,
+                });
+              } else if (stepResult.data?.nextStepActivated && stepResult.data?.nextStepId) {
+                const [nextStep] = await tx
+                  .select({ stepName: stepInstance.stepName })
+                  .from(stepInstance)
+                  .where(eq(stepInstance.id, stepResult.data.nextStepId));
+                await logWorkflowEventTx(tx, {
+                  tenantId: user.tenantId,
+                  processInstanceId: processForLog.id,
+                  stepInstanceId: stepResult.data.nextStepId,
+                  eventType: WorkflowEventType.STEP_ACTIVATED,
+                  eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
+                  actorUserId: user.id,
+                  actorName: "Supplex",
+                  actorRole: "system",
+                  correlationId: corrId,
+                });
+              }
+            }
+
+            return stepResult;
           });
 
-          if (result.data?.processCompleted) {
-            logWorkflowEvent({
-              tenantId: user.tenantId,
-              processInstanceId: process.id,
-              eventType: WorkflowEventType.PROCESS_COMPLETED,
-              eventDescription: "Workflow completed",
-              actorUserId: user.id,
-              actorName: user.fullName,
-              actorRole: user.role,
-            });
-          } else if (result.data?.nextStepActivated && result.data?.nextStepId) {
-            const [nextStep] = await db
-              .select({ stepName: stepInstance.stepName })
-              .from(stepInstance)
-              .where(eq(stepInstance.id, result.data.nextStepId));
-            logWorkflowEvent({
-              tenantId: user.tenantId,
-              processInstanceId: process.id,
-              stepInstanceId: result.data.nextStepId,
-              eventType: WorkflowEventType.STEP_ACTIVATED,
-              eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
-              actorUserId: user.id,
-              actorName: "Supplex",
-              actorRole: "system",
-            });
+          // Post-commit verification
+          const [verifyStep] = await db
+            .select({ status: stepInstance.status })
+            .from(stepInstance)
+            .where(eq(stepInstance.id, stepInstanceId));
+
+          if (verifyStep?.status === "active") {
+            requestLogger.error({
+              stepInstanceId,
+              verifiedStepStatus: verifyStep?.status,
+            }, "PHANTOM COMMIT DETECTED: transaction reported success but step still active");
+            throw Errors.internal("Step completion failed — please try again");
           }
 
           return {
@@ -165,137 +168,186 @@ export const completeStepRoute = new Elysia()
             },
           };
         } else if (action === "approve") {
-          // Story 2.2.15: Check if this is a validation task approval
-          // Match by userId OR by role (validation tasks use role-based assignment)
-          const [userTask] = await db
-            .select()
-            .from(taskInstance)
-            .where(
-              and(
-                eq(taskInstance.stepInstanceId, stepInstanceId),
-                eq(taskInstance.tenantId, user.tenantId),
-                eq(taskInstance.status, "pending"),
-                or(
-                  eq(taskInstance.assigneeUserId, user.id),
-                  and(
-                    eq(taskInstance.assigneeType, "role"),
-                    eq(taskInstance.assigneeRole, user.role),
-                    isNull(taskInstance.assigneeUserId)
+          // Wrap approve mutation + event logging in a single transaction
+          const txResult = await db.transaction(async (tx) => {
+            const [userTask] = await tx
+              .select()
+              .from(taskInstance)
+              .where(
+                and(
+                  eq(taskInstance.stepInstanceId, stepInstanceId),
+                  eq(taskInstance.tenantId, user.tenantId),
+                  eq(taskInstance.status, "pending"),
+                  or(
+                    eq(taskInstance.assigneeUserId, user.id),
+                    and(
+                      eq(taskInstance.assigneeType, "role"),
+                      eq(taskInstance.assigneeRole, user.role),
+                      isNull(taskInstance.assigneeUserId)
+                    )
                   )
                 )
-              )
-            );
+              );
 
-          if (userTask && userTask.taskType === "validation") {
-            const validationResult = await approveValidationTask(db, {
+            if (!userTask || userTask.taskType !== "validation") {
+              return { found: false as const };
+            }
+
+            const validationResult = await approveValidationTask(tx, {
               tenantId: user.tenantId,
               taskInstanceId: userTask.id,
               userId: user.id,
             });
 
             if (!validationResult.success) {
-              return {
-                success: false,
-                error: validationResult.error || "Failed to approve validation task",
-              };
+              return { found: true as const, validationResult, taskId: userTask.id };
             }
 
-            logWorkflowEvent({
-              tenantId: user.tenantId,
-              processInstanceId: process.id,
-              stepInstanceId: stepInstanceId,
-              taskInstanceId: userTask.id,
-              eventType: validationResult.allValidationsComplete
-                ? WorkflowEventType.STEP_VALIDATED
-                : WorkflowEventType.VALIDATION_APPROVED,
-              eventDescription: validationResult.allValidationsComplete
-                ? `Validation approved - Step ${step.stepOrder}: ${step.stepName} Approved`
-                : `Validation approved - ${validationResult.remainingApprovals} more approval${(validationResult.remainingApprovals ?? 0) > 1 ? "s" : ""} required for this step`,
-              actorUserId: user.id,
-              actorName: user.fullName,
-              actorRole: user.role,
-            });
+            // Event logging — atomic with state changes
+            const [stepForLog] = await tx
+              .select()
+              .from(stepInstance)
+              .where(eq(stepInstance.id, stepInstanceId));
 
-            if (validationResult.allValidationsComplete) {
-              if (validationResult.processCompleted) {
-                logWorkflowEvent({
-                  tenantId: user.tenantId,
-                  processInstanceId: process.id,
-                  eventType: WorkflowEventType.PROCESS_COMPLETED,
-                  eventDescription: "Workflow completed",
-                  actorUserId: user.id,
-                  actorName: user.fullName,
-                  actorRole: user.role,
-                });
-              } else if (validationResult.nextStepActivated && validationResult.nextStepId) {
-                const [nextStep] = await db
-                  .select({ stepName: stepInstance.stepName })
-                  .from(stepInstance)
-                  .where(eq(stepInstance.id, validationResult.nextStepId));
-                logWorkflowEvent({
-                  tenantId: user.tenantId,
-                  processInstanceId: process.id,
-                  stepInstanceId: validationResult.nextStepId,
-                  eventType: WorkflowEventType.STEP_ACTIVATED,
-                  eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
-                  actorUserId: user.id,
-                  actorName: "Supplex",
-                  actorRole: "system",
-                });
+            const [processForLog] = stepForLog
+              ? await tx
+                  .select()
+                  .from(processInstance)
+                  .where(eq(processInstance.id, stepForLog.processInstanceId))
+              : [undefined];
+
+            if (processForLog) {
+              await logWorkflowEventTx(tx, {
+                tenantId: user.tenantId,
+                processInstanceId: processForLog.id,
+                stepInstanceId: stepInstanceId,
+                taskInstanceId: userTask.id,
+                eventType: validationResult.allValidationsComplete
+                  ? WorkflowEventType.STEP_VALIDATED
+                  : WorkflowEventType.VALIDATION_APPROVED,
+                eventDescription: validationResult.allValidationsComplete
+                  ? `Validation approved - Step ${stepForLog?.stepOrder}: ${stepForLog?.stepName} Approved`
+                  : `Validation approved - ${validationResult.remainingApprovals} more approval${(validationResult.remainingApprovals ?? 0) > 1 ? "s" : ""} required for this step`,
+                actorUserId: user.id,
+                actorName: user.fullName,
+                actorRole: user.role,
+                correlationId: corrId,
+              });
+
+              if (validationResult.allValidationsComplete) {
+                if (validationResult.processCompleted) {
+                  await logWorkflowEventTx(tx, {
+                    tenantId: user.tenantId,
+                    processInstanceId: processForLog.id,
+                    eventType: WorkflowEventType.PROCESS_COMPLETED,
+                    eventDescription: "Workflow completed",
+                    actorUserId: user.id,
+                    actorName: user.fullName,
+                    actorRole: user.role,
+                    correlationId: corrId,
+                  });
+                } else if (validationResult.nextStepActivated && validationResult.nextStepId) {
+                  const [nextStep] = await tx
+                    .select({ stepName: stepInstance.stepName })
+                    .from(stepInstance)
+                    .where(eq(stepInstance.id, validationResult.nextStepId));
+                  await logWorkflowEventTx(tx, {
+                    tenantId: user.tenantId,
+                    processInstanceId: processForLog.id,
+                    stepInstanceId: validationResult.nextStepId,
+                    eventType: WorkflowEventType.STEP_ACTIVATED,
+                    eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
+                    actorUserId: user.id,
+                    actorName: "Supplex",
+                    actorRole: "system",
+                    correlationId: corrId,
+                  });
+                }
               }
             }
 
-            return {
-              success: true,
-              data: {
-                action: "approved",
-                stepCompleted: validationResult.allValidationsComplete,
-                nextStepActivated: validationResult.nextStepActivated,
-                message: validationResult.allValidationsComplete
-                  ? "All validations complete, next step activated"
-                  : "Validation approved, waiting for additional approvals",
-              },
-            };
+            return { found: true as const, taskId: userTask.id, validationResult };
+          });
+
+          if (!txResult.found) {
+            throw Errors.forbidden("No pending validation task found for this user on this step");
           }
 
-          // No legacy approve path — all approvals go through validation tasks
+          const { validationResult } = txResult;
+
+          if (!validationResult.success) {
+            throw Errors.badRequest(validationResult.error || "Failed to approve validation task");
+          }
+
           return {
-            success: false,
-            error: "No pending validation task found for this user on this step",
+            success: true,
+            data: {
+              action: "approved",
+              stepCompleted: validationResult.allValidationsComplete,
+              nextStepActivated: validationResult.nextStepActivated,
+              message: validationResult.allValidationsComplete
+                ? "All validations complete, next step activated"
+                : "Validation approved, waiting for additional approvals",
+            },
           };
         } else if (action === "decline") {
-          // Verify comment is provided
           if (!declineComment) {
-            return {
-              success: false,
-              error: "Comment is required when declining",
-            };
+            throw Errors.badRequest("Comment is required when declining");
           }
 
-          // Story 2.2.15: Check if this is a validation task decline
-          // Match by userId OR by role (validation tasks use role-based assignment)
-          const [userTask] = await db
-            .select()
-            .from(taskInstance)
-            .where(
-              and(
-                eq(taskInstance.stepInstanceId, stepInstanceId),
-                eq(taskInstance.tenantId, user.tenantId),
-                eq(taskInstance.status, "pending"),
-                or(
-                  eq(taskInstance.assigneeUserId, user.id),
-                  and(
-                    eq(taskInstance.assigneeType, "role"),
-                    eq(taskInstance.assigneeRole, user.role),
-                    isNull(taskInstance.assigneeUserId)
+          // Wrap entire decline path in a single transaction
+          const txResult = await db.transaction(async (tx) => {
+            // Atomic CAS: find and claim the user's pending validation task
+            const [userTask] = await tx
+              .select()
+              .from(taskInstance)
+              .where(
+                and(
+                  eq(taskInstance.stepInstanceId, stepInstanceId),
+                  eq(taskInstance.tenantId, user.tenantId),
+                  eq(taskInstance.status, "pending"),
+                  or(
+                    eq(taskInstance.assigneeUserId, user.id),
+                    and(
+                      eq(taskInstance.assigneeType, "role"),
+                      eq(taskInstance.assigneeRole, user.role),
+                      isNull(taskInstance.assigneeUserId)
+                    )
                   )
                 )
-              )
-            );
+              );
 
-          if (userTask && userTask.taskType === "validation") {
+            if (!userTask || userTask.taskType !== "validation") {
+              return { found: false as const };
+            }
+
+            const [step] = await tx
+              .select()
+              .from(stepInstance)
+              .where(
+                and(
+                  eq(stepInstance.id, stepInstanceId),
+                  eq(stepInstance.tenantId, user.tenantId)
+                )
+              );
+
+            if (!step) {
+              return { found: false as const };
+            }
+
+            const [process] = await tx
+              .select()
+              .from(processInstance)
+              .where(eq(processInstance.id, step.processInstanceId));
+
+            if (!process) {
+              return { found: false as const };
+            }
+
+            const workflowTemplateId = process.workflowTemplateId;
+
             const stepTemplateForValidation = workflowTemplateId
-              ? (await db
+              ? (await tx
                   .select()
                   .from(workflowStepTemplate)
                   .where(
@@ -309,7 +361,7 @@ export const completeStepRoute = new Elysia()
               : undefined;
 
             // 1. Save the decline comment
-            await db.insert(commentThread).values({
+            await tx.insert(commentThread).values({
               tenantId: user.tenantId,
               processInstanceId: process.id,
               stepInstanceId: step.id,
@@ -318,7 +370,8 @@ export const completeStepRoute = new Elysia()
               commentedBy: user.id,
             });
 
-            await db
+            // 2. Atomic CAS: mark the declining task as completed
+            const [declinedTask] = await tx
               .update(taskInstance)
               .set({
                 status: "completed",
@@ -326,10 +379,20 @@ export const completeStepRoute = new Elysia()
                 completedBy: user.id,
                 completedAt: new Date(),
               })
-              .where(eq(taskInstance.id, userTask.id));
+              .where(
+                and(
+                  eq(taskInstance.id, userTask.id),
+                  eq(taskInstance.status, "pending")
+                )
+              )
+              .returning();
 
-            // Auto-close all other pending validation tasks for this step
-            await db
+            if (!declinedTask) {
+              return { found: true as const, alreadyProcessed: true as const };
+            }
+
+            // 3. Auto-close all other pending validation tasks for this step
+            await tx
               .update(taskInstance)
               .set({
                 status: "completed",
@@ -344,14 +407,24 @@ export const completeStepRoute = new Elysia()
                 )
               );
 
-            // 3. Reset the step back to "active" (same step, not previous)
-            await db
+            // 4. Atomic CAS: reset the step back to "active"
+            const [resetStep] = await tx
               .update(stepInstance)
-              .set({ status: "active" })
-              .where(eq(stepInstance.id, stepInstanceId));
+              .set({ status: "active", updatedAt: new Date() })
+              .where(
+                and(
+                  eq(stepInstance.id, stepInstanceId),
+                  eq(stepInstance.status, "awaiting_validation")
+                )
+              )
+              .returning();
 
-            // 4. Reset the form submission to "draft" so the user can re-edit
-            await db
+            if (!resetStep) {
+              return { found: true as const, alreadyProcessed: true as const };
+            }
+
+            // 5. Reset the form submission to "draft"
+            await tx
               .update(formSubmission)
               .set({ status: "draft", updatedAt: new Date() })
               .where(
@@ -362,7 +435,8 @@ export const completeStepRoute = new Elysia()
                 )
               );
 
-            await db
+            // 6. Update process status
+            await tx
               .update(processInstance)
               .set({
                 status: WorkflowProcessStatus.DECLINED_RESUBMIT,
@@ -370,9 +444,10 @@ export const completeStepRoute = new Elysia()
               })
               .where(eq(processInstance.id, process.id));
 
-            // 6. Create new tasks for the same step (submitter gets a task to re-edit)
+            // 7. Create new tasks for the same step (submitter re-edits)
             if (stepTemplateForValidation) {
               await createTasksForStep(
+                tx,
                 stepInstanceId,
                 stepTemplateForValidation.id,
                 process.id,
@@ -380,7 +455,8 @@ export const completeStepRoute = new Elysia()
               );
             }
 
-            logWorkflowEvent({
+            // 8. Event logging — atomic with state changes
+            await logWorkflowEventTx(tx, {
               tenantId: user.tenantId,
               processInstanceId: process.id,
               stepInstanceId: stepInstanceId,
@@ -391,40 +467,40 @@ export const completeStepRoute = new Elysia()
               actorName: user.fullName,
               actorRole: user.role,
               comment: declineComment,
+              correlationId: corrId,
             });
 
             return {
-              success: true,
-              data: {
-                action: "declined",
-                commentCreated: true,
-                currentStepDeclined: false,
-                targetStepActivated: true,
-                targetStepId: stepInstanceId,
-              },
+              found: true as const,
+              alreadyProcessed: false as const,
             };
+          });
+
+          if (!txResult.found) {
+            throw Errors.forbidden("No pending validation task found for this user on this step");
           }
 
-          // No legacy decline path — all declines go through validation tasks
+          if (txResult.alreadyProcessed) {
+            throw Errors.conflict("Step or task already processed by another request");
+          }
+
           return {
-            success: false,
-            error: "No pending validation task found for this user on this step",
+            success: true,
+            data: {
+              action: "declined",
+              commentCreated: true,
+              currentStepDeclined: false,
+              targetStepActivated: true,
+              targetStepId: stepInstanceId,
+            },
           };
         } else {
-          return {
-            success: false,
-            error: `Invalid action: ${action}`,
-          };
+          throw Errors.badRequest(`Invalid action: ${action}`);
         }
       } catch (error) {
-        console.error("Error completing step:", error);
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to complete step",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error completing step");
+        throw Errors.internal("Failed to complete step");
       }
     },
     {
@@ -447,4 +523,3 @@ export const completeStepRoute = new Elysia()
       },
     }
   );
-

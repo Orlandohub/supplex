@@ -1,5 +1,8 @@
 import { Queue } from "bullmq";
 import { redisConnection, isRedisEnabled } from "./redis-connection";
+import { logger } from "../lib/logger";
+
+const queueLogger = logger.child({ module: "email-queue" });
 
 /**
  * Email Queue Configuration
@@ -46,19 +49,17 @@ export interface EmailJobData {
 // Helper function to add email job to queue
 export async function queueEmailJob(data: EmailJobData): Promise<void> {
   if (!emailQueue) {
-    console.warn(
-      `[EMAIL QUEUE] Redis not configured. Email will not be sent: ${data.notificationId}`
-    );
+    queueLogger.warn({ notificationId: data.notificationId }, "Redis not configured — email will not be sent");
     return;
   }
 
   try {
     await emailQueue.add("send-email", data, {
-      jobId: data.notificationId, // Use notification ID as job ID to prevent duplicates
+      jobId: data.notificationId,
     });
-    console.log(`[EMAIL QUEUE] Queued email job: ${data.notificationId}`);
+    queueLogger.info({ notificationId: data.notificationId }, "Queued email job");
   } catch (error) {
-    console.error(`[EMAIL QUEUE] Failed to queue email job:`, error);
+    queueLogger.error({ err: error, notificationId: data.notificationId }, "Failed to queue email job");
     throw error;
   }
 }

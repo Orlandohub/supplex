@@ -6,6 +6,7 @@ import { requireAdmin } from "../../lib/rbac/middleware";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { AuditAction } from "@supplex/types";
 import { authCache } from "../../lib/auth-cache";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PATCH /api/users/:id/status
@@ -24,7 +25,7 @@ export const deactivateUserRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .patch(
     "/:id/status",
-    async ({ params, body, user, set, headers }: any) => {
+    async ({ params, body, user, set, headers, requestLogger }: any) => {
       try {
         const { id: targetUserId } = params;
         const { isActive } = body;
@@ -36,11 +37,7 @@ export const deactivateUserRoute = new Elysia({ prefix: "/users" })
 
         // Prevent admin from deactivating their own account
         if (currentUserId === targetUserId && !isActive) {
-          set.status = 403;
-          return {
-            success: false,
-            error: "You cannot deactivate your own account",
-          };
+          throw Errors.forbidden("You cannot deactivate your own account");
         }
 
         // Step 1: Fetch target user and verify tenant membership
@@ -51,11 +48,7 @@ export const deactivateUserRoute = new Elysia({ prefix: "/users" })
           .limit(1);
 
         if (!targetUser) {
-          set.status = 404;
-          return {
-            success: false,
-            error: "User not found in your tenant",
-          };
+          throw Errors.notFound("User not found in your tenant");
         }
 
         const oldStatus = targetUser.isActive;
@@ -110,12 +103,9 @@ export const deactivateUserRoute = new Elysia({ prefix: "/users" })
           },
         };
       } catch (error: any) {
-        console.error("Error updating user status:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error updating user status");
+        throw Errors.internal("Internal server error");
       }
     },
     {

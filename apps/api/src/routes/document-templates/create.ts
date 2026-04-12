@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { documentTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/document-templates
@@ -16,7 +17,7 @@ export const createDocumentTemplateRoute = new Elysia()
   .use(requireAdmin)
   .post(
     "/",
-    async ({ body, user, set }: any) => {
+    async ({ body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
 
@@ -51,17 +52,9 @@ export const createDocumentTemplateRoute = new Elysia()
           data: newTemplate,
         };
       } catch (error: any) {
-        console.error("Error creating document template:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to create document template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Document template creation failed");
+        throw Errors.internal("Failed to create document template");
       }
     },
     {

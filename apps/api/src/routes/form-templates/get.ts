@@ -7,6 +7,8 @@ import {
 } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/form-templates/:id
@@ -20,12 +22,11 @@ export const getFormTemplateRoute = new Elysia()
   .use(authenticate)
   .get(
     "/:id",
-    async ({ params, user, set }: any) => {
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const templateId = params.id;
 
-        // Fetch template with tenant isolation
         const [templateRecord] = await db
           .select()
           .from(formTemplate)
@@ -39,18 +40,13 @@ export const getFormTemplateRoute = new Elysia()
           .limit(1);
 
         if (!templateRecord) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_NOT_FOUND",
-              message: "Form template not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Form template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
         }
 
-        // Fetch all sections for this template
+        if (user.role !== UserRole.ADMIN && templateRecord.status !== "published") {
+          throw Errors.notFound("Form template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
+        }
+
         const sections = await db
           .select()
           .from(formSection)
@@ -63,7 +59,6 @@ export const getFormTemplateRoute = new Elysia()
           )
           .orderBy(asc(formSection.sectionOrder));
 
-        // Fetch all fields for all sections
         const sectionIds = sections.map((s) => s.id);
         const fields =
           sectionIds.length > 0
@@ -79,7 +74,6 @@ export const getFormTemplateRoute = new Elysia()
                 .orderBy(asc(formField.fieldOrder))
             : [];
 
-        // Build nested structure
         const sectionsWithFields = sections.map((section) => {
           const sectionFields = fields.filter(
             (f) => f.formSectionId === section.id
@@ -98,17 +92,9 @@ export const getFormTemplateRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error fetching form template:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch form template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error fetching form template");
+        throw Errors.internal("Failed to fetch form template");
       }
     },
     {
@@ -123,4 +109,3 @@ export const getFormTemplateRoute = new Elysia()
       },
     }
   );
-

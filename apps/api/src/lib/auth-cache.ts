@@ -23,6 +23,9 @@
 
 import { redisConnection, isRedisEnabled } from "../queue/redis-connection";
 import { UserRole } from "@supplex/types";
+import { logger } from "./logger";
+
+const cacheLogger = logger.child({ module: "auth-cache" });
 
 /**
  * Cached user authentication data
@@ -151,7 +154,7 @@ export const authCache = {
           return cached;
         }
       } catch (error) {
-        console.error("[AUTH CACHE] Redis get error:", error);
+        cacheLogger.error({ err: error, key: userId }, "Redis auth cache get error");
         // Fall through - don't fail request if Redis is down
       }
     }
@@ -183,7 +186,7 @@ export const authCache = {
           JSON.stringify(data)
         );
       } catch (error) {
-        console.error("[AUTH CACHE] Redis set error:", error);
+        cacheLogger.error({ err: error, key: userId }, "Redis auth cache set error");
         // Don't fail request if Redis is down - L1 cache still works
       }
     }
@@ -213,7 +216,7 @@ export const authCache = {
       try {
         await redisConnection.del(key);
       } catch (error) {
-        console.error("[AUTH CACHE] Redis delete error:", error);
+        cacheLogger.error({ err: error, key: userId }, "Redis auth cache delete error");
       }
     }
   },
@@ -242,7 +245,7 @@ export const authCache = {
           await redisConnection.del(...keys);
         }
       } catch (error) {
-        console.error("[AUTH CACHE] Redis clear error:", error);
+        cacheLogger.error({ err: error }, "Redis auth cache clear error");
       }
     }
   },
@@ -271,9 +274,7 @@ setInterval(() => {
   // This is just for monitoring
   const stats = authCache.stats();
   if (stats.memoryCacheSize > 0) {
-    console.log(
-      `[AUTH CACHE] Memory cache size: ${stats.memoryCacheSize} entries`
-    );
+    cacheLogger.debug({ memorySize: stats.memoryCacheSize, redisAvailable: stats.redisEnabled }, "Auth cache stats");
   }
 }, 5 * 60 * 1000);
 

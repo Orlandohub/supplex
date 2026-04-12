@@ -1,22 +1,13 @@
 import { Resend } from "resend";
+import { logger } from "../lib/logger";
 
-/**
- * Resend Email Service
- *
- * Handles email sending via Resend.com API
- * - Error handling with specific error codes
- * - Returns send status for tracking
- * - Validates API key configuration
- */
+const emailLogger = logger.child({ module: "resend-email" });
 
-// Initialize Resend client
 const resendApiKey = process.env.RESEND_API_KEY;
 const emailFrom = process.env.EMAIL_FROM || "noreply@supplex.io";
 
 if (!resendApiKey) {
-  console.warn(
-    "[RESEND EMAIL] RESEND_API_KEY not configured. Email sending will be disabled."
-  );
+  emailLogger.warn("RESEND_API_KEY not configured — email delivery disabled");
 }
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -45,7 +36,7 @@ export async function sendEmail(
 ): Promise<EmailSendResult> {
   // Check if Resend is configured
   if (!resend) {
-    console.error("[RESEND EMAIL] Resend client not initialized");
+    emailLogger.error("Resend client not initialized");
     return {
       success: false,
       error: "Email service not configured",
@@ -55,7 +46,7 @@ export async function sendEmail(
   // Validate email address
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(to)) {
-    console.error(`[RESEND EMAIL] Invalid email address: ${to}`);
+    emailLogger.error({ recipient: to }, "Invalid email address");
     return {
       success: false,
       error: "Invalid email address",
@@ -63,8 +54,7 @@ export async function sendEmail(
   }
 
   try {
-    console.log(`[RESEND EMAIL] Sending email to ${to}`);
-    console.log(`[RESEND EMAIL] Subject: ${subject}`);
+    emailLogger.debug({ recipient: to, subject }, "Sending email via Resend");
 
     const { data, error } = await resend.emails.send({
       from: emailFrom,
@@ -74,7 +64,7 @@ export async function sendEmail(
     });
 
     if (error) {
-      console.error(`[RESEND EMAIL] API error:`, error);
+      emailLogger.error({ err: error, recipient: to }, "Resend API error");
       return {
         success: false,
         error: error.message || "Unknown Resend API error",
@@ -82,23 +72,21 @@ export async function sendEmail(
     }
 
     if (!data?.id) {
-      console.error(`[RESEND EMAIL] No message ID returned`);
+      emailLogger.error({ recipient: to }, "No message ID returned from Resend");
       return {
         success: false,
         error: "No message ID returned from Resend",
       };
     }
 
-    console.log(
-      `[RESEND EMAIL] Email sent successfully. Message ID: ${data.id}`
-    );
+    emailLogger.info({ messageId: data.id, recipient: to }, "Email sent successfully");
     return {
       success: true,
       messageId: data.id,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[RESEND EMAIL] Unexpected error:`, errorMessage);
+    emailLogger.error({ err: error, recipient: to }, "Unexpected error sending email");
 
     // Handle specific error types
     if (errorMessage.includes("rate limit")) {

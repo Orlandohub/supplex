@@ -1,6 +1,9 @@
 import { db } from "../db";
 import { auditLogs } from "@supplex/db";
 import type { AuditAction } from "@supplex/types";
+import { logger } from "../logger";
+
+const auditLogger = logger.child({ module: "audit" });
 
 /**
  * Audit Log Entry Parameters
@@ -31,13 +34,9 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
       userAgent: entry.userAgent || null,
     });
 
-    console.log(
-      `[AUDIT] ${entry.action} by user ${entry.userId}`,
-      entry.details
-    );
+    auditLogger.info({ action: entry.action, userId: entry.userId, tenantId: entry.tenantId, details: entry.details }, "Audit event logged");
   } catch (error) {
-    // Log audit failures but don't throw - don't block operations due to audit failures
-    console.error("[AUDIT ERROR] Failed to log audit event:", error, entry);
+    auditLogger.error({ err: error, action: entry.action, userId: entry.userId, tenantId: entry.tenantId }, "Failed to persist audit event");
   }
 }
 

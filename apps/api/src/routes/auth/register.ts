@@ -9,8 +9,10 @@ import {
   UserRole,
   TenantStatus,
   TenantPlan,
-  createUserMetadata,
+  createUserAuthMetadata,
+  createUserProfileMetadata,
 } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 // Validation schemas
 const registerSchema = t.Object({
@@ -69,7 +71,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
   .use(authRateLimit)
   .post(
     "/register",
-    async ({ body, set }) => {
+    async ({ body, set, requestLogger }) => {
       try {
         const { email, password, fullName, tenantName } = body;
 
@@ -86,12 +88,12 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
           });
 
         if (authError || !authUser.user) {
-          console.error("Supabase auth error:", authError);
-          set.status = 400;
-          return {
-            success: false,
-            error: authError?.message || "Failed to create user account",
-          };
+          if (authError) {
+            requestLogger.error({ err: authError }, "Supabase auth error");
+          } else {
+            requestLogger.error("Supabase auth user missing from createUser response");
+          }
+          throw Errors.badRequest(authError?.message || "Failed to create user account");
         }
 
         const userId = authUser.user.id;
@@ -136,21 +138,20 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
             throw new Error("Failed to create user record");
           }
 
-          // Step 4: Update Supabase Auth user_metadata with role and tenant_id
-          // This ensures JWT tokens contain role information for RBAC
-          const userMetadata = createUserMetadata(
-            UserRole.ADMIN,
-            tenant.id,
-            fullName
-          );
-
+          // Step 4: Update Supabase Auth metadata with role/tenant in app_metadata
+          // TODO(SEC-009-cleanup): This app_metadata write is now redundant — the
+          // custom_access_token_hook reads role/tenant_id from the users table on every
+          // token refresh. Retained for the sign-up timing window (first JWT issued before
+          // public.users row exists) and rollback safety. Remove after hook is confirmed
+          // stable in production, except for this register path where timing requires it.
           const { error: updateError } =
             await supabaseAdmin.auth.admin.updateUserById(userId, {
-              user_metadata: userMetadata,
+              app_metadata: createUserAuthMetadata(UserRole.ADMIN, tenant.id),
+              user_metadata: createUserProfileMetadata(fullName),
             });
 
           if (updateError) {
-            console.error("Failed to update user metadata:", updateError);
+            requestLogger.error({ err: updateError }, "Failed to update user metadata");
             // Non-fatal error, continue with registration
           }
 
@@ -174,28 +175,22 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
             },
           };
         } catch (dbError: any) {
-          console.error("Database error during registration:", dbError);
+          requestLogger.error({ err: dbError }, "Database error during registration");
 
           // Rollback: Delete the Supabase auth user
           try {
             await supabaseAdmin.auth.admin.deleteUser(userId);
           } catch (rollbackError) {
-            console.error("Failed to rollback auth user:", rollbackError);
+            requestLogger.error({ err: rollbackError }, "Failed to rollback auth user");
           }
 
-          set.status = 500;
-          return {
-            success: false,
-            error: "Failed to create tenant and user records",
-          };
+          if (dbError instanceof ApiError) throw dbError;
+          throw Errors.internal("Failed to create tenant and user records");
         }
       } catch (error: any) {
-        console.error("Registration error:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error during registration",
-        };
+        requestLogger.error({ err: error }, "Registration error");
+        if (error instanceof ApiError) throw error;
+        throw Errors.internal("Internal server error during registration");
       }
     },
     {
@@ -210,7 +205,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
   )
   .get(
     "/register/check-tenant-slug/:slug",
-    async ({ params, set }) => {
+    async ({ params, set, requestLogger }) => {
       try {
         const { slug } = params;
 
@@ -225,12 +220,9 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
           slug,
         };
       } catch (error) {
-        console.error("Slug check error:", error);
-        set.status = 500;
-        return {
-          available: false,
-          error: "Failed to check slug availability",
-        };
+        requestLogger.error({ err: error }, "Slug check error");
+        if (error instanceof ApiError) throw error;
+        throw Errors.internal("Failed to check slug availability");
       }
     },
     {

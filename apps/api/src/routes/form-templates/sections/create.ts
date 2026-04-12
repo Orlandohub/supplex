@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
 import { formSection, formTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * POST /api/form-templates/:templateId/sections
@@ -15,29 +15,15 @@ import { UserRole } from "@supplex/types";
  * Returns: Created section
  */
 export const createSectionRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .post(
     "/:templateId/sections",
-    async ({ params, body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { templateId } = params;
         const { title, description, sectionOrder } = body;
 
-        // Verify template exists, belongs to user's tenant, and is draft
         const [template] = await db
           .select()
           .from(formTemplate)
@@ -51,33 +37,16 @@ export const createSectionRoute = new Elysia()
           .limit(1);
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_NOT_FOUND",
-              message:
-                "Form template not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Form template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
         }
 
-        // Check if template is draft (can't modify published templates)
         if (template.status !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message:
-                "Cannot modify published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            "Cannot modify published template. Please copy the template to make changes.",
+            "TEMPLATE_PUBLISHED"
+          );
         }
 
-        // Create section
         const [newSection] = await db
           .insert(formSection)
           .values({
@@ -100,17 +69,9 @@ export const createSectionRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error creating section:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to create section",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error creating section");
+        throw Errors.internal("Failed to create section");
       }
     },
     {
@@ -130,4 +91,3 @@ export const createSectionRoute = new Elysia()
       },
     }
   );
-

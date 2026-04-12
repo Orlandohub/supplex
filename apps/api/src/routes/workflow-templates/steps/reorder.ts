@@ -4,9 +4,9 @@ import {
   workflowTemplate,
   workflowStepTemplate,
 } from "@supplex/db";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
 import { eq, and, isNull, inArray } from "drizzle-orm";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * PUT /api/workflow-templates/:workflowId/steps/reorder
@@ -19,23 +19,10 @@ import { eq, and, isNull, inArray } from "drizzle-orm";
  * Returns: Updated steps
  */
 export const reorderStepsRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .put(
     "/:workflowId/steps/reorder",
-    async ({ params, body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -51,28 +38,12 @@ export const reorderStepsRoute = new Elysia()
         });
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
         // Enforce immutability
         if (template.status !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message: "Cannot modify published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest("Cannot modify published template. Please copy the template to make changes.", "TEMPLATE_PUBLISHED");
         }
 
         // Update step orders in transaction
@@ -110,16 +81,9 @@ export const reorderStepsRoute = new Elysia()
           data: updatedSteps,
         };
       } catch (error: any) {
-        console.error("Error reordering steps:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to reorder steps",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow steps reorder failed");
+        throw Errors.internal("Failed to reorder steps");
       }
     },
     {

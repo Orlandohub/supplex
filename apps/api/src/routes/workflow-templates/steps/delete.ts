@@ -4,9 +4,9 @@ import {
   workflowTemplate,
   workflowStepTemplate,
 } from "@supplex/db";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
 import { eq, and, isNull } from "drizzle-orm";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * DELETE /api/workflow-templates/:workflowId/steps/:stepId
@@ -19,23 +19,10 @@ import { eq, and, isNull } from "drizzle-orm";
  * Returns: Success message
  */
 export const deleteStepRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .delete(
     "/:workflowId/steps/:stepId",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId, stepId } = params;
@@ -50,28 +37,12 @@ export const deleteStepRoute = new Elysia()
         });
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
         // Enforce immutability
         if (template.status !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message: "Cannot modify published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest("Cannot modify published template. Please copy the template to make changes.", "TEMPLATE_PUBLISHED");
         }
 
         const step = await db.query.workflowStepTemplate.findFirst({
@@ -84,15 +55,7 @@ export const deleteStepRoute = new Elysia()
         });
 
         if (!step) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Step not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Step not found");
         }
 
         // Soft delete step
@@ -109,16 +72,9 @@ export const deleteStepRoute = new Elysia()
           message: "Step deleted successfully",
         };
       } catch (error: any) {
-        console.error("Error deleting step:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to delete step",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow step delete failed");
+        throw Errors.internal("Failed to delete step");
       }
     },
     {

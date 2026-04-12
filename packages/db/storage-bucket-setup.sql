@@ -23,22 +23,31 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
--- RLS Policies for Storage Bucket (Phase 2 - currently using application-level security)
+-- RLS Policies for Storage Bucket (Active — Story 2.2.20)
 -- ============================================================================
--- Note: For MVP, we rely on application-level tenant filtering in API endpoints.
--- RLS policies on storage buckets will be added in Phase 2 for defense-in-depth.
---
--- Planned RLS Policy (Phase 2):
--- CREATE POLICY "Users can access their tenant's documents"
--- ON storage.objects FOR SELECT
--- USING (
---   bucket_id = 'supplier-documents' 
---   AND (storage.foldername(name))[1] = (current_setting('request.jwt.claims', true)::json->>'tenant_id')
--- );
---
--- This policy would ensure users can only access files in their tenant's folder.
+-- Defense-in-depth: RLS on storage.objects scopes direct SDK access by tenant.
+-- The API server uses the service_role key which bypasses RLS by default.
 -- Storage path pattern: {tenantId}/{supplierId}/{uuid}_{filename}
 -- ============================================================================
+
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Tenant-scoped SELECT: users can only read files in their tenant's folder
+CREATE POLICY "Tenant scoped read for supplier-documents"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'supplier-documents'
+    AND (storage.foldername(name))[1] = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')
+  );
+
+-- Service-role INSERT: allows the API server (service_role) to write files.
+-- Note: service_role bypasses RLS by default in Supabase, but this policy
+-- is included for documentation and defense-in-depth if RLS is forced.
+CREATE POLICY "Service role can insert documents"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'supplier-documents'
+  );
 
 -- Verify bucket was created
 SELECT id, name, public, file_size_limit

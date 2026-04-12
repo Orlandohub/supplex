@@ -1,5 +1,8 @@
 -- Fix: Add form_template_id column to workflow_step_template
 -- This was missing from the original 0020 migration
+-- NOTE: This file shares the 0020_ prefix with 0020_remove_template_versioning.sql.
+-- Both have been applied to production; renaming would break drizzle-kit tracking.
+-- See migrations/README.md for details.
 
 -- Step 1: Add the new column
 ALTER TABLE workflow_step_template

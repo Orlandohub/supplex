@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { formTemplate, formSection, formField } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PATCH /api/form-templates/:id/publish
@@ -18,28 +18,14 @@ import { UserRole } from "@supplex/types";
  * Returns: Updated template
  */
 export const publishVersionRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .patch(
     "/:id/publish",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { id } = params;
 
-        // Verify template exists, belongs to user's tenant
         const [template] = await db
           .select()
           .from(formTemplate)
@@ -53,21 +39,10 @@ export const publishVersionRoute = new Elysia()
           .limit(1);
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_NOT_FOUND",
-              message:
-                "Form template not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Form template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
         }
 
-        // If publishing (draft → published), validate structure
         if (template.status === "draft") {
-          // Verify template has at least one section
           const [sectionCount] = await db
             .select({ count: sql<number>`count(*)::int` })
             .from(formSection)
@@ -80,19 +55,12 @@ export const publishVersionRoute = new Elysia()
             );
 
           if (!sectionCount || sectionCount.count === 0) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "VALIDATION_ERROR",
-                message:
-                  "Cannot publish template without sections. Please add at least one section.",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              "Cannot publish template without sections. Please add at least one section.",
+              "VALIDATION_ERROR"
+            );
           }
 
-          // Verify template has at least one field
           const [fieldCount] = await db
             .select({ count: sql<number>`count(*)::int` })
             .from(formField)
@@ -110,20 +78,13 @@ export const publishVersionRoute = new Elysia()
             );
 
           if (!fieldCount || fieldCount.count === 0) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "VALIDATION_ERROR",
-                message:
-                  "Cannot publish template without fields. Please add at least one field to a section.",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              "Cannot publish template without fields. Please add at least one field to a section.",
+              "VALIDATION_ERROR"
+            );
           }
         }
 
-        // Toggle status: draft ↔ published
         const newStatus = template.status === "draft" ? "published" : "draft";
 
         const [updatedTemplate] = await db
@@ -141,17 +102,9 @@ export const publishVersionRoute = new Elysia()
           message: `Template ${newStatus === "published" ? "published" : "unpublished"} successfully`,
         };
       } catch (error: any) {
-        console.error("Error toggling publish status:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to toggle publish status",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error toggling publish status");
+        throw Errors.internal("Failed to toggle publish status");
       }
     },
     {
@@ -166,4 +119,3 @@ export const publishVersionRoute = new Elysia()
       },
     }
   );
-

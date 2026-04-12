@@ -6,6 +6,7 @@
 import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { submitRoute } from "../submit";
+import { withApiErrorHandler } from "../../../lib/test-utils";
 import {
   mockSupplierUser,
   mockAdminUser,
@@ -15,9 +16,9 @@ import {
 describe("Form Submissions - Submit API", () => {
   describe("POST /api/form-submissions/:submissionId/submit", () => {
     it("should submit form with valid submission ID as supplier user", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/${mockSubmissionId}/submit`, {
@@ -34,9 +35,9 @@ describe("Form Submissions - Submit API", () => {
     });
 
     it("should submit form with valid submission ID as admin user", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/${mockSubmissionId}/submit`, {
@@ -51,9 +52,9 @@ describe("Form Submissions - Submit API", () => {
     });
 
     it("should return 404 for non-existent submission ID", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       const nonExistentId = "000e8400-e29b-41d4-a716-446655440000";
 
@@ -71,9 +72,9 @@ describe("Form Submissions - Submit API", () => {
     });
 
     it("should return 400 for invalid submission ID format", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       const invalidId = "not-a-uuid";
 
@@ -93,9 +94,9 @@ describe("Form Submissions - Submit API", () => {
 
   describe("Error Codes", () => {
     it("should return ALREADY_SUBMITTED error when trying to resubmit", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       // This test would require a test database with an already-submitted form
       // For now, we document the expected behavior
@@ -119,9 +120,9 @@ describe("Form Submissions - Submit API", () => {
     });
 
     it("should return REQUIRED_FIELD_MISSING error when required fields are empty", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       // This test would require a test database with a draft form missing required fields
       // Expected behavior:
@@ -144,9 +145,9 @@ describe("Form Submissions - Submit API", () => {
     });
 
     it("should return INVALID_ANSWER_FORMAT error for invalid field values", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       // This test would require a test database with a draft form with invalid answers
       // Expected behavior:
@@ -169,9 +170,9 @@ describe("Form Submissions - Submit API", () => {
     });
 
     it("should return PERMISSION_DENIED error for cross-tenant access", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
-        .use(submitRoute);
+        .use(submitRoute));
 
       // This test would require a test database with submissions from different tenants
       // Expected behavior:

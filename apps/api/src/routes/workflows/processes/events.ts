@@ -9,22 +9,43 @@
  */
 
 import { Elysia, t } from "elysia";
+import { Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
-import { workflowEvent } from "@supplex/db";
+import { workflowEvent, processInstance } from "@supplex/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { authenticate } from "../../../lib/rbac/middleware";
+import { verifyProcessAccess } from "../../../lib/rbac/entity-authorization";
 
 export const getProcessEventsRoute = new Elysia()
   .use(authenticate)
   .get(
     "/processes/:processInstanceId/events",
-    async ({ params, query, user }) => {
+    async ({ params, query, user, set }: any) => {
       const { processInstanceId } = params;
       const limit = Math.min(Number(query.limit) || 100, 500);
       const offset = Number(query.offset) || 0;
 
       if (!user?.id || !user?.tenantId) {
-        return { success: false, error: "Unauthorized" };
+        throw Errors.unauthorized("Unauthorized");
+      }
+
+      const [process] = await db
+        .select({ entityType: processInstance.entityType, entityId: processInstance.entityId })
+        .from(processInstance)
+        .where(
+          and(
+            eq(processInstance.id, processInstanceId),
+            eq(processInstance.tenantId, user.tenantId)
+          )
+        );
+
+      if (!process) {
+        throw Errors.notFound("Process not found");
+      }
+
+      const access = await verifyProcessAccess(user, process, db);
+      if (!access.allowed) {
+        throw Errors.forbidden("Access denied");
       }
 
       const [countResult] = await db

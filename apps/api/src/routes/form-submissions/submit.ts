@@ -11,7 +11,9 @@ import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
 import { completeStep } from "../../lib/workflow-engine/complete-step";
-import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
+import { verifyTaskAssignment } from "../../lib/rbac/entity-authorization";
+import { logWorkflowEventTx, WorkflowEventType } from "../../services/workflow-event-logger";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/form-submissions/:submissionId/submit
@@ -21,22 +23,22 @@ import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-eve
  * Tenant: Enforces tenant isolation
  * Behavior:
  * - Verifies submission belongs to user's tenant and user is the submitter
- * - Validates ALL required fields have answers (AC: 4)
+ * - Verifies task assignment for workflow-linked forms
+ * - Validates ALL required fields have answers
  * - Validates all answer formats
- * - Updates submission status to 'submitted'
- * - Sets submitted_at timestamp
- * - After submit, form becomes immutable (AC: 5)
+ * - For workflow-linked forms: wraps form status update + completeStep in a single transaction
+ * - For standalone forms: updates form status directly
  * Returns: Updated submission
  */
 export const submitRoute = new Elysia().use(authenticate).post(
   "/:submissionId/submit",
-  async ({ params, user, set }: any) => {
+  async ({ params, user, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const userId = user.id as string;
       const { submissionId } = params;
 
-      // Fetch submission with tenant and user verification
+      // 1. Fetch submission with tenant and user verification
       const [submissionRecord] = await db
         .select()
         .from(formSubmission)
@@ -51,32 +53,36 @@ export const submitRoute = new Elysia().use(authenticate).post(
         .limit(1);
 
       if (!submissionRecord) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "SUBMISSION_NOT_FOUND",
-            message:
-              "Submission not found or you don't have access to it",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.notFound(
+          "Submission not found or you don't have access to it",
+          "SUBMISSION_NOT_FOUND"
+        );
       }
 
-      // Check if already submitted
+      // 2. ALREADY_SUBMITTED guard
       if (submissionRecord.status === "submitted") {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "ALREADY_SUBMITTED",
-            message: "This form has already been submitted and cannot be modified",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          "This form has already been submitted and cannot be modified",
+          "ALREADY_SUBMITTED"
+        );
       }
 
-      // Load all fields for the form_template
+      // 3. Task assignment verification (workflow-linked forms only, outside tx)
+      if (submissionRecord.stepInstanceId) {
+        const taskCheck = await verifyTaskAssignment(
+          user,
+          submissionRecord.stepInstanceId,
+          ["action", "resubmission"],
+          db
+        );
+        if (!taskCheck.allowed) {
+          throw Errors.forbidden(
+            "Not authorized to submit this step: no pending task assigned to you"
+          );
+        }
+      }
+
+      // 4. Load all fields for the form_template
       const fieldsData = await db
         .select({
           field: formField,
@@ -101,7 +107,7 @@ export const submitRoute = new Elysia().use(authenticate).post(
       const allFields = fieldsData.map((row) => row.field);
       const requiredFields = allFields.filter((f) => f.required);
 
-      // Load all answers for this submission
+      // 5. Load all answers for this submission
       const answers = await db
         .select()
         .from(formAnswer)
@@ -116,7 +122,7 @@ export const submitRoute = new Elysia().use(authenticate).post(
         answers.map((a) => [a.formFieldId, a.answerValue])
       );
 
-      // Validate all required fields have answers (AC: 4)
+      // 6. Validate required fields
       const missingFields: string[] = [];
       for (const field of requiredFields) {
         const answer = answerMap.get(field.id);
@@ -126,25 +132,17 @@ export const submitRoute = new Elysia().use(authenticate).post(
       }
 
       if (missingFields.length > 0) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "REQUIRED_FIELD_MISSING",
-            message: `Missing required fields: ${missingFields.join(", ")}`,
-            details: {
-              missingFields,
-            },
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          `Missing required fields: ${missingFields.join(", ")}`,
+          "REQUIRED_FIELD_MISSING"
+        );
       }
 
-      // Validate answer formats for all provided answers
+      // Validate answer formats
       const fieldMap = new Map(allFields.map((f) => [f.id, f]));
       for (const answer of answers) {
         const field = fieldMap.get(answer.formFieldId);
-        if (!field) continue; // Skip if field was deleted
+        if (!field) continue;
 
         if (answer.answerValue) {
           const validationError = validateAnswerFormat(
@@ -152,96 +150,146 @@ export const submitRoute = new Elysia().use(authenticate).post(
             field
           );
           if (validationError) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "INVALID_ANSWER_FORMAT",
-                message: `${field.label}: ${validationError}`,
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              `${field.label}: ${validationError}`,
+              "INVALID_ANSWER_FORMAT"
+            );
           }
         }
       }
 
-      // Update submission to submitted status
-      const [updatedSubmission] = await db
-        .update(formSubmission)
-        .set({
-          status: "submitted",
-          submittedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(formSubmission.id, submissionId))
-        .returning();
+      // 7. Mutation block
+      let updatedSubmission: any;
+      let stepCompletionResult: any = null;
 
-      let stepCompletionResult = null;
       if (submissionRecord.stepInstanceId) {
+        // Workflow-linked: wrap form update + completeStep + event logging in a single transaction
         try {
-          const [step] = await db
-            .select({ stepOrder: stepInstance.stepOrder, stepName: stepInstance.stepName, completedDate: stepInstance.completedDate })
-            .from(stepInstance)
-            .where(eq(stepInstance.id, submissionRecord.stepInstanceId));
+          const txResult = await db.transaction(async (tx) => {
+            const [txSubmission] = await tx
+              .update(formSubmission)
+              .set({
+                status: "submitted",
+                submittedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(formSubmission.id, submissionId))
+              .returning();
 
-          stepCompletionResult = await completeStep(db, {
-            tenantId,
-            stepInstanceId: submissionRecord.stepInstanceId,
-            completedBy: userId,
-            outcome: "completed",
-          });
-
-          if (stepCompletionResult.success && step) {
-            const isResubmission = step.completedDate !== null;
-            logWorkflowEvent({
+            const stepResult = await completeStep(tx, {
               tenantId,
-              processInstanceId: submissionRecord.processInstanceId ?? undefined,
-              stepInstanceId: submissionRecord.stepInstanceId,
-              eventType: isResubmission ? WorkflowEventType.FORM_RESUBMITTED : WorkflowEventType.FORM_SUBMITTED,
-              eventDescription: isResubmission
-                ? `Step ${step.stepOrder}: ${step.stepName} — Form resubmitted`
-                : `Step ${step.stepOrder}: ${step.stepName} — Form submitted`,
-              actorUserId: userId,
-              actorName: user.fullName,
-              actorRole: user.role,
+              stepInstanceId: submissionRecord.stepInstanceId!,
+              completedBy: userId,
+              outcome: "completed",
             });
 
-            if (stepCompletionResult.data?.processCompleted) {
-              logWorkflowEvent({
+            if (!stepResult.success) {
+              throw new Error(stepResult.error || "Step completion failed");
+            }
+
+            // Event logging — atomic with state changes
+            const [step] = await tx
+              .select({ stepOrder: stepInstance.stepOrder, stepName: stepInstance.stepName })
+              .from(stepInstance)
+              .where(eq(stepInstance.id, submissionRecord.stepInstanceId!));
+
+            if (step) {
+              const isResubmission = stepResult.data?.wasResubmission ?? false;
+              await logWorkflowEventTx(tx, {
                 tenantId,
                 processInstanceId: submissionRecord.processInstanceId ?? undefined,
-                eventType: WorkflowEventType.PROCESS_COMPLETED,
-                eventDescription: "Workflow completed",
+                stepInstanceId: submissionRecord.stepInstanceId!,
+                eventType: isResubmission ? WorkflowEventType.FORM_RESUBMITTED : WorkflowEventType.FORM_SUBMITTED,
+                eventDescription: isResubmission
+                  ? `Step ${step.stepOrder}: ${step.stepName} — Form resubmitted`
+                  : `Step ${step.stepOrder}: ${step.stepName} — Form submitted`,
                 actorUserId: userId,
                 actorName: user.fullName,
                 actorRole: user.role,
               });
-            } else if (stepCompletionResult.data?.nextStepActivated && stepCompletionResult.data?.nextStepId) {
-              const [nextStep] = await db
-                .select({ stepName: stepInstance.stepName })
-                .from(stepInstance)
-                .where(eq(stepInstance.id, stepCompletionResult.data.nextStepId));
-              logWorkflowEvent({
-                tenantId,
-                processInstanceId: submissionRecord.processInstanceId ?? undefined,
-                stepInstanceId: stepCompletionResult.data.nextStepId,
-                eventType: WorkflowEventType.STEP_ACTIVATED,
-                eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
-                actorUserId: userId,
-                actorName: "Supplex",
-                actorRole: "system",
-              });
+
+              if (stepResult.data?.processCompleted) {
+                await logWorkflowEventTx(tx, {
+                  tenantId,
+                  processInstanceId: submissionRecord.processInstanceId ?? undefined,
+                  eventType: WorkflowEventType.PROCESS_COMPLETED,
+                  eventDescription: "Workflow completed",
+                  actorUserId: userId,
+                  actorName: user.fullName,
+                  actorRole: user.role,
+                });
+              } else if (stepResult.data?.nextStepActivated && stepResult.data?.nextStepId) {
+                const [nextStep] = await tx
+                  .select({ stepName: stepInstance.stepName })
+                  .from(stepInstance)
+                  .where(eq(stepInstance.id, stepResult.data.nextStepId));
+                await logWorkflowEventTx(tx, {
+                  tenantId,
+                  processInstanceId: submissionRecord.processInstanceId ?? undefined,
+                  stepInstanceId: stepResult.data.nextStepId,
+                  eventType: WorkflowEventType.STEP_ACTIVATED,
+                  eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
+                  actorUserId: userId,
+                  actorName: "Supplex",
+                  actorRole: "system",
+                });
+              }
             }
-          } else if (!stepCompletionResult.success) {
-            console.warn(
-              `[FormSubmit] Step auto-complete failed: ${stepCompletionResult.error}`
-            );
+
+            return { updatedSubmission: txSubmission, stepResult };
+          });
+
+          updatedSubmission = txResult.updatedSubmission;
+          stepCompletionResult = txResult.stepResult;
+
+          // Post-commit verification: read back step + form status to detect phantom commits
+          const [verifyStep] = await db
+            .select({ status: stepInstance.status })
+            .from(stepInstance)
+            .where(eq(stepInstance.id, submissionRecord.stepInstanceId!));
+
+          const [verifyForm] = await db
+            .select({ status: formSubmission.status })
+            .from(formSubmission)
+            .where(eq(formSubmission.id, submissionId));
+
+          if (verifyStep?.status === "active" || verifyForm?.status !== "submitted") {
+            requestLogger.error({
+              submissionId,
+              stepId: submissionRecord.stepInstanceId,
+              verifiedStepStatus: verifyStep?.status,
+              verifiedFormStatus: verifyForm?.status,
+            }, "PHANTOM COMMIT DETECTED: transaction reported success but state unchanged");
+            throw Errors.internal("Submission failed — please try again");
           }
-        } catch (err) {
-          console.error("[FormSubmit] Error auto-completing step:", err);
+        } catch (txError: any) {
+          if (txError instanceof ApiError || ("statusCode" in txError && "code" in txError)) throw txError;
+          requestLogger.error({
+            submissionId,
+            stepId: submissionRecord.stepInstanceId,
+            errorMessage: txError?.message,
+            errorName: txError?.name,
+          }, "form submit transaction failed");
+          const msg = txError?.message || "";
+          if (msg.includes("not in active state") || msg.includes("already processed")) {
+            throw Errors.conflict("Step already processed or not in active state");
+          }
+          throw Errors.badRequest(msg || "Step completion failed");
         }
+      } else {
+        // Standalone form: single write, no transaction wrapping needed
+        [updatedSubmission] = await db
+          .update(formSubmission)
+          .set({
+            status: "submitted",
+            submittedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(formSubmission.id, submissionId))
+          .returning();
       }
 
+      // 9. Return response
       set.status = 200;
       return {
         success: true,
@@ -255,17 +303,9 @@ export const submitRoute = new Elysia().use(authenticate).post(
         },
       };
     } catch (error: any) {
-      console.error("Error submitting form:", error);
-
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to submit form",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError || ("statusCode" in error && "code" in error)) throw error;
+      requestLogger.error({ err: error }, "Form submit failed");
+      throw Errors.internal("Failed to submit form");
     }
   }
 );

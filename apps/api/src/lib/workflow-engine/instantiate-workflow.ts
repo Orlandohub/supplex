@@ -2,12 +2,14 @@
  * Workflow Instantiation Helper
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: 2.2.14 - Remove Template Versioning
+ * Updated: 2.2.19 - Transaction wrapping, batch inserts
  * 
  * Creates a new workflow process instance from a published workflow template
  */
 
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { DbOrTx } from "@supplex/db";
 import {
+  db,
   workflowTemplate,
   workflowStepTemplate,
   processInstance,
@@ -16,6 +18,9 @@ import {
 import { eq, and, asc, isNull } from "drizzle-orm";
 import { WorkflowProcessStatus } from "@supplex/types";
 import { createTasksForStep } from "./create-tasks-for-step";
+import { seedStepDocuments } from "./seed-step-documents";
+import type { Logger } from "pino";
+import defaultLogger from "../logger";
 
 interface InstantiateWorkflowParams {
   tenantId: string;
@@ -23,6 +28,7 @@ interface InstantiateWorkflowParams {
   entityType: string;
   entityId: string;
   initiatedBy: string;
+  workflowName?: string;
   metadata?: Record<string, any>;
 }
 
@@ -36,8 +42,9 @@ interface InstantiateWorkflowResult {
 }
 
 export async function instantiateWorkflow(
-  db: NodePgDatabase<any>,
-  params: InstantiateWorkflowParams
+  outerDb: DbOrTx,
+  params: InstantiateWorkflowParams,
+  log?: Logger
 ): Promise<InstantiateWorkflowResult> {
   const {
     tenantId,
@@ -45,147 +52,144 @@ export async function instantiateWorkflow(
     entityType,
     entityId,
     initiatedBy,
+    workflowName,
     metadata = {},
   } = params;
 
   try {
-    // Query workflow template (with tenant filter)
-    const [template] = await db
-      .select()
-      .from(workflowTemplate)
-      .where(
-        and(
-          eq(workflowTemplate.id, workflowTemplateId),
-          eq(workflowTemplate.tenantId, tenantId),
-          isNull(workflowTemplate.deletedAt)
-        )
-      );
+    return await db.transaction(async (tx) => {
+      const [template] = await tx
+        .select()
+        .from(workflowTemplate)
+        .where(
+          and(
+            eq(workflowTemplate.id, workflowTemplateId),
+            eq(workflowTemplate.tenantId, tenantId),
+            isNull(workflowTemplate.deletedAt)
+          )
+        );
 
-    if (!template) {
-      return {
-        success: false,
-        error: "Workflow template not found",
-      };
-    }
+      if (!template) {
+        return {
+          success: false,
+          error: "Workflow template not found",
+        };
+      }
 
-    // Verify status = 'published' and active
-    if (template.status !== "published") {
-      return {
-        success: false,
-        error: "Workflow template is not published",
-      };
-    }
+      if (template.status !== "published") {
+        return {
+          success: false,
+          error: "Workflow template is not published",
+        };
+      }
 
-    if (!template.active) {
-      return {
-        success: false,
-        error: "Workflow template is not active",
-      };
-    }
+      if (!template.active) {
+        return {
+          success: false,
+          error: "Workflow template is not active",
+        };
+      }
 
-    // Create process_instance
-    const [process] = await db
-      .insert(processInstance)
-      .values({
-        tenantId,
-        processType: metadata?.processType || "workflow_execution",
-        entityType,
-        entityId,
-        status: "in_progress",
-        workflowTemplateId,
-        initiatedBy,
-        initiatedDate: new Date(),
-        metadata: metadata || {},
-      })
-      .returning();
-
-    // Query all workflow step templates (ordered by step_order)
-    const stepTemplates = await db
-      .select()
-      .from(workflowStepTemplate)
-      .where(
-        and(
-          eq(
-            workflowStepTemplate.workflowTemplateId,
-            workflowTemplateId
-          ),
-          eq(workflowStepTemplate.tenantId, tenantId),
-          isNull(workflowStepTemplate.deletedAt)
-        )
-      )
-      .orderBy(asc(workflowStepTemplate.stepOrder));
-
-    if (stepTemplates.length === 0) {
-      // Rollback: delete process if no steps exist
-      await db
-        .delete(processInstance)
-        .where(eq(processInstance.id, process.id));
-
-      return {
-        success: false,
-        error: "Workflow template has no steps",
-      };
-    }
-
-    // Create step_instance records for ALL steps
-    const createdSteps: typeof stepInstance.$inferSelect[] = [];
-
-    for (const stepTemplate of stepTemplates) {
-      const isFirstStep = stepTemplate.stepOrder === 1;
-
-      const [step] = await db
-        .insert(stepInstance)
+      const [process] = await tx
+        .insert(processInstance)
         .values({
           tenantId,
-          processInstanceId: process.id,
-          stepOrder: stepTemplate.stepOrder,
-          stepName: stepTemplate.name,
-          stepType: stepTemplate.stepType,
-          workflowStepTemplateId: stepTemplate.id,
-          status: isFirstStep ? "active" : "blocked",
-          metadata: {},
+          processType: metadata?.processType || "workflow_execution",
+          entityType,
+          entityId,
+          status: "in_progress",
+          workflowTemplateId,
+          workflowName: workflowName || template.name,
+          initiatedBy,
+          initiatedDate: new Date(),
+          metadata: metadata || {},
+          totalSteps: 0,
+          completedSteps: 0,
         })
         .returning();
 
-      createdSteps.push(step);
+      const stepTemplates = await tx
+        .select()
+        .from(workflowStepTemplate)
+        .where(
+          and(
+            eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
+            eq(workflowStepTemplate.tenantId, tenantId),
+            isNull(workflowStepTemplate.deletedAt)
+          )
+        )
+        .orderBy(asc(workflowStepTemplate.stepOrder));
 
-      // For the first step, create tasks immediately
-      if (isFirstStep) {
-        await createTasksForStep(step.id, stepTemplate.id, process.id, tenantId);
+      if (stepTemplates.length === 0) {
+        throw new Error("Workflow template has no steps");
       }
-    }
 
-    const firstStep = createdSteps.find((s) => s.stepOrder === 1);
-    await db
-      .update(processInstance)
-      .set({
-        status: WorkflowProcessStatus.IN_PROGRESS,
-        currentStepInstanceId: firstStep?.id ?? null,
-        updatedAt: new Date(),
-      })
-      .where(eq(processInstance.id, process.id));
+      // Batch insert all step instances at once
+      const createdSteps = await tx
+        .insert(stepInstance)
+        .values(
+          stepTemplates.map((st) => ({
+            tenantId,
+            processInstanceId: process.id,
+            stepOrder: st.stepOrder,
+            stepName: st.name,
+            stepType: st.stepType,
+            workflowStepTemplateId: st.id,
+            status: st.stepOrder === 1 ? "active" : "blocked",
+            metadata: {},
+          }))
+        )
+        .returning();
 
-    const [updatedProcess] = await db
-      .select()
-      .from(processInstance)
-      .where(eq(processInstance.id, process.id));
+      const firstStep = createdSteps.find((s) => s.stepOrder === 1);
+      const firstStepTemplate = stepTemplates.find((st) => st.stepOrder === 1);
 
-    return {
-      success: true,
-      data: {
-        processInstance: updatedProcess,
-        steps: createdSteps,
-      },
-    };
+      if (firstStep && firstStepTemplate) {
+        await createTasksForStep(
+          tx,
+          firstStep.id,
+          firstStepTemplate.id,
+          process.id,
+          tenantId
+        );
+
+        if (firstStepTemplate.stepType === "document" && firstStepTemplate.documentTemplateId) {
+          await seedStepDocuments(
+            tx,
+            firstStep.id,
+            process.id,
+            firstStepTemplate.id,
+            tenantId
+          );
+        }
+      }
+
+      const [updatedProcess] = await tx
+        .update(processInstance)
+        .set({
+          status: WorkflowProcessStatus.IN_PROGRESS,
+          currentStepInstanceId: firstStep?.id ?? null,
+          totalSteps: stepTemplates.length,
+          updatedAt: new Date(),
+        })
+        .where(eq(processInstance.id, process.id))
+        .returning();
+
+      return {
+        success: true,
+        data: {
+          processInstance: updatedProcess,
+          steps: createdSteps,
+        },
+      };
+    });
   } catch (error) {
-    console.error("Error instantiating workflow:", error);
+    const instLog = (log || defaultLogger).child({ action: "instantiateWorkflow", tenantId: params.tenantId });
+    instLog.error({ err: error }, "error instantiating workflow");
+    const message = error instanceof Error ? error.message : "Failed to instantiate workflow";
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to instantiate workflow",
+      error: message,
     };
   }
 }
-

@@ -2,6 +2,7 @@ import { describe, it, expect, mock } from "bun:test";
 import { Elysia } from "elysia";
 import { authenticate, hasPermission } from "../middleware";
 import { UserRole, PermissionAction } from "@supplex/types";
+import { withApiErrorHandler } from "../../test-utils";
 
 // Mock Supabase client
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -15,7 +16,7 @@ const _mockSupabase = {
             user: {
               id: "user-123",
               email: "admin@test.com",
-              user_metadata: {
+              app_metadata: {
                 role: UserRole.ADMIN,
                 tenant_id: "tenant-123",
               },
@@ -31,7 +32,7 @@ const _mockSupabase = {
             user: {
               id: "user-456",
               email: "viewer@test.com",
-              user_metadata: {
+              app_metadata: {
                 role: UserRole.VIEWER,
                 tenant_id: "tenant-123",
               },
@@ -47,7 +48,7 @@ const _mockSupabase = {
             user: {
               id: "user-789",
               email: "procurement@test.com",
-              user_metadata: {
+              app_metadata: {
                 role: UserRole.PROCUREMENT_MANAGER,
                 tenant_id: "tenant-123",
               },
@@ -63,7 +64,7 @@ const _mockSupabase = {
             user: {
               id: "user-999",
               email: "notenant@test.com",
-              user_metadata: {
+              app_metadata: {
                 role: UserRole.VIEWER,
               },
             },
@@ -99,9 +100,11 @@ const _mockSupabase = {
 describe("RBAC Middleware", () => {
   describe("authenticate", () => {
     it("should reject requests without authorization header", async () => {
-      const app = new Elysia()
-        .use(authenticate)
-        .get("/test", ({ user }: any) => ({ success: true, user }));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .use(authenticate)
+          .get("/test", ({ user }: any) => ({ success: true, user }))
+      );
 
       const response = await app.handle(new Request("http://localhost/test"));
 
@@ -111,9 +114,11 @@ describe("RBAC Middleware", () => {
     });
 
     it("should reject requests with malformed authorization header", async () => {
-      const app = new Elysia()
-        .use(authenticate)
-        .get("/test", ({ user }: any) => ({ success: true, user }));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .use(authenticate)
+          .get("/test", ({ user }: any) => ({ success: true, user }))
+      );
 
       const response = await app.handle(
         new Request("http://localhost/test", {
@@ -125,9 +130,11 @@ describe("RBAC Middleware", () => {
     });
 
     it("should reject requests with invalid token", async () => {
-      const app = new Elysia()
-        .use(authenticate)
-        .get("/test", ({ user }: any) => ({ success: true, user }));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .use(authenticate)
+          .get("/test", ({ user }: any) => ({ success: true, user }))
+      );
 
       const response = await app.handle(
         new Request("http://localhost/test", {
@@ -139,9 +146,11 @@ describe("RBAC Middleware", () => {
     });
 
     it("should return TOKEN_EXPIRED error for expired tokens", async () => {
-      const app = new Elysia()
-        .use(authenticate)
-        .get("/test", ({ user }: any) => ({ success: true, user }));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .use(authenticate)
+          .get("/test", ({ user }: any) => ({ success: true, user }))
+      );
 
       const response = await app.handle(
         new Request("http://localhost/test", {
@@ -163,9 +172,11 @@ describe("RBAC Middleware", () => {
     });
 
     it("should return MISSING_TOKEN error for requests without token", async () => {
-      const app = new Elysia()
-        .use(authenticate)
-        .get("/test", ({ user }: any) => ({ success: true, user }));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .use(authenticate)
+          .get("/test", ({ user }: any) => ({ success: true, user }))
+      );
 
       const response = await app.handle(new Request("http://localhost/test"));
 
@@ -183,9 +194,11 @@ describe("RBAC Middleware", () => {
     });
 
     it("should return INVALID_TOKEN error for malformed tokens", async () => {
-      const app = new Elysia()
-        .use(authenticate)
-        .get("/test", ({ user }: any) => ({ success: true, user }));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .use(authenticate)
+          .get("/test", ({ user }: any) => ({ success: true, user }))
+      );
 
       const response = await app.handle(
         new Request("http://localhost/test", {

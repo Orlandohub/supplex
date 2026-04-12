@@ -345,7 +345,7 @@ export const useAuth = create<AuthState>()(
         }
       },
 
-      // Clear authentication state
+      // Clear authentication state and persisted localStorage entry
       clearAuth: () => {
         set({
           user: null,
@@ -354,15 +354,17 @@ export const useAuth = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
         });
+        try {
+          localStorage.removeItem("supplex-auth");
+        } catch {
+          // SSR or restricted environment — safe to ignore
+        }
       },
     }),
     {
       name: "supplex-auth",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist the user record and basic auth state
-        // Session tokens should be handled by httpOnly cookies
-        userRecord: state.userRecord,
         isAuthenticated: state.isAuthenticated,
       }),
     }

@@ -1,7 +1,9 @@
 # Workflow Template Schema Design
 
-**Story:** 2.2.6 - Workflow Template Data Model (Tenant-Isolated, Multi-Approver, Action Modes)  
+**Story:** 2.2.6 - Workflow Template Data Model (Tenant-Isolated, Action Modes)  
 **Date:** January 24, 2026
+
+> **⚠️ Stale References (Story 2.2.23):** This document references `multi_approver`, `approver_count`, `step_approver`, and `form_template_version_id`. Multi-approver was removed in Story 2.2.18 (replaced by auto-validation in Story 2.2.15). Template versioning was removed in Story 2.2.14. The actual schema in `packages/db/src/schema/` is the source of truth.
 
 ## Overview
 

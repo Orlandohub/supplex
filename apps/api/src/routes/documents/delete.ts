@@ -1,8 +1,9 @@
 import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requirePermission } from "../../lib/rbac/middleware";
+import { PermissionAction } from "@supplex/types";
+import { Errors } from "../../lib/errors";
 
 /**
  * DELETE /api/documents/:id
@@ -14,28 +15,10 @@ import { UserRole } from "@supplex/types";
  * Note: This is a soft delete - the file remains in storage for audit purposes
  */
 export const deleteDocument = new Elysia({ prefix: "/api" })
-  .use(authenticate)
+  .use(requirePermission(PermissionAction.DELETE_DOCUMENTS))
   .delete(
     "/documents/:id",
     async ({ params, user, set }) => {
-      // Check role permission
-      if (
-        !user?.role ||
-        ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
-          user.role as UserRole
-        )
-      ) {
-        set.status = 403;
-        return {
-          error: {
-            code: "FORBIDDEN",
-            message:
-              "Access denied. Required role: Admin or Procurement Manager",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
       const { id } = params;
 
       // Fetch document and verify tenant ownership
@@ -52,8 +35,7 @@ export const deleteDocument = new Elysia({ prefix: "/api" })
         .limit(1);
 
       if (!document) {
-        set.status = 404;
-        throw new Error(
+        throw Errors.notFound(
           "Document not found, already deleted, or does not belong to your tenant"
         );
       }

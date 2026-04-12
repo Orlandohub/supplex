@@ -1,10 +1,12 @@
 import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { authenticate, requirePermission } from "../../lib/rbac/middleware";
+import { UserRole, PermissionAction } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
+import { validateFileMagicBytes } from "../../lib/file-validation";
 import { randomUUID } from "crypto";
+import { ApiError, Errors } from "../../lib/errors";
 
 // File validation constants
 const ALLOWED_MIME_TYPES = [
@@ -59,28 +61,10 @@ function validateFile(file: File): { valid: boolean; error?: string } {
  * Tenant Scoping: Automatically sets tenant_id from authenticated user
  */
 export const uploadDocument = new Elysia({ prefix: "/api" })
-  .use(authenticate)
+  .use(requirePermission(PermissionAction.UPLOAD_DOCUMENTS))
   .post(
     "/suppliers/:id/documents",
-    async ({ params, body, user, set }) => {
-      // Check role permission
-      if (
-        !user?.role ||
-        ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
-          user.role as UserRole
-        )
-      ) {
-        set.status = 403;
-        return {
-          error: {
-            code: "FORBIDDEN",
-            message:
-              "Access denied. Required role: Admin or Procurement Manager",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       const { id: supplierId } = params;
       const { file, documentType, description, expiryDate } = body;
 
@@ -99,15 +83,22 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
         .limit(1);
 
       if (supplier.length === 0) {
-        set.status = 404;
-        throw new Error("Supplier not found or does not belong to your tenant");
+        throw Errors.notFound("Supplier not found or does not belong to your tenant");
       }
 
-      // Validate file
+      // Validate file (header-based)
       const validation = validateFile(file);
       if (!validation.valid) {
-        set.status = 400;
-        throw new Error(validation.error);
+        throw Errors.badRequest(validation.error!);
+      }
+
+      // Magic-byte validation (server-side content inspection)
+      const magicValidation = await validateFileMagicBytes(file);
+      if (!magicValidation.valid) {
+        throw Errors.badRequest(
+          magicValidation.error ||
+            "File type validation failed: detected type does not match declared Content-Type"
+        );
       }
 
       // Sanitize filename
@@ -129,23 +120,18 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
           });
 
         if (uploadError) {
-          console.error("[UPLOAD] Supabase Storage error:", uploadError);
+          requestLogger.error({ err: uploadError }, "Supabase Storage upload error");
 
           // Handle specific storage errors
           if (uploadError.message.includes("Bucket not found")) {
-            set.status = 500;
-            throw new Error(
-              "Storage bucket not configured. Please contact support."
-            );
+            throw Errors.internal("Storage bucket not configured. Please contact support.");
           }
 
           if (uploadError.message.includes("quota")) {
-            set.status = 507;
-            throw new Error("Storage quota exceeded. Please contact support.");
+            throw new ApiError(507, "STORAGE_QUOTA_EXCEEDED", "Storage quota exceeded. Please contact support.");
           }
 
-          set.status = 500;
-          throw new Error(`File upload failed: ${uploadError.message}`);
+          throw Errors.internal(`File upload failed: ${uploadError.message}`);
         }
 
         // Parse expiry date if provided
@@ -178,10 +164,7 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
             .from("supplier-documents")
             .remove([storagePath]);
         } catch (cleanupError) {
-          console.error(
-            "[UPLOAD] Failed to clean up file after error:",
-            cleanupError
-          );
+          requestLogger.error({ err: cleanupError }, "failed to clean up file after error");
         }
 
         throw error;

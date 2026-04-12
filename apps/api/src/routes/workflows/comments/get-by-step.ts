@@ -12,19 +12,23 @@ import { db } from "../../../lib/db";
 import { commentThread, users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { authenticate } from "../../../lib/rbac/middleware";
+import { verifyStepProcessAccess } from "../../../lib/rbac/entity-authorization";
+import { ApiError, Errors } from "../../../lib/errors";
 
 export const getCommentsByStepRoute = new Elysia()
   .use(authenticate)
   .get(
     "/comments/step/:stepInstanceId",
-    async ({ params, user }) => {
+    async ({ params, user, requestLogger }: any) => {
       const { stepInstanceId } = params;
 
       if (!user?.id || !user?.tenantId) {
-        return {
-          success: false,
-          error: "Unauthorized",
-        };
+        throw Errors.unauthorized("Unauthorized");
+      }
+
+      const access = await verifyStepProcessAccess(user, stepInstanceId, db);
+      if (!access.allowed) {
+        throw Errors.forbidden("Access denied");
       }
 
       try {
@@ -59,14 +63,9 @@ export const getCommentsByStepRoute = new Elysia()
           data: threaded,
         };
       } catch (error) {
-        console.error("Error fetching comments:", error);
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch comments",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error fetching comments");
+        throw Errors.internal("Failed to fetch comments");
       }
     },
     {

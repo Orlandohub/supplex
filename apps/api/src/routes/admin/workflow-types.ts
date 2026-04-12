@@ -2,19 +2,11 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowType, workflowTemplate, supplierStatus } from "@supplex/db";
 import { eq, and, count } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
-
+import { Errors } from "../../lib/errors";
 export const workflowTypeRoutes = new Elysia()
-  .use(authenticate)
   .get(
     "/workflow-types",
-    async ({ user, set }) => {
-      if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
-      }
-
+    async ({ user, set }: any) => {
       const rows = await db
         .select({
           id: workflowType.id,
@@ -35,12 +27,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .post(
     "/workflow-types",
-    async ({ body, user, set }) => {
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Access denied. Admin role required." };
-      }
-
+    async ({ body, user, set }: any) => {
       const { name, supplierStatusId } = body;
 
       const [created] = await db
@@ -63,12 +50,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .patch(
     "/workflow-types/:id",
-    async ({ params, body, user, set }) => {
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Access denied. Admin role required." };
-      }
-
+    async ({ params, body, user, set }: any) => {
       const [existing] = await db
         .select()
         .from(workflowType)
@@ -80,8 +62,7 @@ export const workflowTypeRoutes = new Elysia()
         );
 
       if (!existing) {
-        set.status = 404;
-        return { success: false, error: "Workflow type not found" };
+        throw Errors.notFound("Workflow type not found");
       }
 
       const [updated] = await db
@@ -106,12 +87,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .delete(
     "/workflow-types/:id",
-    async ({ params, user, set }) => {
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Access denied. Admin role required." };
-      }
-
+    async ({ params, user, set }: any) => {
       const [existing] = await db
         .select()
         .from(workflowType)
@@ -123,8 +99,7 @@ export const workflowTypeRoutes = new Elysia()
         );
 
       if (!existing) {
-        set.status = 404;
-        return { success: false, error: "Workflow type not found" };
+        throw Errors.notFound("Workflow type not found");
       }
 
       const [usageCount] = await db
@@ -133,11 +108,9 @@ export const workflowTypeRoutes = new Elysia()
         .where(eq(workflowTemplate.workflowTypeId, params.id));
 
       if (usageCount && usageCount.cnt > 0) {
-        set.status = 409;
-        return {
-          success: false,
-          error: `Cannot delete: type is used by ${usageCount.cnt} workflow template(s)`,
-        };
+        throw Errors.conflict(
+          `Cannot delete: type is used by ${usageCount.cnt} workflow template(s)`
+        );
       }
 
       await db

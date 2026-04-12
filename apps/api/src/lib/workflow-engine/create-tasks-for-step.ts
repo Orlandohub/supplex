@@ -2,34 +2,56 @@
  * Task Creation Helper for Workflow Engine
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: Story 2.2.10 - Supplier User Auto-Assignment
+ * Updated: Story 2.2.19 - Transaction threading, idempotency guards
  * 
  * Creates task instances when a workflow step becomes active
  */
 
-import { db } from "../db";
-import { taskInstance, workflowStepTemplate, stepApprover, processInstance, users, suppliers } from "@supplex/db";
-import { eq, and, isNull } from "drizzle-orm";
+import type { DbOrTx } from "@supplex/db";
+import { taskInstance, workflowStepTemplate, processInstance, users, suppliers } from "@supplex/db";
+import { eq, and, isNull, sql, aliasedTable } from "drizzle-orm";
+import type { Logger } from "pino";
+import defaultLogger from "../logger";
 
-/**
- * Resolve supplier user for auto-assignment
- * 
- * Resolution hierarchy:
- * 1. Find supplier user for the supplier (supplier_id = entity_id, role = 'supplier_user')
- * 2. If not found, fall back to procurement manager of the tenant
- * 3. If no procurement manager, fall back to process initiator (last resort)
- * 
- * @param processInstanceId - UUID of the process instance
- * @param tenantId - Tenant ID for isolation
- * @returns Resolved user ID or null
- */
 async function resolveSupplierUser(
+  tx: DbOrTx,
   processInstanceId: string,
-  tenantId: string
+  tenantId: string,
+  taskLog: Logger
 ): Promise<string | null> {
-  // Get process instance to find entity_type and entity_id
-  const [process] = await db
-    .select()
+  const supplierUser = aliasedTable(users, "supplier_user");
+
+  const [result] = await tx
+    .select({
+      entityType: processInstance.entityType,
+      entityId: processInstance.entityId,
+      initiatedBy: processInstance.initiatedBy,
+      supplierUserId: supplierUser.id,
+      pmId: sql<string | null>`(
+        SELECT id FROM users
+        WHERE tenant_id = ${tenantId}
+          AND role = 'procurement_manager'
+          AND is_active = true
+        LIMIT 1
+      )`,
+    })
     .from(processInstance)
+    .leftJoin(
+      suppliers,
+      and(
+        eq(suppliers.id, processInstance.entityId),
+        eq(suppliers.tenantId, tenantId),
+        isNull(suppliers.deletedAt)
+      )
+    )
+    .leftJoin(
+      supplierUser,
+      and(
+        eq(supplierUser.id, suppliers.supplierUserId),
+        eq(supplierUser.role, "supplier_user"),
+        eq(supplierUser.isActive, true)
+      )
+    )
     .where(
       and(
         eq(processInstance.id, processInstanceId),
@@ -37,164 +59,36 @@ async function resolveSupplierUser(
       )
     );
 
-  if (!process) {
-    console.error(`Process instance not found: ${processInstanceId}`);
+  if (!result) {
+    taskLog.error({ processInstanceId }, "process instance not found");
     return null;
   }
 
-  // Verify entity_type is 'supplier'
-  if (process.entityType !== "supplier") {
-    console.log(
-      `Non-supplier workflow (entity_type: ${process.entityType}). Falling back to procurement manager.`
-    );
-    // Fallback to procurement manager
-    const [procurementManager] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.tenantId, tenantId),
-          eq(users.role, "procurement_manager"),
-          eq(users.isActive, true)
-        )
-      )
-      .limit(1);
-
-    if (procurementManager) {
-      console.log(
-        `Assigned to procurement manager (non-supplier workflow): ${procurementManager.email}`
-      );
-      return procurementManager.id;
-    }
-
-    // Last resort: Use process initiator
-    console.log(
-      `No procurement manager found, using process initiator: ${process.initiatedBy}`
-    );
-    return process.initiatedBy;
+  if (result.entityType === "supplier" && result.supplierUserId) {
+    taskLog.info({ assignee: result.supplierUserId }, "assigned to supplier user");
+    return result.supplierUserId;
   }
 
-  // Query the supplier record to get the supplier_user_id
-  const [supplier] = await db
-    .select()
-    .from(suppliers)
-    .where(
-      and(
-        eq(suppliers.id, process.entityId),
-        eq(suppliers.tenantId, tenantId),
-        isNull(suppliers.deletedAt)
-      )
-    )
-    .limit(1);
-
-  if (!supplier) {
-    console.error(
-      `Supplier not found: ${process.entityId}. Falling back to procurement manager.`
-    );
-    // Fallback to procurement manager
-    const [procurementManager] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.tenantId, tenantId),
-          eq(users.role, "procurement_manager"),
-          eq(users.isActive, true)
-        )
-      )
-      .limit(1);
-
-    if (procurementManager) {
-      console.log(
-        `Assigned to procurement manager (supplier not found): ${procurementManager.email}`
-      );
-      return procurementManager.id;
-    }
-
-    return process.initiatedBy;
+  if (result.pmId) {
+    taskLog.info({ assignee: result.pmId }, "assigned to procurement manager (fallback)");
+    return result.pmId;
   }
 
-  // Check if supplier has an associated supplier user
-  if (supplier.supplierUserId) {
-    // Verify the supplier user exists and is active
-    const [supplierUser] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.id, supplier.supplierUserId),
-          eq(users.tenantId, tenantId),
-          eq(users.role, "supplier_user"),
-          eq(users.isActive, true)
-        )
-      )
-      .limit(1);
-
-    if (supplierUser) {
-      console.log(
-        `Assigned to supplier user: ${supplierUser.email} for supplier: ${supplier.name}`
-      );
-      return supplierUser.id;
-    } else {
-      console.warn(
-        `Supplier user ID ${supplier.supplierUserId} is set but user not found or inactive. Falling back to procurement manager.`
-      );
-    }
-  } else {
-    console.log(
-      `No supplier user associated with supplier ${supplier.name} (${supplier.id}). Falling back to procurement manager.`
-    );
-  }
-
-  // Fallback to procurement manager
-  const [procurementManager] = await db
-    .select()
-    .from(users)
-    .where(
-      and(
-        eq(users.tenantId, tenantId),
-        eq(users.role, "procurement_manager"),
-        eq(users.isActive, true)
-      )
-    )
-    .limit(1);
-
-  if (procurementManager) {
-    console.log(
-      `Assigning to procurement manager (fallback): ${procurementManager.email}`
-    );
-    return procurementManager.id;
-  }
-
-  // Last resort: Use process initiator
-  console.error(
-    `No procurement manager found for tenant ${tenantId}. Using process initiator as last resort.`
-  );
-  return process.initiatedBy;
+  taskLog.warn({ tenantId }, "no procurement manager found, using process initiator as last resort");
+  return result.initiatedBy;
 }
 
-/**
- * Create task instances for a workflow step
- * 
- * Based on multi_approver configuration:
- * - If false: Creates single task with assignee from step template
- * - If true: Creates one task per approver from step_approver table
- * 
- * @param stepInstanceId - UUID of the step instance
- * @param workflowStepTemplateId - UUID of the workflow step template
- * @param processInstanceId - UUID of the process instance (for task relationship)
- * @param tenantId - Tenant ID for isolation
- * @returns Array of created task instances
- */
 export async function createTasksForStep(
+  tx: DbOrTx,
   stepInstanceId: string,
   workflowStepTemplateId: string,
   processInstanceId: string,
   tenantId: string,
-  options?: { isResubmission?: boolean }
+  options?: { isResubmission?: boolean },
+  log?: Logger
 ): Promise<typeof taskInstance.$inferSelect[]> {
-  // Get the workflow step template configuration
-  const [stepTemplate] = await db
+  const taskLog = (log || defaultLogger).child({ action: "createTasksForStep", tenantId, stepId: stepInstanceId });
+  const [stepTemplate] = await tx
     .select()
     .from(workflowStepTemplate)
     .where(
@@ -210,109 +104,77 @@ export async function createTasksForStep(
     );
   }
 
-  const tasks: typeof taskInstance.$inferSelect[] = [];
-
-  // Check if multi-approver is enabled
-  if (stepTemplate.multiApprover) {
-    // Multi-approver: Create one task per approver
-    const approvers = await db
-      .select()
-      .from(stepApprover)
-      .where(
-        and(
-          eq(stepApprover.workflowStepTemplateId, workflowStepTemplateId),
-          eq(stepApprover.tenantId, tenantId)
-        )
+  // Idempotency guard: check for existing pending tasks before inserting
+  const taskType = options?.isResubmission ? "resubmission" : "action";
+  const existingTasks = await tx
+    .select()
+    .from(taskInstance)
+    .where(
+      and(
+        eq(taskInstance.stepInstanceId, stepInstanceId),
+        eq(taskInstance.taskType, taskType),
+        eq(taskInstance.status, "pending"),
+        isNull(taskInstance.deletedAt)
       )
-      .orderBy(stepApprover.approverOrder);
+    );
 
-    if (approvers.length === 0) {
-      throw new Error(
-        `No approvers found for multi-approver step: ${workflowStepTemplateId}`
-      );
-    }
-
-    // Create one task for each approver
-    for (const approver of approvers) {
-      const dueAt = stepTemplate.dueDays
-        ? new Date(Date.now() + stepTemplate.dueDays * 24 * 60 * 60 * 1000)
-        : null;
-
-      // Handle supplier_user role auto-assignment
-      let assigneeUserId = approver.approverUserId || undefined;
-      let assigneeType = approver.approverType;
-      let assigneeRole = approver.approverRole || undefined;
-
-      if (approver.approverRole === "supplier_user") {
-        const resolvedUserId = await resolveSupplierUser(processInstanceId, tenantId);
-        if (resolvedUserId) {
-          assigneeUserId = resolvedUserId;
-          assigneeType = "user";
-          assigneeRole = undefined;
-        }
-      }
-
-      const [task] = await db
-        .insert(taskInstance)
-        .values({
-          tenantId,
-          processInstanceId,
-          stepInstanceId,
-          title: stepTemplate.taskTitle,
-          description: stepTemplate.taskDescription || undefined,
-          assigneeType,
-          assigneeRole,
-          assigneeUserId,
-          completionTimeDays: stepTemplate.dueDays || undefined,
-          dueAt: dueAt,
-          taskType: options?.isResubmission ? "resubmission" : "action",
-          status: "pending",
-        })
-        .returning();
-
-      tasks.push(task);
-    }
-  } else {
-    // Single approver: Create one task with assignee from step template
-    const dueAt = stepTemplate.dueDays
-      ? new Date(Date.now() + stepTemplate.dueDays * 24 * 60 * 60 * 1000)
-      : null;
-
-    // Handle supplier_user role auto-assignment
-    let assigneeUserId = stepTemplate.assigneeUserId || undefined;
-    let assigneeType = stepTemplate.assigneeType;
-    let assigneeRole = stepTemplate.assigneeRole || undefined;
-
-    if (stepTemplate.assigneeRole === "supplier_user") {
-      const resolvedUserId = await resolveSupplierUser(processInstanceId, tenantId);
-      if (resolvedUserId) {
-        assigneeUserId = resolvedUserId;
-        assigneeType = "user";
-        assigneeRole = undefined;
-      }
-    }
-
-    const [task] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId,
-        processInstanceId,
-        stepInstanceId,
-        title: stepTemplate.taskTitle,
-        description: stepTemplate.taskDescription || undefined,
-        assigneeType,
-        assigneeRole,
-        assigneeUserId,
-        completionTimeDays: stepTemplate.dueDays || undefined,
-        dueAt: dueAt,
-        taskType: options?.isResubmission ? "resubmission" : "action",
-        status: "pending",
-      })
-      .returning();
-
-    tasks.push(task);
+  if (existingTasks.length > 0) {
+    taskLog.warn({ existingCount: existingTasks.length, taskType }, "idempotency: existing pending tasks found, skipping insert");
+    return existingTasks;
   }
 
-  return tasks;
+  const dueAt = stepTemplate.dueDays
+    ? new Date(Date.now() + stepTemplate.dueDays * 24 * 60 * 60 * 1000)
+    : null;
+
+  let assigneeUserId = stepTemplate.assigneeUserId || undefined;
+  let assigneeType = stepTemplate.assigneeType;
+  let assigneeRole = stepTemplate.assigneeRole || undefined;
+
+  if (stepTemplate.assigneeRole === "supplier_user") {
+    const resolvedUserId = await resolveSupplierUser(tx, processInstanceId, tenantId, taskLog);
+    if (resolvedUserId) {
+      assigneeUserId = resolvedUserId;
+      assigneeType = "user";
+      assigneeRole = undefined;
+    }
+  }
+
+  const [task] = await tx
+    .insert(taskInstance)
+    .values({
+      tenantId,
+      processInstanceId,
+      stepInstanceId,
+      title: stepTemplate.taskTitle,
+      description: stepTemplate.taskDescription || undefined,
+      assigneeType,
+      assigneeRole,
+      assigneeUserId,
+      completionTimeDays: stepTemplate.dueDays || undefined,
+      dueAt: dueAt,
+      taskType,
+      status: "pending",
+    })
+    .onConflictDoNothing()
+    .returning();
+
+  if (!task) {
+    taskLog.warn("onConflictDoNothing: task already exists for step");
+    const existing = await tx
+      .select()
+      .from(taskInstance)
+      .where(
+        and(
+          eq(taskInstance.stepInstanceId, stepInstanceId),
+          eq(taskInstance.taskType, taskType),
+          eq(taskInstance.status, "pending"),
+          isNull(taskInstance.deletedAt)
+        )
+      );
+    return existing;
+  }
+
+  return [task];
 }
 

@@ -11,17 +11,24 @@ import { Input } from "~/components/ui/input";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient, createClientEdenTreatyClient } from "~/lib/api-client";
 import { UserRole } from "@supplex/types";
-import { Plus, ArrowLeft, Trash2, Pencil } from "lucide-react";
+import { Plus, ArrowLeft, Trash2, Pencil, MoreVertical, Power, PowerOff } from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { Switch } from "~/components/ui/switch";
 import { Label } from "~/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
   Table,
@@ -34,6 +41,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -292,6 +300,9 @@ export default function WorkflowTemplatesPage() {
   const [activeTab, setActiveTab] = useState("templates");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "archived">("all");
   const [isToggling, setIsToggling] = useState(false);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const [deleteTemplateName, setDeleteTemplateName] = useState<string>("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter templates by status
   const filteredTemplates = templates.filter((template) => {
@@ -307,9 +318,7 @@ export default function WorkflowTemplatesPage() {
     navigate(`/settings/workflow-templates/${templateId}/edit`);
   };
 
-  const handleToggleActive = async (templateId: string, currentActive: boolean, e: React.MouseEvent) => {
-    // Prevent card click from firing
-    e.stopPropagation();
+  const handleToggleActive = async (templateId: string, currentActive: boolean) => {
     if (isToggling) return;
     setIsToggling(true);
 
@@ -326,7 +335,6 @@ export default function WorkflowTemplatesPage() {
         description: `Template is now ${currentActive ? "inactive" : "active"}`,
       });
 
-      // Revalidate to refresh the list
       revalidator.revalidate();
     } catch (error) {
       console.error("Error toggling template active status:", error);
@@ -340,16 +348,48 @@ export default function WorkflowTemplatesPage() {
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const handleDeleteClick = (templateId: string, templateName: string) => {
+    setDeleteTemplateId(templateId);
+    setDeleteTemplateName(templateName);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTemplateId || isDeleting) return;
+    setIsDeleting(true);
+
+    try {
+      const client = createClientEdenTreatyClient(token);
+      const response = await client.api["workflow-templates"][deleteTemplateId].delete();
+
+      if (response.error) {
+        throw new Error("Failed to delete template");
+      }
+
+      toast({
+        title: "Template Deleted",
+        description: `"${deleteTemplateName}" has been deleted`,
+      });
+
+      setDeleteTemplateId(null);
+      revalidator.revalidate();
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete workflow template",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "outline" | "success" => {
     switch (status) {
-      case "published":
-        return "default";
-      case "draft":
-        return "secondary";
-      case "archived":
-        return "outline";
-      default:
-        return "secondary";
+      case "published": return "success";
+      case "draft": return "secondary";
+      case "archived": return "outline";
+      default: return "secondary";
     }
   };
 
@@ -448,63 +488,82 @@ export default function WorkflowTemplatesPage() {
                 onClick={() => handleEditTemplate(template.id)}
               >
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{template.name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getStatusBadgeVariant(template.status)}>
-                        {template.status}
-                      </Badge>
-                      {template.status === "published" && !template.active && (
-                        <Badge variant="outline" className="bg-gray-100">
-                          Inactive
-                        </Badge>
-                      )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-lg truncate">{template.name}</CardTitle>
+                      <CardDescription className="line-clamp-2 mt-1">
+                        {template.description || "No description provided"}
+                      </CardDescription>
                     </div>
+                    <Badge variant={getStatusBadgeVariant(template.status)} className="shrink-0 capitalize">
+                      {template.status}
+                    </Badge>
                   </div>
-                  <CardDescription className="line-clamp-2">
-                    {template.description || "No description provided"}
-                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div>
-                        <span className="font-medium">Process Type:</span>{" "}
-                        {template.processType}
-                      </div>
-                      <div>
-                        <span className="font-medium">Last Updated:</span>{" "}
-                        {new Date(template.updatedAt).toLocaleDateString()}
-                      </div>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div>
+                      <span className="font-medium">Process Type:</span>{" "}
+                      {template.processType}
                     </div>
-                    
+                    <div>
+                      <span className="font-medium">Last Updated:</span>{" "}
+                      {new Date(template.updatedAt).toLocaleDateString()}
+                    </div>
                     {template.status === "published" && (
-                      <div
-                        className="flex items-center justify-between pt-3 border-t"
-                        role="group"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}
-                      >
-                        <Label
-                          htmlFor={`active-${template.id}`}
-                          className="text-sm font-medium cursor-pointer"
-                        >
-                          {template.active ? "Active" : "Inactive"}
-                        </Label>
-                        <Switch
-                          id={`active-${template.id}`}
-                          checked={template.active}
-                          disabled={isToggling}
-                          onCheckedChange={() =>
-                            handleToggleActive(template.id, template.active, {
-                              stopPropagation: () => {},
-                            } as any)
-                          }
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-block h-2 w-2 rounded-full ${
+                            template.active ? "bg-green-500" : "bg-amber-500"
+                          }`}
                         />
+                        <span className={template.active ? "text-green-700" : "text-amber-600"}>
+                          {template.active ? "Active" : "Inactive"}
+                        </span>
                       </div>
                     )}
                   </div>
                 </CardContent>
+                <CardFooter className="border-t px-6 py-3">
+                  <div className="flex w-full justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditTemplate(template.id); }}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit Template
+                        </DropdownMenuItem>
+                        {template.status === "published" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={isToggling}
+                              onClick={(e) => { e.stopPropagation(); handleToggleActive(template.id, template.active); }}
+                            >
+                              {template.active ? (
+                                <><PowerOff className="h-4 w-4 mr-2" />Deactivate</>
+                              ) : (
+                                <><Power className="h-4 w-4 mr-2" />Activate</>
+                              )}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(template.id, template.name); }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Template
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardFooter>
               </Card>
             ))}
           </div>
@@ -512,6 +571,26 @@ export default function WorkflowTemplatesPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTemplateId} onOpenChange={() => setDeleteTemplateId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Workflow Template</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <span className="font-semibold">{deleteTemplateName}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTemplateId(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

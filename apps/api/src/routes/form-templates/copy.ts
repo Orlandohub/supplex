@@ -15,118 +15,112 @@ import {
   FormTemplateStatus,
 } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 export const copyFormTemplate = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .post(
     "/form-templates/:id/copy",
-    async ({ params, body, user }) => {
-      const { id } = params;
+    async ({ params, body, user, set, requestLogger }: any) => {
+      try {
+        const { id } = params;
 
-      if (!user) {
-        throw new Error("Unauthorized");
-      }
-
-      // Fetch original template with tenant isolation
-      const [originalTemplate] = await db
-        .select()
-        .from(formTemplate)
-        .where(
-          and(
-            eq(formTemplate.id, id),
-            eq(formTemplate.tenantId, user.tenantId),
-            isNull(formTemplate.deletedAt)
-          )
-        );
-
-      if (!originalTemplate) {
-        throw new Error("Form template not found");
-      }
-
-      // Generate copy name
-      const copyName = body.name || `Copy of ${originalTemplate.name}`;
-
-      // Start transaction for deep copy
-      const result = await db.transaction(async (tx) => {
-        // 1. Create new form template
-        const [newTemplate] = await tx
-          .insert(formTemplate)
-          .values({
-            tenantId: user.tenantId,
-            name: copyName,
-            status: FormTemplateStatus.DRAFT,
-            isActive: true,
-          })
-          .returning();
-
-        // 2. Fetch all sections from original template
-        const sections = await tx
+        const [originalTemplate] = await db
           .select()
-          .from(formSection)
+          .from(formTemplate)
           .where(
             and(
-              eq(formSection.formTemplateId, originalTemplate.id),
-              eq(formSection.tenantId, user.tenantId),
-              isNull(formSection.deletedAt)
+              eq(formTemplate.id, id),
+              eq(formTemplate.tenantId, user.tenantId),
+              isNull(formTemplate.deletedAt)
             )
-          )
-          .orderBy(asc(formSection.sectionOrder));
+          );
 
-        // 3. Copy sections and their fields
-        for (const section of sections) {
-          // Create new section
-          const [newSection] = await tx
-            .insert(formSection)
+        if (!originalTemplate) {
+          throw Errors.notFound("Form template not found", "TEMPLATE_NOT_FOUND");
+        }
+
+        const copyName = body.name || `Copy of ${originalTemplate.name}`;
+
+        const result = await db.transaction(async (tx) => {
+          const [newTemplate] = await tx
+            .insert(formTemplate)
             .values({
-              formTemplateId: newTemplate.id,
               tenantId: user.tenantId,
-              sectionOrder: section.sectionOrder,
-              title: section.title,
-              description: section.description,
-              metadata: section.metadata,
+              name: copyName,
+              status: FormTemplateStatus.DRAFT,
+              isActive: true,
             })
             .returning();
 
-          // Fetch all fields for this section
-          const fields = await tx
+          const sections = await tx
             .select()
-            .from(formField)
+            .from(formSection)
             .where(
               and(
-                eq(formField.formSectionId, section.id),
-                eq(formField.tenantId, user.tenantId),
-                isNull(formField.deletedAt)
+                eq(formSection.formTemplateId, originalTemplate.id),
+                eq(formSection.tenantId, user.tenantId),
+                isNull(formSection.deletedAt)
               )
             )
-            .orderBy(asc(formField.fieldOrder));
+            .orderBy(asc(formSection.sectionOrder));
 
-          // Copy fields
-          if (fields.length > 0) {
-            await tx.insert(formField).values(
-              fields.map((field) => ({
-                formSectionId: newSection.id,
+          for (const section of sections) {
+            const [newSection] = await tx
+              .insert(formSection)
+              .values({
+                formTemplateId: newTemplate.id,
                 tenantId: user.tenantId,
-                fieldOrder: field.fieldOrder,
-                fieldType: field.fieldType,
-                label: field.label,
-                placeholder: field.placeholder,
-                required: field.required,
-                validationRules: field.validationRules,
-                options: field.options,
-              }))
-            );
+                sectionOrder: section.sectionOrder,
+                title: section.title,
+                description: section.description,
+                metadata: section.metadata,
+              })
+              .returning();
+
+            const fields = await tx
+              .select()
+              .from(formField)
+              .where(
+                and(
+                  eq(formField.formSectionId, section.id),
+                  eq(formField.tenantId, user.tenantId),
+                  isNull(formField.deletedAt)
+                )
+              )
+              .orderBy(asc(formField.fieldOrder));
+
+            if (fields.length > 0) {
+              await tx.insert(formField).values(
+                fields.map((field) => ({
+                  formSectionId: newSection.id,
+                  tenantId: user.tenantId,
+                  fieldOrder: field.fieldOrder,
+                  fieldType: field.fieldType,
+                  label: field.label,
+                  placeholder: field.placeholder,
+                  required: field.required,
+                  validationRules: field.validationRules,
+                  options: field.options,
+                }))
+              );
+            }
           }
-        }
 
-        return newTemplate;
-      });
+          return newTemplate;
+        });
 
-      return {
-        success: true,
-        data: result,
-        message: `Form template "${copyName}" created successfully`,
-      };
+        return {
+          success: true,
+          data: result,
+          message: `Form template "${copyName}" created successfully`,
+        };
+      } catch (error: any) {
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error copying form template");
+        throw Errors.internal("Failed to copy form template");
+      }
     },
     {
       params: t.Object({

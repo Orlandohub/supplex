@@ -6,6 +6,7 @@ import {
 } from "@supplex/db";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/form-submissions
@@ -21,7 +22,7 @@ import { authenticate } from "../../lib/rbac/middleware";
  */
 export const listSubmissionsRoute = new Elysia().use(authenticate).get(
   "/",
-  async ({ query, user, set }: any) => {
+  async ({ query, user, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const userId = user.id as string;
@@ -82,17 +83,8 @@ export const listSubmissionsRoute = new Elysia().use(authenticate).get(
         },
       };
     } catch (error: any) {
-      console.error("Error listing submissions:", error);
-
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to list submissions",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      requestLogger.error({ err: error }, "Submission list failed");
+      throw Errors.internal("Failed to list submissions");
     }
   },
   {

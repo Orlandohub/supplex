@@ -1,5 +1,7 @@
 # Entity Relationship Diagram (ERD)
 
+> **⚠️ Stale References (Story 2.2.23):** This document references `form_template_version`, `multi_approver`, and `step_approver`. Template versioning was removed in Story 2.2.14. Multi-approver was removed in Story 2.2.18. The actual schema in `packages/db/src/schema/` is the source of truth.
+
 ## Overview
 
 This document describes the database schema for the Supplex Supplier Management Platform. The schema is designed with multi-tenant isolation as the primary architectural pattern, using PostgreSQL Row Level Security (RLS) for enforcement.

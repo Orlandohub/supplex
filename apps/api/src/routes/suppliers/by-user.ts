@@ -8,6 +8,7 @@ import { db } from "../../lib/db";
 import { suppliers } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { Errors } from "../../lib/errors";
 
 export default new Elysia()
   .use(authenticate)
@@ -17,15 +18,7 @@ export default new Elysia()
       const { userId } = params;
 
       if (!user) {
-        set.status = 401;
-        return {
-          success: false,
-          error: {
-            code: "UNAUTHORIZED",
-            message: "Authentication required",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.unauthorized("Authentication required");
       }
 
       // Query for supplier where supplierUserId matches the provided userId
@@ -44,15 +37,7 @@ export default new Elysia()
       });
 
       if (!supplier) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "SUPPLIER_NOT_FOUND",
-            message: "No supplier associated with this user",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.notFound("No supplier associated with this user");
       }
 
       return {

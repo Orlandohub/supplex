@@ -1,9 +1,11 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
+import { AuditAction } from "@supplex/types";
 import { eq, and, isNull } from "drizzle-orm";
+import { logAuditEvent } from "../../lib/audit/logger";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * DELETE /api/workflow-templates/:workflowId
@@ -15,23 +17,10 @@ import { eq, and, isNull } from "drizzle-orm";
  * Returns: Success message
  */
 export const deleteWorkflowTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .delete(
     "/:workflowId",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -46,18 +35,9 @@ export const deleteWorkflowTemplateRoute = new Elysia()
         });
 
         if (!existing) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
-        // Soft delete template (cascade will handle versions/steps/approvers)
         await db
           .update(workflowTemplate)
           .set({
@@ -66,21 +46,25 @@ export const deleteWorkflowTemplateRoute = new Elysia()
           })
           .where(eq(workflowTemplate.id, workflowId));
 
+        await logAuditEvent({
+          tenantId,
+          userId: user.id,
+          action: AuditAction.WORKFLOW_TEMPLATE_DELETED,
+          details: {
+            templateId: workflowId,
+            templateName: existing.name,
+            templateStatus: existing.status,
+          },
+        });
+
         return {
           success: true,
           message: "Workflow template deleted successfully",
         };
       } catch (error: any) {
-        console.error("Error deleting workflow template:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to delete workflow template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow template delete failed");
+        throw Errors.internal("Failed to delete workflow template");
       }
     },
     {

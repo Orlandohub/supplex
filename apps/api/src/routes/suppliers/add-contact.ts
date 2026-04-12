@@ -3,31 +3,24 @@ import { db } from "../../lib/db";
 import { users, suppliers, userInvitations } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole, createUserMetadata } from "@supplex/types";
+import { UserRole, createUserAuthMetadata, createUserProfileMetadata } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { AuditAction } from "@supplex/types";
 import { randomBytes } from "crypto";
+import { ApiError, Errors } from "../../lib/errors";
 
 export const addContactRoute = new Elysia()
   .use(authenticate)
   .post(
     "/suppliers/:id/contact",
-    async ({ params, body, user, set, headers }) => {
+    async ({ params, body, user, set, headers, requestLogger }) => {
       // Check role: Admin or Procurement Manager
       if (
         !user?.role ||
         ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
       ) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin or Procurement Manager",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.forbidden("Access denied. Required role: Admin or Procurement Manager");
       }
 
       try {
@@ -47,28 +40,12 @@ export const addContactRoute = new Elysia()
         });
 
         if (!supplier) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Supplier not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Supplier not found");
         }
 
         // Step 2: Verify supplier does NOT already have a contact
         if (supplier.supplierUserId) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "SUPPLIER_HAS_CONTACT",
-              message: "This supplier already has a contact user. Use the edit contact feature to update existing contact.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "SUPPLIER_HAS_CONTACT", "This supplier already has a contact user. Use the edit contact feature to update existing contact.");
         }
 
         // Step 3: Check email uniqueness
@@ -80,26 +57,22 @@ export const addContactRoute = new Elysia()
         });
 
         if (existingUser) {
-          set.status = 409;
-          return {
-            success: false,
-            error: {
-              code: "USER_EMAIL_EXISTS",
-              message: "A user with this email already exists in your organization",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(409, "USER_EMAIL_EXISTS", "A user with this email already exists in your organization");
         }
 
         // Step 4: Create Supabase Auth user
+        // TODO(SEC-009-cleanup): The app_metadata write below is now redundant — the
+        // custom_access_token_hook reads role/tenant_id from the users table on every
+        // token refresh. Remove after hook is confirmed stable in production.
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email,
-          email_confirm: true, // Skip email verification
-          user_metadata: createUserMetadata(UserRole.SUPPLIER_USER, tenantId, name),
+          email_confirm: true,
+          app_metadata: createUserAuthMetadata(UserRole.SUPPLIER_USER, tenantId),
+          user_metadata: createUserProfileMetadata(name),
         });
 
         if (authError || !authUser.user) {
-          console.error("Supabase user creation failed:", authError);
+          requestLogger.error({ err: authError }, "Supabase user creation failed");
           throw new Error(`Failed to create Supabase user: ${authError?.message}`);
         }
 
@@ -192,16 +165,9 @@ export const addContactRoute = new Elysia()
           throw error;
         }
       } catch (error: any) {
-        console.error("Error adding supplier contact:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to add supplier contact",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error adding supplier contact");
+        throw Errors.internal("Failed to add supplier contact");
       }
     },
     {

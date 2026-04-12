@@ -1,12 +1,12 @@
 /**
  * Step Transition Helper: Transition to Next Step
  * Story: 2.2.8 - Workflow Execution Engine
+ * Updated: Story 2.2.19 - Transaction threading (tx required)
  * 
  * Handles transitioning from current step to next step in workflow
  */
 
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { db as defaultDb } from "../db";
+import type { DbOrTx } from "@supplex/db";
 import {
   stepInstance,
   processInstance,
@@ -16,39 +16,26 @@ import {
   suppliers,
   supplierStatus,
 } from "@supplex/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { WorkflowProcessStatus } from "@supplex/types";
 import { createTasksForStep } from "./create-tasks-for-step";
 import { seedStepDocuments } from "./seed-step-documents";
+import type { Logger } from "pino";
+import defaultLogger from "../logger";
 
-/**
- * Transition workflow to the next step
- * 
- * Logic:
- * - Marks current step as completed
- * - Finds next step by step_order
- * - Activates next step and creates tasks
- * - If no next step, marks process as completed
- * 
- * @param currentStepInstanceId - UUID of current step
- * @param processId - UUID of process instance  
- * @param tenantId - Tenant ID for isolation
- * @param db - Optional database instance (defaults to defaultDb)
- * @returns Updated state with next step info
- */
 export async function transitionToNextStep(
+  tx: DbOrTx,
   currentStepInstanceId: string,
   processId: string,
   tenantId: string,
-  db: NodePgDatabase<any> = defaultDb
+  log?: Logger
 ): Promise<{
   currentStepCompleted: boolean;
   nextStepActivated: boolean;
   nextStepId?: string;
   processCompleted: boolean;
 }> {
-  // Get current step instance
-  const [currentStep] = await db
+  const [currentStep] = await tx
     .select()
     .from(stepInstance)
     .where(
@@ -62,8 +49,7 @@ export async function transitionToNextStep(
     throw new Error(`Step instance not found: ${currentStepInstanceId}`);
   }
 
-  // Get all step instances for this process (ordered by step_order)
-  const allSteps = await db
+  const allSteps = await tx
     .select()
     .from(stepInstance)
     .where(
@@ -74,29 +60,27 @@ export async function transitionToNextStep(
     )
     .orderBy(stepInstance.stepOrder);
 
-  // Find next step
   const nextStep = allSteps.find(
     (s) => s.stepOrder === currentStep.stepOrder + 1
   );
 
   if (nextStep) {
-    // Activate next step
-    await db
+    await tx
       .update(stepInstance)
       .set({ status: "active" })
       .where(eq(stepInstance.id, nextStep.id));
 
-    await db
+    await tx
       .update(processInstance)
       .set({
         status: WorkflowProcessStatus.IN_PROGRESS,
         currentStepInstanceId: nextStep.id,
+        completedSteps: sql`${processInstance.completedSteps} + 1`,
         updatedAt: new Date(),
       })
       .where(eq(processInstance.id, processId));
 
-    // Get workflow step template for next step to create tasks
-    const [process] = await db
+    const [process] = await tx
       .select()
       .from(processInstance)
       .where(eq(processInstance.id, processId));
@@ -113,7 +97,7 @@ export async function transitionToNextStep(
       );
     }
 
-    const stepTemplates = await db
+    const stepTemplates = await tx
       .select()
       .from(workflowStepTemplate)
       .where(
@@ -127,26 +111,25 @@ export async function transitionToNextStep(
     if (stepTemplates.length > 0) {
       const nextStepTemplate = stepTemplates[0];
       await createTasksForStep(
+        tx,
         nextStep.id,
         nextStepTemplate.id,
         processId,
         tenantId
       );
 
-      // Seed document rows if this is a document step
       if (nextStepTemplate.stepType === "document" && nextStepTemplate.documentTemplateId) {
         await seedStepDocuments(
+          tx,
           nextStep.id,
           processId,
           nextStepTemplate.id,
-          tenantId,
-          db
+          tenantId
         );
       }
     } else {
-      console.warn(
-        `No workflow step template found for step order ${nextStep.stepOrder} in workflow template ${workflowTemplateId}`
-      );
+      const transLog = (log || defaultLogger).child({ action: "transitionToNextStep", tenantId, processId });
+      transLog.warn({ stepOrder: nextStep.stepOrder, workflowTemplateId }, "no workflow step template found for step order");
     }
 
     return {
@@ -156,61 +139,47 @@ export async function transitionToNextStep(
       processCompleted: false,
     };
   } else {
-    await db
+    await tx
       .update(processInstance)
       .set({
         status: WorkflowProcessStatus.COMPLETE,
         currentStepInstanceId: null,
+        completedSteps: sql`${processInstance.totalSteps}`,
         completedDate: new Date(),
       })
       .where(eq(processInstance.id, processId));
 
-    // Auto-update supplier status based on workflow type configuration
-    const [process] = await db
-      .select()
+    const [statusMapping] = await tx
+      .select({
+        statusName: supplierStatus.name,
+        statusId: supplierStatus.id,
+        entityId: processInstance.entityId,
+      })
       .from(processInstance)
-      .where(eq(processInstance.id, processId));
+      .innerJoin(workflowTemplate, eq(workflowTemplate.id, processInstance.workflowTemplateId))
+      .innerJoin(workflowType, eq(workflowType.id, workflowTemplate.workflowTypeId))
+      .innerJoin(supplierStatus, eq(supplierStatus.id, workflowType.supplierStatusId))
+      .where(
+        and(
+          eq(processInstance.id, processId),
+          eq(processInstance.entityType, "supplier")
+        )
+      );
 
-    if (process?.entityType === "supplier" && process.entityId) {
-      const wfTemplateId = process.workflowTemplateId;
-      if (wfTemplateId) {
-        const [wfTemplate] = await db
-          .select({ workflowTypeId: workflowTemplate.workflowTypeId })
-          .from(workflowTemplate)
-          .where(eq(workflowTemplate.id, wfTemplateId));
-
-        if (wfTemplate?.workflowTypeId) {
-          const [wfType] = await db
-            .select({
-              supplierStatusId: workflowType.supplierStatusId,
-            })
-            .from(workflowType)
-            .where(eq(workflowType.id, wfTemplate.workflowTypeId));
-
-          if (wfType?.supplierStatusId) {
-            const [targetStatus] = await db
-              .select({ name: supplierStatus.name })
-              .from(supplierStatus)
-              .where(eq(supplierStatus.id, wfType.supplierStatusId));
-
-            if (targetStatus) {
-              await db
-                .update(suppliers)
-                .set({
-                  status: targetStatus.name,
-                  supplierStatusId: wfType.supplierStatusId,
-                  updatedAt: new Date(),
-                })
-                .where(
-                  and(
-                    eq(suppliers.id, process.entityId),
-                    eq(suppliers.tenantId, tenantId)
-                  )
-                );
-            }
-          }
-        }
-      }
+    if (statusMapping) {
+      await tx
+        .update(suppliers)
+        .set({
+          status: statusMapping.statusName,
+          supplierStatusId: statusMapping.statusId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(suppliers.id, statusMapping.entityId),
+            eq(suppliers.tenantId, tenantId)
+          )
+        );
     }
 
     return {
@@ -220,4 +189,3 @@ export async function transitionToNextStep(
     };
   }
 }
-

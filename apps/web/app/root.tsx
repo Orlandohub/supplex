@@ -11,7 +11,7 @@ import {
 } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
 import { AuthProvider } from "~/providers/AuthProvider";
-import { getSession } from "~/lib/auth/session.server";
+import { getSessionFast } from "~/lib/auth/session.server";
 import { getSecurityHeaders } from "~/lib/security/csp";
 import { Toaster } from "~/components/ui/toaster";
 import styles from "./tailwind.css?url";
@@ -24,24 +24,10 @@ export const links: LinksFunction = () => [
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // Get initial authentication state for the app
-  const { session, user, response } = await getSession(request);
+  // Local session parse only — no network call to Supabase Auth.
+  // Full auth validation happens once in the _app.tsx loader (requireAuthSecure).
+  const { session, user, response } = await getSessionFast(request);
 
-  const userRecord = null;
-
-  // If user is authenticated, fetch their user record
-  if (user && session) {
-    try {
-      // TODO: Use createSupabaseServerClient when we implement server-side user record fetching
-      // const { createSupabaseServerClient } = await import("~/lib/auth/session.server");
-      // For now, we'll pass the user data and let the client fetch the user record
-      // This avoids server-side database calls during initial load
-    } catch (error) {
-      console.error("Error fetching user record in root loader:", error);
-    }
-  }
-
-  // Combine auth headers with security headers
   const authHeaders = response
     ? Object.fromEntries(response.headers.entries())
     : {};
@@ -53,7 +39,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     {
       user: user || null,
       session: session || null,
-      userRecord,
       env: {
         SUPABASE_URL: process.env.SUPABASE_URL,
         SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
@@ -90,13 +75,12 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  const { user, session, userRecord, env } = useLoaderData<typeof loader>();
+  const { user, session, env } = useLoaderData<typeof loader>();
 
   return (
     <AuthProvider
       initialUser={user}
       initialSession={session}
-      initialUserRecord={userRecord}
     >
       {/* Make environment variables available to the client */}
       <script

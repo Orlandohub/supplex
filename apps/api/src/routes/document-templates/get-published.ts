@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { documentTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/document-templates/published
@@ -15,7 +16,7 @@ export const getPublishedDocumentTemplatesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/published",
-    async ({ user, set }: any) => {
+    async ({ user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
 
@@ -48,17 +49,9 @@ export const getPublishedDocumentTemplatesRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error fetching published document templates:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch published document templates",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Published document templates fetch failed");
+        throw Errors.internal("Failed to fetch published document templates");
       }
     },
     {

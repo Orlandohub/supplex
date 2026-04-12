@@ -12,24 +12,13 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowEvent } from "@supplex/db";
 import { eq, and, gte, lte, ilike, desc, sql } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
 
 export const auditLogRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .get(
     "/audit-log",
-    async ({ query, user, set }) => {
-      if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
-      }
-
-      if (user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return { success: false, error: "Admin access required" };
-      }
-
+    async ({ query, user, set }: any) => {
       const limit = Math.min(Number(query.limit) || 50, 200);
       const offset = Number(query.offset) || 0;
 

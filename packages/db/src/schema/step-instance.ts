@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   timestamp,
@@ -27,6 +28,21 @@ export const StepType = {
 export type StepTypeType = (typeof StepType)[keyof typeof StepType];
 
 /**
+ * Step Instance Status PG Enum
+ * Created in migration 0035_step_instance_status_enum.sql
+ */
+export const stepInstanceStatusEnum = pgEnum("step_instance_status", [
+  "pending",
+  "active",
+  "completed",
+  "blocked",
+  "skipped",
+  "awaiting_validation",
+  "validated",
+  "declined",
+]);
+
+/**
  * Step Status Enum Values
  * Represents the current state of a step instance
  */
@@ -36,6 +52,9 @@ export const StepStatus = {
   COMPLETED: "completed",
   BLOCKED: "blocked",
   SKIPPED: "skipped",
+  AWAITING_VALIDATION: "awaiting_validation",
+  VALIDATED: "validated",
+  DECLINED: "declined",
 } as const;
 
 export type StepStatusType = (typeof StepStatus)[keyof typeof StepStatus];
@@ -69,9 +88,10 @@ export const stepInstance = pgTable(
     stepType: varchar("step_type", { length: 50 }).notNull(),
     workflowStepTemplateId: uuid("workflow_step_template_id")
       .references(() => workflowStepTemplate.id, { onDelete: "set null" }),
-    status: varchar("status", { length: 50 })
+    status: stepInstanceStatusEnum("status")
       .notNull()
       .default(StepStatus.PENDING),
+    validationRound: integer("validation_round").notNull().default(0),
     assignedTo: uuid("assigned_to").references(() => users.id, {
       onDelete: "restrict",
     }),
@@ -100,8 +120,12 @@ export const stepInstance = pgTable(
     tenantAssignedStatusIdx: index("idx_step_instance_tenant_assigned_status")
       .on(table.tenantId, table.assignedTo, table.status)
       .where(
-        sql`${table.status} IN ('pending', 'active') AND ${table.deletedAt} IS NULL`
+        sql`${table.status} IN ('pending'::step_instance_status, 'active'::step_instance_status) AND ${table.deletedAt} IS NULL`
       ),
+    // Partial index on (process_instance_id, status) for step-count lookups and transition code
+    processStatusIdx: index("idx_step_instance_process_status")
+      .on(table.processInstanceId, table.status)
+      .where(sql`${table.deletedAt} IS NULL`),
   })
 );
 

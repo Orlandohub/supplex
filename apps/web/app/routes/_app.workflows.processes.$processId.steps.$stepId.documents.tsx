@@ -1,10 +1,12 @@
 /**
  * Workflow Step Documents Page
  * Story: 2.2.17 - Document upload & per-document validation
+ * Revised: WFH-001 - Per-reviewer approval model with explicit validation rounds
  *
  * Serves two modes:
  *  1. Upload mode – uploader sees a checklist of required docs with file upload per item
- *  2. Validation mode – validator sees uploaded docs with approve/decline per item
+ *  2. Validation mode – validator sees uploaded docs with approve/decline per item,
+ *     using per-reviewer decisions from the current validation round
  */
 
 import {
@@ -13,7 +15,12 @@ import {
   type LoaderFunctionArgs,
   type MetaFunction,
 } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import {
+  useLoaderData,
+  useNavigate,
+  isRouteErrorResponse,
+  useRouteError,
+} from "@remix-run/react";
 import { useState, useRef } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -36,6 +43,16 @@ export const meta: MetaFunction = () => [
   { title: "Documents | Supplex" },
 ];
 
+interface ReviewerDecision {
+  reviewerUserId: string;
+  reviewerName: string;
+  reviewerRole: string;
+  decision: "approved" | "declined";
+  comment: string | null;
+  decidedAt: string;
+  taskInstanceId: string;
+}
+
 export async function loader(args: LoaderFunctionArgs) {
   const { params } = args;
   const { session, user: supabaseUser, userRecord } = await requireAuth(args);
@@ -53,13 +70,26 @@ export async function loader(args: LoaderFunctionArgs) {
   const docsResponse = await client.api.workflows.steps[stepId].documents.get();
 
   if (docsResponse.error) {
-    throw new Response("Failed to load documents", { status: 500 });
+    const status = docsResponse.status || 500;
+    if (status === 403) {
+      throw new Response("You do not have access to this step's documents", {
+        status: 403,
+      });
+    }
+    throw new Response("Failed to load documents", { status });
   }
 
   const docsData = (docsResponse.data as any)?.data;
 
-  // Determine mode: if step is awaiting_validation and user has a validation task → validate
   const processResponse = await client.api.workflows.processes[processId].get();
+  if (processResponse.error) {
+    const status = processResponse.status || 500;
+    if (status === 403) {
+      throw new Response("You do not have access to this workflow process", {
+        status: 403,
+      });
+    }
+  }
   const processData = (processResponse.data as any)?.data;
   const userRole = userRecord?.role || "";
   const userId = supabaseUser.id;
@@ -82,6 +112,7 @@ export async function loader(args: LoaderFunctionArgs) {
     stepId,
     stepName: docsData.stepName,
     stepStatus: docsData.stepStatus,
+    validationRound: docsData.validationRound ?? 0,
     documents: docsData.documents,
     summary: docsData.summary,
     isValidationMode,
@@ -106,6 +137,7 @@ interface StepDocument {
   description: string | null;
   required: boolean;
   documentType: string | null;
+  reviewerDecisions?: ReviewerDecision[];
 }
 
 export default function WorkflowStepDocumentsPage() {
@@ -113,11 +145,12 @@ export default function WorkflowStepDocumentsPage() {
     processId,
     stepId,
     stepName,
-    stepStatus: _stepStatus,
+    stepStatus,
     documents,
     summary,
     isValidationMode,
     token,
+    user,
   } = useLoaderData<typeof loader>();
 
   const navigate = useNavigate();
@@ -133,13 +166,32 @@ export default function WorkflowStepDocumentsPage() {
 
   const client = createEdenTreatyClient(token);
 
+  // Step-status guard: read-only for terminal statuses
+  const isReadOnly =
+    stepStatus === "validated" ||
+    stepStatus === "completed" ||
+    (stepStatus === "awaiting_validation" && !isValidationMode);
+
   const allRequiredUploaded = docs
     .filter((d) => d.required)
     .every((d) => d.status === "uploaded" || d.status === "approved");
 
-  const uploadedDocs = docs.filter((d) => d.status === "uploaded" || d.status === "approved" || d.status === "declined");
-  const docsNeedingDecision = isValidationMode ? uploadedDocs.filter((d) => d.status !== "approved") : [];
-  const allDecided = isValidationMode && docsNeedingDecision.length > 0 && docsNeedingDecision.every((d) => decisions[d.requiredDocumentName]);
+  // In validation mode, docs needing a decision are those where the CURRENT USER
+  // has not yet decided in the current round (using reviewerDecisions from the API)
+  const docsNeedingDecision = isValidationMode
+    ? docs.filter((d) => {
+        if (!d.required && d.status === "pending" && !d.documentId) return false;
+        const alreadyDecided = d.reviewerDecisions?.some(
+          (rd) => rd.reviewerUserId === user.id
+        );
+        return !alreadyDecided;
+      })
+    : [];
+
+  const allDecided =
+    isValidationMode &&
+    docsNeedingDecision.length > 0 &&
+    docsNeedingDecision.every((d) => decisions[d.requiredDocumentName]);
 
   const handleUpload = async (doc: StepDocument, file: File) => {
     setUploading((prev) => ({ ...prev, [doc.requiredDocumentName]: true }));
@@ -281,6 +333,10 @@ export default function WorkflowStepDocumentsPage() {
     return mimeType === "application/pdf" || mimeType.startsWith("image/");
   };
 
+  const currentUserAlreadyDecided = (doc: StepDocument) => {
+    return doc.reviewerDecisions?.some((rd) => rd.reviewerUserId === user.id) ?? false;
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       {/* Header */}
@@ -295,7 +351,7 @@ export default function WorkflowStepDocumentsPage() {
           Back to Workflow
         </Button>
         <h1 className="text-2xl font-bold text-gray-900">
-          {isValidationMode ? "Review Documents" : "Upload Documents"}
+          {isValidationMode ? "Review Documents" : isReadOnly ? "Documents" : "Upload Documents"}
         </h1>
         <p className="text-gray-500 mt-1">
           Step: {stepName}
@@ -310,6 +366,15 @@ export default function WorkflowStepDocumentsPage() {
             </Badge>
           )}
         </div>
+        {isReadOnly && !isValidationMode && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              {stepStatus === "awaiting_validation"
+                ? "This step is awaiting validation by an assigned reviewer."
+                : `This step has been ${stepStatus}.`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Error */}
@@ -324,6 +389,7 @@ export default function WorkflowStepDocumentsPage() {
         {docs.map((doc) => {
           const isUploading = uploading[doc.requiredDocumentName];
           const decision = decisions[doc.requiredDocumentName];
+          const userDecided = currentUserAlreadyDecided(doc);
 
           return (
             <Card key={doc.id} className={`p-4 ${doc.status === "declined" ? "border-red-300 bg-red-50/30" : ""}`}>
@@ -372,7 +438,7 @@ export default function WorkflowStepDocumentsPage() {
                   )}
 
                   {/* Upload mode actions */}
-                  {!isValidationMode && (doc.status === "pending" || doc.status === "declined") && (
+                  {!isValidationMode && !isReadOnly && (doc.status === "pending" || doc.status === "declined") && (
                     <>
                       <input
                         type="file"
@@ -386,7 +452,7 @@ export default function WorkflowStepDocumentsPage() {
                       />
                       <Button
                         size="sm"
-                        disabled={isUploading}
+                        disabled={isUploading || submitting}
                         onClick={() => fileInputRefs.current[doc.requiredDocumentName]?.click()}
                       >
                         {isUploading ? (
@@ -402,7 +468,7 @@ export default function WorkflowStepDocumentsPage() {
                   )}
 
                   {/* Re-upload for uploaded docs (replace) */}
-                  {!isValidationMode && doc.status === "uploaded" && (
+                  {!isValidationMode && !isReadOnly && doc.status === "uploaded" && (
                     <>
                       <input
                         type="file"
@@ -417,7 +483,7 @@ export default function WorkflowStepDocumentsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={isUploading}
+                        disabled={isUploading || submitting}
                         onClick={() => fileInputRefs.current[`replace_${doc.requiredDocumentName}`]?.click()}
                       >
                         {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Replace"}
@@ -427,8 +493,26 @@ export default function WorkflowStepDocumentsPage() {
                 </div>
               </div>
 
+              {/* Per-reviewer decision badges */}
+              {isValidationMode && doc.reviewerDecisions && doc.reviewerDecisions.length > 0 && (
+                <div className="mt-2 ml-7 flex flex-wrap gap-2">
+                  {(doc.reviewerDecisions as ReviewerDecision[]).map((rd) => (
+                    <Badge
+                      key={rd.taskInstanceId}
+                      className={
+                        rd.decision === "approved"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }
+                    >
+                      {rd.reviewerName} ({rd.reviewerRole}): {rd.decision === "approved" ? "Approved" : "Declined"}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
               {/* Validation mode: per-document approve/decline */}
-              {isValidationMode && doc.status !== "approved" && (
+              {isValidationMode && !userDecided && (
                 <div className="mt-3 ml-7 pt-3 border-t">
                   {/* Non-required document that was not submitted */}
                   {!doc.required && doc.status === "pending" && !doc.documentId ? (
@@ -440,6 +524,7 @@ export default function WorkflowStepDocumentsPage() {
                       <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700"
+                        disabled={submitting}
                         onClick={() =>
                           setDecisions((prev) => ({
                             ...prev,
@@ -454,6 +539,7 @@ export default function WorkflowStepDocumentsPage() {
                         size="sm"
                         variant="outline"
                         className="border-red-600 text-red-600 hover:bg-red-50"
+                        disabled={submitting}
                         onClick={() =>
                           setDecisions((prev) => ({
                             ...prev,
@@ -471,6 +557,7 @@ export default function WorkflowStepDocumentsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        disabled={submitting}
                         onClick={() => {
                           const next = { ...decisions };
                           delete next[doc.requiredDocumentName];
@@ -487,6 +574,7 @@ export default function WorkflowStepDocumentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          disabled={submitting}
                           onClick={() => {
                             const next = { ...decisions };
                             delete next[doc.requiredDocumentName];
@@ -500,6 +588,7 @@ export default function WorkflowStepDocumentsPage() {
                         className="w-full border rounded-md p-2 text-sm"
                         rows={2}
                         placeholder="Reason for declining this document..."
+                        disabled={submitting}
                         value={decision.comment || ""}
                         onChange={(e) =>
                           setDecisions((prev) => ({
@@ -516,10 +605,12 @@ export default function WorkflowStepDocumentsPage() {
                 </div>
               )}
 
-              {/* Show existing approved badge for validation mode */}
-              {isValidationMode && doc.status === "approved" && (
+              {/* Show already-decided badge for current user in validation mode */}
+              {isValidationMode && userDecided && (
                 <div className="mt-3 ml-7 pt-3 border-t">
-                  <Badge className="bg-green-100 text-green-800">Previously approved</Badge>
+                  <Badge className="bg-green-100 text-green-800">
+                    You have already reviewed this document
+                  </Badge>
                 </div>
               )}
             </Card>
@@ -528,42 +619,45 @@ export default function WorkflowStepDocumentsPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="mt-8 flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/workflows/processes/${processId}`)}
-        >
-          Cancel
-        </Button>
+      {!isReadOnly && (
+        <div className="mt-8 flex items-center justify-between">
+          <Button
+            variant="outline"
+            disabled={submitting}
+            onClick={() => navigate(`/workflows/processes/${processId}`)}
+          >
+            Cancel
+          </Button>
 
-        {!isValidationMode ? (
-          <Button
-            disabled={!allRequiredUploaded || submitting}
-            onClick={handleSubmitDocuments}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Send className="w-4 h-4 mr-2" />
-            )}
-            Submit Documents
-          </Button>
-        ) : (
-          <Button
-            disabled={!allDecided || submitting}
-            onClick={handleSubmitReview}
-            className="bg-amber-600 hover:bg-amber-700"
-          >
-            {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Send className="w-4 h-4 mr-2" />
-            )}
-            Submit Review ({Object.keys(decisions).length}/{docsNeedingDecision.length})
-          </Button>
-        )}
-      </div>
+          {!isValidationMode ? (
+            <Button
+              disabled={!allRequiredUploaded || submitting}
+              onClick={handleSubmitDocuments}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Submit Documents
+            </Button>
+          ) : (
+            <Button
+              disabled={!allDecided || submitting}
+              onClick={handleSubmitReview}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Submit Review ({Object.keys(decisions).length}/{docsNeedingDecision.length})
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Document Viewer Modal */}
       {viewerUrl && (
@@ -622,6 +716,48 @@ export default function WorkflowStepDocumentsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const navigate = useNavigate();
+
+  if (isRouteErrorResponse(error)) {
+    const is403 = error.status === 403;
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            {is403 ? "Access Denied" : `Error ${error.status}`}
+          </h1>
+          <p className="text-xl text-gray-600 mb-8">
+            {is403
+              ? "You do not have permission to view these documents."
+              : error.data || "Something went wrong"}
+          </p>
+          <Button onClick={() => navigate("/workflows")}>
+            Back to Workflows
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[400px] flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Unexpected Error
+        </h1>
+        <p className="text-xl text-gray-600 mb-8">
+          Something went wrong while loading the documents.
+        </p>
+        <Button onClick={() => navigate("/workflows")}>
+          Back to Workflows
+        </Button>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { documentTemplate, workflowStepTemplate } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * DELETE /api/document-templates/:id
@@ -17,7 +18,7 @@ export const deleteDocumentTemplateRoute = new Elysia()
   .use(requireAdmin)
   .delete(
     "/:id",
-    async ({ params, user, set }: any) => {
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const templateId = params.id;
@@ -36,15 +37,7 @@ export const deleteDocumentTemplateRoute = new Elysia()
           .limit(1);
 
         if (!existingTemplate) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Document template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Document template not found");
         }
 
         // Check if template is referenced by any workflow steps
@@ -59,15 +52,7 @@ export const deleteDocumentTemplateRoute = new Elysia()
           );
 
         if (usageCount.count > 0) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_IN_USE",
-              message: `Cannot delete document template in use by ${usageCount.count} workflow step(s)`,
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "TEMPLATE_IN_USE", `Cannot delete document template in use by ${usageCount.count} workflow step(s)`);
         }
 
         // Soft delete template
@@ -81,17 +66,9 @@ export const deleteDocumentTemplateRoute = new Elysia()
           message: "Document template deleted successfully",
         };
       } catch (error: any) {
-        console.error("Error deleting document template:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to delete document template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Document template deletion failed");
+        throw Errors.internal("Failed to delete document template");
       }
     },
     {

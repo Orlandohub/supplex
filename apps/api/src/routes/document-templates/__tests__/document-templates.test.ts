@@ -33,7 +33,7 @@ describe("Document Templates API Tests", () => {
       email: `admin-doc-test-${Date.now()}@test.com`,
       password: "testpassword123",
       email_confirm: true,
-      user_metadata: {
+      app_metadata: {
         role: "admin",
         tenant_id: testTenantId,
       },
@@ -335,7 +335,7 @@ describe("Document Templates API Tests", () => {
         email: `other-admin-${Date.now()}@test.com`,
         password: "testpassword123",
         email_confirm: true,
-        user_metadata: {
+        app_metadata: {
           role: "admin",
           tenant_id: otherTenant.id,
         },

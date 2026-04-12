@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Elysia } from "elysia";
 import { registerRoute } from "../register";
+import { withApiErrorHandler } from "../../../lib/test-utils";
 
 // Mock dependencies
 vi.mock("../../lib/supabase", () => ({
@@ -50,7 +51,7 @@ describe("Auth Registration API", () => {
   let app: Elysia;
 
   beforeEach(() => {
-    app = new Elysia().use(registerRoute);
+    app = withApiErrorHandler(new Elysia().use(registerRoute));
     vi.clearAllMocks();
   });
 
@@ -196,7 +197,7 @@ describe("Auth Registration API", () => {
 
       const result = (await response.json()) as any;
       expect(result?.success).toBe(false);
-      expect(result?.error).toBe("Email already registered");
+      expect(result?.error?.message).toBe("Email already registered");
     });
 
     it("should rollback on database error", async () => {
@@ -236,7 +237,7 @@ describe("Auth Registration API", () => {
 
       const result = (await response.json()) as any;
       expect(result?.success).toBe(false);
-      expect(result?.error).toBe("Failed to create tenant and user records");
+      expect(result?.error?.message).toBe("Failed to create tenant and user records");
 
       // Verify rollback was attempted
       expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith(
@@ -359,8 +360,8 @@ describe("Auth Registration API", () => {
       expect(response.status).toBe(500);
 
       const result = (await response.json()) as any;
-      expect(result?.available).toBe(false);
-      expect(result?.error).toBe("Failed to check slug availability");
+      expect(result?.success).toBe(false);
+      expect(result?.error?.message).toBe("Failed to check slug availability");
     });
   });
 });

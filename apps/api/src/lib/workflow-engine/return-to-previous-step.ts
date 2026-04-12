@@ -1,31 +1,18 @@
 /**
  * Step Transition Helper: Return to Previous Step
  * Story: 2.2.8 - Workflow Execution Engine
+ * Updated: Story 2.2.19 - Transaction threading (tx required)
  * 
  * Handles returning to a previous step when current step is declined
  */
 
-import { db } from "../db";
-import { stepInstance, processInstance, workflowStepTemplate } from "@supplex/db";
+import type { DbOrTx } from "@supplex/db";
+import { stepInstance, StepStatus, processInstance, workflowStepTemplate } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { createTasksForStep } from "./create-tasks-for-step";
 
-/**
- * Return workflow to a previous step (decline loop)
- * 
- * Logic:
- * - Marks current step as 'returned' or 'declined'
- * - Calculates target step: current_step_order - declineOffset
- * - Activates target step and creates new tasks
- * - Maintains audit trail by keeping declined step record
- * 
- * @param currentStepInstanceId - UUID of current step being declined
- * @param declineOffset - How many steps back to return (from workflow config)
- * @param processId - UUID of process instance
- * @param tenantId - Tenant ID for isolation
- * @returns Updated state with target step info
- */
 export async function returnToPreviousStep(
+  tx: DbOrTx,
   currentStepInstanceId: string,
   declineOffset: number,
   processId: string,
@@ -36,8 +23,7 @@ export async function returnToPreviousStep(
   targetStepId?: string;
   error?: string;
 }> {
-  // Get current step instance
-  const [currentStep] = await db
+  const [currentStep] = await tx
     .select()
     .from(stepInstance)
     .where(
@@ -51,7 +37,6 @@ export async function returnToPreviousStep(
     throw new Error(`Step instance not found: ${currentStepInstanceId}`);
   }
 
-  // Calculate target step order
   const targetStepOrder = currentStep.stepOrder - declineOffset;
 
   if (targetStepOrder < 1) {
@@ -62,14 +47,12 @@ export async function returnToPreviousStep(
     };
   }
 
-  // Mark current step as declined (keeping audit trail)
-  await db
+  await tx
     .update(stepInstance)
-    .set({ status: "declined" })
+    .set({ status: StepStatus.DECLINED })
     .where(eq(stepInstance.id, currentStepInstanceId));
 
-  // Get all step instances for this process
-  const allSteps = await db
+  const allSteps = await tx
     .select()
     .from(stepInstance)
     .where(
@@ -80,7 +63,6 @@ export async function returnToPreviousStep(
     )
     .orderBy(stepInstance.stepOrder);
 
-  // Find target step
   const targetStep = allSteps.find((s) => s.stepOrder === targetStepOrder);
 
   if (!targetStep) {
@@ -91,21 +73,19 @@ export async function returnToPreviousStep(
     };
   }
 
-  // Activate target step
-  await db
+  await tx
     .update(stepInstance)
     .set({ status: "active" })
     .where(eq(stepInstance.id, targetStep.id));
 
-  // Get workflowTemplateId from process for accurate template lookup
-  const [process] = await db
+  const [process] = await tx
     .select()
     .from(processInstance)
     .where(eq(processInstance.id, processId));
 
   const workflowTemplateId = process?.workflowTemplateId;
 
-  const stepTemplates = await db
+  const stepTemplates = await tx
     .select()
     .from(workflowStepTemplate)
     .where(
@@ -122,6 +102,7 @@ export async function returnToPreviousStep(
     const targetStepTemplate = stepTemplates[0];
     
     await createTasksForStep(
+      tx,
       targetStep.id,
       targetStepTemplate.id,
       processId,
@@ -136,4 +117,3 @@ export async function returnToPreviousStep(
     targetStepId: targetStep.id,
   };
 }
-

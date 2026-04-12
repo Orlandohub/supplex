@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
 import { formField, formSection, formTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * PATCH /api/form-templates/fields/:fieldId
@@ -15,28 +15,14 @@ import { UserRole } from "@supplex/types";
  * Returns: Updated field
  */
 export const updateFieldRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .patch(
     "/fields/:fieldId",
-    async ({ params, body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { fieldId } = params;
 
-        // Fetch field with section and template to check status
         const [field] = await db
           .select({
             field: formField,
@@ -61,164 +47,89 @@ export const updateFieldRoute = new Elysia()
           .limit(1);
 
         if (!field) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "FIELD_NOT_FOUND",
-              message: "Field not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Field not found or you don't have access to it", "FIELD_NOT_FOUND");
         }
 
-        // Check if parent template is draft
         if (field.templateStatus !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message:
-                "Cannot modify field in published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            "Cannot modify field in published template. Please copy the template to make changes.",
+            "TEMPLATE_PUBLISHED"
+          );
         }
 
-        // Determine the effective field type (use new if provided, otherwise current)
         const effectiveFieldType = body.fieldType || field.field.fieldType;
 
-        // Validate options for dropdown and multi_select fields
         if (effectiveFieldType === "dropdown" || effectiveFieldType === "multi_select") {
-          // If options are being updated OR fieldType is being changed TO dropdown/multi_select
           const optionsToValidate = body.options !== undefined ? body.options : (field.field.options as any);
 
-          // Check if options object exists
           if (!optionsToValidate || typeof optionsToValidate !== "object") {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "INVALID_OPTIONS",
-                message:
-                  "Dropdown and multi-select fields must have an options object with a choices array",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              "Dropdown and multi-select fields must have an options object with a choices array",
+              "INVALID_OPTIONS"
+            );
           }
 
-          // Check if choices array exists
           if (!Array.isArray(optionsToValidate.choices)) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "INVALID_OPTIONS",
-                message:
-                  "Dropdown and multi-select fields must have an options object with a choices array",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              "Dropdown and multi-select fields must have an options object with a choices array",
+              "INVALID_OPTIONS"
+            );
           }
 
-          // Check minimum count
           if (optionsToValidate.choices.length === 0) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "EMPTY_OPTIONS",
-                message:
-                  "Dropdown and multi-select fields must have at least one option",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              "Dropdown and multi-select fields must have at least one option",
+              "EMPTY_OPTIONS"
+            );
           }
 
-          // Check maximum count
           if (optionsToValidate.choices.length > 100) {
-            set.status = 400;
-            return {
-              success: false,
-              error: {
-                code: "TOO_MANY_OPTIONS",
-                message: "Fields can have a maximum of 100 options",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.badRequest(
+              "Fields can have a maximum of 100 options",
+              "TOO_MANY_OPTIONS"
+            );
           }
 
-          // Validate each choice
           for (let i = 0; i < optionsToValidate.choices.length; i++) {
             const choice = optionsToValidate.choices[i];
 
-            // Check if choice is an object
             if (!choice || typeof choice !== "object") {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: "INVALID_OPTION_FORMAT",
-                  message: `Option at index ${i} must be an object with value and label`,
-                  timestamp: new Date().toISOString(),
-                },
-              };
+              throw Errors.badRequest(
+                `Option at index ${i} must be an object with value and label`,
+                "INVALID_OPTION_FORMAT"
+              );
             }
 
-            // Validate value
             if (typeof choice.value !== "string" || choice.value.trim() === "") {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: "INVALID_OPTION_VALUE",
-                  message: `Option at index ${i} must have a non-empty value`,
-                  timestamp: new Date().toISOString(),
-                },
-              };
+              throw Errors.badRequest(
+                `Option at index ${i} must have a non-empty value`,
+                "INVALID_OPTION_VALUE"
+              );
             }
 
             if (choice.value.length > 255) {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: "OPTION_VALUE_TOO_LONG",
-                  message: `Option at index ${i}: value must be 255 characters or less`,
-                  timestamp: new Date().toISOString(),
-                },
-              };
+              throw Errors.badRequest(
+                `Option at index ${i}: value must be 255 characters or less`,
+                "OPTION_VALUE_TOO_LONG"
+              );
             }
 
-            // Validate label
             if (typeof choice.label !== "string" || choice.label.trim() === "") {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: "INVALID_OPTION_LABEL",
-                  message: `Option at index ${i} must have a non-empty label`,
-                  timestamp: new Date().toISOString(),
-                },
-              };
+              throw Errors.badRequest(
+                `Option at index ${i} must have a non-empty label`,
+                "INVALID_OPTION_LABEL"
+              );
             }
 
             if (choice.label.length > 255) {
-              set.status = 400;
-              return {
-                success: false,
-                error: {
-                  code: "OPTION_LABEL_TOO_LONG",
-                  message: `Option at index ${i}: label must be 255 characters or less`,
-                  timestamp: new Date().toISOString(),
-                },
-              };
+              throw Errors.badRequest(
+                `Option at index ${i}: label must be 255 characters or less`,
+                "OPTION_LABEL_TOO_LONG"
+              );
             }
           }
         }
 
-        // Build update object dynamically
         const updateData: any = {
           updatedAt: new Date(),
         };
@@ -251,7 +162,6 @@ export const updateFieldRoute = new Elysia()
           updateData.placeholder = body.placeholder || null;
         }
 
-        // Update field
         const [updatedField] = await db
           .update(formField)
           .set(updateData)
@@ -265,17 +175,9 @@ export const updateFieldRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error updating field:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to update field",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error updating field");
+        throw Errors.internal("Failed to update field");
       }
     },
     {
@@ -317,4 +219,3 @@ export const updateFieldRoute = new Elysia()
       },
     }
   );
-

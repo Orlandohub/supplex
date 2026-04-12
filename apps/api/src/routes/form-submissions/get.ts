@@ -11,6 +11,7 @@ import {
 } from "@supplex/db";
 import { eq, and, isNull, or } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/form-submissions/:submissionId
@@ -23,7 +24,7 @@ import { authenticate } from "../../lib/rbac/middleware";
  */
 export const getSubmissionRoute = new Elysia().use(authenticate).get(
   "/:submissionId",
-  async ({ params, user, set }: any) => {
+  async ({ params, user, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const userId = user.id as string;
@@ -56,15 +57,10 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
         .limit(1);
 
       if (!submissionRecord) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "SUBMISSION_NOT_FOUND",
-            message: "Submission not found or you don't have access to it",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.notFound(
+          "Submission not found or you don't have access to it",
+          "SUBMISSION_NOT_FOUND"
+        );
       }
 
       // Access control: submitter always allowed
@@ -100,15 +96,10 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
         }
 
         if (!hasAccess && !["admin", "quality_manager", "procurement_manager"].includes(user.role)) {
-          set.status = 403;
-          return {
-            success: false,
-            error: {
-              code: "PERMISSION_DENIED",
-              message: "You don't have permission to view this submission",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.forbidden(
+            "You don't have permission to view this submission",
+            "PERMISSION_DENIED"
+          );
         }
         if (!hasAccess) {
           isReadOnly = true;
@@ -194,17 +185,9 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
         },
       };
     } catch (error: any) {
-      console.error("Error fetching submission:", error);
-
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch submission",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "Submission fetch failed");
+      throw Errors.internal("Failed to fetch submission");
     }
   }
 );

@@ -7,8 +7,12 @@ import {
   documents,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
+import { DocumentType } from "@supplex/types";
 import { authenticate } from "../../../../lib/rbac/middleware";
+import { verifyStepProcessAccess } from "../../../../lib/rbac/entity-authorization";
+import { validateFileMagicBytes } from "../../../../lib/file-validation";
 import { supabaseAdmin } from "../../../../lib/supabase";
+import { ApiError, Errors } from "../../../../lib/errors";
 import { randomUUID } from "crypto";
 
 const ALLOWED_MIME_TYPES = [
@@ -38,30 +42,39 @@ export const uploadStepDocumentRoute = new Elysia()
   .use(authenticate)
   .post(
     "/steps/:stepInstanceId/documents/:requiredDocName/upload",
-    async ({ params, body, user, set }) => {
+    async ({ params, body, user, set, requestLogger }: any) => {
       if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       const stepId = params.stepInstanceId;
       const { requiredDocName } = params;
       const { file } = body;
 
+      const access = await verifyStepProcessAccess(user, stepId, db);
+      if (!access.allowed) {
+        throw Errors.forbidden("Access denied");
+      }
+
       if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-        set.status = 400;
-        return {
-          success: false,
-          error: `File type not supported. Allowed: PDF, Excel, Word, PNG, JPG. Got: ${file.type}`,
-        };
+        throw Errors.badRequest(
+          `File type not supported. Allowed: PDF, Excel, Word, PNG, JPG. Got: ${file.type}`
+        );
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        set.status = 400;
-        return {
-          success: false,
-          error: `File exceeds 10MB limit (${(file.size / 1024 / 1024).toFixed(2)}MB)`,
-        };
+        throw Errors.badRequest(
+          `File exceeds 10MB limit (${(file.size / 1024 / 1024).toFixed(2)}MB)`
+        );
+      }
+
+      // Magic-byte validation (server-side content inspection)
+      const magicValidation = await validateFileMagicBytes(file);
+      if (!magicValidation.valid) {
+        throw Errors.badRequest(
+          magicValidation.error ||
+            "File type validation failed: detected type does not match declared Content-Type"
+        );
       }
 
       const [step] = await db
@@ -75,13 +88,11 @@ export const uploadStepDocumentRoute = new Elysia()
         );
 
       if (!step) {
-        set.status = 404;
-        return { success: false, error: "Step not found" };
+        throw Errors.notFound("Step not found");
       }
 
       if (step.status !== "active") {
-        set.status = 400;
-        return { success: false, error: "Step is not active" };
+        throw Errors.badRequest("Step is not active");
       }
 
       const decodedDocName = decodeURIComponent(requiredDocName);
@@ -99,16 +110,13 @@ export const uploadStepDocumentRoute = new Elysia()
         );
 
       if (!wsd) {
-        set.status = 404;
-        return {
-          success: false,
-          error: `Required document "${decodedDocName}" not found for this step`,
-        };
+        throw Errors.notFound(
+          `Required document "${decodedDocName}" not found for this step`
+        );
       }
 
       if (wsd.status === "approved") {
-        set.status = 400;
-        return { success: false, error: "This document has already been approved" };
+        throw Errors.badRequest("This document has already been approved");
       }
 
       const [process] = await db
@@ -130,9 +138,8 @@ export const uploadStepDocumentRoute = new Elysia()
           });
 
         if (uploadError) {
-          console.error("[STEP-DOC-UPLOAD] Storage error:", uploadError);
-          set.status = 500;
-          return { success: false, error: `Upload failed: ${uploadError.message}` };
+          requestLogger.error({ err: uploadError }, "step document upload storage error");
+          throw Errors.internal(`Upload failed: ${uploadError.message}`);
         }
 
         const [newDoc] = await db
@@ -141,7 +148,7 @@ export const uploadStepDocumentRoute = new Elysia()
             tenantId: user.tenantId,
             supplierId,
             filename: file.name,
-            documentType: "workflow_document",
+            documentType: DocumentType.WORKFLOW_DOCUMENT,
             storagePath,
             fileSize: file.size,
             mimeType: file.type,
@@ -178,12 +185,13 @@ export const uploadStepDocumentRoute = new Elysia()
           },
         };
       } catch (error) {
+        if (error instanceof ApiError) throw error;
         try {
           await supabaseAdmin.storage
             .from("supplier-documents")
             .remove([storagePath]);
         } catch (_) { /* cleanup best-effort */ }
-        throw error;
+        throw Errors.internal("Document upload failed unexpectedly");
       }
     },
     {

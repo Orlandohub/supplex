@@ -1,4 +1,8 @@
 import { Elysia } from "elysia";
+import { ApiError } from "./errors";
+import { logger } from "./logger";
+
+const rateLimitLogger = logger.child({ module: "rate-limiter" });
 
 // In-memory rate limiter (for production, use Redis)
 interface RateLimitData {
@@ -60,7 +64,6 @@ export function rateLimit(options: RateLimitOptions) {
       if (data.count >= maxRequests) {
         const resetInSeconds = Math.ceil((data.resetTime - now) / 1000);
 
-        set.status = 429;
         set.headers = {
           "Retry-After": resetInSeconds.toString(),
           "X-RateLimit-Limit": maxRequests.toString(),
@@ -68,7 +71,17 @@ export function rateLimit(options: RateLimitOptions) {
           "X-RateLimit-Reset": data.resetTime.toString(),
         };
 
-        throw new Error("Too many requests. Please try again later.");
+        rateLimitLogger.warn({
+          event: "rate_limited",
+          key,
+          route: request.url,
+          method: request.method,
+          correlationId: request.headers.get("x-correlation-id"),
+          clientIp: getClientIP(request),
+          retryAfter: resetInSeconds,
+        }, "Rate limit exceeded");
+
+        throw new ApiError(429, "RATE_LIMITED", "Too many requests. Please try again later.");
       }
 
       // Increment counter (will be decremented if request should be skipped)

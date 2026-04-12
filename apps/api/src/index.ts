@@ -1,6 +1,9 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { config } from "./config";
+import logger from "./lib/logger";
+import { correlationId } from "./lib/correlation-id";
+import { ApiError } from "./lib/errors";
 import { registerRoute } from "./routes/auth/register";
 import { acceptInvitationRoute } from "./routes/auth/accept-invitation";
 import { devListUsersRoute } from "./routes/auth/dev-list-users";
@@ -36,62 +39,66 @@ const app = new Elysia()
       origin: config.cors.origin,
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Correlation-ID"],
+      exposeHeaders: ["X-Correlation-ID"],
     })
   )
-  // Global error handler
-  .onError(({ code, error, set }) => {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    // eslint-disable-next-line no-console
-    console.error(`[${code}] ${errorMessage}`);
+  .use(correlationId)
+  // Global error handler — standard shape: { success, error: { code, message } }
+  .onError(({ code, error, set, request }) => {
+    const corrId = request.headers.get("x-correlation-id") || "unknown";
 
-    // Handle different error types
+    // 1. ApiError — thrown intentionally by routes/middleware
+    if (error instanceof ApiError) {
+      set.status = error.statusCode;
+      logger.warn(
+        { err: error, code: error.code, statusCode: error.statusCode, correlationId: corrId },
+        error.message
+      );
+      return {
+        success: false,
+        error: { code: error.code, message: error.message },
+      };
+    }
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error({ err: error, code, correlationId: corrId }, errorMessage);
+    const isProd = config.nodeEnv === "production";
+
+    // 3. ElysiaJS built-in error codes
     switch (code) {
       case "VALIDATION":
         set.status = 400;
         return {
-          error: "Validation Error",
-          message: errorMessage,
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: errorMessage },
         };
       case "NOT_FOUND":
         set.status = 404;
         return {
-          error: "Not Found",
-          message: "The requested resource was not found",
+          success: false,
+          error: { code: "NOT_FOUND", message: "The requested resource was not found" },
         };
       case "PARSE":
         set.status = 400;
         return {
-          error: "Parse Error",
-          message: "Invalid request body",
-        };
-      case "INTERNAL_SERVER_ERROR":
-        set.status = 500;
-        return {
-          error: "Internal Server Error",
-          message:
-            config.nodeEnv === "production"
-              ? "An unexpected error occurred"
-              : errorMessage,
+          success: false,
+          error: { code: "PARSE_ERROR", message: "Invalid request body" },
         };
       default:
         set.status = 500;
         return {
-          error: "Unknown Error",
-          message:
-            config.nodeEnv === "production"
-              ? "An unexpected error occurred"
-              : errorMessage,
+          success: false,
+          error: {
+            code: "INTERNAL_SERVER_ERROR",
+            message: isProd ? "An unexpected error occurred" : errorMessage,
+          },
         };
     }
   })
-  // Request logging middleware (development only)
   .onRequest(({ request }) => {
     if (config.nodeEnv === "development") {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[${new Date().toISOString()}] ${request.method} ${request.url}`
-      );
+      logger.debug({ method: request.method, url: request.url }, "incoming request");
     }
   })
   // Root endpoint
@@ -108,9 +115,8 @@ const app = new Elysia()
     // Always register standard auth routes
     app = app.use(registerRoute).use(acceptInvitationRoute);
     
-    // Conditionally register dev-only auth routes
     if (config.nodeEnv === "development") {
-      console.log("⚠️  Development quick login enabled");
+      logger.info("development quick login enabled");
       app = app.use(devListUsersRoute).use(devLoginRoute);
     }
     
@@ -132,59 +138,43 @@ const app = new Elysia()
 /**
  * Start the server only when running directly (not during tests)
  */
+if (config.jwt?.secret) {
+  logger.info("JWT verification: JWKS (primary) + HMAC fallback (transition mode)");
+} else {
+  logger.info("JWT verification: JWKS only");
+}
+
 if (import.meta.main) {
   const server = app.listen(config.port, () => {
     const emailStatus = isRedisEnabled
       ? "📧 Email Worker: Running (concurrency: 5)                   "
       : "📧 Email Worker: Disabled (REDIS_URL not configured)        ";
 
-    // eslint-disable-next-line no-console
-    console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║                                                                ║
-║   🦊 Supplex API Server                                       ║
-║                                                                ║
-║   Environment:  ${config.nodeEnv.padEnd(47)} ║
-║   Port:         ${String(config.port).padEnd(47)} ║
-║   URL:          http://localhost:${config.port}${" ".repeat(27)} ║
-║                                                                ║
-║   Health Check: http://localhost:${config.port}/health${" ".repeat(21)} ║
-║                                                                ║
-║   ${emailStatus} ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
-    `);
+    logger.info(
+      { environment: config.nodeEnv, port: config.port, emailStatus: isRedisEnabled ? "running" : "disabled" },
+      `Supplex API Server started on http://localhost:${config.port}`
+    );
   });
 
   // Graceful shutdown handling
   const gracefulShutdown = async (signal: string) => {
-    // eslint-disable-next-line no-console
-    console.log(`\n⚠️  Received ${signal}, starting graceful shutdown...`);
+    logger.info({ signal }, "starting graceful shutdown");
 
     try {
       // Stop accepting new connections
       server.stop();
 
-      // Close email worker and queue
-      // eslint-disable-next-line no-console
-      console.log("🔄 Closing email worker...");
+      logger.info("closing email worker");
       await closeEmailWorker();
       await closeEmailQueue();
 
-      // Close Redis connection
-      // eslint-disable-next-line no-console
-      console.log("🔄 Closing Redis connection...");
+      logger.info("closing Redis connection");
       await closeRedisConnection();
 
-      // Close database connections, etc.
-      // await db.close();
-
-      // eslint-disable-next-line no-console
-      console.log("✅ Graceful shutdown completed");
+      logger.info("graceful shutdown completed");
       process.exit(0);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("❌ Error during shutdown:", error);
+      logger.error({ err: error }, "error during shutdown");
       process.exit(1);
     }
   };
@@ -195,14 +185,12 @@ if (import.meta.main) {
 
   // Handle uncaught errors
   process.on("uncaughtException", (error) => {
-    // eslint-disable-next-line no-console
-    console.error("💥 Uncaught Exception:", error);
+    logger.fatal({ err: error }, "uncaught exception");
     gracefulShutdown("uncaughtException");
   });
 
   process.on("unhandledRejection", (reason, promise) => {
-    // eslint-disable-next-line no-console
-    console.error("💥 Unhandled Rejection at:", promise, "reason:", reason);
+    logger.fatal({ err: reason, promise: String(promise) }, "unhandled rejection");
     gracefulShutdown("unhandledRejection");
   });
 }

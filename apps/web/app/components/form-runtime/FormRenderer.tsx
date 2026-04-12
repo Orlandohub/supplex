@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import type {
-  FormTemplateVersionWithStructure,
+  FormTemplateWithStructure,
   FormAnswer,
   FieldType,
 } from "@supplex/types";
+import { validateFieldValue as sharedValidateFieldValue } from "@supplex/types";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -18,7 +19,7 @@ import { CheckboxField } from "./fields/CheckboxField";
 import { MultiSelectField } from "./fields/MultiSelectField";
 
 export interface FormRendererProps {
-  formVersion: FormTemplateVersionWithStructure;
+  formVersion: FormTemplateWithStructure;
   initialAnswers: FormAnswer[];
   mode: "edit" | "view";
   onSave?: (answers: Map<string, string>) => Promise<void>;
@@ -302,61 +303,8 @@ function renderField(
   }
 }
 
+/** Adapts shared validateFieldValue (string | null) to React Hook Form (string | true). */
 function validateFieldValue(value: string, field: any): string | true {
-  if (!value || value.trim() === "") {
-    return true;
-  }
-
-  switch (field.fieldType) {
-    case "number": {
-      const num = Number(value);
-      if (isNaN(num)) {
-        return "Must be a valid number";
-      }
-      const rules = field.validationRules;
-      if (rules?.min !== undefined && num < rules.min) {
-        return `Must be at least ${rules.min}`;
-      }
-      if (rules?.max !== undefined && num > rules.max) {
-        return `Must be at most ${rules.max}`;
-      }
-      break;
-    }
-
-    case "date": {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(value)) {
-        return "Must be a valid date (YYYY-MM-DD)";
-      }
-      const date = new Date(value);
-      if (isNaN(date.getTime())) {
-        return "Must be a valid date";
-      }
-      break;
-    }
-
-    case "text":
-    case "textarea": {
-      const rules = field.validationRules;
-      if (rules?.minLength && value.length < rules.minLength) {
-        return `Must be at least ${rules.minLength} characters`;
-      }
-      if (rules?.maxLength && value.length > rules.maxLength) {
-        return `Must be at most ${rules.maxLength} characters`;
-      }
-      if (rules?.pattern) {
-        try {
-          const regex = new RegExp(rules.pattern);
-          if (!regex.test(value)) {
-            return rules.customMessage || "Invalid format";
-          }
-        } catch (e) {
-          console.error("Invalid regex pattern:", rules.pattern);
-        }
-      }
-      break;
-    }
-  }
-
-  return true;
+  const result = sharedValidateFieldValue(value, field);
+  return result === null ? true : result;
 }

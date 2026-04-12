@@ -14,7 +14,7 @@ import { EmailEventType } from "@supplex/types";
  */
 export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
   "/unsubscribe/:token",
-  async ({ params, set }: any) => {
+  async ({ params, set, requestLogger }: any) => {
     try {
       const { token } = params;
 
@@ -249,7 +249,7 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
         </html>
       `;
     } catch (error: any) {
-      console.error("Error processing unsubscribe:", error);
+      requestLogger.error({ err: error }, "Unsubscribe processing failed");
       set.status = 500;
       set.headers["content-type"] = "text/html; charset=utf-8";
       return `

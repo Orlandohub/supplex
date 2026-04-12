@@ -6,7 +6,13 @@
  */
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
+import {
+  useLoaderData,
+  useNavigate,
+  useRevalidator,
+  isRouteErrorResponse,
+  useRouteError,
+} from "@remix-run/react";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -14,7 +20,7 @@ import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient, createClientEdenTreatyClient } from "~/lib/api-client";
 import type {
   FormSubmission,
-  FormTemplateVersionWithStructure,
+  FormTemplateWithStructure,
   FormAnswer,
 } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
@@ -69,7 +75,7 @@ export async function loader(args: LoaderFunctionArgs) {
     const formStructure = data.formStructure;
     const isReadOnly = data.isReadOnly ?? false;
 
-    const formVersion: FormTemplateVersionWithStructure = {
+    const formVersion: FormTemplateWithStructure = {
       ...formTemplate,
       sections: formStructure.sections,
     };
@@ -126,6 +132,9 @@ export async function loader(args: LoaderFunctionArgs) {
       supplierContext,
     });
   } catch (error) {
+    if (error instanceof Response) {
+      throw error;
+    }
     console.error("Error fetching form submission:", error);
     throw new Response("Failed to load submission", { status: 500 });
   }
@@ -354,6 +363,48 @@ export default function FormExecutionPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const navigate = useNavigate();
+
+  if (isRouteErrorResponse(error)) {
+    const is403 = error.status === 403;
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            {is403 ? "Access Denied" : error.status}
+          </h1>
+          <p className="text-xl text-gray-600 mb-8">
+            {is403
+              ? "You do not have permission to view this form submission."
+              : error.data || "Something went wrong"}
+          </p>
+          <Button onClick={() => navigate("/workflows")}>
+            Back to Workflows
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[400px] flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Unexpected Error
+        </h1>
+        <p className="text-xl text-gray-600 mb-8">
+          Something went wrong while loading this form.
+        </p>
+        <Button onClick={() => navigate("/workflows")}>
+          Back to Workflows
+        </Button>
+      </div>
     </div>
   );
 }

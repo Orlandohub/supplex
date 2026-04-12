@@ -16,7 +16,6 @@ import { users } from "./users";
 import { workflowTemplate } from "./workflow-template";
 import { formTemplate } from "./form-template";
 import { documentTemplate } from "./document-template";
-import { stepApprover } from "./step-approver";
 import { workflowType } from "./workflow-type";
 
 /**
@@ -85,13 +84,6 @@ export const assigneeTypeEnum = pgEnum("assignee_type", ["role", "user"]);
  *   - 'upload': User uploads required documents and submits
  *   - 'validate': User reviews documents and approves/declines
  *
- * Multi-Approver Configuration:
- * - multi_approver = true: Step requires multiple approvals
- * - approver_count: Number of approvals needed (e.g., 2 out of 3)
- * - Approvers defined in step_approver table (role-based or user-specific)
- * - Workflow engine creates one task_instance per approver
- * - Step completes when approver_count tasks marked completed
- *
  * Decline Behavior:
  * - decline_returns_to_step_offset: Relative offset for decline workflow return
  * - Default: 1 (returns to immediately previous step)
@@ -148,10 +140,6 @@ export const workflowStepTemplate = pgTable(
       { onDelete: "restrict" }
     ),
     documentActionMode: documentActionModeEnum("document_action_mode"),
-
-    // Multi-approver configuration
-    multiApprover: boolean("multi_approver").notNull().default(false),
-    approverCount: integer("approver_count"),
 
     // Decline behavior
     declineReturnsToStepOffset: integer("decline_returns_to_step_offset")
@@ -229,7 +217,6 @@ export const workflowStepTemplateRelations = relations(
       fields: [workflowStepTemplate.assigneeUserId],
       references: [users.id],
     }),
-    approvers: many(stepApprover),
   })
 );
 

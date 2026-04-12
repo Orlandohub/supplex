@@ -15,6 +15,9 @@
 
 // NOTE: Uncomment when @sentry/bun is installed
 // import * as Sentry from "@sentry/bun";
+import { logger } from "../logger";
+
+const sentryLogger = logger.child({ module: "sentry" });
 
 /**
  * Initialize Sentry for backend error tracking
@@ -25,7 +28,7 @@
 export function initSentry(dsn?: string, _environment?: string) {
   // Skip initialization if DSN not provided
   if (!dsn) {
-    console.warn("Sentry DSN not provided, error tracking disabled");
+    sentryLogger.warn("Sentry DSN not provided — error tracking disabled");
     return;
   }
 
@@ -76,7 +79,7 @@ export function initSentry(dsn?: string, _environment?: string) {
   });
   */
 
-  console.log("Sentry initialized for API error tracking");
+  sentryLogger.info("Sentry initialized for API error tracking");
 }
 
 /**
@@ -111,7 +114,7 @@ export function captureException(
   });
   */
 
-  console.error("Error captured:", error, context);
+  sentryLogger.error({ err: error, userId: context?.userId, tenantId: context?.tenantId }, "Error captured");
 }
 
 /**
@@ -174,7 +177,7 @@ export function setUserContext(user: {
   });
   */
 
-  console.log("User context set:", user);
+  sentryLogger.debug({ userId: user.id, role: user.role }, "User context set");
 }
 
 /**
@@ -186,7 +189,7 @@ export function clearUserContext() {
   Sentry.setUser(null);
   */
 
-  console.log("User context cleared");
+  sentryLogger.debug("User context cleared");
 }
 
 /**
@@ -205,5 +208,5 @@ export function addBreadcrumb(message: string, data?: Record<string, any>) {
   });
   */
 
-  console.debug("Breadcrumb:", message, data);
+  sentryLogger.debug({ breadcrumb: message, ...data }, "Breadcrumb added");
 }

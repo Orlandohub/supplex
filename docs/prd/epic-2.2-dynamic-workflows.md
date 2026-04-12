@@ -189,7 +189,9 @@ Task title/description/completion_time_days are configured at the workflow step 
 
 Task visibility is tenant-isolated via tenant_id
 
-Story 2.2.6: Workflow Template Data Model (Tenant-Isolated, Multi-Approver, Action Modes)
+Story 2.2.6: Workflow Template Data Model (Tenant-Isolated, Action Modes)
+
+> **Note (Story 2.2.18):** The `multi_approver` flag and `approver_count` fields were removed in Story 2.2.18. Auto-validation (Story 2.2.15) is the replacement for approval workflows. The `step_approver` table was also dropped. Template versioning was removed in Story 2.2.14.
 
 As a developer,
 I want a flexible, tenant-isolated workflow template model with action modes for forms and documents,
@@ -198,8 +200,6 @@ so that each tenant can design approval and validation loops correctly.
 Acceptance Criteria:
 
 A workflow_template entity exists with tenant_id (process_type removed - organizations create workflows freely by name)
-
-A workflow_template_version entity exists with tenant_id and versioning
 
 A workflow_step_template entity exists with:
 
@@ -215,7 +215,7 @@ due_days (nullable)
 
 A step can include an associated form with:
 
-form_template_version_id
+form_template_id
 
 form_action_mode with values fill_out or validate
 
@@ -224,18 +224,6 @@ A step can include associated document requirements with:
 document_template_id
 
 document_action_mode with values upload or validate
-
-A step supports multi_approver = true
-
-When multi_approver = true:
-
-The step defines approver_count
-
-Each approver definition specifies either:
-
-a role within the tenant, or
-
-a specific user within the tenant
 
 A step supports auto-validation (Story 2.2.15):
 
@@ -251,10 +239,12 @@ A step defines a decline return behavior:
 
 decline_returns_to_step_offset = 1 (returns to the immediately previous step)
 
-Story 2.2.7: Backoffice Workflow Template Builder (Approvers + Form/Document Modes)
+Story 2.2.7: Backoffice Workflow Template Builder (Form/Document Modes + Validation)
+
+> **Note (Story 2.2.18):** Multi-approver configuration (multi-approver flag, approver count, per-approver role/user selection) was removed in Story 2.2.18. Validation is now configured via the `requiresValidation` checkbox (Story 2.2.15).
 
 As an admin,
-I want to configure workflow steps including approvers and form/document action modes,
+I want to configure workflow steps including form/document action modes and validation,
 so that the workflow matches how my organization works.
 
 Acceptance Criteria:
@@ -571,6 +561,8 @@ Assignment logic is consistent and tenant-isolated
 
 Story 2.2.11: Multi-Approver Step Completion Rules
 
+> **Superseded by Story 2.2.15 (Auto-Validation).** The multi-approver model (`multi_approver` flag, `step_approver` table, `approver_count`) was fully removed in Story 2.2.18. Validation tasks are now created automatically via the `requiresValidation` checkbox on workflow step templates.
+
 As the system,
 I want steps with multiple approvers to complete only when all required approvers act,
 so that approval rigor is enforced.
@@ -642,6 +634,8 @@ Any cross-tenant usage must be explicitly granted via backoffice
 No implicit sharing is allowed
 
 Story 2.2.14: Remove Template Versioning, Add Copy Template Functionality
+
+> **Updated:** Versioning was fully removed. Templates no longer have `form_template_version`; sections reference `form_template_id` directly. "Copy" functionality replaces "publish new version."
 
 As an admin and developer,
 I want template versioning removed and replaced with copy functionality,

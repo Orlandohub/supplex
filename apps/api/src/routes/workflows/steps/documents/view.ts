@@ -3,7 +3,9 @@ import { db } from "../../../../lib/db";
 import { documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../../../lib/rbac/middleware";
+import { verifyDocumentAccess } from "../../../../lib/rbac/entity-authorization";
 import { supabaseAdmin } from "../../../../lib/supabase";
+import { Errors } from "../../../../lib/errors";
 
 /**
  * GET /api/documents/:id/view
@@ -13,10 +15,9 @@ export const viewDocumentRoute = new Elysia({ prefix: "/api" })
   .use(authenticate)
   .get(
     "/documents/:id/view",
-    async ({ params, user, set }) => {
+    async ({ params, user, set, requestLogger }: any) => {
       if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       const [doc] = await db
@@ -32,8 +33,13 @@ export const viewDocumentRoute = new Elysia({ prefix: "/api" })
         .limit(1);
 
       if (!doc) {
-        set.status = 404;
-        return { success: false, error: "Document not found" };
+        throw Errors.notFound("Document not found");
+      }
+
+      // Entity-level authorization: supplier_user can only view their own documents
+      const access = await verifyDocumentAccess(user, doc, db);
+      if (!access.allowed) {
+        throw Errors.forbidden(access.reason || "Access denied");
       }
 
       const { data, error } = await supabaseAdmin.storage
@@ -41,9 +47,8 @@ export const viewDocumentRoute = new Elysia({ prefix: "/api" })
         .createSignedUrl(doc.storagePath, 300);
 
       if (error || !data) {
-        console.error("[DOC-VIEW] Signed URL error:", error);
-        set.status = 500;
-        return { success: false, error: "Failed to generate view URL" };
+        requestLogger.error({ err: error }, "signed URL generation error");
+        throw Errors.internal("Failed to generate view URL");
       }
 
       return {

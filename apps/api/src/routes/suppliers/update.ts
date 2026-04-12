@@ -4,6 +4,7 @@ import { suppliers } from "@supplex/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 import { UserRole, UpdateSupplierSchema } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PUT /api/suppliers/:id
@@ -21,12 +22,8 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
       body,
       user,
       set,
-    }: {
-      params: { id: string };
-      body: Record<string, unknown>;
-      user: { tenantId: string; id: string; role: string };
-      set: { status: number };
-    }) => {
+      requestLogger,
+    }: any) => {
       // Check role permission
       if (
         !user?.role ||
@@ -34,16 +31,7 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           user.role as UserRole
         )
       ) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message:
-              "Access denied. Required role: Admin or Procurement Manager",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.forbidden("Access denied. Required role: Admin or Procurement Manager");
       }
       try {
         const { id } = params;
@@ -54,34 +42,14 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_ID",
-              message: "Invalid supplier ID format. Must be a valid UUID.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
         }
 
         // Validate request body with Zod schema
         const validationResult = UpdateSupplierSchema.safeParse(body);
 
         if (!validationResult.success) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Invalid supplier data",
-              errors: validationResult.error.errors.map((err) => ({
-                field: err.path.join("."),
-                message: err.message,
-              })),
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "VALIDATION_ERROR", "Invalid supplier data");
         }
 
         const updateData = validationResult.data;
@@ -100,16 +68,7 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!existingSupplier || existingSupplier.length === 0) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message:
-                "Supplier not found or you don't have access to this supplier.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
         }
 
         // Update supplier with provided fields only
@@ -134,35 +93,18 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           },
         };
       } catch (error: unknown) {
-        console.error("Error updating supplier:", error);
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error updating supplier");
 
-        // Handle unique constraint violation (duplicate tax_id)
         const dbError = error as { code?: string; constraint?: string };
         if (
           dbError.code === "23505" &&
           dbError.constraint === "suppliers_tenant_tax_id_unique"
         ) {
-          set.status = 409;
-          return {
-            success: false,
-            error: {
-              code: "DUPLICATE_TAX_ID",
-              message:
-                "A supplier with this Tax ID already exists in your organization",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(409, "DUPLICATE_TAX_ID", "A supplier with this Tax ID already exists in your organization");
         }
 
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to update supplier",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.internal("Failed to update supplier");
       }
     },
     {

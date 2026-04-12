@@ -6,6 +6,8 @@ import {
   timestamp,
   jsonb,
   index,
+  integer,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
@@ -91,6 +93,9 @@ export const processInstance = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    totalSteps: integer("total_steps").notNull().default(0),
+    completedSteps: integer("completed_steps").notNull().default(0),
+    hasOverdueTasks: boolean("has_overdue_tasks").notNull().default(false),
     metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()

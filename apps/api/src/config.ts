@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { logger } from "./lib/logger";
 
 // Configuration schema with validation
 const configSchema = z.object({
@@ -32,10 +33,10 @@ const configSchema = z.object({
     ]).default("http://localhost:5173"),
   }),
 
-  // JWT (Supabase JWT Secret for local verification)
+  // JWT — secret is optional; JWKS (from supabase.url) is the primary verification method (SEC-006)
   jwt: z.object({
-    secret: z.string().min(32),
-  }),
+    secret: z.string().min(32).optional(),
+  }).optional(),
 
   // Optional: Redis
   redis: z
@@ -46,36 +47,39 @@ const configSchema = z.object({
 });
 
 /**
- * Load and validate configuration from environment variables
+ * Load and validate configuration from environment variables.
+ * Accepts an optional env override for testing (Bun test freezes NODE_ENV).
  */
-function loadConfig() {
+export function loadConfig(envOverride?: Record<string, string | undefined>) {
+  const env = envOverride
+    ? { ...process.env, ...envOverride }
+    : process.env;
+
   const config = {
-    port: process.env.PORT || 3001,
-    nodeEnv: process.env.NODE_ENV || "development",
+    port: env.PORT || 3001,
+    nodeEnv: env.NODE_ENV || "development",
     supabase: {
-      url: process.env.SUPABASE_URL || "",
-      anonKey: process.env.SUPABASE_ANON_KEY || "",
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+      url: env.SUPABASE_URL || "",
+      anonKey: env.SUPABASE_ANON_KEY || "",
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || "",
     },
     database: {
-      url: process.env.DATABASE_URL || "",
+      url: env.DATABASE_URL || "",
     },
     cors: {
-      origin: process.env.CORS_ORIGIN 
-        ? (process.env.CORS_ORIGIN.includes(',') 
-          ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-          : process.env.CORS_ORIGIN)
+      origin: env.CORS_ORIGIN
+        ? (env.CORS_ORIGIN.includes(",")
+          ? env.CORS_ORIGIN.split(",").map((o) => o.trim())
+          : env.CORS_ORIGIN)
         : ["http://localhost:5173", "http://localhost:5174"],
     },
-    jwt: {
-      secret:
-        process.env.SUPABASE_JWT_SECRET ||
-        process.env.JWT_SECRET ||
-        "dev-secret-key-change-in-production-min-32-chars",
-    },
-    redis: process.env.REDIS_URL
+    jwt:
+      env.SUPABASE_JWT_SECRET || env.JWT_SECRET
+        ? { secret: env.SUPABASE_JWT_SECRET || env.JWT_SECRET }
+        : undefined,
+    redis: env.REDIS_URL
       ? {
-          url: process.env.REDIS_URL,
+          url: env.REDIS_URL,
         }
       : undefined,
   };
@@ -85,10 +89,7 @@ function loadConfig() {
     return configSchema.parse(config);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error("❌ Configuration validation failed:");
-      error.errors.forEach((err) => {
-        console.error(`  - ${err.path.join(".")}: ${err.message}`);
-      });
+      logger.error({ validationErrors: error.errors.map(e => ({ path: e.path.join("."), message: e.message })) }, "Configuration validation failed");
       throw new Error("Invalid configuration");
     }
     throw error;

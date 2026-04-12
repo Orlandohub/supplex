@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { db } from "../../index";
+import { db } from "../../db";
 import {
   tenants,
   users,
@@ -9,23 +9,21 @@ import {
   stepInstance,
   taskInstance,
 } from "@supplex/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { completeStep } from "../complete-step";
 import { createValidationTasks } from "../create-validation-tasks";
+import { approveValidationTask } from "../approve-validation-task";
 
 /**
  * Integration Tests: Auto-Validation Task Creation
  * Story 2.2.15
- *
- * Tests the automatic creation of validation tasks when a step with requiresValidation completes
+ * Updated: Story 2.2.19 - tx threading, idempotency, concurrent approval
  */
 
 describe("Auto-Validation Task Creation", () => {
   let tenant: { id: string };
   let user: { id: string };
   let template: { id: string };
-  let _stepTemplate: { id: string; workflowStepTemplateId: string };
-  let _process: { id: string };
 
   beforeAll(async () => {
     [tenant] = await db
@@ -63,7 +61,6 @@ describe("Auto-Validation Task Creation", () => {
   });
 
   test("complete step with requiresValidation=true creates validation tasks", async () => {
-    // Create step template with validation
     const [step1] = await db
       .insert(workflowStepTemplate)
       .values({
@@ -79,7 +76,7 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    const [_step2] = await db
+    await db
       .insert(workflowStepTemplate)
       .values({
         workflowTemplateId: template.id,
@@ -87,22 +84,22 @@ describe("Auto-Validation Task Creation", () => {
         stepOrder: 2,
         name: "Final Step",
         stepType: "approval",
-      })
-      .returning();
+      });
 
-    // Create process instance
     const [proc] = await db
       .insert(processInstance)
       .values({
         tenantId: tenant.id,
         workflowTemplateId: template.id,
-        supplierId: crypto.randomUUID(),
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
         status: "in_progress",
-        createdBy: user.id,
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
       })
       .returning();
 
-    // Create step instance
     const [stepInst] = await db
       .insert(stepInstance)
       .values({
@@ -116,7 +113,6 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    // Complete step (should trigger validation task creation)
     const result = await completeStep(db, {
       tenantId: tenant.id,
       stepInstanceId: stepInst.id,
@@ -126,28 +122,29 @@ describe("Auto-Validation Task Creation", () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.stepCompleted).toBe(true);
-    expect(result.data?.nextStepActivated).toBe(false); // Should NOT activate next step yet
+    expect(result.data?.nextStepActivated).toBe(false);
+    expect(result.data?.awaitingValidation).toBe(true);
 
-    // Verify validation tasks were created
     const validationTasks = await db
       .select()
       .from(taskInstance)
-      .where(eq(taskInstance.stepInstanceId, stepInst.id));
+      .where(
+        and(
+          eq(taskInstance.stepInstanceId, stepInst.id),
+          eq(taskInstance.taskType, "validation")
+        )
+      );
 
-    expect(validationTasks.length).toBe(2); // One per approver role
+    expect(validationTasks.length).toBe(2);
     expect(validationTasks.every((t) => t.assigneeType === "role")).toBe(true);
-    expect(validationTasks.every((t) => t.status === "open")).toBe(true);
+    expect(validationTasks.every((t) => t.status === "pending")).toBe(true);
     expect(
       validationTasks.some((t) => t.assigneeRole === "quality_manager")
     ).toBe(true);
     expect(
       validationTasks.some((t) => t.assigneeRole === "procurement_manager")
     ).toBe(true);
-    expect(
-      validationTasks.every((t) => t.taskType === "validation")
-    ).toBe(true);
 
-    // Verify step status is awaiting_validation
     const [updatedStep] = await db
       .select()
       .from(stepInstance)
@@ -177,9 +174,12 @@ describe("Auto-Validation Task Creation", () => {
       .values({
         tenantId: tenant.id,
         workflowTemplateId: template.id,
-        supplierId: crypto.randomUUID(),
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
         status: "in_progress",
-        createdBy: user.id,
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
       })
       .returning();
 
@@ -196,10 +196,10 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    // Create validation tasks directly
     await createValidationTasks(db, {
       tenantId: tenant.id,
       stepInstanceId: stepInst.id,
+      processInstanceId: proc.id,
       stepTemplate: step,
     });
 
@@ -213,30 +213,20 @@ describe("Auto-Validation Task Creation", () => {
     expect(tasks.every((t) => t.title?.startsWith("Validate:"))).toBe(true);
   });
 
-  test("next step remains blocked until validation approved", async () => {
-    const [step1] = await db
+  test("validation tasks receive correct dueAt when validationDueDays is configured", async () => {
+    const [step] = await db
       .insert(workflowStepTemplate)
       .values({
         workflowTemplateId: template.id,
         tenantId: tenant.id,
-        stepOrder: 20,
-        name: "Submit Data",
+        stepOrder: 25,
+        name: "Validation Due Days Test",
         stepType: "form",
         requiresValidation: true,
         validationConfig: {
           approverRoles: ["quality_manager"],
+          validationDueDays: 5,
         },
-      })
-      .returning();
-
-    const [_step2] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        stepOrder: 21,
-        name: "Review Data",
-        stepType: "approval",
       })
       .returning();
 
@@ -245,9 +235,12 @@ describe("Auto-Validation Task Creation", () => {
       .values({
         tenantId: tenant.id,
         workflowTemplateId: template.id,
-        supplierId: crypto.randomUUID(),
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
         status: "in_progress",
-        createdBy: user.id,
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
       })
       .returning();
 
@@ -256,30 +249,41 @@ describe("Auto-Validation Task Creation", () => {
       .values({
         tenantId: tenant.id,
         processInstanceId: proc.id,
-        workflowStepTemplateId: step1.id,
-        stepOrder: 20,
-        stepName: "Submit Data",
+        workflowStepTemplateId: step.id,
+        stepOrder: 25,
+        stepName: "Validation Due Days Test",
         stepType: "form",
-        status: "active",
+        status: "completed",
       })
       .returning();
 
-    // Complete step
-    await completeStep(db, {
+    const beforeCreate = Date.now();
+
+    await createValidationTasks(db, {
       tenantId: tenant.id,
       stepInstanceId: stepInst.id,
-      completedBy: user.id,
-      outcome: "completed",
+      processInstanceId: proc.id,
+      stepTemplate: step,
     });
 
-    // Verify next step instance was NOT created
-    const nextStepInstances = await db
-      .select()
-      .from(stepInstance)
-      .where(eq(stepInstance.processInstanceId, proc.id));
+    const afterCreate = Date.now();
 
-    expect(nextStepInstances.length).toBe(1); // Only original step
-    expect(nextStepInstances[0].stepOrder).toBe(20);
+    const tasks = await db
+      .select()
+      .from(taskInstance)
+      .where(eq(taskInstance.stepInstanceId, stepInst.id));
+
+    expect(tasks.length).toBe(1);
+    expect(tasks[0].dueAt).toBeDefined();
+    expect(tasks[0].dueAt).not.toBeNull();
+    expect(tasks[0].completionTimeDays).toBe(5);
+
+    const expectedMinDue = beforeCreate + 5 * 24 * 60 * 60 * 1000;
+    const expectedMaxDue = afterCreate + 5 * 24 * 60 * 60 * 1000;
+    const taskDueTime = tasks[0].dueAt!.getTime();
+
+    expect(taskDueTime).toBeGreaterThanOrEqual(expectedMinDue);
+    expect(taskDueTime).toBeLessThanOrEqual(expectedMaxDue);
   });
 
   test("complete step with requiresValidation=false activates next step immediately", async () => {
@@ -295,7 +299,7 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    const [step2] = await db
+    await db
       .insert(workflowStepTemplate)
       .values({
         workflowTemplateId: template.id,
@@ -303,17 +307,19 @@ describe("Auto-Validation Task Creation", () => {
         stepOrder: 31,
         name: "Next Step",
         stepType: "approval",
-      })
-      .returning();
+      });
 
     const [proc] = await db
       .insert(processInstance)
       .values({
         tenantId: tenant.id,
         workflowTemplateId: template.id,
-        supplierId: crypto.randomUUID(),
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
         status: "in_progress",
-        createdBy: user.id,
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
       })
       .returning();
 
@@ -330,7 +336,6 @@ describe("Auto-Validation Task Creation", () => {
       })
       .returning();
 
-    // Complete step
     const result = await completeStep(db, {
       tenantId: tenant.id,
       stepInstanceId: stepInst.id,
@@ -339,14 +344,306 @@ describe("Auto-Validation Task Creation", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.data?.nextStepActivated).toBe(true); // Should activate immediately
+    expect(result.data?.nextStepActivated).toBe(true);
 
-    // Verify no validation tasks were created
     const tasks = await db
       .select()
       .from(taskInstance)
-      .where(eq(taskInstance.stepInstanceId, stepInst.id));
+      .where(
+        and(
+          eq(taskInstance.stepInstanceId, stepInst.id),
+          eq(taskInstance.taskType, "validation")
+        )
+      );
 
     expect(tasks.length).toBe(0);
+  });
+
+  test("role-aware idempotency: calling createValidationTasks twice skips existing roles", async () => {
+    const [step] = await db
+      .insert(workflowStepTemplate)
+      .values({
+        workflowTemplateId: template.id,
+        tenantId: tenant.id,
+        stepOrder: 40,
+        name: "Idempotency Validation Test",
+        stepType: "form",
+        requiresValidation: true,
+        validationConfig: {
+          approverRoles: ["quality_manager", "admin"],
+        },
+      })
+      .returning();
+
+    const [proc] = await db
+      .insert(processInstance)
+      .values({
+        tenantId: tenant.id,
+        workflowTemplateId: template.id,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
+      })
+      .returning();
+
+    const [stepInst] = await db
+      .insert(stepInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        workflowStepTemplateId: step.id,
+        stepOrder: 40,
+        stepName: "Idempotency Validation Test",
+        stepType: "form",
+        status: "completed",
+      })
+      .returning();
+
+    // First call creates 2 validation tasks
+    await createValidationTasks(db, {
+      tenantId: tenant.id,
+      stepInstanceId: stepInst.id,
+      processInstanceId: proc.id,
+      stepTemplate: step,
+    });
+
+    const tasksAfterFirst = await db
+      .select()
+      .from(taskInstance)
+      .where(
+        and(
+          eq(taskInstance.stepInstanceId, stepInst.id),
+          eq(taskInstance.taskType, "validation")
+        )
+      );
+    expect(tasksAfterFirst.length).toBe(2);
+
+    // Second call should not create duplicates
+    await createValidationTasks(db, {
+      tenantId: tenant.id,
+      stepInstanceId: stepInst.id,
+      processInstanceId: proc.id,
+      stepTemplate: step,
+    });
+
+    const tasksAfterSecond = await db
+      .select()
+      .from(taskInstance)
+      .where(
+        and(
+          eq(taskInstance.stepInstanceId, stepInst.id),
+          eq(taskInstance.taskType, "validation")
+        )
+      );
+    expect(tasksAfterSecond.length).toBe(2);
+  });
+
+  test("concurrent approval: only one triggers transition when all validations complete", async () => {
+    const [step1] = await db
+      .insert(workflowStepTemplate)
+      .values({
+        workflowTemplateId: template.id,
+        tenantId: tenant.id,
+        stepOrder: 50,
+        name: "Concurrent Approval Step",
+        stepType: "form",
+        requiresValidation: true,
+        validationConfig: {
+          approverRoles: ["quality_manager", "admin"],
+        },
+        taskTitle: "Fill form",
+        assigneeType: "role",
+        assigneeRole: "procurement_manager",
+      })
+      .returning();
+
+    const [step2] = await db
+      .insert(workflowStepTemplate)
+      .values({
+        workflowTemplateId: template.id,
+        tenantId: tenant.id,
+        stepOrder: 51,
+        name: "After Concurrent Test",
+        stepType: "form",
+        taskTitle: "Next task",
+        assigneeType: "role",
+        assigneeRole: "admin",
+      })
+      .returning();
+
+    const [proc] = await db
+      .insert(processInstance)
+      .values({
+        tenantId: tenant.id,
+        workflowTemplateId: template.id,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
+      })
+      .returning();
+
+    const [stepInst1] = await db
+      .insert(stepInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        workflowStepTemplateId: step1.id,
+        stepOrder: 50,
+        stepName: "Concurrent Approval Step",
+        stepType: "form",
+        status: "awaiting_validation",
+      })
+      .returning();
+
+    await db
+      .insert(stepInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        workflowStepTemplateId: step2.id,
+        stepOrder: 51,
+        stepName: "After Concurrent Test",
+        stepType: "form",
+        status: "blocked",
+      });
+
+    // Create 2 validation tasks manually (one per role)
+    const [task1] = await db
+      .insert(taskInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        stepInstanceId: stepInst1.id,
+        assigneeType: "role",
+        assigneeRole: "quality_manager",
+        title: "Validate: Concurrent",
+        taskType: "validation",
+        status: "pending",
+        metadata: {},
+      })
+      .returning();
+
+    const [task2] = await db
+      .insert(taskInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        stepInstanceId: stepInst1.id,
+        assigneeType: "role",
+        assigneeRole: "admin",
+        title: "Validate: Concurrent",
+        taskType: "validation",
+        status: "pending",
+        metadata: {},
+      })
+      .returning();
+
+    // First approval — should not trigger transition yet (one pending remaining)
+    const result1 = await approveValidationTask(db, {
+      tenantId: tenant.id,
+      taskInstanceId: task1.id,
+      userId: user.id,
+    });
+
+    expect(result1.success).toBe(true);
+    expect(result1.allValidationsComplete).toBe(false);
+    expect(result1.remainingApprovals).toBe(1);
+    expect(result1.nextStepActivated).toBe(false);
+
+    // Second approval — should trigger transition (last pending task)
+    const result2 = await approveValidationTask(db, {
+      tenantId: tenant.id,
+      taskInstanceId: task2.id,
+      userId: user.id,
+    });
+
+    expect(result2.success).toBe(true);
+    expect(result2.allValidationsComplete).toBe(true);
+    expect(result2.nextStepActivated).toBe(true);
+
+    // Verify step status transitioned to validated
+    const [finalStep] = await db
+      .select()
+      .from(stepInstance)
+      .where(eq(stepInstance.id, stepInst1.id));
+    expect(finalStep.status).toBe("validated");
+  });
+
+  test("approveValidationTask CAS rejects already-processed task", async () => {
+    const [step] = await db
+      .insert(workflowStepTemplate)
+      .values({
+        workflowTemplateId: template.id,
+        tenantId: tenant.id,
+        stepOrder: 60,
+        name: "CAS Reject Test",
+        stepType: "form",
+        requiresValidation: true,
+        validationConfig: {
+          approverRoles: ["admin"],
+        },
+      })
+      .returning();
+
+    const [proc] = await db
+      .insert(processInstance)
+      .values({
+        tenantId: tenant.id,
+        workflowTemplateId: template.id,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: user.id,
+        initiatedDate: new Date(),
+      })
+      .returning();
+
+    const [stepInst] = await db
+      .insert(stepInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        workflowStepTemplateId: step.id,
+        stepOrder: 60,
+        stepName: "CAS Reject Test",
+        stepType: "form",
+        status: "awaiting_validation",
+      })
+      .returning();
+
+    // Create a task that's already completed (simulating another request processed it first)
+    const [task] = await db
+      .insert(taskInstance)
+      .values({
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        stepInstanceId: stepInst.id,
+        assigneeType: "role",
+        assigneeRole: "admin",
+        title: "Validate: CAS Test",
+        taskType: "validation",
+        status: "completed",
+        completedBy: user.id,
+        completedAt: new Date(),
+        metadata: {},
+      })
+      .returning();
+
+    // Attempt to approve already-completed task — CAS should reject
+    const result = await approveValidationTask(db, {
+      tenantId: tenant.id,
+      taskInstanceId: task.id,
+      userId: user.id,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Task already processed");
   });
 });

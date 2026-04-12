@@ -1,25 +1,14 @@
 import IORedis from "ioredis";
+import { logger } from "../lib/logger";
 
-/**
- * Shared Redis Connection
- *
- * Single Redis connection instance used by:
- * - BullMQ Queue
- * - BullMQ Worker
- * - Email Rate Limiter
- *
- * This prevents connection pool exhaustion from multiple Redis instances.
- */
+const redisLogger = logger.child({ module: "redis" });
 
-// REDIS_URL format: redis://default:password@host:port
 const redisUrl = process.env.REDIS_URL || "";
 
 export const isRedisEnabled = !!redisUrl;
 
 if (!redisUrl) {
-  console.warn(
-    "[REDIS] REDIS_URL not configured. Queue and rate limiting will not work."
-  );
+  redisLogger.warn("REDIS_URL not configured — queue and rate limiting will not work");
 }
 
 // Single shared Redis connection (only create if Redis is configured)
@@ -34,15 +23,15 @@ export const redisConnection = isRedisEnabled
 // Connection event handlers (only if Redis is enabled)
 if (redisConnection) {
   redisConnection.on("connect", () => {
-    console.log("[REDIS] Connected successfully");
+    redisLogger.info("Connected successfully");
   });
 
   redisConnection.on("error", (error) => {
-    console.error("[REDIS] Connection error:", error);
+    redisLogger.error({ err: error }, "Connection error");
   });
 
   redisConnection.on("close", () => {
-    console.log("[REDIS] Connection closed");
+    redisLogger.info("Connection closed");
   });
 }
 
@@ -52,6 +41,6 @@ if (redisConnection) {
 export async function closeRedisConnection(): Promise<void> {
   if (redisConnection) {
     await redisConnection.quit();
-    console.log("[REDIS] Connection closed gracefully");
+    redisLogger.info("Connection closed gracefully");
   }
 }

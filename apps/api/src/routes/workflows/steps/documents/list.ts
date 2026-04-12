@@ -7,22 +7,28 @@ import {
   documents,
   workflowStepTemplate,
   documentTemplate,
+  documentReviewDecision,
+  taskInstance,
+  users,
 } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
+import type { RequiredDocumentItem } from "@supplex/types";
 import { authenticate } from "../../../../lib/rbac/middleware";
+import { verifyStepProcessAccess } from "../../../../lib/rbac/entity-authorization";
+import { Errors } from "../../../../lib/errors";
 
 /**
  * GET /api/workflows/steps/:stepId/documents
  * List all required documents for a step with their upload/review status.
+ * Includes per-reviewer decisions for the current validation round.
  */
 export const listStepDocumentsRoute = new Elysia()
   .use(authenticate)
   .get(
     "/steps/:stepInstanceId/documents",
-    async ({ params, user, set }) => {
+    async ({ params, user }) => {
       if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       const stepId = params.stepInstanceId;
@@ -38,8 +44,12 @@ export const listStepDocumentsRoute = new Elysia()
         );
 
       if (!step) {
-        set.status = 404;
-        return { success: false, error: "Step not found" };
+        throw Errors.notFound("Step not found");
+      }
+
+      const access = await verifyStepProcessAccess(user, stepId, db);
+      if (!access.allowed) {
+        throw Errors.forbidden(access.reason || "Access denied");
       }
 
       const rows = await db
@@ -53,7 +63,6 @@ export const listStepDocumentsRoute = new Elysia()
           reviewedAt: workflowStepDocument.reviewedAt,
           createdAt: workflowStepDocument.createdAt,
           updatedAt: workflowStepDocument.updatedAt,
-          // Joined document metadata
           filename: documents.filename,
           mimeType: documents.mimeType,
           fileSize: documents.fileSize,
@@ -101,21 +110,76 @@ export const listStepDocumentsRoute = new Elysia()
             .where(eq(documentTemplate.id, stepTmpl.documentTemplateId));
 
           if (docTmpl?.requiredDocuments) {
-            requiredDocsInfo = docTmpl.requiredDocuments as any[];
+            requiredDocsInfo = docTmpl.requiredDocuments as RequiredDocumentItem[];
           }
         }
       }
 
       const docsInfoMap = new Map(requiredDocsInfo.map((d) => [d.name, d]));
 
+      // Fetch current-round reviewer decisions
+      const currentRound = step.validationRound;
+      let decisionRows: {
+        workflowStepDocumentId: string;
+        reviewerUserId: string;
+        decision: string;
+        comment: string | null;
+        decidedAt: Date;
+        taskInstanceId: string;
+        reviewerName: string | null;
+        assigneeRole: string | null;
+      }[] = [];
+
+      if (currentRound > 0) {
+        decisionRows = await db
+          .select({
+            workflowStepDocumentId: documentReviewDecision.workflowStepDocumentId,
+            reviewerUserId: documentReviewDecision.reviewerUserId,
+            decision: documentReviewDecision.decision,
+            comment: documentReviewDecision.comment,
+            decidedAt: documentReviewDecision.decidedAt,
+            taskInstanceId: documentReviewDecision.taskInstanceId,
+            reviewerName: users.fullName,
+            assigneeRole: taskInstance.assigneeRole,
+          })
+          .from(documentReviewDecision)
+          .innerJoin(users, eq(documentReviewDecision.reviewerUserId, users.id))
+          .innerJoin(taskInstance, eq(documentReviewDecision.taskInstanceId, taskInstance.id))
+          .where(
+            and(
+              eq(documentReviewDecision.stepInstanceId, stepId),
+              eq(documentReviewDecision.validationRound, currentRound)
+            )
+          );
+      }
+
+      // Group decisions by document
+      const decisionsByDoc = new Map<string, typeof decisionRows>();
+      for (const row of decisionRows) {
+        if (!decisionsByDoc.has(row.workflowStepDocumentId)) {
+          decisionsByDoc.set(row.workflowStepDocumentId, []);
+        }
+        decisionsByDoc.get(row.workflowStepDocumentId)!.push(row);
+      }
+
       const enrichedRows = rows.map((row) => {
         const info = docsInfoMap.get(row.requiredDocumentName);
+        const docDecisions = decisionsByDoc.get(row.id) || [];
         return {
           ...row,
           description: info?.description || null,
           required: info?.required ?? true,
           expiryRequired: info?.expiryRequired ?? false,
           documentType: info?.type || null,
+          reviewerDecisions: docDecisions.map((d) => ({
+            reviewerUserId: d.reviewerUserId,
+            reviewerName: d.reviewerName || "Unknown",
+            reviewerRole: d.assigneeRole || "unknown",
+            decision: d.decision as "approved" | "declined",
+            comment: d.comment,
+            decidedAt: d.decidedAt.toISOString(),
+            taskInstanceId: d.taskInstanceId,
+          })),
         };
       });
 
@@ -125,6 +189,7 @@ export const listStepDocumentsRoute = new Elysia()
           stepId,
           stepName: step.stepName,
           stepStatus: step.status,
+          validationRound: currentRound,
           documents: enrichedRows,
           summary: {
             total: enrichedRows.length,

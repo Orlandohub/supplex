@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
 import { formSection, formTemplate } from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * POST /api/form-templates/:templateId/sections/reorder
@@ -16,29 +16,15 @@ import { UserRole } from "@supplex/types";
  * Returns: Success response
  */
 export const reorderSectionsRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .post(
     "/:templateId/sections/reorder",
-    async ({ params, body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { templateId } = params;
         const { sectionIds } = body;
 
-        // Verify template exists, belongs to user's tenant, and is draft
         const template = await db.query.formTemplate.findFirst({
           where: and(
             eq(formTemplate.id, templateId),
@@ -48,33 +34,16 @@ export const reorderSectionsRoute = new Elysia()
         });
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_NOT_FOUND",
-              message:
-                "Form template not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Form template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
         }
 
-        // Check if template is draft
         if (template.status !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message:
-                "Cannot reorder sections in published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            "Cannot reorder sections in published template. Please copy the template to make changes.",
+            "TEMPLATE_PUBLISHED"
+          );
         }
 
-        // Verify all section IDs belong to this template and tenant
         const sections = await db
           .select()
           .from(formSection)
@@ -88,19 +57,12 @@ export const reorderSectionsRoute = new Elysia()
           );
 
         if (sections.length !== sectionIds.length) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_SECTION_IDS",
-              message:
-                "Some section IDs are invalid or don't belong to this version",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            "Some section IDs are invalid or don't belong to this version",
+            "INVALID_SECTION_IDS"
+          );
         }
 
-        // Update section order in transaction
         await db.transaction(async (tx) => {
           for (let i = 0; i < sectionIds.length; i++) {
             await tx
@@ -120,17 +82,9 @@ export const reorderSectionsRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error reordering sections:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to reorder sections",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error reordering sections");
+        throw Errors.internal("Failed to reorder sections");
       }
     },
     {
@@ -148,4 +102,3 @@ export const reorderSectionsRoute = new Elysia()
       },
     }
   );
-

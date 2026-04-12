@@ -80,6 +80,11 @@ export async function loader(args: LoaderFunctionArgs) {
     // Handle API errors
     if (processResponse.error) {
       const status = processResponse.status || 500;
+      if (status === 403) {
+        throw new Response("You do not have access to this workflow process", {
+          status: 403,
+        });
+      }
       if (status === 404) {
         throw new Response("Workflow process not found", { status: 404 });
       }
@@ -92,6 +97,11 @@ export async function loader(args: LoaderFunctionArgs) {
 
     const data = processResponse.data;
     if (!data?.success || !data.data) {
+      // Check if the body itself carries an authorization error (belt-and-suspenders)
+      const bodyError = (data as any)?.error;
+      if (typeof bodyError === "string" && bodyError.toLowerCase().includes("access denied")) {
+        throw new Response(bodyError, { status: 403 });
+      }
       throw new Response("Invalid API response", { status: 500 });
     }
 
@@ -193,14 +203,19 @@ export function ErrorBoundary() {
   const error = useRouteError();
 
   if (isRouteErrorResponse(error)) {
+    const is403 = error.status === 403;
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            {error.status}
+            {is403 ? "Access Denied" : error.status}
           </h1>
-          <p className="text-xl text-gray-600 mb-4">{error.statusText}</p>
-          {error.data && (
+          <p className="text-xl text-gray-600 mb-4">
+            {is403
+              ? "You do not have permission to view this workflow process."
+              : error.statusText}
+          </p>
+          {error.data && !is403 && (
             <p className="text-gray-500 mb-8">{error.data}</p>
           )}
           <a

@@ -12,10 +12,6 @@ import { createStepRoute } from "./steps/create";
 import { updateStepRoute } from "./steps/update";
 import { deleteStepRoute } from "./steps/delete";
 import { reorderStepsRoute } from "./steps/reorder";
-import { listApproversRoute } from "./approvers/list";
-import { createApproverRoute } from "./approvers/create";
-import { deleteApproverRoute } from "./approvers/delete";
-import { reorderApproversRoute } from "./approvers/reorder";
 
 /**
  * Workflow Templates Route Aggregator
@@ -43,12 +39,6 @@ import { reorderApproversRoute } from "./approvers/reorder";
  * - PUT    /api/workflow-templates/:workflowId/steps/:stepId - Update step
  * - DELETE /api/workflow-templates/:workflowId/steps/:stepId - Delete step
  * - PUT    /api/workflow-templates/:workflowId/steps/reorder - Reorder steps
- * 
- * Approver Management:
- * - GET    /api/workflow-templates/:workflowId/steps/:stepId/approvers             - Get approvers
- * - POST   /api/workflow-templates/:workflowId/steps/:stepId/approvers             - Add approver
- * - DELETE /api/workflow-templates/:workflowId/steps/:stepId/approvers/:approverId - Remove approver
- * - PUT    /api/workflow-templates/:workflowId/steps/:stepId/approvers/reorder     - Reorder approvers
  */
 export const workflowTemplatesRoutes = new Elysia({
   prefix: "/api/workflow-templates",
@@ -68,10 +58,6 @@ export const workflowTemplatesRoutes = new Elysia({
   .use(updateStepRoute)
   .use(deleteStepRoute)
   .use(reorderStepsRoute)
-  // Approver routes
-  .use(listApproversRoute)
-  .use(createApproverRoute)
-  .use(deleteApproverRoute)
-  .use(reorderApproversRoute);
+;
 
 

@@ -5,6 +5,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { authenticate, requireRole } from "../../lib/rbac/middleware";
 import { UserRole } from "@supplex/types";
 import { randomBytes } from "crypto";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/users/resend-invitation
@@ -19,7 +20,7 @@ export const resendInvitationRoute = new Elysia({ prefix: "/users" })
   .use(requireRole([UserRole.ADMIN]))
   .post(
     "/resend-invitation",
-    async ({ body, user, set }: any) => {
+    async ({ body, user, set, requestLogger }: any) => {
       try {
         const { userId } = body;
         const tenantId = user.tenantId as string;
@@ -31,28 +32,18 @@ export const resendInvitationRoute = new Elysia({ prefix: "/users" })
         });
 
         if (!targetUser) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "USER_NOT_FOUND",
-              message: "User not found or does not belong to your organization",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound(
+            "User not found or does not belong to your organization",
+            "USER_NOT_FOUND"
+          );
         }
 
         // Step 2: Verify user status is pending_activation
         if (targetUser.status !== "pending_activation") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_STATUS",
-              message: `Cannot resend invitation. User status must be 'pending_activation'. Current status: '${targetUser.status}'`,
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            `Cannot resend invitation. User status must be 'pending_activation'. Current status: '${targetUser.status}'`,
+            "INVALID_STATUS"
+          );
         }
 
         // Step 3: Mark all existing invitations as used (invalidate them)
@@ -95,17 +86,9 @@ export const resendInvitationRoute = new Elysia({ prefix: "/users" })
           },
         };
       } catch (error: any) {
-        console.error("Error resending invitation:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to resend invitation",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error resending invitation");
+        throw Errors.internal("Failed to resend invitation");
       }
     },
     {

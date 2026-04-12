@@ -9,6 +9,7 @@ import {
 } from "@supplex/db";
 import { eq, and, isNull, sql, asc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/workflows/my-tasks?view=pending|due_today|overdue|waiting_review|completed_this_week|all&search=...
@@ -23,7 +24,7 @@ import { authenticate } from "../../lib/rbac/middleware";
  */
 export const myTasksRoute = new Elysia().use(authenticate).get(
   "/my-tasks",
-  async ({ user, set, query }) => {
+  async ({ user, query, requestLogger }: any) => {
     try {
       const userId = user!.id as string;
       const userRole = user!.role as string;
@@ -212,16 +213,9 @@ export const myTasksRoute = new Elysia().use(authenticate).get(
         },
       };
     } catch (error: unknown) {
-      console.error("Error fetching my tasks:", error);
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch pending tasks",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "error fetching my tasks");
+      throw Errors.internal("Failed to fetch pending tasks");
     }
   },
   {

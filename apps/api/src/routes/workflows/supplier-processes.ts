@@ -3,6 +3,9 @@ import { db } from "../../lib/db";
 import { processInstance, stepInstance } from "@supplex/db";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { getSupplierForUser } from "../../lib/rbac/entity-authorization";
+import { UserRole } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/workflows/supplier/:supplierId/processes
@@ -18,9 +21,16 @@ export const supplierProcessesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/supplier/:supplierId/processes",
-    async ({ params, user, set }) => {
+    async ({ params, user, requestLogger }: any) => {
       const { supplierId } = params;
       const tenantId = user!.tenantId as string;
+
+      if (user.role === UserRole.SUPPLIER_USER) {
+        const supplier = await getSupplierForUser(user.id, tenantId, db);
+        if (!supplier || supplier.id !== supplierId) {
+          throw Errors.forbidden("Access denied");
+        }
+      }
 
       try {
         // Query all process instances for this supplier (both active and completed)
@@ -93,16 +103,9 @@ export const supplierProcessesRoute = new Elysia()
           },
         };
       } catch (error) {
-        console.error("Error fetching supplier processes:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch supplier workflow processes",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error fetching supplier processes");
+        throw Errors.internal("Failed to fetch supplier workflow processes");
       }
     },
     {

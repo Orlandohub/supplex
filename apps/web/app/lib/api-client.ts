@@ -11,74 +11,55 @@ import { toast } from "sonner";
 const API_URL = config.apiUrl;
 
 /**
- * Error response structure from API
+ * Custom fetch wrapper that handles auth-related HTTP errors centrally.
+ *
+ *  - 401 (any): clear Zustand auth state, redirect to /login.
+ *  - 403:       show an "Access Denied" toast; no redirect.
+ *
+ * Login, registration, and password-recovery flows use their own fetch paths
+ * and are exempt — they never go through this wrapper.
  */
-interface ApiErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    timestamp: string;
-  };
-}
-
-/**
- * Custom fetch wrapper to handle token expiry
- */
-async function fetchWithTokenExpiryHandler(
+async function fetchWithAuthErrorHandler(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
   const response = await fetch(input, init);
 
-  // Check for token expiry on 401 responses
   if (response.status === 401) {
-    try {
-      // Clone the response to avoid consuming the body
-      const clonedResponse = response.clone();
-      const text = await clonedResponse.text();
+    handleUnauthorized();
+    return response;
+  }
 
-      // Try to parse as JSON
-      let errorData: ApiErrorResponse;
-      try {
-        errorData = JSON.parse(text);
-      } catch {
-        // If parsing fails, check if it contains TOKEN_EXPIRED in the raw text
-        if (text.includes('"code":"TOKEN_EXPIRED"')) {
-          redirectToLogin();
-        }
-        return response;
-      }
-
-      // Check for TOKEN_EXPIRED error code
-      if (errorData?.error?.code === "TOKEN_EXPIRED") {
-        redirectToLogin();
-      }
-    } catch (error) {
-      console.error("[API Client] Error checking token expiry:", error);
-    }
+  if (response.status === 403) {
+    toast.error("Access denied — you don't have permission for this action.");
+    return response;
   }
 
   return response;
 }
 
-/**
- * Redirect to login page with friendly message
- */
-function redirectToLogin(): void {
-  console.log("[API Client] Token expired, redirecting to login...");
+function handleUnauthorized(): void {
+  if (typeof window === "undefined") return;
 
-  // Only perform redirect in browser environment
-  if (typeof window !== "undefined") {
-    // Show user-friendly toast message
-    toast.error("Your session has expired. Redirecting to login...", {
-      duration: 3000,
-    });
+  // Prevent redirect loops when already on the login page
+  if (window.location.pathname === "/login") return;
 
-    // Brief delay to allow the toast message to be seen
-    setTimeout(() => {
-      window.location.href = "/login";
-    }, 1500);
+  // Clear Zustand auth state (dynamic import avoids circular deps at module init)
+  try {
+    const { useAuth } = require("~/hooks/useAuth");
+    useAuth.getState().clearAuth();
+  } catch {
+    // Fallback: wipe persisted auth directly
+    try { localStorage.removeItem("supplex-auth"); } catch { /* noop */ }
   }
+
+  toast.error("Your session has expired. Redirecting to login…", {
+    duration: 3000,
+  });
+
+  setTimeout(() => {
+    window.location.href = "/login";
+  }, 1500);
 }
 
 /**
@@ -90,7 +71,7 @@ export function createEdenTreatyClient(token: string) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    fetch: fetchWithTokenExpiryHandler,
+    fetch: fetchWithAuthErrorHandler,
   });
 }
 
@@ -103,6 +84,6 @@ export function createClientEdenTreatyClient(token: string) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    fetch: fetchWithTokenExpiryHandler,
+    fetch: fetchWithAuthErrorHandler,
   });
 }

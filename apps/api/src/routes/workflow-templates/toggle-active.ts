@@ -1,9 +1,9 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
 import { eq, and, isNull } from "drizzle-orm";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PATCH /api/workflow-templates/:templateId/toggle-active
@@ -15,23 +15,10 @@ import { eq, and, isNull } from "drizzle-orm";
  * Returns: Updated template
  */
 export const toggleActiveWorkflowTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .patch(
     "/:templateId/toggle-active",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { templateId } = params;
@@ -46,28 +33,11 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
         });
 
         if (!existing) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
         if (existing.status !== "published") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_STATE",
-              message:
-                "Active/inactive is only available for published templates. Publish the template first.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest("Active/inactive is only available for published templates. Publish the template first.", "INVALID_STATE");
         }
 
         // Toggle active status
@@ -85,16 +55,9 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
           data: updated,
         };
       } catch (error: any) {
-        console.error("Error toggling workflow template active status:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to toggle workflow template active status",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow template active toggle failed");
+        throw Errors.internal("Failed to toggle workflow template active status");
       }
     },
     {

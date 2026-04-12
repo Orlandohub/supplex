@@ -12,6 +12,8 @@ import { eq, and } from "drizzle-orm";
 import { verifyJWT, JWTVerificationError } from "../jwt-verifier";
 import { authCache } from "../auth-cache";
 import type { CachedUserAuth } from "../auth-cache";
+import logger, { getClientIp } from "../logger";
+import { Errors } from "../errors";
 
 /**
  * Authenticated User Context
@@ -27,38 +29,7 @@ export interface AuthContext {
   };
 }
 
-/**
- * Logging configuration
- * Enable verbose auth logs only in development or when AUTH_DEBUG is set
- */
-const AUTH_DEBUG = process.env.AUTH_DEBUG === "true" || process.env.NODE_ENV === "development";
-const LOG_LEVEL = process.env.LOG_LEVEL || "error"; // error, warn, info, debug
-
-/**
- * Structured logger for auth middleware
- * Only logs based on environment and log level
- */
-const authLogger = {
-  debug: (...args: any[]) => {
-    if (AUTH_DEBUG && (LOG_LEVEL === "debug")) {
-      console.log("[AUTH DEBUG]", ...args);
-    }
-  },
-  info: (...args: any[]) => {
-    if (AUTH_DEBUG && ["debug", "info"].includes(LOG_LEVEL)) {
-      console.log("[AUTH INFO]", ...args);
-    }
-  },
-  warn: (...args: any[]) => {
-    if (["debug", "info", "warn"].includes(LOG_LEVEL)) {
-      console.warn("[AUTH WARN]", ...args);
-    }
-  },
-  error: (...args: any[]) => {
-    // Always log errors
-    console.error("[AUTH ERROR]", ...args);
-  },
-};
+const authLogger = logger.child({ module: "auth" });
 
 /**
  * Extract JWT token from Authorization header
@@ -104,24 +75,21 @@ function extractBearerToken(authorization: string | undefined): string | null {
  */
 export const authenticate = new Elysia({ name: "auth" }).derive(
   { as: "global" },
-  async ({ headers, set }) => {
+  async ({ headers, request }) => {
     authLogger.debug("Starting authentication...");
 
     const token = extractBearerToken(headers.authorization);
-    authLogger.debug("Token extracted:", token ? "present" : "missing");
+    authLogger.debug({ tokenPresent: !!token }, "Token extraction complete");
 
     if (!token) {
-      authLogger.warn("Authentication failed: Missing token");
-      set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "MISSING_TOKEN",
-            message: "Missing or invalid authorization token",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      authLogger.warn({
+        event: "authn_denied",
+        reason: "MISSING_TOKEN",
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: Missing token");
+      throw Errors.unauthorized("Missing or invalid authorization token", "MISSING_TOKEN");
     }
 
     // STEP 1: Verify JWT locally (fast, no API call)
@@ -131,34 +99,28 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
       jwtPayload = await verifyJWT(token);
     } catch (error) {
       if (error instanceof JWTVerificationError) {
-        authLogger.warn(`Authentication failed: ${error.code} -`, error.message);
-        set.status = 401;
-        throw new Error(
-          JSON.stringify({
-            error: {
-              code: error.code,
-              message: error.message,
-              timestamp: new Date().toISOString(),
-            },
-          })
-        );
+        authLogger.warn({
+          event: "authn_denied",
+          reason: error.code,
+          route: request.url,
+          method: request.method,
+          clientIp: getClientIp(request),
+        }, `Authentication failed: ${error.code}`);
+        throw Errors.unauthorized(error.message, error.code);
       }
-      // Unknown error
-      authLogger.error("Authentication failed: JWT verification error -", error);
-      set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "INVALID_TOKEN",
-            message: "JWT verification failed",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      authLogger.error({
+        err: error,
+        event: "authn_denied",
+        reason: "INVALID_TOKEN",
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: JWT verification error");
+      throw Errors.unauthorized("JWT verification failed", "INVALID_TOKEN");
     }
 
     const userId = jwtPayload.sub;
-    authLogger.debug("JWT verified:", { userId });
+    authLogger.debug({ userId }, "JWT verified");
 
     // STEP 2: Check cache (L1 memory, L2 Redis)
     authLogger.debug("Checking auth cache...");
@@ -170,17 +132,15 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
       
       // Verify user is still active
       if (!cached.isActive) {
-        authLogger.warn("Authentication failed: Cached user deactivated -", userId);
-        set.status = 401;
-        throw new Error(
-          JSON.stringify({
-            error: {
-              code: "USER_DEACTIVATED",
-              message: "Your user has been deactivated, please contact your company's admin",
-              timestamp: new Date().toISOString(),
-            },
-          })
-        );
+        authLogger.warn({
+          event: "authn_denied",
+          reason: "USER_DEACTIVATED",
+          userId,
+          route: request.url,
+          method: request.method,
+          clientIp: getClientIp(request),
+        }, "Authentication failed: Cached user deactivated");
+        throw Errors.forbidden("Your user has been deactivated, please contact your company's admin", "USER_DEACTIVATED");
       }
 
       return {
@@ -197,23 +157,33 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
     // SLOW PATH: Cache miss - validate with Supabase + DB (~80ms total, once per 5 min)
     authLogger.debug("Cache miss - validating with Supabase + database...");
 
-    // Extract role and tenant_id from JWT
-    const role = extractRoleFromMetadata(jwtPayload.user_metadata);
+    // Extract role from app_metadata (authorization claims)
+    let role;
+    try {
+      role = extractRoleFromMetadata(jwtPayload.app_metadata);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown role extraction error";
+      authLogger.error({
+        err: error,
+        userId,
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: INVALID_ROLE");
+      throw Errors.unauthorized(msg, "INVALID_ROLE");
+    }
+
     const tenantId: string | null =
-      (jwtPayload.user_metadata?.tenant_id as string | null) ?? null;
+      (jwtPayload.app_metadata?.tenant_id as string | null) ?? null;
 
     if (!tenantId) {
-      authLogger.error("Authentication failed: Missing tenant ID for user", userId);
-      set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "MISSING_TENANT",
-            message: "User is not associated with a tenant",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      authLogger.error({
+        userId,
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: Missing tenant ID");
+      throw Errors.unauthorized("User is not associated with a tenant", "MISSING_TENANT");
     }
 
     // Validate with Supabase (ensures token isn't revoked)
@@ -223,17 +193,14 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
     } = await supabaseAdmin.auth.getUser(token);
 
     if (supabaseError || !supabaseUser) {
-      authLogger.error("Authentication failed: Supabase validation failed -", supabaseError?.message);
-      set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "INVALID_TOKEN",
-            message: supabaseError?.message || "Token validation failed",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      authLogger.error({
+        err: supabaseError,
+        userId,
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: Supabase validation failed");
+      throw Errors.unauthorized(supabaseError?.message || "Token validation failed", "INVALID_TOKEN");
     }
 
     // Check user status in database
@@ -252,21 +219,26 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
       .limit(1);
 
     if (!userRecord) {
-      authLogger.error("Authentication failed: User not found in database -", userId);
-      set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "USER_NOT_FOUND",
-            message: "User not found",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      authLogger.error({
+        userId,
+        tenantId,
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: User not found in database");
+      throw Errors.unauthorized("User not found in system", "USER_NOT_FOUND");
     }
 
     if (!userRecord.isActive) {
-      authLogger.warn("Authentication failed: User deactivated -", userId);
+      authLogger.warn({
+        event: "authn_denied",
+        reason: "USER_DEACTIVATED",
+        userId,
+        tenantId,
+        route: request.url,
+        method: request.method,
+        clientIp: getClientIp(request),
+      }, "Authentication failed: User deactivated");
       
       // Query for active admin in same tenant
       const [adminUser] = await db
@@ -283,16 +255,7 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
         ? `${adminUser.fullName}\n${adminUser.email}`
         : "your company's admin";
       
-      set.status = 401;
-      throw new Error(
-        JSON.stringify({
-          error: {
-            code: "USER_DEACTIVATED",
-            message: `Your user has been deactivated, please contact your company's admin:\n${adminInfo}`,
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
+      throw Errors.forbidden(`Your user has been deactivated, please contact your company's admin:\n${adminInfo}`, "USER_DEACTIVATED");
     }
 
     // Cache the validated user data
@@ -337,19 +300,20 @@ export const authenticate = new Elysia({ name: "auth" }).derive(
 export function requireRole(allowedRoles: UserRole[]) {
   return new Elysia({ name: "require-role" })
     .use(authenticate)
-    // First, validate the role
-    .onBeforeHandle(({ user, set }: any) => {
-      // Null check for user
+    .onBeforeHandle(({ user, request }: any) => {
       if (!user?.role || !allowedRoles.includes(user.role)) {
-        set.status = 403;
-        throw new Error(
-          JSON.stringify({
-            error: {
-              code: "FORBIDDEN",
-              message: `Access denied. Required role(s): ${allowedRoles.join(", ")}. Your role: ${user?.role || "unknown"}`,
-              timestamp: new Date().toISOString(),
-            },
-          })
+        authLogger.warn({
+          event: "authz_denied",
+          userId: user?.id,
+          userRole: user?.role,
+          requiredRoles: allowedRoles,
+          route: request.url,
+          method: request.method,
+          correlationId: request.headers.get("x-correlation-id"),
+          clientIp: getClientIp(request),
+        }, "Authorization denied: insufficient role");
+        throw Errors.forbidden(
+          `Access denied. Required role(s): ${allowedRoles.join(", ")}. Your role: ${user?.role || "unknown"}`
         );
       }
     })
@@ -373,18 +337,20 @@ export function requireRole(allowedRoles: UserRole[]) {
 export function requirePermission(permission: PermissionAction) {
   return new Elysia({ name: "require-permission" })
     .use(authenticate)
-    // First, validate the permission
-    .onBeforeHandle(({ user, set }: any) => {
+    .onBeforeHandle(({ user, request }: any) => {
       if (!user?.role || !checkPermission(user.role, permission)) {
-        set.status = 403;
-        throw new Error(
-          JSON.stringify({
-            error: {
-              code: "FORBIDDEN",
-              message: `Access denied. Required permission: ${permission}. Your role (${user?.role || "unknown"}) does not have this permission.`,
-              timestamp: new Date().toISOString(),
-            },
-          })
+        authLogger.warn({
+          event: "authz_denied",
+          userId: user?.id,
+          userRole: user?.role,
+          requiredPermission: permission,
+          route: request.url,
+          method: request.method,
+          correlationId: request.headers.get("x-correlation-id"),
+          clientIp: getClientIp(request),
+        }, "Authorization denied: insufficient permission");
+        throw Errors.forbidden(
+          `Access denied. Required permission: ${permission}. Your role (${user?.role || "unknown"}) does not have this permission.`
         );
       }
     })
@@ -411,24 +377,3 @@ export function hasPermission(
   return checkPermission(user.role, permission);
 }
 
-/**
- * Error Response Formatter
- * Standardizes error responses across the API
- */
-export function createErrorResponse(
-  code: string,
-  message: string,
-  statusCode: number = 500
-): {
-  error: { code: string; message: string; timestamp: string };
-  statusCode: number;
-} {
-  return {
-    error: {
-      code,
-      message,
-      timestamp: new Date().toISOString(),
-    },
-    statusCode,
-  };
-}

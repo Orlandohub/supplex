@@ -4,6 +4,7 @@ import { users, userInvitations, suppliers } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate, requireRole } from "../../lib/rbac/middleware";
 import { UserRole } from "@supplex/types";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/users/pending-invitations
@@ -18,7 +19,7 @@ import { UserRole } from "@supplex/types";
 export const pendingInvitationsRoute = new Elysia({ prefix: "/users" })
   .use(authenticate)
   .use(requireRole([UserRole.ADMIN]))
-  .get("/pending-invitations", async ({ user, query, set }: any) => {
+  .get("/pending-invitations", async ({ user, query, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const roleFilter = query.role as string | undefined;
@@ -117,17 +118,8 @@ export const pendingInvitationsRoute = new Elysia({ prefix: "/users" })
         data: validResults,
       };
     } catch (error: any) {
-      console.error("Error fetching pending invitations:", error);
-
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch pending invitations",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      requestLogger.error({ err: error }, "Error fetching pending invitations");
+      throw Errors.internal("Failed to fetch pending invitations");
     }
   }, {
     query: t.Object({

@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { formTemplate } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/form-templates/published
@@ -20,13 +21,10 @@ export const getPublishedFormTemplatesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/published",
-    async ({ user, set }: any) => {
+    async ({ user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
 
-        // Query: Get published form templates
-        // Filter: tenant_id + status='published' + not deleted
-        // Sort: Alphabetically by template name
         const publishedTemplates = await db.query.formTemplate.findMany({
           where: and(
             eq(formTemplate.tenantId, tenantId),
@@ -36,7 +34,6 @@ export const getPublishedFormTemplatesRoute = new Elysia()
           orderBy: [asc(formTemplate.name)],
         });
 
-        // Format for dropdown: { id: templateId, label: "Name" }
         const formattedOptions = publishedTemplates.map((template) => ({
           id: template.id,
           label: template.name,
@@ -49,17 +46,9 @@ export const getPublishedFormTemplatesRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error fetching published form templates:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch published form templates",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error fetching published form templates");
+        throw Errors.internal("Failed to fetch published form templates");
       }
     },
     {
@@ -71,4 +60,3 @@ export const getPublishedFormTemplatesRoute = new Elysia()
       },
     }
   );
-

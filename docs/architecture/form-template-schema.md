@@ -3,6 +3,8 @@
 > **Story**: 2.2.2 - Form Template Data Model and Versioning (Tenant-Isolated)  
 > **Date**: January 21, 2026  
 > **Status**: Implemented
+>
+> **⚠️ Stale References (Story 2.2.23):** This document still references `form_template_version`. Template versioning was removed in Story 2.2.14. Sections now reference `form_template_id` directly. The actual schema in `packages/db/src/schema/` is the source of truth.
 
 ## Overview
 

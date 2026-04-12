@@ -6,7 +6,6 @@ import {
   workflowTemplate,
   workflowTemplateVersion,
   workflowStepTemplate,
-  stepApprover,
   formTemplate,
   formTemplateVersion,
   FormTemplateStatus,
@@ -187,7 +186,7 @@ describe("Workflow Template Tenant Isolation", () => {
         stepOrder: 1,
         name: "Step 1",
         stepType: "task",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -549,7 +548,7 @@ describe("Workflow Step Template Configuration", () => {
         stepOrder: 3,
         name: "Step 3",
         stepType: "task",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       },
       {
@@ -558,7 +557,7 @@ describe("Workflow Step Template Configuration", () => {
         stepOrder: 1,
         name: "Step 1",
         stepType: "form",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       },
       {
@@ -567,7 +566,7 @@ describe("Workflow Step Template Configuration", () => {
         stepOrder: 2,
         name: "Step 2",
         stepType: "approval",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       },
     ]);
@@ -615,7 +614,7 @@ describe("Workflow Step Template Configuration", () => {
         stepOrder: 1,
         name: "Test Step 1",
         stepType: "task",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       },
       {
@@ -624,7 +623,7 @@ describe("Workflow Step Template Configuration", () => {
         stepOrder: 2,
         name: "Test Step 2",
         stepType: "task",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       },
     ]);
@@ -661,7 +660,7 @@ describe("Workflow Step Template Configuration", () => {
         stepType: "form",
         formTemplateVersionId: formVersion.id,
         formActionMode: "fill_out",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -680,7 +679,7 @@ describe("Workflow Step Template Configuration", () => {
         stepType: "approval",
         formTemplateVersionId: formVersion.id,
         formActionMode: "validate",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -703,7 +702,7 @@ describe("Workflow Step Template Configuration", () => {
         dueDays: 7,
         assigneeType: "role",
         assigneeRole: "procurement_manager",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -713,33 +712,6 @@ describe("Workflow Step Template Configuration", () => {
     expect(step.dueDays).toBe(7);
     expect(step.assigneeType).toBe("role");
     expect(step.assigneeRole).toBe("procurement_manager");
-  });
-
-  test("multi-approver flag without approvers", async () => {
-    // Create step with multi_approver = true but approver_count = 0
-    const [step] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateVersionId: version.id,
-        tenantId: tenant.id,
-        stepOrder: 30,
-        name: "Multi-Approver Step",
-        stepType: "approval",
-        multiApprover: true,
-        approverCount: 0,
-        declineReturnsToStepOffset: 1,
-      })
-      .returning();
-
-    expect(step.multiApprover).toBe(true);
-    expect(step.approverCount).toBe(0);
-
-    // Verify no approvers exist yet
-    const approvers = await db
-      .select()
-      .from(stepApprover)
-      .where(eq(stepApprover.workflowStepTemplateId, step.id));
-    expect(approvers).toHaveLength(0);
   });
 
   test("decline_returns_to_step_offset default value", async () => {
@@ -752,260 +724,12 @@ describe("Workflow Step Template Configuration", () => {
         stepOrder: 40,
         name: "Default Decline Step",
         stepType: "task",
-        multiApprover: false,
+
       })
       .returning();
 
     // Verify default value is 1
     expect(step.declineReturnsToStepOffset).toBe(1);
-  });
-});
-
-describe("Step Approver Configuration", () => {
-  let tenant: { id: string };
-  let user1: { id: string };
-  let user2: { id: string };
-  let template: { id: string };
-  let version: { id: string };
-  let step: { id: string };
-
-  beforeAll(async () => {
-    [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Approver Test Tenant",
-        slug: `approver-tenant-${Date.now()}`,
-      })
-      .returning();
-
-    [user1] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `approver-user1-${Date.now()}@test.com`,
-        fullName: "Approver User 1",
-        role: "procurement_manager",
-      })
-      .returning();
-
-    [user2] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `approver-user2-${Date.now()}@test.com`,
-        fullName: "Approver User 2",
-        role: "quality_manager",
-      })
-      .returning();
-
-    [template] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId: tenant.id,
-        name: "Approver Test Workflow",
-        status: "draft",
-        createdBy: user1.id,
-      })
-      .returning();
-
-    [version] = await db
-      .insert(workflowTemplateVersion)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        version: 1,
-        status: "draft",
-        isPublished: false,
-      })
-      .returning();
-
-    [step] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateVersionId: version.id,
-        tenantId: tenant.id,
-        stepOrder: 1,
-        name: "Multi-Approver Step",
-        stepType: "approval",
-        multiApprover: true,
-        approverCount: 2,
-        declineReturnsToStepOffset: 1,
-      })
-      .returning();
-  });
-
-  afterAll(async () => {
-    await db.delete(tenants).where(eq(tenants.id, tenant.id));
-  });
-
-  test("multiple approvers for a step ordered by approver_order", async () => {
-    // Create approvers in random order
-    await db.insert(stepApprover).values([
-      {
-        workflowStepTemplateId: step.id,
-        tenantId: tenant.id,
-        approverOrder: 3,
-        approverType: "role",
-        approverRole: "quality_manager",
-      },
-      {
-        workflowStepTemplateId: step.id,
-        tenantId: tenant.id,
-        approverOrder: 1,
-        approverType: "role",
-        approverRole: "procurement_manager",
-      },
-      {
-        workflowStepTemplateId: step.id,
-        tenantId: tenant.id,
-        approverOrder: 2,
-        approverType: "user",
-        approverUserId: user1.id,
-      },
-    ]);
-
-    // Query approvers ordered by approver_order
-    const approvers = await db
-      .select()
-      .from(stepApprover)
-      .where(
-        and(
-          eq(stepApprover.workflowStepTemplateId, step.id),
-          isNull(stepApprover.deletedAt)
-        )
-      )
-      .orderBy(stepApprover.approverOrder);
-
-    // Verify approvers are ordered correctly
-    expect(approvers).toHaveLength(3);
-    expect(approvers[0].approverOrder).toBe(1);
-    expect(approvers[0].approverRole).toBe("procurement_manager");
-    expect(approvers[1].approverOrder).toBe(2);
-    expect(approvers[1].approverUserId).toBe(user1.id);
-    expect(approvers[2].approverOrder).toBe(3);
-    expect(approvers[2].approverRole).toBe("quality_manager");
-  });
-
-  test("role-based approver - approver_type = 'role'", async () => {
-    // Create new step for this test
-    const [testStep] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateVersionId: version.id,
-        tenantId: tenant.id,
-        stepOrder: 2,
-        name: "Role-Based Approval",
-        stepType: "approval",
-        multiApprover: true,
-        approverCount: 1,
-        declineReturnsToStepOffset: 1,
-      })
-      .returning();
-
-    // Create role-based approver
-    const [approver] = await db
-      .insert(stepApprover)
-      .values({
-        workflowStepTemplateId: testStep.id,
-        tenantId: tenant.id,
-        approverOrder: 1,
-        approverType: "role",
-        approverRole: "procurement_manager",
-      })
-      .returning();
-
-    expect(approver.approverType).toBe("role");
-    expect(approver.approverRole).toBe("procurement_manager");
-    expect(approver.approverUserId).toBeNull();
-  });
-
-  test("user-specific approver - approver_type = 'user'", async () => {
-    // Create new step for this test
-    const [testStep] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateVersionId: version.id,
-        tenantId: tenant.id,
-        stepOrder: 3,
-        name: "User-Specific Approval",
-        stepType: "approval",
-        multiApprover: true,
-        approverCount: 1,
-        declineReturnsToStepOffset: 1,
-      })
-      .returning();
-
-    // Create user-specific approver
-    const [approver] = await db
-      .insert(stepApprover)
-      .values({
-        workflowStepTemplateId: testStep.id,
-        tenantId: tenant.id,
-        approverOrder: 1,
-        approverType: "user",
-        approverUserId: user2.id,
-      })
-      .returning();
-
-    expect(approver.approverType).toBe("user");
-    expect(approver.approverUserId).toBe(user2.id);
-    expect(approver.approverRole).toBeNull();
-  });
-
-  test("cascade delete - deleting step removes all approvers", async () => {
-    // Create new step for this test
-    const [testStep] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateVersionId: version.id,
-        tenantId: tenant.id,
-        stepOrder: 99,
-        name: "Cascade Delete Test",
-        stepType: "approval",
-        multiApprover: true,
-        approverCount: 2,
-        declineReturnsToStepOffset: 1,
-      })
-      .returning();
-
-    // Create approvers
-    await db.insert(stepApprover).values([
-      {
-        workflowStepTemplateId: testStep.id,
-        tenantId: tenant.id,
-        approverOrder: 1,
-        approverType: "role",
-        approverRole: "procurement_manager",
-      },
-      {
-        workflowStepTemplateId: testStep.id,
-        tenantId: tenant.id,
-        approverOrder: 2,
-        approverType: "role",
-        approverRole: "quality_manager",
-      },
-    ]);
-
-    // Verify approvers exist
-    const approversBefore = await db
-      .select()
-      .from(stepApprover)
-      .where(eq(stepApprover.workflowStepTemplateId, testStep.id));
-    expect(approversBefore).toHaveLength(2);
-
-    // Delete step (CASCADE should delete all approvers)
-    await db
-      .delete(workflowStepTemplate)
-      .where(eq(workflowStepTemplate.id, testStep.id));
-
-    // Verify approvers are deleted
-    const approversAfter = await db
-      .select()
-      .from(stepApprover)
-      .where(eq(stepApprover.workflowStepTemplateId, testStep.id));
-    expect(approversAfter).toHaveLength(0);
   });
 });
 
@@ -1094,7 +818,7 @@ describe("Form Action Mode Integration", () => {
         stepType: "form",
         formTemplateVersionId: formVersion.id,
         formActionMode: "fill_out",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -1114,7 +838,7 @@ describe("Form Action Mode Integration", () => {
         stepType: "approval",
         formTemplateVersionId: formVersion.id,
         formActionMode: "validate",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -1186,7 +910,7 @@ describe("Document Action Mode Integration", () => {
         name: "Upload Documents",
         stepType: "document",
         documentActionMode: "upload",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -1205,7 +929,7 @@ describe("Document Action Mode Integration", () => {
         name: "Validate Documents",
         stepType: "document",
         documentActionMode: "validate",
-        multiApprover: false,
+
         declineReturnsToStepOffset: 1,
       })
       .returning();

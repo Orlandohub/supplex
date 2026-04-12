@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { authCache } from "../../lib/auth-cache";
 import { supabaseAdmin } from "../../lib/supabase";
 import { randomBytes } from "crypto";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * Development Quick Login
@@ -18,10 +19,9 @@ import { randomBytes } from "crypto";
  * Security: Environment check ensures this route is never accessible in production.
  */
 export const devLoginRoute = new Elysia({ prefix: "/auth" })
-  .post("/dev/login", async ({ body, set }) => {
+  .post("/dev/login", async ({ body, set, requestLogger }) => {
     if (config.nodeEnv !== "development") {
-      set.status = 404;
-      return { error: "Not found" };
+      throw Errors.notFound("Not found");
     }
 
     try {
@@ -41,13 +41,11 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
         .limit(1);
 
       if (!user) {
-        set.status = 404;
-        return { success: false, error: "User not found" };
+        throw Errors.notFound("User not found");
       }
 
       if (!user.isActive) {
-        set.status = 403;
-        return { success: false, error: "User is inactive" };
+        throw Errors.forbidden("User is inactive");
       }
 
       // Set a temporary random password via Admin API
@@ -58,9 +56,8 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
       );
 
       if (error) {
-        console.error("❌ Supabase updateUser error:", error);
-        set.status = 500;
-        return { success: false, error: error.message || "Failed to prepare login" };
+        requestLogger.error({ err: error }, "Supabase updateUser error");
+        throw Errors.internal(error.message || "Failed to prepare login");
       }
 
       // Cache user for the API middleware
@@ -81,9 +78,9 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
         tempPassword,
       };
     } catch (error) {
-      console.error("❌ Dev login error:", error);
-      set.status = 500;
-      return { success: false, error: "Internal server error during dev login" };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "Dev login error");
+      throw Errors.internal("Internal server error during dev login");
     }
   }, {
     body: t.Object({

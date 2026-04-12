@@ -3,6 +3,9 @@ import { Worker } from "bullmq";
 import { redisConnection, isRedisEnabled } from "./redis-connection";
 import type { EmailJobData } from "./email-queue";
 import { processEmailJob } from "../services/email-job-processor.service";
+import { logger } from "../lib/logger";
+
+const workerLogger = logger.child({ module: "email-worker" });
 
 /**
  * Email Worker
@@ -21,33 +24,28 @@ export const emailWorker =
         async (job: Job<EmailJobData>) => {
           const { notificationId, recipientEmail, templateName } = job.data;
 
-          console.log(
-            `[EMAIL WORKER] Processing job ${job.id} (attempt ${job.attemptsMade + 1}/${job.opts.attempts || 3})`
-          );
-          console.log(
-            `[EMAIL WORKER] Notification: ${notificationId}, Recipient: ${recipientEmail}, Template: ${templateName}`
-          );
+          workerLogger.info({
+            jobId: job.id,
+            attempt: job.attemptsMade + 1,
+            maxAttempts: job.opts.attempts || 3,
+            notificationId,
+            recipientEmail,
+            templateName,
+          }, "Processing email job");
 
           try {
-            // Process the email job (loads template, sends via Resend, updates DB)
             await processEmailJob(job.data);
 
-            console.log(`[EMAIL WORKER] Successfully processed job ${job.id}`);
+            workerLogger.info({ jobId: job.id, notificationId }, "Successfully processed email job");
             return { success: true, notificationId };
           } catch (error) {
-            console.error(
-              `[EMAIL WORKER] Failed to process job ${job.id}:`,
-              error
-            );
+            workerLogger.error({ err: error, jobId: job.id, notificationId }, "Failed to process email job");
 
-            // If max attempts reached, mark as permanently failed
             if (job.attemptsMade + 1 >= (job.opts.attempts || 3)) {
-              console.error(
-                `[EMAIL WORKER] Max attempts reached for job ${job.id}. Marking as permanently failed.`
-              );
+              workerLogger.error({ jobId: job.id, notificationId }, "Max attempts reached — marking as permanently failed");
             }
 
-            throw error; // Re-throw to trigger retry
+            throw error;
           }
         },
         {
@@ -60,22 +58,19 @@ export const emailWorker =
 // Worker event listeners (only if worker exists)
 if (emailWorker) {
   emailWorker.on("completed", (job) => {
-    console.log(`[EMAIL WORKER] Job ${job.id} completed successfully`);
+    workerLogger.info({ jobId: job.id }, "Job completed successfully");
   });
 
   emailWorker.on("failed", (job, err) => {
     if (job) {
-      console.error(
-        `[EMAIL WORKER] Job ${job.id} failed after ${job.attemptsMade} attempts:`,
-        err.message
-      );
+      workerLogger.error({ jobId: job.id, attempts: job.attemptsMade, err }, "Job failed");
     } else {
-      console.error(`[EMAIL WORKER] Job failed:`, err.message);
+      workerLogger.error({ err }, "Job failed (no job reference)");
     }
   });
 
   emailWorker.on("error", (err) => {
-    console.error(`[EMAIL WORKER] Worker error:`, err);
+    workerLogger.error({ err }, "Worker error");
   });
 }
 

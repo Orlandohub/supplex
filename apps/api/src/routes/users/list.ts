@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/users
@@ -15,20 +15,11 @@ import { UserRole } from "@supplex/types";
  * Auth: Requires Admin role
  */
 export const listUsersRoute = new Elysia({ prefix: "/users" })
-  .use(authenticate)
+  .use(requireAdmin)
   .get(
     "/",
-    async ({ query, user, set }: any) => {
+    async ({ query, user, set, requestLogger }: any) => {
       try {
-        // Check for admin role (following pattern from my-tasks-count.ts)
-        if (!user?.role || user.role !== UserRole.ADMIN) {
-          set.status = 403;
-          return {
-            success: false,
-            error: "Access denied. Admin role required.",
-          };
-        }
-
         const tenantId = user.tenantId as string;
 
         // Build query with optional status filter
@@ -69,12 +60,8 @@ export const listUsersRoute = new Elysia({ prefix: "/users" })
           },
         };
       } catch (error: any) {
-        console.error("Error fetching users:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Failed to fetch users",
-        };
+        requestLogger.error({ err: error }, "Error fetching users");
+        throw Errors.internal("Failed to fetch users");
       }
     },
     {

@@ -79,49 +79,6 @@ test.describe("Workflow Template Builder", () => {
     await expect(page.locator("text=approval")).toBeVisible();
   });
 
-  test("should configure multi-approver step", async ({ page }) => {
-    // Navigate to existing template (assuming one exists from previous test or setup)
-    await page.goto(`${BASE_URL}/workflows/templates`);
-    
-    // Click on first template
-    await page.click(".grid > div:first-child");
-    await page.waitForURL(/\/workflows\/templates\/[^/]+\/edit/);
-
-    // Go to steps tab
-    await page.click('button:has-text("Steps")');
-
-    // Add new multi-approver step
-    await page.click('button:has-text("Add Step")');
-    await page.fill('input[name="name"]', "Multi-Approver Review");
-    await page.selectOption('select[name="stepType"]', "approval");
-    await page.fill('input[name="taskTitle"]', "Multi-level approval required");
-
-    // Enable multi-approver
-    await page.check('input[name="multiApprover"]');
-    await page.fill('input[name="approverCount"]', "2");
-
-    // Submit step
-    await page.click('button[type="submit"]:has-text("Create Step")');
-    await expect(page.locator("text=Multi-Approver Review")).toBeVisible();
-
-    // Add first approver
-    await page.click('button:has-text("Add Approver")');
-    await page.check('input[value="role"]');
-    await page.selectOption('select[name="approverRole"]', "procurement_manager");
-    await page.click('button[type="submit"]:has-text("Add Approver")');
-    await expect(page.locator("text=procurement_manager")).toBeVisible();
-
-    // Add second approver
-    await page.click('button:has-text("Add Approver")');
-    await page.check('input[value="role"]');
-    await page.selectOption('select[name="approverRole"]', "quality_manager");
-    await page.click('button[type="submit"]:has-text("Add Approver")');
-    await expect(page.locator("text=quality_manager")).toBeVisible();
-
-    // Verify multi-approver configuration
-    await expect(page.locator("text=Requires 2 out of")).toBeVisible();
-  });
-
   test("should publish version and enforce immutability", async ({ page }) => {
     // Navigate to existing template
     await page.goto(`${BASE_URL}/workflows/templates`);

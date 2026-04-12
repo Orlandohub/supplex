@@ -1,8 +1,8 @@
 /**
  * Workflow Step Builder Component
  * Manages workflow steps - create, edit, delete, reorder
- * Includes form/document integration and multi-approver configuration
- * Updated: Story 2.2.14 - Removed versioning
+ * Includes form/document integration and auto-validation configuration
+ * Updated: Story 2.2.18 - Removed multi-approver feature
  */
 
 import { useState, useEffect } from "react";
@@ -44,11 +44,10 @@ import {
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Checkbox } from "~/components/ui/checkbox";
-import { Plus, Pencil, Trash2, AlertCircle, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertCircle, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { MultiApproverConfig } from "./MultiApproverConfig";
 
 interface WorkflowStep {
   id: string;
@@ -65,22 +64,12 @@ interface WorkflowStep {
   formActionMode: "fill_out" | "validate" | null;
   documentTemplateId: string | null;
   documentActionMode: "upload" | "validate" | null;
-  multiApprover: boolean;
-  approverCount: number | null;
   requiresValidation: boolean;
   validationConfig: {
     approverRoles: string[];
     requireAllApprovals?: boolean;
+    validationDueDays?: number;
   } | null;
-  approvers?: StepApprover[];
-}
-
-interface StepApprover {
-  id: string;
-  approverOrder: number;
-  approverType: "role" | "user";
-  approverRole: string | null;
-  approverUserId: string | null;
 }
 
 interface User {
@@ -107,19 +96,33 @@ const stepSchema = z.object({
   assigneeRole: z.string().max(50).optional(),
   formTemplateId: z.string().optional(),
   documentTemplateId: z.string().optional(),
-  multiApprover: z.boolean().default(false),
-  approverCount: z.number().int().positive().optional(),
   requiresValidation: z.boolean().default(false),
   validationApproverRoles: z.array(z.string()).optional(),
-}).refine((data) => {
-  // If requiresValidation is true, validationApproverRoles must be non-empty
+  validationDueDays: z.number().int().positive().optional(),
+}).superRefine((data, ctx) => {
   if (data.requiresValidation) {
-    return data.validationApproverRoles && data.validationApproverRoles.length > 0;
+    if (!data.validationApproverRoles || data.validationApproverRoles.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one approver role is required when validation is enabled",
+        path: ["validationApproverRoles"],
+      });
+    }
   }
-  return true;
-}, {
-  message: "At least one approver role is required when validation is enabled",
-  path: ["validationApproverRoles"],
+  if (data.stepType === "form" && !data.formTemplateId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A form template is required for form steps",
+      path: ["formTemplateId"],
+    });
+  }
+  if (data.stepType === "document" && !data.documentTemplateId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A document template is required for document steps",
+      path: ["documentTemplateId"],
+    });
+  }
 });
 
 type StepFormData = z.infer<typeof stepSchema>;
@@ -145,6 +148,7 @@ export function WorkflowStepBuilder({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const form = useForm<StepFormData>({
@@ -152,7 +156,6 @@ export function WorkflowStepBuilder({
     defaultValues: {
       name: "",
       stepType: "form",
-      multiApprover: false,
     },
   });
 
@@ -162,13 +165,21 @@ export function WorkflowStepBuilder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId]);
 
-  // Fetch published form and document templates when dialog opens
+  // Fetch published form and document templates when dialog opens or on mount for read-only
   useEffect(() => {
     if (isDialogOpen && !isLoadingTemplates && formTemplates.length === 0) {
       fetchPublishedTemplates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDialogOpen]);
+
+  // For published templates (read-only), fetch template names on mount
+  useEffect(() => {
+    if (!canEdit && formTemplates.length === 0) {
+      fetchPublishedTemplates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit]);
 
   const fetchPublishedTemplates = async () => {
     setIsLoadingTemplates(true);
@@ -235,17 +246,15 @@ export function WorkflowStepBuilder({
         assigneeRole: step.assigneeRole || undefined,
         formTemplateId: step.formTemplateId || undefined,
         documentTemplateId: step.documentTemplateId || undefined,
-        multiApprover: step.multiApprover,
-        approverCount: step.approverCount || undefined,
         requiresValidation: step.requiresValidation || false,
         validationApproverRoles: step.validationConfig?.approverRoles || [],
+        validationDueDays: step.validationConfig?.validationDueDays || undefined,
       });
     } else {
       setEditingStep(null);
       form.reset({
         name: "",
         stepType: "form",
-        multiApprover: false,
         requiresValidation: false,
         validationApproverRoles: [],
       });
@@ -278,12 +287,16 @@ export function WorkflowStepBuilder({
       formActionMode,
       documentActionMode,
       validationConfig: data.requiresValidation && data.validationApproverRoles
-        ? { approverRoles: data.validationApproverRoles }
+        ? {
+            approverRoles: data.validationApproverRoles,
+            ...(data.validationDueDays ? { validationDueDays: data.validationDueDays } : {}),
+          }
         : undefined,
     };
 
-    // Remove the temporary field used for the form
+    // Remove the temporary fields used for the form
     delete (stepData as any).validationApproverRoles;
+    delete (stepData as any).validationDueDays;
 
     try {
       if (editingStep) {
@@ -419,6 +432,23 @@ export function WorkflowStepBuilder({
     }
   };
 
+  const toggleStepExpanded = (stepId: string) => {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) {
+        next.delete(stepId);
+      } else {
+        next.add(stepId);
+      }
+      return next;
+    });
+  };
+
+  const getTemplateName = (templateId: string | null, templates: TemplateOption[]): string | null => {
+    if (!templateId) return null;
+    return templates.find((t) => t.id === templateId)?.label || templateId;
+  };
+
   const getStepTypeBadgeVariant = (stepType: string) => {
     switch (stepType) {
       case "form":
@@ -433,7 +463,6 @@ export function WorkflowStepBuilder({
   };
 
   const watchStepType = form.watch("stepType");
-  const watchMultiApprover = form.watch("multiApprover");
   const watchAssigneeRole = form.watch("assigneeRole");
   const watchRequiresValidation = form.watch("requiresValidation");
 
@@ -497,14 +526,31 @@ export function WorkflowStepBuilder({
         </Card>
       ) : (
         <div className="space-y-3">
-          {steps.map((step, index) => (
-            <Card key={step.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="flex flex-col items-center gap-1 mt-1">
+          {steps.map((step, index) => {
+            const isExpanded = expandedSteps.has(step.id);
+            return (
+              <Card
+                key={step.id}
+                className={!canEdit ? "cursor-pointer transition-colors hover:border-muted-foreground/50" : ""}
+                onClick={!canEdit ? () => toggleStepExpanded(step.id) : undefined}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      {!canEdit && (
+                        <div className="flex items-center gap-2 mt-1">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {index + 1}
+                          </span>
+                        </div>
+                      )}
                       {canEdit && (
-                        <>
+                        <div className="flex flex-col items-center gap-1 mt-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -526,105 +572,159 @@ export function WorkflowStepBuilder({
                           >
                             <ArrowDown className="h-4 w-4" />
                           </Button>
+                        </div>
+                      )}
+                      <div>
+                        <CardTitle className="text-base">{step.name}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {step.taskTitle || "No task title"}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getStepTypeBadgeVariant(step.stepType)}>
+                        {step.stepType}
+                      </Badge>
+                      {canEdit && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(step)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteStep(step.id)}
+                            disabled={deletingStepId === step.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </>
                       )}
-                      {!canEdit && (
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {index + 1}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{step.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {step.taskTitle || "No task title"}
-                      </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={getStepTypeBadgeVariant(step.stepType)}>
-                      {step.stepType}
-                    </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    {canEdit && step.taskDescription && (
+                      <p className="text-muted-foreground">{step.taskDescription}</p>
+                    )}
                     {canEdit && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenDialog(step)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteStep(step.id)}
-                          disabled={deletingStepId === step.id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  {step.taskDescription && (
-                    <p className="text-muted-foreground">{step.taskDescription}</p>
-                  )}
-                  <div className="flex flex-wrap gap-4">
-                    {step.dueDays && (
-                      <div>
-                        <span className="font-medium">Due:</span> {step.dueDays} days
+                      <div className="flex flex-wrap gap-4">
+                        {step.dueDays && (
+                          <div>
+                            <span className="font-medium">Due:</span> {step.dueDays} days
+                          </div>
+                        )}
+                        {step.assigneeRole && (
+                          <div>
+                            <span className="font-medium">Assignee Role:</span>{" "}
+                            {step.assigneeRole}
+                          </div>
+                        )}
+                        {step.formTemplateId && (
+                          <div>
+                            <span className="font-medium">Form:</span> {step.formActionMode}
+                          </div>
+                        )}
+                        {step.documentTemplateId && (
+                          <div>
+                            <span className="font-medium">Document:</span>{" "}
+                            {step.documentActionMode}
+                          </div>
+                        )}
+                        {step.requiresValidation && (
+                          <div>
+                            <span className="font-medium">Auto-Validation:</span>{" "}
+                            {step.validationConfig?.approverRoles?.join(", ") || "configured"}
+                          </div>
+                        )}
                       </div>
                     )}
-                    {step.assigneeRole && (
-                      <div>
-                        <span className="font-medium">Assignee Role:</span>{" "}
-                        {step.assigneeRole}
-                      </div>
-                    )}
-                    {step.formTemplateId && (
-                      <div>
-                        <span className="font-medium">Form:</span> {step.formActionMode}
-                      </div>
-                    )}
-                    {step.documentTemplateId && (
-                      <div>
-                        <span className="font-medium">Document:</span>{" "}
-                        {step.documentActionMode}
-                      </div>
-                    )}
-                    {step.multiApprover && (
-                      <div>
-                        <span className="font-medium">Multi-Approver:</span>{" "}
-                        {step.approverCount} required
-                      </div>
-                    )}
-                    {step.requiresValidation && (
-                      <div>
-                        <span className="font-medium">Auto-Validation:</span>{" "}
-                        {step.validationConfig?.approverRoles?.join(", ") || "configured"}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Multi-Approver Configuration */}
-                  {step.multiApprover && canEdit && (
-                    <div className="mt-4 pt-4 border-t">
-                      <MultiApproverConfig
-                        templateId={templateId}
-                        stepId={step.id}
-                        approverCount={step.approverCount || 1}
-                        users={users}
-                        token={token}
-                      />
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Read-only expanded detail view for published templates */}
+                    {!canEdit && isExpanded && (
+                      <div className="space-y-3 pt-2 border-t">
+                        {step.taskDescription && (
+                          <div>
+                            <span className="font-medium text-muted-foreground">Description</span>
+                            <p className="mt-1">{step.taskDescription}</p>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-4">
+                          {step.dueDays != null && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Due Days</span>
+                              <p className="mt-1">{step.dueDays} days</p>
+                            </div>
+                          )}
+                          {step.assigneeRole && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Assignee Role</span>
+                              <p className="mt-1">{step.assigneeRole}</p>
+                            </div>
+                          )}
+                          {step.formTemplateId && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Form Template</span>
+                              <p className="mt-1">
+                                {getTemplateName(step.formTemplateId, formTemplates) || "Loading..."}
+                              </p>
+                            </div>
+                          )}
+                          {step.formActionMode && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Form Action</span>
+                              <p className="mt-1">{step.formActionMode === "fill_out" ? "Fill Out" : "Validate"}</p>
+                            </div>
+                          )}
+                          {step.documentTemplateId && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Document Template</span>
+                              <p className="mt-1">
+                                {getTemplateName(step.documentTemplateId, documentTemplates) || "Loading..."}
+                              </p>
+                            </div>
+                          )}
+                          {step.documentActionMode && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Document Action</span>
+                              <p className="mt-1">{step.documentActionMode === "upload" ? "Upload" : "Validate"}</p>
+                            </div>
+                          )}
+                        </div>
+                        {step.requiresValidation && (
+                          <div>
+                            <span className="font-medium text-muted-foreground">Auto-Validation</span>
+                            <p className="mt-1">
+                              Approver Roles: {step.validationConfig?.approverRoles?.join(", ") || "None configured"}
+                              {step.validationConfig?.validationDueDays && (
+                                <span className="ml-2">({step.validationConfig.validationDueDays} days to review)</span>
+                              )}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Compact summary for read-only when collapsed */}
+                    {!canEdit && !isExpanded && (
+                      <div className="flex flex-wrap gap-4 text-muted-foreground">
+                        {step.dueDays && <span>{step.dueDays}d</span>}
+                        {step.assigneeRole && <span>{step.assigneeRole}</span>}
+                        {step.formTemplateId && <span>Form</span>}
+                        {step.documentTemplateId && <span>Document</span>}
+                        {step.requiresValidation && <span>Validation</span>}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -784,7 +884,7 @@ export function WorkflowStepBuilder({
                     name="formTemplateId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Form Template</FormLabel>
+                        <FormLabel>Form Template {watchStepType === "form" ? "*" : ""}</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value}
@@ -835,7 +935,7 @@ export function WorkflowStepBuilder({
                     name="documentTemplateId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Document Template</FormLabel>
+                        <FormLabel>Document Template *</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value}
@@ -878,53 +978,6 @@ export function WorkflowStepBuilder({
                 </>
               )}
 
-              {/* Multi-Approver Toggle */}
-              <FormField
-                control={form.control}
-                name="multiApprover"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Multi-Approver Step</FormLabel>
-                      <FormDescription>
-                        Enable if this step requires approval from multiple people
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {/* Conditional: Approver Count */}
-              {watchMultiApprover && (
-                <FormField
-                  control={form.control}
-                  name="approverCount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Number of Required Approvals</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="2"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        How many approvals are needed to complete this step?
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
               {/* Auto-Validation Toggle (Story 2.2.15) */}
               <FormField
                 control={form.control}
@@ -947,44 +1000,72 @@ export function WorkflowStepBuilder({
                 )}
               />
 
-              {/* Conditional: Validation Approver Roles */}
+              {/* Conditional: Validation Approver Roles + Due Days */}
               {watchRequiresValidation && (
-                <FormField
-                  control={form.control}
-                  name="validationApproverRoles"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Validation Approver Roles *</FormLabel>
-                      <FormDescription>
-                        Select which roles can approve this validation. All selected roles will receive a validation task.
-                      </FormDescription>
-                      <div className="space-y-2">
-                        {["admin", "procurement_manager", "quality_manager"].map((role) => (
-                          <div key={role} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`validation-role-${role}`}
-                              checked={field.value?.includes(role)}
-                              onCheckedChange={(checked) => {
-                                const current = field.value || [];
-                                if (checked) {
-                                  field.onChange([...current, role]);
-                                } else {
-                                  field.onChange(current.filter((r: string) => r !== role));
-                                }
-                              }}
-                            />
-                            <label htmlFor={`validation-role-${role}`} className="text-sm font-medium leading-none">
-                              {role === "admin" ? "Admin" :
-                               role === "procurement_manager" ? "Procurement Manager" :
-                               "Quality Manager"}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <>
+                  <FormField
+                    control={form.control}
+                    name="validationApproverRoles"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Validation Approver Roles *</FormLabel>
+                        <FormDescription>
+                          Select which roles can approve this validation. All selected roles will receive a validation task.
+                        </FormDescription>
+                        <div className="space-y-2">
+                          {["admin", "procurement_manager", "quality_manager"].map((role) => (
+                            <div key={role} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`validation-role-${role}`}
+                                checked={field.value?.includes(role)}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, role]);
+                                  } else {
+                                    field.onChange(current.filter((r: string) => r !== role));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`validation-role-${role}`} className="text-sm font-medium leading-none">
+                                {role === "admin" ? "Admin" :
+                                 role === "procurement_manager" ? "Procurement Manager" :
+                                 "Quality Manager"}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="validationDueDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Validation Due Days</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="3"
+                            {...field}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              field.onChange(val ? Number(val) : undefined);
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Number of days validators have to complete their review (optional)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               )}
 
               <DialogFooter>

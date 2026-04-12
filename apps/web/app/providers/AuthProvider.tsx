@@ -1,12 +1,10 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useAuth } from "~/hooks/useAuth";
+import { useRouteLoaderData, useNavigate } from "@remix-run/react";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
-import {
-  setupSessionMonitoring,
-  sessionMonitor,
-} from "~/lib/auth/session-monitor";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { User } from "@supplex/types";
+import type { AppLoaderData } from "~/routes/_app";
 
 interface AuthContextType {
   user: SupabaseUser | null;
@@ -22,14 +20,12 @@ interface AuthProviderProps {
   children: ReactNode;
   initialUser?: SupabaseUser | null;
   initialSession?: Session | null;
-  initialUserRecord?: User | null;
 }
 
 export function AuthProvider({
   children,
   initialUser = null,
   initialSession = null,
-  initialUserRecord = null,
 }: AuthProviderProps) {
   const {
     user,
@@ -40,143 +36,74 @@ export function AuthProvider({
     setAuth,
     setLoading,
     clearAuth,
-    refreshAuth,
   } = useAuth();
 
+  const navigate = useNavigate();
+
+  // Hydrate userRecord from the _app loader (server-validated, single getUser() call)
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+
   useEffect(() => {
-    // Initialize auth state from server-side props
     if (initialUser && initialSession) {
-      setAuth(initialUser, initialSession, initialUserRecord);
+      const serverUserRecord = (appData?.userRecord as User | undefined) ?? null;
+      setAuth(initialUser, initialSession, serverUserRecord);
     }
 
-    // Only set up client-side auth listener in the browser
-    if (typeof window !== "undefined") {
-      const supabase = getBrowserClient();
+    if (typeof window === "undefined") return;
 
-      // Get initial session - SECURITY: Use getUser() to validate with server
-      supabase.auth.getUser().then(async ({ data: { user }, error }) => {
-        if (error) {
-          // Only log non-session-missing errors (session missing is expected when not logged in)
-          if (error.message !== "Auth session missing!") {
-            // eslint-disable-next-line no-console
-            console.error("Error validating user:", error);
-          }
-          setLoading(false);
-          clearAuth();
-          return;
-        }
+    const supabase = getBrowserClient();
 
-        if (user) {
-          // Get session data after user validation
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, eventSession) => {
+      if (event === "SIGNED_IN") {
+        if (!eventSession) return;
+        const { data: fetchedUserRecord } = await supabase
+          .from("users")
+          .select("*, tenant:tenants(*)")
+          .eq("id", eventSession.user.id)
+          .single();
+        setAuth(eventSession.user, eventSession, fetchedUserRecord);
+      } else if (event === "SIGNED_OUT") {
+        clearAuth();
+        navigate("/login", { replace: true });
+      } else if (event === "TOKEN_REFRESHED") {
+        if (!eventSession) return;
+        const currentUserRecord = useAuth.getState().userRecord;
+        setAuth(eventSession.user, eventSession, currentUserRecord);
+      } else if (event === "USER_UPDATED") {
+        if (!eventSession) return;
+        const { data: freshUserRecord } = await supabase
+          .from("users")
+          .select("*, tenant:tenants(*)")
+          .eq("id", eventSession.user.id)
+          .single();
+        setAuth(eventSession.user, eventSession, freshUserRecord);
+      }
+    });
 
-          // Fetch user record from database with tenant information
-          supabase
-            .from("users")
-            .select("*, tenant:tenants(*)")
-            .eq("id", user.id)
-            .single()
-            .then(({ data: userRecord, error: userError }) => {
-              if (userError) {
-                // eslint-disable-next-line no-console
-                console.error("Error fetching user record:", userError);
-              }
-              setAuth(user, session, userRecord);
-              setLoading(false);
-            });
-        } else {
-          setLoading(false);
-          clearAuth();
-        }
-      });
-
-      // Listen for auth state changes
+    // Lightweight revalidation when a stale tab regains focus
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== "visible") return;
       const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event) => {
-        // Debug: Auth state changed (removed to satisfy linter)
+        data: { session: localSession },
+      } = await supabase.auth.getSession();
+      if (!localSession) {
+        clearAuth();
+        navigate("/login", { replace: true });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-        if (event === "SIGNED_IN") {
-          // SECURITY: Validate user with server and get validated session
-          const { data: { user }, error: validationError } = await supabase.auth.getUser();
-          
-          if (validationError || !user) {
-            // eslint-disable-next-line no-console
-            console.error("User validation failed:", validationError);
-            clearAuth();
-            return;
-          }
+    setLoading(false);
 
-          // Get validated session after user validation
-          const { data: { session: validatedSession } } = await supabase.auth.getSession();
-
-          // Fetch user record when signing in with tenant information
-          const { data: userRecord, error: userError } = await supabase
-            .from("users")
-            .select("*, tenant:tenants(*)")
-            .eq("id", user.id)
-            .single();
-
-          if (userError) {
-            // eslint-disable-next-line no-console
-            console.error("Error fetching user record:", userError);
-          }
-
-          setAuth(user, validatedSession, userRecord);
-        } else if (event === "SIGNED_OUT") {
-          clearAuth();
-        } else if (event === "TOKEN_REFRESHED") {
-          // SECURITY: Validate user with server and get validated session
-          const { data: { user }, error: validationError } = await supabase.auth.getUser();
-          
-          if (validationError || !user) {
-            // eslint-disable-next-line no-console
-            console.error("Token refresh validation failed:", validationError);
-            clearAuth();
-            return;
-          }
-
-          // Get validated session after user validation
-          const { data: { session: validatedSession } } = await supabase.auth.getSession();
-
-          // Update session on token refresh - use current userRecord from store
-          const currentUserRecord = useAuth.getState().userRecord;
-          setAuth(user, validatedSession, currentUserRecord);
-        } else if (event === "USER_UPDATED") {
-          // Refresh user data when profile is updated (refreshAuth already validates)
-          await refreshAuth();
-        }
-      });
-
-      // Set up session monitoring for automatic refresh
-      setupSessionMonitoring({
-        onSessionRefresh: (session) => {
-          // Update auth state when session is refreshed - use current userRecord from store
-          const currentUserRecord = useAuth.getState().userRecord;
-          setAuth(session.user, session, currentUserRecord);
-        },
-        onSessionExpired: () => {
-          // Clear auth state when session expires
-          clearAuth();
-        },
-        onError: (error) => {
-          // eslint-disable-next-line no-console
-          console.error("Session monitoring error:", error);
-        },
-      });
-
-      // Cleanup subscription and session monitor on unmount
-      return () => {
-        subscription.unsubscribe();
-        sessionMonitor.stop();
-      };
-    }
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, []);
 
-  // Provide auth context value
   const contextValue: AuthContextType = {
     user,
     userRecord,
@@ -190,45 +117,10 @@ export function AuthProvider({
   );
 }
 
-/**
- * Hook to access auth context
- * This provides read-only access to auth state
- * Use useAuth() hook for auth actions (login, logout, etc.)
- */
 export function useAuthContext(): AuthContextType {
   const context = useContext(AuthContext);
-
   if (context === undefined) {
     throw new Error("useAuthContext must be used within an AuthProvider");
   }
-
   return context;
-}
-
-/**
- * Higher-order component to require authentication
- */
-export function withAuth<P extends object>(
-  WrappedComponent: React.ComponentType<P>
-) {
-  return function AuthenticatedComponent(props: P) {
-    const { isAuthenticated, isLoading } = useAuthContext();
-
-    if (isLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-        </div>
-      );
-    }
-
-    if (!isAuthenticated) {
-      // This should not happen as routes should be protected server-side
-      // but it's a good fallback
-      window.location.href = "/login";
-      return null;
-    }
-
-    return <WrappedComponent {...props} />;
-  };
 }

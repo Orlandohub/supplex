@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { emailNotifications } from "@supplex/db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import type { AuthContext } from "../../lib/rbac/middleware";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/admin/email-logs
@@ -20,20 +20,10 @@ import { UserRole } from "@supplex/types";
  * Auth: Requires Admin role
  */
 export const emailLogsRoute = new Elysia()
-  .use(authenticate)
   .get(
     "/email-logs",
-    async ({ query, user, set }: any) => {
+    async ({ query, user, set, requestLogger }: any) => {
       try {
-        // Check for admin role with null checks
-        if (!user?.role || user.role !== UserRole.ADMIN) {
-          set.status = 403;
-          return {
-            success: false,
-            error: "Access denied. Admin role required.",
-          };
-        }
-
         const tenantId = user.tenantId as string;
         const {
           status,
@@ -125,12 +115,8 @@ export const emailLogsRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error fetching email logs:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        requestLogger.error({ err: error }, "Email logs fetch failed");
+        throw Errors.internal("Internal server error");
       }
     },
     {

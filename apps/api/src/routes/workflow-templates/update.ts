@@ -1,10 +1,10 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
 import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
 import { eq, and, isNull } from "drizzle-orm";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PUT /api/workflow-templates/:workflowId
@@ -16,23 +16,10 @@ import { eq, and, isNull } from "drizzle-orm";
  * Returns: Updated template
  */
 export const updateWorkflowTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .put(
     "/:workflowId",
-    async ({ params, body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -48,15 +35,7 @@ export const updateWorkflowTemplateRoute = new Elysia()
         });
 
         if (!existing) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
         // Build update object
@@ -103,16 +82,9 @@ export const updateWorkflowTemplateRoute = new Elysia()
           data: updated,
         };
       } catch (error: any) {
-        console.error("Error updating workflow template:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to update workflow template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow template update failed");
+        throw Errors.internal("Failed to update workflow template");
       }
     },
     {

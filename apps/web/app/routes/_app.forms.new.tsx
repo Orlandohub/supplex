@@ -12,7 +12,7 @@ import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type {
-  FormTemplateVersionWithStructure,
+  FormTemplateWithStructure,
   FormAnswer,
 } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
@@ -70,7 +70,7 @@ export async function loader(args: LoaderFunctionArgs) {
     // Fetch form template structure
     // TODO: Add endpoint GET /api/form-templates/:id with sections/fields
     // For MVP, we'll return minimal structure
-    const formVersion: FormTemplateVersionWithStructure = {
+    const formVersion: FormTemplateWithStructure = {
       id: formTemplateId,
       formTemplateId: formTemplateId,
       tenantId: userRecord.tenantId,

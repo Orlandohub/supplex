@@ -4,8 +4,12 @@
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+
+/** Transaction-compatible DB handle. Use this type for all engine helper function parameters. */
+export type DbOrTx = PostgresJsDatabase<typeof schema>;
 
 /**
  * Database Connection
@@ -25,9 +29,11 @@ if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
 
 // Create postgres connection client
 const client = postgres(connectionString, {
-  max: 20, // Maximum connections in pool
-  idle_timeout: 60, // Close idle connections after 60 seconds
-  connect_timeout: 10, // Connection timeout in seconds
+  max: 20,
+  idle_timeout: 60,
+  connect_timeout: 10,
+  keep_alive: 30,
+  max_lifetime: 60 * 30,
 });
 
 // Create Drizzle instance with schema
@@ -64,7 +70,7 @@ export {
   ProcessType,
   ProcessStatus,
 } from "./schema/process-instance";
-export { stepInstance, StepType, StepStatus } from "./schema/step-instance";
+export { stepInstance, stepInstanceStatusEnum, StepType, StepStatus } from "./schema/step-instance";
 export {
   formTemplate,
   formTemplateStatusEnum,
@@ -96,13 +102,11 @@ export {
   documentActionModeEnum,
   assigneeTypeEnum,
 } from "./schema/workflow-step-template";
-export {
-  stepApprover,
-  approverTypeEnum,
-} from "./schema/step-approver";
+// step-approver REMOVED - Story 2.2.18: Multi-approver feature removed
 export { documentTemplate } from "./schema/document-template";
 export { commentThread } from "./schema/comment-thread";
 export { workflowStepDocument } from "./schema/workflow-step-document";
+export { documentReviewDecision } from "./schema/document-review-decision";
 export { supplierStatus } from "./schema/supplier-status";
 // export { workflowStatus } from "./schema/workflow-status"; // REMOVED - Migration 0026
 export { workflowType } from "./schema/workflow-type";
@@ -187,10 +191,7 @@ export type {
   InsertWorkflowStepTemplate,
   SelectWorkflowStepTemplate,
 } from "./schema/workflow-step-template";
-export type {
-  InsertStepApprover,
-  SelectStepApprover,
-} from "./schema/step-approver";
+// step-approver types REMOVED - Story 2.2.18
 export type {
   InsertDocumentTemplate,
   SelectDocumentTemplate,
@@ -203,6 +204,10 @@ export type {
   InsertWorkflowStepDocument,
   SelectWorkflowStepDocument,
 } from "./schema/workflow-step-document";
+export type {
+  InsertDocumentReviewDecision,
+  SelectDocumentReviewDecision,
+} from "./schema/document-review-decision";
 
 /**
  * Export tenant context helpers

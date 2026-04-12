@@ -1,4 +1,12 @@
 -- ============================================================================
+-- FULLY SUPERSEDED — DO NOT USE
+-- All RLS policies are now managed by version-controlled migrations:
+--   - Migration 0037: users, tenants (SEC-003A)
+--   - Migration 0039: all remaining business tables (SEC-003B)
+-- This file is retained for historical reference only.
+-- ============================================================================
+
+-- ============================================================================
 -- Supabase Row Level Security (RLS) Policies for Supplex
 -- ============================================================================
 -- Purpose: Enforce tenant isolation at the database level
@@ -362,7 +370,7 @@ ORDER BY tablename, policyname;
 -- SELECT COUNT(*) FROM suppliers; -- Should only see tenant A suppliers
 
 -- ============================================================================
--- ROLLBACK SCRIPT (Use if needed to remove all policies)
+-- ROLLBACK SCRIPT (LEGACY — see migrations 0037 and 0039 for current rollback)
 -- ============================================================================
 -- UNCOMMENT AND RUN ONLY IF YOU NEED TO REMOVE ALL POLICIES
 

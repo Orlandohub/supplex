@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { documentTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/document-templates?status={filter}
@@ -16,7 +17,7 @@ export const listDocumentTemplatesRoute = new Elysia()
   .use(requireAdmin)
   .get(
     "/",
-    async ({ query, user, set }: any) => {
+    async ({ query, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const statusFilter = query.status;
@@ -54,17 +55,9 @@ export const listDocumentTemplatesRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error fetching document templates:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch document templates",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Document template list failed");
+        throw Errors.internal("Failed to fetch document templates");
       }
     },
     {

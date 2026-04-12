@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/suppliers/:id/documents
@@ -47,8 +48,7 @@ export const listDocuments = new Elysia({ prefix: "/api" })
           .limit(1);
 
         if (supplier.length === 0) {
-          set.status = 404;
-          throw new Error(
+          throw Errors.notFound(
             "Supplier not found or does not belong to your tenant"
           );
         }

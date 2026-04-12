@@ -3,6 +3,7 @@ import { Elysia } from "elysia";
 import { updateSupplierRoute } from "../update";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import { UserRole } from "@supplex/types";
+import { withApiErrorHandler } from "../../../lib/test-utils";
 
 // Mock data
 const mockAdminUser: AuthContext["user"] = {
@@ -35,9 +36,9 @@ const validUpdateData = {
 describe("Supplier Update API", () => {
   describe("PUT /api/suppliers/:id", () => {
     it("should update supplier with valid data as Admin", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${validSupplierId}`, {
@@ -54,9 +55,9 @@ describe("Supplier Update API", () => {
     });
 
     it("should update supplier with valid data as Procurement Manager", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockProcurementUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${validSupplierId}`, {
@@ -72,9 +73,9 @@ describe("Supplier Update API", () => {
     });
 
     it("should return 403 for Viewer role", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockViewerUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${validSupplierId}`, {
@@ -92,9 +93,9 @@ describe("Supplier Update API", () => {
     });
 
     it("should return 400 for invalid UUID format", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const response = await app.handle(
         new Request("http://localhost/suppliers/invalid-uuid", {
@@ -112,9 +113,9 @@ describe("Supplier Update API", () => {
     });
 
     it("should return 400 for invalid email format", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${validSupplierId}`, {
@@ -134,9 +135,9 @@ describe("Supplier Update API", () => {
     });
 
     it("should accept partial updates", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${validSupplierId}`, {
@@ -155,9 +156,9 @@ describe("Supplier Update API", () => {
     });
 
     it("should return 404 for non-existent supplier", async () => {
-      const app = new Elysia()
+      const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockAdminUser }))
-        .use(updateSupplierRoute);
+        .use(updateSupplierRoute));
 
       const nonExistentId = "550e8400-e29b-41d4-a716-999999999999";
 

@@ -12,12 +12,14 @@ import { db } from "../../../lib/db";
 import { commentThread, stepInstance, processInstance } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { authenticate } from "../../../lib/rbac/middleware";
+import { verifyProcessAccess } from "../../../lib/rbac/entity-authorization";
+import { ApiError, Errors } from "../../../lib/errors";
 
 export const createCommentRoute = new Elysia()
   .use(authenticate)
   .post(
     "/comments",
-    async ({ body, user }) => {
+    async ({ body, user, requestLogger }: any) => {
       const {
         processInstanceId,
         stepInstanceId,
@@ -27,10 +29,7 @@ export const createCommentRoute = new Elysia()
       } = body;
 
       if (!user?.id || !user?.tenantId) {
-        return {
-          success: false,
-          error: "Unauthorized",
-        };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       try {
@@ -46,28 +45,28 @@ export const createCommentRoute = new Elysia()
           );
 
         if (!process) {
-          return {
-            success: false,
-            error: "Process not found or access denied",
-          };
+          throw Errors.notFound("Process not found or access denied");
         }
 
-        // Verify step exists
+        const access = await verifyProcessAccess(user, process, db);
+        if (!access.allowed) {
+          throw Errors.forbidden("Access denied");
+        }
+
+        // Verify step exists and belongs to the specified process
         const [step] = await db
           .select()
           .from(stepInstance)
           .where(
             and(
               eq(stepInstance.id, stepInstanceId),
-              eq(stepInstance.tenantId, user.tenantId)
+              eq(stepInstance.tenantId, user.tenantId),
+              eq(stepInstance.processInstanceId, processInstanceId)
             )
           );
 
         if (!step) {
-          return {
-            success: false,
-            error: "Step not found or access denied",
-          };
+          throw Errors.notFound("Step not found or access denied");
         }
 
         // Create comment
@@ -89,14 +88,9 @@ export const createCommentRoute = new Elysia()
           data: comment,
         };
       } catch (error) {
-        console.error("Error creating comment:", error);
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to create comment",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error creating comment");
+        throw Errors.internal("Failed to create comment");
       }
     },
     {

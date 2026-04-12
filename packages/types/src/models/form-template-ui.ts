@@ -1,8 +1,10 @@
 /**
  * Form Template UI Types
- * 
+ *
  * TypeScript types for form template management UI
  * These types extend the core form template types with UI-specific fields
+ *
+ * Updated: Story 2.2.23 — Removed legacy "version" naming
  */
 
 import { FormTemplateStatus, FieldType } from "./form-template";
@@ -15,8 +17,8 @@ export interface FormTemplateListItem {
   id: string;
   name: string;
   status: FormTemplateStatus;
-  versionCount: number;
-  latestVersion: {
+  templateCount: number;
+  latestTemplate: {
     id: string;
     version: number;
     status: string;
@@ -50,7 +52,7 @@ export interface FormFieldWithDetails {
  */
 export interface FormSectionWithFields {
   id: string;
-  formTemplateVersionId: string;
+  formTemplateId: string;
   title: string;
   description: string | null;
   sectionOrder: number;
@@ -61,10 +63,10 @@ export interface FormSectionWithFields {
 }
 
 /**
- * Form Template Version with Structure
- * Extended version interface with nested sections and fields
+ * Form Template with Structure
+ * Extended template interface with nested sections and fields
  */
-export interface FormTemplateVersionWithStructure {
+export interface FormTemplateWithStructure {
   id: string;
   formTemplateId: string;
   version: number;
@@ -86,7 +88,7 @@ export interface FormTemplateWithDetails {
   status: FormTemplateStatus;
   createdAt: Date | string;
   updatedAt: Date | string;
-  versions: FormTemplateVersionWithStructure[];
+  templates: FormTemplateWithStructure[];
 }
 
 /**
@@ -163,3 +165,7 @@ export interface ReorderRequest {
   fieldIds?: string[];
 }
 
+/* ---------- Deprecated aliases (Story 2.2.23) ---------- */
+
+/** @deprecated Use FormTemplateWithStructure */
+export type FormTemplateVersionWithStructure = FormTemplateWithStructure;

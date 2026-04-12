@@ -4,6 +4,7 @@ import { suppliers, users } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate, requireRole } from "../../lib/rbac/middleware";
 import { UserRole, SupplierStatus } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/suppliers/:id
@@ -16,7 +17,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .get(
     "/:id",
-    async ({ params, user, set }: any) => {
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
@@ -25,15 +26,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_ID",
-              message: "Invalid supplier ID format. Must be a valid UUID.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
         }
 
         // Fetch supplier with user information (created_by)
@@ -58,19 +51,17 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!result || result.length === 0) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message:
-                "Supplier not found or you don't have access to this supplier.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
         }
 
         const { supplier, createdByUser } = result[0];
+
+        // Entity-level authorization: supplier_user can only view their own supplier
+        if (user.role === UserRole.SUPPLIER_USER) {
+          if (supplier.supplierUserId !== user.id) {
+            throw Errors.forbidden("Access denied: you can only view your own supplier");
+          }
+        }
 
         // Fetch supplier user if supplierUserId exists
         let supplierUser = null;
@@ -103,16 +94,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           },
         };
       } catch (error: any) {
-        console.error("Error fetching supplier detail:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch supplier details",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error fetching supplier detail");
+        throw Errors.internal("Failed to fetch supplier details");
       }
     },
     {
@@ -129,7 +113,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
   .patch(
     "/:id/status",
-    async ({ params, body, user, set }: any) => {
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const { id } = params;
         const { status } = body;
@@ -139,29 +123,13 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_ID",
-              message: "Invalid supplier ID format. Must be a valid UUID.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
         }
 
         // Validate status enum
         const validStatuses = Object.values(SupplierStatus);
         if (!validStatuses.includes(status)) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_STATUS",
-              message: `Invalid status value. Must be one of: ${validStatuses.join(", ")}`,
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "INVALID_STATUS", `Invalid status value. Must be one of: ${validStatuses.join(", ")}`);
         }
 
         // Check if supplier exists and belongs to tenant
@@ -178,16 +146,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!existingSupplier || existingSupplier.length === 0) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message:
-                "Supplier not found or you don't have access to this supplier.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
         }
 
         // Update supplier status
@@ -211,16 +170,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           },
         };
       } catch (error: any) {
-        console.error("Error updating supplier status:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to update supplier status",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error updating supplier status");
+        throw Errors.internal("Failed to update supplier status");
       }
     },
     {
@@ -242,7 +194,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN]))
   .delete(
     "/:id",
-    async ({ params, user, set }: any) => {
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
@@ -251,15 +203,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_ID",
-              message: "Invalid supplier ID format. Must be a valid UUID.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
         }
 
         // Check if supplier exists and belongs to tenant
@@ -276,16 +220,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!existingSupplier || existingSupplier.length === 0) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message:
-                "Supplier not found or you don't have access to this supplier.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
         }
 
         // Soft delete: Set deleted_at timestamp
@@ -307,16 +242,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           },
         };
       } catch (error: any) {
-        console.error("Error deleting supplier:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to delete supplier",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error deleting supplier");
+        throw Errors.internal("Failed to delete supplier");
       }
     },
     {

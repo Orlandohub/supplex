@@ -8,6 +8,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
@@ -133,6 +134,7 @@ export const taskInstance = pgTable(
     }),
     completionTimeDays: integer("completion_time_days"),
     dueAt: timestamp("due_at", { withTimezone: true, mode: "date" }),
+    validationRound: integer("validation_round"),
     taskType: taskTypeEnum("task_type").notNull().default("action"),
     status: varchar("status", { length: 50 })
       .notNull()
@@ -177,6 +179,18 @@ export const taskInstance = pgTable(
     tenantDueAtIdx: index("idx_task_instance_tenant_due_at")
       .on(table.tenantId, table.dueAt)
       .where(sql`${table.status} = 'pending' AND ${table.deletedAt} IS NULL`),
+    // Story 2.2.19: Idempotency — one pending validation task per role per step
+    stepValidationRolePendingIdx: uniqueIndex("idx_task_instance_step_validation_role_pending")
+      .on(table.stepInstanceId, table.taskType, table.assigneeRole)
+      .where(sql`${table.status} = 'pending' AND ${table.deletedAt} IS NULL AND ${table.taskType} = 'validation'`),
+    // Story 2.2.19: Idempotency — one pending action/resubmission task per step
+    stepActionPendingIdx: uniqueIndex("idx_task_instance_step_action_pending")
+      .on(table.stepInstanceId, table.taskType)
+      .where(sql`${table.status} = 'pending' AND ${table.deletedAt} IS NULL AND ${table.taskType} IN ('action', 'resubmission')`),
+    // Story 2.2.19: Performance index for validation approval path
+    stepStatusIdx: index("idx_task_instance_step_status")
+      .on(table.stepInstanceId, table.status)
+      .where(sql`${table.deletedAt} IS NULL`),
   })
 );
 

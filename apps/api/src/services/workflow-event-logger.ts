@@ -7,8 +7,9 @@
  * Fire-and-forget: errors are logged but never thrown to the caller.
  */
 
-import { db, workflowEvent, type InsertWorkflowEvent } from "@supplex/db";
+import { db, workflowEvent, type InsertWorkflowEvent, type DbOrTx } from "@supplex/db";
 import { WorkflowEventType } from "@supplex/types";
+import logger from "../lib/logger";
 
 export { WorkflowEventType };
 
@@ -32,32 +33,46 @@ export interface LogEventParams {
   entityId?: string | null;
   comment?: string | null;
   metadata?: Record<string, any>;
+  correlationId?: string;
 }
 
+function buildEventRow(params: LogEventParams): InsertWorkflowEvent {
+  return {
+    tenantId: params.tenantId,
+    processInstanceId: params.processInstanceId ?? null,
+    stepInstanceId: params.stepInstanceId ?? null,
+    taskInstanceId: params.taskInstanceId ?? null,
+    eventType: params.eventType,
+    eventDescription: params.eventDescription,
+    actorUserId: params.actorUserId,
+    actorName: params.actorName,
+    actorRole: params.actorRole,
+    entityType: params.entityType ?? null,
+    entityId: params.entityId ?? null,
+    comment: params.comment ?? null,
+    metadata: {
+      ...(params.metadata ?? {}),
+      ...(params.correlationId ? { correlationId: params.correlationId } : {}),
+    },
+  };
+}
+
+/**
+ * Insert a workflow event inside a caller-provided transaction.
+ * Errors propagate so the wrapping transaction rolls back on failure.
+ */
+export async function logWorkflowEventTx(tx: DbOrTx, params: LogEventParams): Promise<void> {
+  await tx.insert(workflowEvent).values(buildEventRow(params));
+}
+
+/**
+ * Fire-and-forget event logging on a standalone connection.
+ * Use only for non-transactional contexts (template changes, admin actions).
+ */
 export async function logWorkflowEvent(params: LogEventParams): Promise<void> {
   try {
-    const row: InsertWorkflowEvent = {
-      tenantId: params.tenantId,
-      processInstanceId: params.processInstanceId ?? null,
-      stepInstanceId: params.stepInstanceId ?? null,
-      taskInstanceId: params.taskInstanceId ?? null,
-      eventType: params.eventType,
-      eventDescription: params.eventDescription,
-      actorUserId: params.actorUserId,
-      actorName: params.actorName,
-      actorRole: params.actorRole,
-      entityType: params.entityType ?? null,
-      entityId: params.entityId ?? null,
-      comment: params.comment ?? null,
-      metadata: params.metadata ?? {},
-    };
-
-    await db.insert(workflowEvent).values(row);
+    await db.insert(workflowEvent).values(buildEventRow(params));
   } catch (error) {
-    console.error(
-      "[workflow-event-logger] Failed to log event:",
-      params.eventType,
-      error instanceof Error ? error.message : error
-    );
+    logger.error({ err: error, eventType: params.eventType }, "failed to log workflow event");
   }
 }

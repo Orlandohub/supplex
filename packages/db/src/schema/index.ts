@@ -29,10 +29,11 @@ export * from "./form-answer";
 export * from "./task-instance";
 export * from "./workflow-template";
 export * from "./workflow-step-template";
-export * from "./step-approver";
+// export * from "./step-approver"; // REMOVED - Story 2.2.18: Multi-approver feature removed
 export * from "./document-template";
 export * from "./comment-thread";
 export * from "./workflow-step-document";
+export * from "./document-review-decision";
 export * from "./supplier-status";
 // export * from "./workflow-status"; // REMOVED - Migration 0026: workflow status simplified to fixed values
 export * from "./workflow-type";

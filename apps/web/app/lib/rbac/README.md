@@ -69,28 +69,18 @@ function SupplierPage() {
 
 ### 3. Protecting Routes
 
-Use `ProtectedRoute` component or wrapper:
+Route protection is handled server-side via Remix loaders. The `_app.tsx` layout
+loader calls `requireAuthSecure()` which validates the session and fetches the
+`userRecord`. Child loaders use `requireAuth()` (fast, local JWT parse). For
+role-based restrictions, use `requireRole()` from `~/lib/auth/require-auth`:
 
 ```tsx
-import { ProtectedRoute } from '~/components/auth/ProtectedRoute';
+import { requireRole } from '~/lib/auth/require-auth';
 import { UserRole } from '@supplex/types';
 
-// In your route component
-export default function AdminSettingsPage() {
-  return (
-    <ProtectedRoute requireRole={UserRole.ADMIN}>
-      <div>Admin-only content</div>
-    </ProtectedRoute>
-  );
-}
-
-// Or multiple roles
-export default function DocumentsPage() {
-  return (
-    <ProtectedRoute requireRole={[UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER, UserRole.QUALITY_MANAGER]}>
-      <div>Content for users who can upload documents</div>
-    </ProtectedRoute>
-  );
+export async function loader(args: LoaderFunctionArgs) {
+  const { user, userRecord } = await requireRole(args.request, UserRole.ADMIN);
+  // ... admin-only loader logic
 }
 ```
 

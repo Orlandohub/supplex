@@ -43,7 +43,7 @@ describe("Document Template Integration Tests", () => {
       email: `integration-test-${Date.now()}@test.com`,
       password: "testpassword123",
       email_confirm: true,
-      user_metadata: {
+      app_metadata: {
         role: "admin",
         tenant_id: testTenantId,
       },

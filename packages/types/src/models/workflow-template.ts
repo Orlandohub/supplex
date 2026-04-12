@@ -56,21 +56,13 @@ export enum AssigneeType {
 }
 
 /**
- * Approver Type Enum
- * Defines whether approver is a role or specific user
- */
-export enum ApproverType {
-  ROLE = "role",
-  USER = "user",
-}
-
-/**
  * Validation Config Interface (Story 2.2.15)
  * Configuration for automatic validation task creation
  */
 export interface ValidationConfig {
   approverRoles: string[]; // Roles that can approve validation (must be non-empty if requiresValidation=true)
   requireAllApprovals?: boolean; // Future enhancement: require all approvals (default: false)
+  validationDueDays?: number; // Days from validation task creation until due
 }
 
 /**
@@ -120,10 +112,6 @@ export interface WorkflowStepTemplate {
   documentTemplateId: string | null; // Reference to document template
   documentActionMode: DocumentActionMode | null; // 'upload' or 'validate'
 
-  // Multi-approver configuration
-  multiApprover: boolean; // Default false
-  approverCount: number | null; // Number of approvers required if multiApprover = true
-
   // Decline behavior
   declineReturnsToStepOffset: number; // Default 1 (returns to previous step)
 
@@ -138,36 +126,10 @@ export interface WorkflowStepTemplate {
 }
 
 /**
- * Step Approver Interface
- * Defines approver for multi-approver workflow steps
- */
-export interface StepApprover {
-  id: string; // UUID
-  workflowStepTemplateId: string; // FK to workflow_step_template - CASCADE delete
-  tenantId: string; // FK to tenants - CASCADE delete
-  approverOrder: number; // Order of approver (1, 2, 3, ...)
-  approverType: ApproverType; // 'role' or 'user'
-  approverRole: string | null; // Role name if approverType = 'role'
-  approverUserId: string | null; // User ID if approverType = 'user' - RESTRICT delete
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}
-
-/**
- * Workflow Step Template With Approvers
- * Includes list of approvers for a workflow step template
- */
-export interface WorkflowStepTemplateWithApprovers
-  extends WorkflowStepTemplate {
-  approvers: StepApprover[];
-}
-
-/**
  * Workflow Template With Steps
  * Includes ordered list of steps for a workflow template
  */
 export interface WorkflowTemplateWithSteps extends WorkflowTemplate {
-  steps: WorkflowStepTemplateWithApprovers[];
+  steps: WorkflowStepTemplate[];
 }
 

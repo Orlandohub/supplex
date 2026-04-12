@@ -6,10 +6,13 @@ import {
   formTemplate,
   formSection,
   formField,
+  processInstance,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { verifyProcessAccess } from "../../lib/rbac/entity-authorization";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/form-submissions/draft
@@ -27,7 +30,7 @@ import { validateAnswerFormat } from "../../lib/validation/form-answer-validatio
  */
 export const createDraftRoute = new Elysia().use(authenticate).post(
   "/draft",
-  async ({ body, user, set }: any) => {
+  async ({ body, user, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const userId = user.id as string;
@@ -43,29 +46,39 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
       });
 
       if (!templateRecord) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "TEMPLATE_NOT_FOUND",
-            message:
-              "Form template not found or you don't have access to it",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.notFound(
+          "Form template not found or you don't have access to it",
+          "TEMPLATE_NOT_FOUND"
+        );
+      }
+
+      if (processInstanceId) {
+        const [process] = await db
+          .select({ entityType: processInstance.entityType, entityId: processInstance.entityId })
+          .from(processInstance)
+          .where(
+            and(
+              eq(processInstance.id, processInstanceId),
+              eq(processInstance.tenantId, tenantId)
+            )
+          );
+
+        if (!process) {
+          throw Errors.notFound("Process not found", "PROCESS_NOT_FOUND");
+        }
+
+        const access = await verifyProcessAccess(user, process, db);
+        if (!access.allowed) {
+          throw Errors.forbidden("Access denied", "ACCESS_DENIED");
+        }
       }
 
       // Check if template is archived
       if (templateRecord.status === "archived") {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "TEMPLATE_ARCHIVED",
-            message: "Cannot create submission for archived template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          "Cannot create submission for archived template",
+          "TEMPLATE_ARCHIVED"
+        );
       }
 
       // Load all fields for validation
@@ -96,15 +109,10 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
         const field = fieldMap.get(answer.formFieldId);
 
         if (!field) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_FIELD_ID",
-              message: `Field ${answer.formFieldId} does not belong to this form template version`,
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            `Field ${answer.formFieldId} does not belong to this form template version`,
+            "INVALID_FIELD_ID"
+          );
         }
 
         // Validate answer format based on field_type
@@ -113,15 +121,10 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
           field
         );
         if (validationError) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "INVALID_ANSWER_FORMAT",
-              message: `${field.label}: ${validationError}`,
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            `${field.label}: ${validationError}`,
+            "INVALID_ANSWER_FORMAT"
+          );
         }
       }
 
@@ -238,17 +241,9 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
         },
       };
     } catch (error: any) {
-      console.error("Error creating/updating draft submission:", error);
-
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to create/update draft submission",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "Draft submission save failed");
+      throw Errors.internal("Failed to create/update draft submission");
     }
   },
   {

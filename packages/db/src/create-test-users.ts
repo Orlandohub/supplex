@@ -146,11 +146,13 @@ async function createTestUsers() {
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: user.email,
         password: user.password,
-        email_confirm: true, // Auto-confirm email
-        user_metadata: {
-          full_name: user.fullName,
+        email_confirm: true,
+        app_metadata: {
           role: user.role,
           tenant_id: user.tenantId,
+        },
+        user_metadata: {
+          full_name: user.fullName,
           tenant_name: user.tenantName,
           email_verified: true,
         },

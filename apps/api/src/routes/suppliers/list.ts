@@ -13,6 +13,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/suppliers
@@ -32,9 +33,9 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .get(
     "/",
-    async ({ query, user, set }: any) => {
-      console.log("[SUPPLIER LIST ROUTE] Handler called");
-      console.log("[SUPPLIER LIST ROUTE] User object:", user);
+    async ({ query, user, set, requestLogger }: any) => {
+      requestLogger.debug({}, "Supplier list handler invoked");
+      requestLogger.debug({ user }, "Supplier list user context");
       try {
         const tenantId = user.tenantId as string;
 
@@ -142,12 +143,9 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
           },
         };
       } catch (error: any) {
-        console.error("Error fetching suppliers:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Failed to fetch suppliers",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error fetching suppliers");
+        throw Errors.internal("Failed to fetch suppliers");
       }
     },
     {

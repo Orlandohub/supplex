@@ -3,9 +3,10 @@ import { db } from "../../lib/db";
 import { suppliers, users, userInvitations } from "@supplex/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole, InsertSupplierSchema, createUserMetadata } from "@supplex/types";
+import { UserRole, InsertSupplierSchema, createUserAuthMetadata, createUserProfileMetadata } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { randomBytes } from "crypto";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/suppliers
@@ -18,22 +19,13 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .post(
     "/",
-    async ({ body, user, set }: any) => {
+    async ({ body, user, set, requestLogger }: any) => {
       // Check role permission
       if (
         !user?.role ||
         ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
       ) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message:
-              "Access denied. Required role: Admin or Procurement Manager",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.forbidden("Access denied. Required role: Admin or Procurement Manager");
       }
       try {
         const tenantId = user.tenantId as string;
@@ -43,19 +35,7 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
         const validationResult = InsertSupplierSchema.safeParse(body);
 
         if (!validationResult.success) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Invalid supplier data",
-              errors: validationResult.error.errors.map((err) => ({
-                field: err.path.join("."),
-                message: err.message,
-              })),
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(400, "VALIDATION_ERROR", "Invalid supplier data");
         }
 
         const supplierData = validationResult.data;
@@ -87,29 +67,20 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
           });
 
           if (existingUser) {
-            set.status = 409;
-            return {
-              success: false,
-              error: {
-                code: "USER_EMAIL_EXISTS",
-                message:
-                  "A user with this email already exists in your organization",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw new ApiError(409, "USER_EMAIL_EXISTS", "A user with this email already exists in your organization");
           }
 
           try {
             // Create Supabase Auth user (no password)
+            // TODO(SEC-009-cleanup): The app_metadata write below is now redundant — the
+            // custom_access_token_hook reads role/tenant_id from the users table on every
+            // token refresh. Remove after hook is confirmed stable in production.
             const { data: authUser, error: authError } =
               await supabaseAdmin.auth.admin.createUser({
                 email,
-                email_confirm: true, // Skip email verification
-                user_metadata: createUserMetadata(
-                  UserRole.SUPPLIER_USER,
-                  tenantId,
-                  name
-                ),
+                email_confirm: true,
+                app_metadata: createUserAuthMetadata(UserRole.SUPPLIER_USER, tenantId),
+                user_metadata: createUserProfileMetadata(name),
               });
 
             if (authError || !authUser.user) {
@@ -159,29 +130,21 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
 
             invitationToken = token;
           } catch (userError: any) {
-            console.error("Error creating supplier user:", userError);
+            requestLogger.error({ err: userError }, "Error creating supplier user");
 
             // Cleanup: Delete Supabase auth user if it was created
             if (createdAuthUserId) {
               try {
                 await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
               } catch (cleanupError) {
-                console.error(
-                  "Failed to cleanup Supabase user:",
-                  cleanupError
+                requestLogger.error(
+                  { err: cleanupError },
+                  "Failed to cleanup Supabase user"
                 );
               }
             }
 
-            set.status = 500;
-            return {
-              success: false,
-              error: {
-                code: "INTERNAL_ERROR",
-                message: "Failed to create supplier user",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.internal("Failed to create supplier user");
           }
         }
 
@@ -203,16 +166,7 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
             .limit(5);
 
           if (duplicateCheck.length > 0) {
-            set.status = 409;
-            return {
-              success: false,
-              error: {
-                code: "DUPLICATE_SUPPLIER",
-                message: "A supplier with a similar name already exists",
-                duplicates: duplicateCheck,
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw new ApiError(409, "DUPLICATE_SUPPLIER", "A supplier with a similar name already exists");
           }
         }
 
@@ -231,14 +185,14 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
             })
             .returning();
         } catch (supplierError: any) {
-          console.error("Error creating supplier:", supplierError);
+          requestLogger.error({ err: supplierError }, "Error creating supplier record");
 
           // Cleanup: Delete Supabase auth user if it was created
           if (createdAuthUserId) {
             try {
               await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
             } catch (cleanupError) {
-              console.error("Failed to cleanup Supabase user:", cleanupError);
+              requestLogger.error({ err: cleanupError }, "Failed to cleanup Supabase user");
             }
           }
 
@@ -270,34 +224,17 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
           },
         };
       } catch (error: any) {
-        console.error("Error creating supplier:", error);
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error creating supplier");
 
-        // Handle unique constraint violation (duplicate tax_id)
         if (
           error.code === "23505" &&
           error.constraint === "suppliers_tenant_tax_id_unique"
         ) {
-          set.status = 409;
-          return {
-            success: false,
-            error: {
-              code: "DUPLICATE_TAX_ID",
-              message:
-                "A supplier with this Tax ID already exists in your organization",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw new ApiError(409, "DUPLICATE_TAX_ID", "A supplier with this Tax ID already exists in your organization");
         }
 
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to create supplier",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.internal("Failed to create supplier");
       }
     },
     {

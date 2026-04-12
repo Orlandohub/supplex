@@ -8,6 +8,7 @@ import { supabaseAdmin } from "../../lib/supabase";
 import { authCache } from "../../lib/auth-cache";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { AuditAction } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PATCH /api/suppliers/:id/contact
@@ -30,21 +31,13 @@ export const updateContactRoute = new Elysia()
   .use(authenticate)
   .patch(
     "/suppliers/:id/contact",
-    async ({ params, body, user, set, headers }) => {
+    async ({ params, body, user, set, headers, requestLogger }) => {
       // Check role: Admin or Procurement Manager
       if (
         !user?.role ||
         ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role as UserRole)
       ) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin or Procurement Manager",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.forbidden("Access denied. Required role: Admin or Procurement Manager");
       }
 
       try {
@@ -62,15 +55,7 @@ export const updateContactRoute = new Elysia()
         });
 
         if (!supplier || !supplier.supplierUserId) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Supplier contact user not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Supplier contact user not found");
         }
 
         const userId = supplier.supplierUserId;
@@ -83,15 +68,7 @@ export const updateContactRoute = new Elysia()
           .limit(1);
 
         if (!currentUser) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "User record not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("User record not found");
         }
 
         // Step 3: If email is changing, check uniqueness and sync to Supabase
@@ -106,15 +83,7 @@ export const updateContactRoute = new Elysia()
           });
 
           if (existingUser) {
-            set.status = 409;
-            return {
-              success: false,
-              error: {
-                code: "USER_EMAIL_EXISTS",
-                message: "A user with this email already exists in your organization",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw new ApiError(409, "USER_EMAIL_EXISTS", "A user with this email already exists in your organization");
           }
 
           // Update Supabase Auth email (BEFORE local DB update for transaction safety)
@@ -124,16 +93,8 @@ export const updateContactRoute = new Elysia()
           );
 
           if (authError) {
-            console.error("[UPDATE CONTACT] Failed to update Supabase email:", authError);
-            set.status = 500;
-            return {
-              success: false,
-              error: {
-                code: "INTERNAL_ERROR",
-                message: "Failed to update email. Please try again.",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            requestLogger.error({ err: authError }, "Failed to update Supabase email");
+            throw Errors.internal("Failed to update email. Please try again.");
           }
         }
 
@@ -197,16 +158,9 @@ export const updateContactRoute = new Elysia()
           message: "Supplier contact updated successfully",
         };
       } catch (error: any) {
-        console.error("[UPDATE CONTACT] Error updating supplier contact:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to update supplier contact",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error updating supplier contact");
+        throw Errors.internal("Failed to update supplier contact");
       }
     },
     {

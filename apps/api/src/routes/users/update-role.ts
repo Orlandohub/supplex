@@ -3,10 +3,11 @@ import { supabaseAdmin } from "../../lib/supabase";
 import { db } from "../../lib/db";
 import { users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
-import { UserRole, createUserMetadata, AuditAction } from "@supplex/types";
+import { UserRole, createUserAuthMetadata, createUserProfileMetadata, AuditAction } from "@supplex/types";
 import { requireAdmin } from "../../lib/rbac/middleware";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { authCache } from "../../lib/auth-cache";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PATCH /api/users/:id/role
@@ -24,7 +25,7 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .patch(
     "/:id/role",
-    async ({ params, body, user, set, headers }: any) => {
+    async ({ params, body, user, set, headers, requestLogger }: any) => {
       try {
         const { id: targetUserId } = params;
         const { role } = body;
@@ -36,21 +37,14 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
 
         // Validate role
         if (!Object.values(UserRole).includes(role as UserRole)) {
-          set.status = 400;
-          return {
-            success: false,
-            error:
-              "Invalid role. Must be one of: admin, procurement_manager, quality_manager, viewer",
-          };
+          throw Errors.badRequest(
+            "Invalid role. Must be one of: admin, procurement_manager, quality_manager, viewer"
+          );
         }
 
         // Prevent admin from changing their own role
         if (currentUserId === targetUserId) {
-          set.status = 403;
-          return {
-            success: false,
-            error: "You cannot change your own role",
-          };
+          throw Errors.forbidden("You cannot change your own role");
         }
 
         // Step 1: Fetch target user and verify tenant membership
@@ -61,11 +55,7 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
           .limit(1);
 
         if (!targetUser) {
-          set.status = 404;
-          return {
-            success: false,
-            error: "User not found in your tenant",
-          };
+          throw Errors.notFound("User not found in your tenant");
         }
 
         const oldRole = targetUser.role;
@@ -84,22 +74,20 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
           throw new Error("Failed to update user role");
         }
 
-        // Step 3: Update Supabase Auth user_metadata
-        const userMetadata = createUserMetadata(
-          role as UserRole,
-          tenantId,
-          updatedUser.fullName
-        );
-
+        // Step 3: Update Supabase Auth metadata with role/tenant in app_metadata
+        // TODO(SEC-009-cleanup): This app_metadata write is now redundant — the
+        // custom_access_token_hook reads role/tenant_id from the users table on every
+        // token refresh. Remove after hook is confirmed stable in production.
         const { error: updateError } =
           await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
-            user_metadata: userMetadata,
+            app_metadata: createUserAuthMetadata(role as UserRole, tenantId),
+            user_metadata: createUserProfileMetadata(updatedUser.fullName),
           });
 
         if (updateError) {
-          console.error(
-            "Failed to update Supabase user metadata:",
-            updateError
+          requestLogger.error(
+            { err: updateError },
+            "Failed to update Supabase user metadata"
           );
           // Rollback database change
           await db
@@ -107,11 +95,7 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
             .set({ role: oldRole })
             .where(eq(users.id, targetUserId));
 
-          set.status = 500;
-          return {
-            success: false,
-            error: "Failed to sync role with authentication system",
-          };
+          throw Errors.internal("Failed to sync role with authentication system");
         }
 
         // Step 4: Invalidate auth cache
@@ -147,12 +131,9 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
           },
         };
       } catch (error: any) {
-        console.error("Error updating user role:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error updating user role");
+        throw Errors.internal("Internal server error");
       }
     },
     {

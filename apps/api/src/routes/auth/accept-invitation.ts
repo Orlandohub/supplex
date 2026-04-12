@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { users, userInvitations } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { supabaseAdmin } from "../../lib/supabase";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/auth/accept-invitation
@@ -13,7 +14,7 @@ import { supabaseAdmin } from "../../lib/supabase";
  */
 export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
   "/accept-invitation",
-  async ({ body, set }: any) => {
+  async ({ body, set, requestLogger }) => {
     try {
       const { token, password } = body;
 
@@ -23,54 +24,22 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
       });
 
       if (!invitation) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "INVALID_TOKEN",
-            message: "Invitation link is invalid",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw new ApiError(404, "INVALID_TOKEN", "Invitation link is invalid");
       }
 
       // Step 2: Check if invitation is not used (usedAt IS NULL)
       if (invitation.usedAt) {
-        set.status = 409;
-        return {
-          success: false,
-          error: {
-            code: "INVITATION_USED",
-            message: "This invitation link has already been used",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.conflict("This invitation link has already been used");
       }
 
       // Step 3: Check if invitation is not expired (expiresAt > NOW())
       if (new Date(invitation.expiresAt) < new Date()) {
-        set.status = 410;
-        return {
-          success: false,
-          error: {
-            code: "INVITATION_EXPIRED",
-            message: "Invitation link has expired",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw new ApiError(410, "INVITATION_EXPIRED", "Invitation link has expired");
       }
 
       // Step 4: Validate password
       if (!password || password.length < 8) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "WEAK_PASSWORD",
-            message: "Password must be at least 8 characters long",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest("Password must be at least 8 characters long", "WEAK_PASSWORD");
       }
 
       // Basic password complexity check
@@ -80,16 +49,10 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
       const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
       if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "WEAK_PASSWORD",
-            message:
-              "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+          "WEAK_PASSWORD"
+        );
       }
 
       // Get user record
@@ -98,15 +61,7 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
       });
 
       if (!user) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "USER_NOT_FOUND",
-            message: "User account not found",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.notFound("User account not found");
       }
 
       // Step 5: Update Supabase Auth user password
@@ -118,16 +73,8 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
       );
 
       if (updateError) {
-        console.error("Error updating user password:", updateError);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to set password",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        requestLogger.error({ err: updateError }, "Error updating user password");
+        throw Errors.internal("Failed to set password");
       }
 
       // Step 6: Update user status to active
@@ -161,17 +108,9 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
         },
       };
     } catch (error: any) {
-      console.error("Error accepting invitation:", error);
-
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to accept invitation",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "Error accepting invitation");
+      throw Errors.internal("Failed to accept invitation");
     }
   },
   {

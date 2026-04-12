@@ -1,8 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { formTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/form-templates
@@ -14,28 +14,14 @@ import { UserRole } from "@supplex/types";
  * Returns: Created template
  */
 export const createFormTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .post(
     "/",
-    async ({ body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { name } = body;
 
-        // Create form template with draft status
         const [newTemplate] = await db
           .insert(formTemplate)
           .values({
@@ -49,7 +35,7 @@ export const createFormTemplateRoute = new Elysia()
           .returning();
 
         if (!newTemplate) {
-          throw new Error("Failed to create form template");
+          throw Errors.internal("Failed to create form template");
         }
 
         set.status = 201;
@@ -58,17 +44,9 @@ export const createFormTemplateRoute = new Elysia()
           data: newTemplate,
         };
       } catch (error: any) {
-        console.error("Error creating form template:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to create form template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error creating form template");
+        throw Errors.internal("Failed to create form template");
       }
     },
     {
@@ -83,4 +61,3 @@ export const createFormTemplateRoute = new Elysia()
       },
     }
   );
-

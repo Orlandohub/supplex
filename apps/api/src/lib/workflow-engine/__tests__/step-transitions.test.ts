@@ -17,8 +17,7 @@ import { completeStep } from "../complete-step";
 /**
  * Unit Tests: Step Transition Helpers
  * Story: 2.2.8 / 2.2.16 - Workflow Engine Step Transitions
- *
- * Tests step transition logic including the workflowTemplateId metadata fix
+ * Updated: Story 2.2.19 - tx parameter threading
  */
 
 describe("Step Transition Helpers", () => {
@@ -77,7 +76,6 @@ describe("Step Transition Helpers", () => {
         taskTitle: "Complete Step 1",
         assigneeType: "role",
         assigneeRole: "admin",
-        multiApprover: false,
       })
       .returning();
 
@@ -92,7 +90,6 @@ describe("Step Transition Helpers", () => {
         taskTitle: "Approve Step 2",
         assigneeType: "role",
         assigneeRole: "admin",
-        multiApprover: false,
         declineReturnsToStepOffset: 1,
       })
       .returning();
@@ -108,7 +105,6 @@ describe("Step Transition Helpers", () => {
         taskTitle: "Complete Step 3",
         assigneeType: "role",
         assigneeRole: "admin",
-        multiApprover: false,
       })
       .returning();
 
@@ -123,6 +119,8 @@ describe("Step Transition Helpers", () => {
         initiatedBy: userId,
         initiatedDate: new Date(),
         workflowTemplateId: templateId,
+        totalSteps: 3,
+        completedSteps: 0,
         metadata: {},
       })
       .returning();
@@ -168,8 +166,8 @@ describe("Step Transition Helpers", () => {
     await db.delete(tenants).where(eq(tenants.id, tenantId));
   });
 
-  test("transitionToNextStep - step 1 completes, step 2 activates with tasks", async () => {
-    const result = await transitionToNextStep(step1Id, processId, tenantId);
+  test("transitionToNextStep - step 1 completes, step 2 activates with tasks, completedSteps increments", async () => {
+    const result = await transitionToNextStep(db, step1Id, processId, tenantId);
 
     expect(result.currentStepCompleted).toBe(true);
     expect(result.nextStepActivated).toBe(true);
@@ -182,18 +180,26 @@ describe("Step Transition Helpers", () => {
       .where(eq(stepInstance.id, step2Id));
     expect(step2.status).toBe("active");
 
+    // Verify completedSteps incremented by 1
+    const [proc] = await db
+      .select()
+      .from(processInstance)
+      .where(eq(processInstance.id, processId));
+    expect(proc.completedSteps).toBe(1);
+    expect(proc.totalSteps).toBe(3);
+
     const tasks = await db
       .select()
       .from(taskInstance)
       .where(eq(taskInstance.stepInstanceId, step2Id));
     expect(tasks.length).toBeGreaterThan(0);
-    expect(tasks[0].status).toBe("open");
+    expect(tasks[0].status).toBe("pending");
   });
 
-  test("transitionToNextStep - completes process when no next step", async () => {
-    await transitionToNextStep(step2Id, processId, tenantId);
+  test("transitionToNextStep - completes process when no next step, completedSteps equals totalSteps", async () => {
+    await transitionToNextStep(db, step2Id, processId, tenantId);
 
-    const result = await transitionToNextStep(step3Id, processId, tenantId);
+    const result = await transitionToNextStep(db, step3Id, processId, tenantId);
 
     expect(result.currentStepCompleted).toBe(true);
     expect(result.nextStepActivated).toBe(false);
@@ -205,6 +211,9 @@ describe("Step Transition Helpers", () => {
       .where(eq(processInstance.id, processId));
     expect(process.status).toBe("completed");
     expect(process.completedDate).toBeDefined();
+
+    // On process completion, completedSteps should equal totalSteps
+    expect(process.completedSteps).toBe(process.totalSteps);
   });
 
   test("completeStep - resolves step template via process metadata", async () => {
@@ -316,6 +325,7 @@ describe("Step Transition Helpers", () => {
       .returning();
 
     const result = await returnToPreviousStep(
+      db,
       newStep2.id,
       1,
       newProcess.id,
@@ -350,24 +360,130 @@ describe("Step Transition Helpers", () => {
   });
 
   test("returnToPreviousStep - handles invalid offset (before first step)", async () => {
-    const result = await returnToPreviousStep(step1Id, 2, processId, tenantId);
+    const [newProcess] = await db
+      .insert(processInstance)
+      .values({
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: userId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+        metadata: {},
+      })
+      .returning();
+
+    const [newStep1] = await db
+      .insert(stepInstance)
+      .values({
+        tenantId,
+        processInstanceId: newProcess.id,
+        stepOrder: 1,
+        stepName: "Step 1",
+        stepType: "form",
+        status: "active",
+      })
+      .returning();
+
+    const result = await returnToPreviousStep(db, newStep1.id, 2, newProcess.id, tenantId);
 
     expect(result.currentStepDeclined).toBe(false);
     expect(result.targetStepActivated).toBe(false);
     expect(result.error).toContain("Cannot return");
+
+    await db
+      .delete(processInstance)
+      .where(eq(processInstance.id, newProcess.id));
   });
 
   test("tenant isolation - cannot transition steps from other tenant", async () => {
     const fakeTenantId = crypto.randomUUID();
 
+    // Create a new process for this test since step1Id may have been used
+    const [newProcess] = await db
+      .insert(processInstance)
+      .values({
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: userId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+        metadata: {},
+      })
+      .returning();
+
+    const [newStep] = await db
+      .insert(stepInstance)
+      .values({
+        tenantId,
+        processInstanceId: newProcess.id,
+        stepOrder: 1,
+        stepName: "Step 1",
+        stepType: "form",
+        status: "active",
+      })
+      .returning();
+
     let error: Error | null = null;
     try {
-      await transitionToNextStep(step1Id, processId, fakeTenantId);
+      await transitionToNextStep(db, newStep.id, newProcess.id, fakeTenantId);
     } catch (e) {
       error = e as Error;
     }
 
     expect(error).toBeDefined();
     expect(error?.message).toContain("not found");
+
+    await db
+      .delete(processInstance)
+      .where(eq(processInstance.id, newProcess.id));
+  });
+
+  test("completeStep - atomic CAS rejects blocked step", async () => {
+    const [newProcess] = await db
+      .insert(processInstance)
+      .values({
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: userId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+        metadata: {},
+      })
+      .returning();
+
+    const [blockedStep] = await db
+      .insert(stepInstance)
+      .values({
+        tenantId,
+        processInstanceId: newProcess.id,
+        stepOrder: 2,
+        stepName: "Blocked Step",
+        stepType: "form",
+        status: "blocked",
+      })
+      .returning();
+
+    const result = await completeStep(db, {
+      tenantId,
+      stepInstanceId: blockedStep.id,
+      completedBy: userId,
+      outcome: "completed",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("already processed or not in active state");
+
+    await db
+      .delete(processInstance)
+      .where(eq(processInstance.id, newProcess.id));
   });
 });

@@ -122,17 +122,19 @@ export async function loader(args: LoaderFunctionArgs) {
     // Redirect to the form execution page
     return redirect(`/forms/${newSubmissionId}`);
   } catch (error) {
-    console.error("Error in form step handler:", error);
-    
-    if (error instanceof Response && error.status < 400) {
-      throw error;
+    // Re-throw Response objects (redirects, 403, 404, etc.) directly
+    if (error instanceof Response) {
+      if (error.status === 403) {
+        throw new Response("You do not have access to this step", {
+          status: 403,
+        });
+      }
+      if (error.status < 500) {
+        throw error;
+      }
     }
-    
-    // Redirect back to workflow detail page with error indicator
-    const errorMsg = error instanceof Response
-      ? await error.text().catch(() => "Failed to load form")
-      : "An unexpected error occurred while loading the form";
-    console.error("[FormStepHandler]", errorMsg);
+
+    console.error("Error in form step handler:", error);
     return redirect(`/workflows/processes/${processId}?error=form_load_failed`);
   }
 }

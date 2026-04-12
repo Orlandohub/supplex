@@ -3,6 +3,8 @@
 > **Story:** 2.2.8 - Workflow Execution Engine  
 > **Date:** January 26, 2026  
 > **Status:** Active
+>
+> **⚠️ Stale References (Story 2.2.23):** This document references `multi_approver`. Multi-approver was removed in Story 2.2.18 (replaced by auto-validation in Story 2.2.15). The actual engine code in `apps/api/src/lib/workflow-engine/` is the source of truth.
 
 ## Overview
 

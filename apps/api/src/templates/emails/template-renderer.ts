@@ -1,5 +1,8 @@
 import * as path from "path";
 import * as fs from "fs";
+import { logger } from "../../lib/logger";
+
+const templateLogger = logger.child({ module: "template-renderer" });
 
 /**
  * Email Template Renderer
@@ -86,10 +89,7 @@ export function renderEmailTemplate(
 
     return finalHtml;
   } catch (error) {
-    console.error(
-      `[TEMPLATE RENDERER] Error rendering template ${templateName}:`,
-      error
-    );
+    templateLogger.error({ err: error, templateName }, "Error rendering email template");
     throw new Error(`Failed to render email template: ${templateName}`);
   }
 }

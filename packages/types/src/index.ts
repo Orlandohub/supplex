@@ -89,6 +89,9 @@ export * from "./models/comment-thread";
 // Document Templates (Story 2.2.11)
 export * from "./models/document-template";
 
+// Shared Validation (Story 2.2.23)
+export * from "./validation/form-field-validation";
+
 // Utilities
 // export * from "./utils/risk-calculator"; // REMOVED - Legacy qualification system utility
 

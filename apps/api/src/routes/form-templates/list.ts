@@ -3,6 +3,8 @@ import { db } from "../../lib/db";
 import { formTemplate } from "@supplex/db";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/form-templates?status={filter}
@@ -16,23 +18,24 @@ export const listFormTemplatesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/",
-    async ({ query, user, set }: any) => {
+    async ({ query, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const statusFilter = query.status || "all";
+        const isAdmin = user.role === UserRole.ADMIN;
 
-        // Build query conditions
         const conditions = [
           eq(formTemplate.tenantId, tenantId),
           isNull(formTemplate.deletedAt),
         ];
 
-        // Add status filter if not 'all'
-        if (statusFilter !== "all") {
+        if (!isAdmin) {
+          conditions.push(eq(formTemplate.status, "published"));
+          conditions.push(eq(formTemplate.isActive, true));
+        } else if (statusFilter !== "all") {
           conditions.push(eq(formTemplate.status, statusFilter));
         }
 
-        // Fetch templates
         const templates = await db
           .select()
           .from(formTemplate)
@@ -46,17 +49,9 @@ export const listFormTemplatesRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error fetching form templates:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch form templates",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error fetching form templates");
+        throw Errors.internal("Failed to fetch form templates");
       }
     },
     {
@@ -77,4 +72,3 @@ export const listFormTemplatesRoute = new Elysia()
       },
     }
   );
-

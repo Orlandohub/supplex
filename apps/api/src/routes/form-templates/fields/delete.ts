@@ -2,8 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
 import { formField, formSection, formTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * DELETE /api/form-templates/fields/:fieldId
@@ -15,28 +15,14 @@ import { UserRole } from "@supplex/types";
  * Returns: Success response
  */
 export const deleteFieldRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .delete(
     "/fields/:fieldId",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { fieldId } = params;
 
-        // Fetch field with section and template to check status
         const [field] = await db
           .select({
             field: formField,
@@ -61,32 +47,16 @@ export const deleteFieldRoute = new Elysia()
           .limit(1);
 
         if (!field) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "FIELD_NOT_FOUND",
-              message: "Field not found or you don't have access to it",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Field not found or you don't have access to it", "FIELD_NOT_FOUND");
         }
 
-        // Check if parent template is draft
         if (field.templateStatus !== "draft") {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: "TEMPLATE_PUBLISHED",
-              message:
-                "Cannot delete field in published template. Please copy the template to make changes.",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.badRequest(
+            "Cannot delete field in published template. Please copy the template to make changes.",
+            "TEMPLATE_PUBLISHED"
+          );
         }
 
-        // Soft delete: Set deleted_at timestamp
         await db
           .update(formField)
           .set({
@@ -102,17 +72,9 @@ export const deleteFieldRoute = new Elysia()
           },
         };
       } catch (error: any) {
-        console.error("Error deleting field:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to delete field",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Error deleting field");
+        throw Errors.internal("Failed to delete field");
       }
     },
     {
@@ -127,4 +89,3 @@ export const deleteFieldRoute = new Elysia()
       },
     }
   );
-

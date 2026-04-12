@@ -1,45 +1,29 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { treaty } from "@elysiajs/eden";
-import type { App } from "../../../index";
 import { db } from "../../../lib/db";
 import {
   tenants,
   users,
   workflowTemplate,
-  workflowTemplateVersion,
   workflowStepTemplate,
   processInstance,
   stepInstance,
   taskInstance,
 } from "@supplex/db";
-import { eq, and, asc } from "drizzle-orm";
-import { createTasksForStep } from "../../../lib/workflow-engine/create-tasks-for-step";
+import { eq, asc } from "drizzle-orm";
+import { instantiateWorkflow } from "../../../lib/workflow-engine/instantiate-workflow";
 
 /**
- * Integration Tests: Workflow Instantiation API
+ * Integration Tests: Workflow Instantiation
  * Story: 2.2.8 - Workflow Execution Engine
- *
- * Tests workflow instantiation from published templates
+ * Updated: Story 2.2.19 - Transaction wrapping, batch inserts, library delegation
  */
 
-describe("POST /api/workflows/instantiate", () => {
+describe("Workflow Instantiation", () => {
   let tenantId: string;
   let userId: string;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let userToken: string;
   let workflowTemplateId: string;
-  let publishedVersionId: string;
-  let draftVersionId: string;
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let api: ReturnType<typeof treaty<App>>;
 
   beforeAll(async () => {
-    // Set up test server URL
-    const baseURL = process.env.API_URL || "http://localhost:3001";
-    api = treaty<App>(baseURL);
-
-    // Create test tenant
     const [tenant] = await db
       .insert(tenants)
       .values({
@@ -49,7 +33,6 @@ describe("POST /api/workflows/instantiate", () => {
       .returning();
     tenantId = tenant.id;
 
-    // Create test user
     const [user] = await db
       .insert(users)
       .values({
@@ -62,52 +45,22 @@ describe("POST /api/workflows/instantiate", () => {
       .returning();
     userId = user.id;
 
-    // Mock JWT token (in real tests, you'd generate a proper token)
-    userToken = "mock-jwt-token"; // This would need to be a real token for full integration
-
-    // Create workflow template
     const [template] = await db
       .insert(workflowTemplate)
       .values({
         tenantId,
         name: "Test Workflow",
-        status: "draft",
+        status: "published",
+        active: true,
         createdBy: userId,
       })
       .returning();
     workflowTemplateId = template.id;
 
-    // Create published version
-    const [publishedVersion] = await db
-      .insert(workflowTemplateVersion)
-      .values({
-        tenantId,
-        workflowTemplateId,
-        version: 1,
-        status: "published",
-        isPublished: true,
-      })
-      .returning();
-    publishedVersionId = publishedVersion.id;
-
-    // Create draft version
-    const [draftVersion] = await db
-      .insert(workflowTemplateVersion)
-      .values({
-        tenantId,
-        workflowTemplateId,
-        version: 2,
-        status: "draft",
-        isPublished: false,
-      })
-      .returning();
-    draftVersionId = draftVersion.id;
-
-    // Create workflow steps for published version
     await db.insert(workflowStepTemplate).values([
       {
         tenantId,
-        workflowTemplateVersionId: publishedVersionId,
+        workflowTemplateId,
         stepOrder: 1,
         name: "Step 1: Submit Form",
         stepType: "form",
@@ -116,11 +69,10 @@ describe("POST /api/workflows/instantiate", () => {
         dueDays: 7,
         assigneeType: "role",
         assigneeRole: "admin",
-        multiApprover: false,
       },
       {
         tenantId,
-        workflowTemplateVersionId: publishedVersionId,
+        workflowTemplateId,
         stepOrder: 2,
         name: "Step 2: Approve",
         stepType: "approval",
@@ -128,205 +80,162 @@ describe("POST /api/workflows/instantiate", () => {
         dueDays: 3,
         assigneeType: "role",
         assigneeRole: "admin",
-        multiApprover: false,
       },
     ]);
   });
 
   afterAll(async () => {
-    // Clean up
     await db.delete(tenants).where(eq(tenants.id, tenantId));
   });
 
-  test("successfully creates workflow instance from published template", async () => {
-    const requestBody = {
-      workflowTemplateVersionId: publishedVersionId,
+  test("successfully creates workflow instance via instantiateWorkflow", async () => {
+    const entityId = crypto.randomUUID();
+
+    const result = await instantiateWorkflow(db, {
+      tenantId,
+      workflowTemplateId,
       entityType: "supplier",
-      entityId: crypto.randomUUID(),
-      metadata: {
-        processType: "supplier_qualification",
-        notes: "Test workflow",
-      },
-    };
+      entityId,
+      initiatedBy: userId,
+      metadata: { processType: "supplier_qualification" },
+    });
 
-    // Since this is a unit test and we can't easily mock authentication middleware,
-    // let's test the logic directly using the database
-    const [process] = await db
-      .insert(processInstance)
-      .values({
-        tenantId,
-        processType: requestBody.metadata.processType,
-        entityType: requestBody.entityType,
-        entityId: requestBody.entityId,
-        status: "in_progress",
-        initiatedBy: userId,
-        initiatedDate: new Date(),
-        metadata: requestBody.metadata,
-      })
-      .returning();
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+    expect(result.data!.processInstance).toBeDefined();
+    expect(result.data!.steps).toBeDefined();
 
-    expect(process).toBeDefined();
+    const process = result.data!.processInstance;
     expect(process.tenantId).toBe(tenantId);
     expect(process.status).toBe("in_progress");
     expect(process.initiatedBy).toBe(userId);
 
-    // Get workflow steps and create step instances
-    const stepTemplates = await db
-      .select()
-      .from(workflowStepTemplate)
-      .where(
-        eq(workflowStepTemplate.workflowTemplateVersionId, publishedVersionId)
-      )
-      .orderBy(asc(workflowStepTemplate.stepOrder));
+    // Denormalized totalSteps set from stepTemplates.length
+    expect(process.totalSteps).toBe(2);
+    expect(process.completedSteps).toBe(0);
 
-    for (const stepTemplate of stepTemplates) {
-      const [step] = await db.insert(stepInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepOrder: stepTemplate.stepOrder,
-        stepName: stepTemplate.name,
-        stepType: stepTemplate.stepType,
-        status: stepTemplate.stepOrder === 1 ? "active" : "blocked",
-      }).returning();
-
-      // Create tasks for the first (active) step
-      if (stepTemplate.stepOrder === 1) {
-        await createTasksForStep(step.id, stepTemplate.id, process.id, tenantId);
-      }
-    }
-
-    // Verify steps were created
-    const steps = await db
-      .select()
-      .from(stepInstance)
-      .where(eq(stepInstance.processInstanceId, process.id));
-
+    // All steps created in a single batch
+    const steps = result.data!.steps;
     expect(steps.length).toBe(2);
 
-    // First step should be active
     const firstStep = steps.find((s) => s.stepOrder === 1);
     expect(firstStep).toBeDefined();
     expect(firstStep?.status).toBe("active");
 
-    // Second step should be blocked
     const secondStep = steps.find((s) => s.stepOrder === 2);
     expect(secondStep).toBeDefined();
     expect(secondStep?.status).toBe("blocked");
 
-    // Verify tasks were created for first step
+    // Tasks created for first step
     const tasks = await db
       .select()
       .from(taskInstance)
       .where(eq(taskInstance.stepInstanceId, firstStep!.id));
-
     expect(tasks.length).toBeGreaterThan(0);
-    expect(tasks[0].status).toBe("open");
+    expect(tasks[0].status).toBe("pending");
 
-    // Clean up
+    // Cleanup
     await db.delete(processInstance).where(eq(processInstance.id, process.id));
   });
 
-  test("rejects instantiation of non-published workflow", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const requestBody = {
-      workflowTemplateVersionId: draftVersionId,
+  test("rejects instantiation of unpublished workflow template", async () => {
+    const [draftTemplate] = await db
+      .insert(workflowTemplate)
+      .values({
+        tenantId,
+        name: "Draft Workflow",
+        status: "draft",
+        createdBy: userId,
+      })
+      .returning();
+
+    const result = await instantiateWorkflow(db, {
+      tenantId,
+      workflowTemplateId: draftTemplate.id,
       entityType: "supplier",
       entityId: crypto.randomUUID(),
-    };
+      initiatedBy: userId,
+    });
 
-    // Verify the version is indeed not published
-    const [version] = await db
-      .select()
-      .from(workflowTemplateVersion)
-      .where(eq(workflowTemplateVersion.id, draftVersionId));
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("not published");
 
-    expect(version.status).not.toBe("published");
-
-    // The API should reject this
-    // In a real test with authentication, you would call the API and expect a 400 error
+    await db.delete(workflowTemplate).where(eq(workflowTemplate.id, draftTemplate.id));
   });
 
   test("enforces tenant isolation", async () => {
-    // Create another tenant
     const [otherTenant] = await db
       .insert(tenants)
       .values({
         name: "Other Tenant",
-        slug: `other-tenant-${Date.now()}`,
+        slug: `other-tenant-inst-${Date.now()}`,
       })
       .returning();
 
-    // Create user in other tenant
-    const [otherUser] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: otherTenant.id,
-        email: `other-user-${Date.now()}@test.com`,
-        fullName: "Other User",
-        role: "admin",
-      })
-      .returning();
+    const result = await instantiateWorkflow(db, {
+      tenantId: otherTenant.id,
+      workflowTemplateId,
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      initiatedBy: userId,
+    });
 
-    // Try to instantiate workflow from first tenant using second tenant's user
-    const [versionCheck] = await db
-      .select()
-      .from(workflowTemplateVersion)
-      .where(
-        and(
-          eq(workflowTemplateVersion.id, publishedVersionId),
-          eq(workflowTemplateVersion.tenantId, otherTenant.id)
-        )
-      );
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("not found");
 
-    // Should not find the version because it belongs to different tenant
-    expect(versionCheck).toBeUndefined();
-
-    // Clean up
-    await db.delete(users).where(eq(users.id, otherUser.id));
     await db.delete(tenants).where(eq(tenants.id, otherTenant.id));
   });
 
-  test("creates all steps in correct order", async () => {
-    const [process] = await db
-      .insert(processInstance)
+  test("handles workflow template with no steps (transaction rollback)", async () => {
+    const [emptyWorkflow] = await db
+      .insert(workflowTemplate)
       .values({
         tenantId,
-        processType: "test",
-        entityType: "test",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: userId,
-        initiatedDate: new Date(),
+        name: "Empty Workflow",
+        status: "published",
+        active: true,
+        createdBy: userId,
       })
       .returning();
 
-    // Get workflow steps
-    const stepTemplates = await db
+    const result = await instantiateWorkflow(db, {
+      tenantId,
+      workflowTemplateId: emptyWorkflow.id,
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      initiatedBy: userId,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("no steps");
+
+    // Transaction should have rolled back — no orphaned process instances
+    const orphans = await db
       .select()
-      .from(workflowStepTemplate)
-      .where(
-        eq(workflowStepTemplate.workflowTemplateVersionId, publishedVersionId)
-      )
-      .orderBy(asc(workflowStepTemplate.stepOrder));
+      .from(processInstance)
+      .where(eq(processInstance.workflowTemplateId, emptyWorkflow.id));
+    expect(orphans.length).toBe(0);
 
-    // Create step instances
-    for (const stepTemplate of stepTemplates) {
-      await db.insert(stepInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepOrder: stepTemplate.stepOrder,
-        stepName: stepTemplate.name,
-        stepType: stepTemplate.stepType,
-        status: stepTemplate.stepOrder === 1 ? "active" : "blocked",
-      });
-    }
+    await db.delete(workflowTemplate).where(eq(workflowTemplate.id, emptyWorkflow.id));
+  });
 
-    // Verify all steps created
+  test("batch insert creates all steps in correct order", async () => {
+    const entityId = crypto.randomUUID();
+
+    const result = await instantiateWorkflow(db, {
+      tenantId,
+      workflowTemplateId,
+      entityType: "supplier",
+      entityId,
+      initiatedBy: userId,
+    });
+
+    expect(result.success).toBe(true);
+
     const steps = await db
       .select()
       .from(stepInstance)
-      .where(eq(stepInstance.processInstanceId, process.id))
+      .where(eq(stepInstance.processInstanceId, result.data!.processInstance.id))
       .orderBy(asc(stepInstance.stepOrder));
 
     expect(steps.length).toBe(2);
@@ -335,52 +244,6 @@ describe("POST /api/workflows/instantiate", () => {
     expect(steps[1].stepOrder).toBe(2);
     expect(steps[1].status).toBe("blocked");
 
-    // Clean up
-    await db.delete(processInstance).where(eq(processInstance.id, process.id));
-  });
-
-  test("handles workflow template with no steps", async () => {
-    // Create empty workflow version
-    const [emptyWorkflow] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId,
-        name: "Empty Workflow",
-        status: "draft",
-        createdBy: userId,
-      })
-      .returning();
-
-    const [emptyVersion] = await db
-      .insert(workflowTemplateVersion)
-      .values({
-        tenantId,
-        workflowTemplateId: emptyWorkflow.id,
-        version: 1,
-        status: "published",
-        isPublished: true,
-      })
-      .returning();
-
-    // Verify no steps exist
-    const steps = await db
-      .select()
-      .from(workflowStepTemplate)
-      .where(
-        eq(workflowStepTemplate.workflowTemplateVersionId, emptyVersion.id)
-      );
-
-    expect(steps.length).toBe(0);
-
-    // API should reject this or handle gracefully
-
-    // Clean up
-    await db
-      .delete(workflowTemplateVersion)
-      .where(eq(workflowTemplateVersion.id, emptyVersion.id));
-    await db
-      .delete(workflowTemplate)
-      .where(eq(workflowTemplate.id, emptyWorkflow.id));
+    await db.delete(processInstance).where(eq(processInstance.id, result.data!.processInstance.id));
   });
 });
-

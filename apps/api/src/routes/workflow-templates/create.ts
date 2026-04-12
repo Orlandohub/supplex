@@ -1,9 +1,9 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
 import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/workflow-templates
@@ -15,23 +15,10 @@ import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-eve
  * Returns: Created template
  */
 export const createWorkflowTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .post(
     "/",
-    async ({ body, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const userId = user.id as string;
@@ -68,16 +55,9 @@ export const createWorkflowTemplateRoute = new Elysia()
           data: newTemplate,
         };
       } catch (error: any) {
-        console.error("Error creating workflow template:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create workflow template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow template creation failed");
+        throw Errors.internal("Failed to create workflow template");
       }
     },
     {

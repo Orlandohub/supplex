@@ -7,6 +7,9 @@
 import { db } from "../lib/db";
 import { tenants, users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
+import { logger } from "../lib/logger";
+
+const reviewerLogger = logger.child({ module: "reviewer-assignment" });
 
 export interface ReviewerInfo {
   id: string;
@@ -105,7 +108,7 @@ export async function getStage2Reviewer(
     // No reviewer found
     return null;
   } catch (error) {
-    console.error("Error getting Stage 2 reviewer:", error);
+    reviewerLogger.error({ err: error, tenantId, stage: 2 }, "Error getting stage reviewer");
     return null;
   }
 }
@@ -181,7 +184,7 @@ export async function getStage3Reviewer(
     // No reviewer found
     return null;
   } catch (error) {
-    console.error("Error getting Stage 3 reviewer:", error);
+    reviewerLogger.error({ err: error, tenantId, stage: 3 }, "Error getting stage reviewer");
     return null;
   }
 }
@@ -276,7 +279,7 @@ export async function getStage1Reviewer(
     // No reviewer found
     return null;
   } catch (error) {
-    console.error("Error getting Stage 1 reviewer:", error);
+    reviewerLogger.error({ err: error, tenantId, stage: 1 }, "Error getting stage reviewer");
     return null;
   }
 }

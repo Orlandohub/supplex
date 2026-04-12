@@ -2,10 +2,11 @@ import { Elysia, t } from "elysia";
 import { supabaseAdmin } from "../../lib/supabase";
 import { db } from "../../lib/db";
 import { users } from "@supplex/db";
-import { UserRole, createUserMetadata, AuditAction } from "@supplex/types";
+import { UserRole, createUserAuthMetadata, createUserProfileMetadata, AuditAction } from "@supplex/types";
 import type { InsertUser } from "@supplex/types";
 import { requireAdmin } from "../../lib/rbac/middleware";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * POST /api/users/invite
@@ -22,7 +23,7 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .post(
     "/invite",
-    async ({ body, user, set, headers }: any) => {
+    async ({ body, user, set, headers, requestLogger }: any) => {
       try {
         const { email, role, message } = body;
         const tenantId = user.tenantId as string;
@@ -32,12 +33,9 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
 
         // Validate role
         if (!Object.values(UserRole).includes(role as UserRole)) {
-          set.status = 400;
-          return {
-            success: false,
-            error:
-              "Invalid role. Must be one of: admin, procurement_manager, quality_manager, viewer",
-          };
+          throw Errors.badRequest(
+            "Invalid role. Must be one of: admin, procurement_manager, quality_manager, viewer"
+          );
         }
 
         // Generate a temporary password (user will set their own via invitation email)
@@ -58,12 +56,8 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
           });
 
         if (authError || !authUser.user) {
-          console.error("Supabase auth error:", authError);
-          set.status = 400;
-          return {
-            success: false,
-            error: authError?.message || "Failed to create user account",
-          };
+          requestLogger.error({ err: authError }, "Supabase auth error");
+          throw Errors.badRequest(authError?.message || "Failed to create user account");
         }
 
         const userId = authUser.user.id;
@@ -87,15 +81,13 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
             throw new Error("Failed to create user record");
           }
 
-          // Step 3: Update Supabase Auth user_metadata with role and tenant_id
-          const userMetadata = createUserMetadata(
-            role as UserRole,
-            tenantId,
-            newUser.fullName
-          );
-
+          // Step 3: Update Supabase Auth metadata with role/tenant in app_metadata
+          // TODO(SEC-009-cleanup): This app_metadata write is now redundant — the
+          // custom_access_token_hook reads role/tenant_id from the users table on every
+          // token refresh. Remove after hook is confirmed stable in production.
           await supabaseAdmin.auth.admin.updateUserById(userId, {
-            user_metadata: userMetadata,
+            app_metadata: createUserAuthMetadata(role as UserRole, tenantId),
+            user_metadata: createUserProfileMetadata(newUser.fullName),
           });
 
           // Step 4: Send invitation email via Supabase
@@ -106,7 +98,10 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
             });
 
           if (inviteError) {
-            console.warn("Failed to send invitation email:", inviteError);
+            requestLogger.warn(
+              { err: inviteError },
+              "Invitation email send failed"
+            );
             // Non-fatal, user is still created
           }
 
@@ -141,28 +136,25 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
             },
           };
         } catch (dbError: any) {
-          console.error("Database error during invitation:", dbError);
+          requestLogger.error({ err: dbError }, "Database error during invitation");
 
           // Rollback: Delete the Supabase auth user
           try {
             await supabaseAdmin.auth.admin.deleteUser(userId);
           } catch (rollbackError) {
-            console.error("Failed to rollback auth user:", rollbackError);
+            requestLogger.error(
+              { err: rollbackError },
+              "Failed to rollback auth user after invitation failure"
+            );
           }
 
-          set.status = 500;
-          return {
-            success: false,
-            error: "Failed to create user record",
-          };
+          if (dbError instanceof ApiError) throw dbError;
+          throw Errors.internal("Failed to create user record");
         }
       } catch (error: any) {
-        console.error("Invitation error:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error during invitation",
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Invitation error");
+        throw Errors.internal("Internal server error during invitation");
       }
     },
     {

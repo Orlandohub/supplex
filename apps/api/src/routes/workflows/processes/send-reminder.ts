@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { ApiError, Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
 import {
   processInstance,
@@ -9,7 +10,7 @@ import {
   EmailNotificationStatus,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
+import { requireRole } from "../../../lib/rbac/middleware";
 import { UserRole, EmailEventType } from "@supplex/types";
 import { queueEmailJob } from "../../../queue/email-queue";
 
@@ -22,27 +23,14 @@ const FRONTEND_URL = globalThis.process?.env?.FRONTEND_URL || "http://localhost:
  * Auth: admin or procurement_manager only
  * Validates: process belongs to tenant, has pending supplier-assigned task
  */
-export const sendReminderRoute = new Elysia().use(authenticate).post(
+export const sendReminderRoute = new Elysia()
+  .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
+  .post(
   "/processes/:processInstanceId/send-reminder",
-  async ({ user, set, params }) => {
+  async ({ user, set, params, requestLogger }: any) => {
     const tenantId = user!.tenantId as string;
     const userRole = user!.role as string;
     const callerName = user!.fullName as string;
-
-    if (
-      userRole !== UserRole.ADMIN &&
-      userRole !== UserRole.PROCUREMENT_MANAGER
-    ) {
-      set.status = 403;
-      return {
-        success: false,
-        error: {
-          code: "FORBIDDEN",
-          message: "Only admin and procurement_manager can send reminders",
-          timestamp: new Date().toISOString(),
-        },
-      };
-    }
 
     try {
       const processId = params.processInstanceId;
@@ -63,43 +51,21 @@ export const sendReminderRoute = new Elysia().use(authenticate).post(
       });
 
       if (!workflowProcess) {
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "NOT_FOUND",
-            message: "Process not found",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.notFound("Process not found");
       }
 
       if (
         workflowProcess.status !== "in_progress" &&
         workflowProcess.status !== "pending_validation"
       ) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "INVALID_STATE",
-            message:
-              "Reminders can only be sent for in-progress or pending-validation workflows",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          "Reminders can only be sent for in-progress or pending-validation workflows",
+          "INVALID_STATE"
+        );
       }
 
       if (!workflowProcess.currentStepInstanceId) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "INVALID_STATE",
-            message: "Process has no active step",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest("Process has no active step", "INVALID_STATE");
       }
 
       const [supplierTask] = await db
@@ -121,16 +87,10 @@ export const sendReminderRoute = new Elysia().use(authenticate).post(
         .limit(1);
 
       if (!supplierTask) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "NO_SUPPLIER_TASK",
-            message:
-              "No pending task assigned to a supplier user on the current step",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          "No pending task assigned to a supplier user on the current step",
+          "NO_SUPPLIER_TASK"
+        );
       }
 
       let recipientEmail: string | null = null;
@@ -162,16 +122,10 @@ export const sendReminderRoute = new Elysia().use(authenticate).post(
       }
 
       if (!recipientEmail) {
-        set.status = 400;
-        return {
-          success: false,
-          error: {
-            code: "NO_RECIPIENT",
-            message:
-              "Could not determine recipient email for the supplier task",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        throw Errors.badRequest(
+          "Could not determine recipient email for the supplier task",
+          "NO_RECIPIENT"
+        );
       }
 
       const subject = `Reminder: Action Required - ${supplierTask.title}`;
@@ -209,16 +163,9 @@ export const sendReminderRoute = new Elysia().use(authenticate).post(
         data: { message: "Reminder sent successfully" },
       };
     } catch (error) {
-      console.error("Error sending reminder:", error);
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to send reminder",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "error sending reminder");
+      throw Errors.internal("Failed to send reminder");
     }
   },
   {

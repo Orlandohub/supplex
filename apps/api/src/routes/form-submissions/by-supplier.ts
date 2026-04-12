@@ -7,19 +7,23 @@ import {
   stepInstance,
 } from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { requireRole } from "../../lib/rbac/middleware";
+import { UserRole } from "@supplex/types";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/form-submissions/by-supplier/:supplierId
  * List all form submissions linked to a supplier's workflow processes
  *
- * Auth: Requires authenticated user (admin/procurement roles)
+ * Auth: Requires admin, procurement_manager, or quality_manager role
  * Tenant: Enforces tenant isolation
  * Returns: Array of submissions with template name, workflow name, step name
  */
-export const bySupplierRoute = new Elysia().use(authenticate).get(
+export const bySupplierRoute = new Elysia()
+  .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER, UserRole.QUALITY_MANAGER]))
+  .get(
   "/by-supplier/:supplierId",
-  async ({ params, user, set }: any) => {
+  async ({ params, user, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const { supplierId } = params;
@@ -78,16 +82,8 @@ export const bySupplierRoute = new Elysia().use(authenticate).get(
         },
       };
     } catch (error: any) {
-      console.error("Error listing supplier form submissions:", error);
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to list supplier form submissions",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      requestLogger.error({ err: error }, "Supplier form submission list failed");
+      throw Errors.internal("Failed to list supplier form submissions");
     }
   },
   {

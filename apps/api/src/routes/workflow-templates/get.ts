@@ -1,9 +1,9 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../lib/rbac/middleware";
 import { eq, and, isNull } from "drizzle-orm";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/workflow-templates/:workflowId
@@ -14,23 +14,10 @@ import { eq, and, isNull } from "drizzle-orm";
  * Returns: Template with steps and approvers
  */
 export const getWorkflowTemplateRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .get(
     "/:workflowId",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -48,15 +35,7 @@ export const getWorkflowTemplateRoute = new Elysia()
         });
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
         return {
@@ -64,16 +43,9 @@ export const getWorkflowTemplateRoute = new Elysia()
           data: template,
         };
       } catch (error: any) {
-        console.error("Error fetching workflow template:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to fetch workflow template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow template fetch failed");
+        throw Errors.internal("Failed to fetch workflow template");
       }
     },
     {

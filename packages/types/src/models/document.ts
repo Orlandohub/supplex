@@ -6,6 +6,7 @@ export enum DocumentType {
   CONTRACT = "contract",
   INSURANCE = "insurance",
   AUDIT_REPORT = "audit_report",
+  WORKFLOW_DOCUMENT = "workflow_document",
   OTHER = "other",
 }
 

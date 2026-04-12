@@ -4,9 +4,9 @@ import {
   workflowTemplate,
   workflowStepTemplate,
 } from "@supplex/db";
-import { authenticate } from "../../../lib/rbac/middleware";
-import { UserRole } from "@supplex/types";
+import { requireAdmin } from "../../../lib/rbac/middleware";
 import { eq, and, isNull, asc } from "drizzle-orm";
+import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * GET /api/workflow-templates/:workflowId/steps
@@ -14,26 +14,13 @@ import { eq, and, isNull, asc } from "drizzle-orm";
  *
  * Auth: Requires Admin role
  * Tenant: Automatically filters by tenant_id from authenticated user's JWT
- * Returns: Array of steps with approvers, ordered by step_order
+ * Returns: Array of steps ordered by step_order
  */
 export const listStepsRoute = new Elysia()
-  .use(authenticate)
+  .use(requireAdmin)
   .get(
     "/:workflowId/steps",
-    async ({ params, user, set }: any) => {
-      // Check role permission - Admin only
-      if (!user?.role || user.role !== UserRole.ADMIN) {
-        set.status = 403;
-        return {
-          success: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Access denied. Required role: Admin",
-            timestamp: new Date().toISOString(),
-          },
-        };
-      }
-
+    async ({ params, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -48,29 +35,15 @@ export const listStepsRoute = new Elysia()
         });
 
         if (!template) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Workflow template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Workflow template not found");
         }
 
-        // Fetch steps with approvers
         const steps = await db.query.workflowStepTemplate.findMany({
           where: and(
             eq(workflowStepTemplate.workflowTemplateId, workflowId),
             eq(workflowStepTemplate.tenantId, tenantId),
             isNull(workflowStepTemplate.deletedAt)
           ),
-          with: {
-            approvers: {
-              orderBy: (approvers, { asc }) => [asc(approvers.approverOrder)],
-            },
-          },
           orderBy: [asc(workflowStepTemplate.stepOrder)],
         });
 
@@ -79,16 +52,9 @@ export const listStepsRoute = new Elysia()
           data: steps,
         };
       } catch (error: any) {
-        console.error("Error listing steps:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to list steps",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Workflow steps list failed");
+        throw Errors.internal("Failed to list steps");
       }
     },
     {

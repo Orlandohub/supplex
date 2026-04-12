@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { auditLogs } from "@supplex/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/users/:id/audit
@@ -18,7 +19,7 @@ export const auditLogRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .get(
     "/:id/audit",
-    async ({ params, query, user, set }: any) => {
+    async ({ params, query, user, set, requestLogger }: any) => {
       try {
         const { id: targetUserId } = params;
         const tenantId = user.tenantId as string;
@@ -62,12 +63,8 @@ export const auditLogRoute = new Elysia({ prefix: "/users" })
           },
         };
       } catch (error: any) {
-        console.error("Error fetching audit logs:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Failed to fetch audit logs",
-        };
+        requestLogger.error({ err: error }, "Error fetching audit logs");
+        throw Errors.internal("Failed to fetch audit logs");
       }
     },
     {

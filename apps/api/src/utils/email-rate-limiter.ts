@@ -1,4 +1,7 @@
 import { redisConnection } from "../queue/redis-connection";
+import { logger } from "../lib/logger";
+
+const rateLimitLogger = logger.child({ module: "email-rate-limiter" });
 
 /**
  * Email Rate Limiter
@@ -31,18 +34,14 @@ export async function checkEmailRateLimit(userId: string): Promise<boolean> {
 
     // Check if limit exceeded
     if (count > 10) {
-      console.log(
-        `[RATE LIMIT] User ${userId} exceeded 10 emails/hour (count: ${count})`
-      );
-      return false; // Rate limit exceeded
+      rateLimitLogger.warn({ userId, count, hour }, "User exceeded email rate limit");
+      return false;
     }
 
-    console.log(
-      `[RATE LIMIT] User ${userId} email count: ${count}/10 for hour ${hour}`
-    );
+    rateLimitLogger.debug({ userId, count, hour }, "Email rate limit check passed");
     return true; // Allow email
   } catch (error) {
-    console.error(`[RATE LIMIT] Error checking rate limit:`, error);
+    rateLimitLogger.error({ err: error, userId }, "Error checking email rate limit");
     // On Redis error, allow email to prevent blocking legitimate emails
     return true;
   }
@@ -61,7 +60,7 @@ export async function getEmailCount(userId: string): Promise<number> {
     const count = await redisConnection.get(key);
     return count ? parseInt(count, 10) : 0;
   } catch (error) {
-    console.error(`[RATE LIMIT] Error getting email count:`, error);
+    rateLimitLogger.error({ err: error, userId }, "Error getting email count");
     return 0;
   }
 }
@@ -76,8 +75,8 @@ export async function resetEmailRateLimit(userId: string): Promise<void> {
     const hour = new Date().toISOString().slice(0, 13);
     const key = `email_rate_limit:${userId}:${hour}`;
     await redisConnection.del(key);
-    console.log(`[RATE LIMIT] Reset email count for user ${userId}`);
+    rateLimitLogger.info({ userId }, "Email rate limit reset");
   } catch (error) {
-    console.error(`[RATE LIMIT] Error resetting rate limit:`, error);
+    rateLimitLogger.error({ err: error, userId }, "Error resetting email rate limit");
   }
 }

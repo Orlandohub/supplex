@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { ApiError, Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
 import {
   processInstance,
@@ -39,7 +40,7 @@ export const listProcessesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/processes",
-    async ({ user, set, query }) => {
+    async ({ user, set, query, requestLogger }: any) => {
       const tenantId = user!.tenantId as string;
       const userRole = user!.role as string;
       const userId = user!.id as string;
@@ -66,15 +67,7 @@ export const listProcessesRoute = new Elysia()
             columns: { id: true },
           });
           if (!supplier) {
-            set.status = 403;
-            return {
-              success: false,
-              error: {
-                code: "FORBIDDEN",
-                message: "Supplier user is not associated with a supplier",
-                timestamp: new Date().toISOString(),
-              },
-            };
+            throw Errors.forbidden("Supplier user is not associated with a supplier");
           }
           supplierEntityId = supplier.id;
         }
@@ -106,14 +99,6 @@ export const listProcessesRoute = new Elysia()
             )!
           );
         }
-
-        // View-based EXISTS subqueries
-        const pendingTaskOnCurrentStep = sql`EXISTS (
-          SELECT 1 FROM task_instance ti
-          WHERE ti.step_instance_id = ${processInstance.currentStepInstanceId}
-            AND ti.status = 'pending'
-            AND ti.deleted_at IS NULL
-        )`;
 
         if (view === "my_work") {
           baseConditions.push(sql`EXISTS (
@@ -176,20 +161,6 @@ export const listProcessesRoute = new Elysia()
           }
         })();
         const orderFn = sortOrder === "asc" ? asc : desc;
-
-        // --- Scalar subqueries for per-row aggregates ---
-        const totalStepCountSq = sql<number>`(
-          SELECT COUNT(*)::int FROM step_instance si
-          WHERE si.process_instance_id = ${processInstance.id}
-            AND si.deleted_at IS NULL
-        )`.as("totalStepCount");
-
-        const completedStepCountSq = sql<number>`(
-          SELECT COUNT(*)::int FROM step_instance si
-          WHERE si.process_instance_id = ${processInstance.id}
-            AND si.status IN ('completed', 'validated')
-            AND si.deleted_at IS NULL
-        )`.as("completedStepCount");
 
         const pendingTaskCountSq = sql<number>`(
           SELECT COUNT(*)::int FROM task_instance ti
@@ -283,8 +254,8 @@ export const listProcessesRoute = new Elysia()
               currentStepOrder: stepInstance.stepOrder,
               currentStepType: stepInstance.stepType,
               workflowName: processInstance.workflowName,
-              totalStepCount: totalStepCountSq,
-              completedStepCount: completedStepCountSq,
+              totalStepCount: processInstance.totalSteps,
+              completedStepCount: processInstance.completedSteps,
               pendingTaskCount: pendingTaskCountSq,
               overdueTaskCount: overdueTaskCountSq,
               earliestDueAt: earliestDueAtSq,
@@ -433,16 +404,9 @@ export const listProcessesRoute = new Elysia()
           },
         };
       } catch (error) {
-        console.error("Error fetching workflow processes:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to fetch workflow processes",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "error fetching workflow processes");
+        throw Errors.internal("Failed to fetch workflow processes");
       }
     },
     {

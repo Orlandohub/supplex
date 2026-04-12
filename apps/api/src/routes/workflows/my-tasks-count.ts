@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { taskInstance } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * GET /api/workflows/my-tasks/count
@@ -18,7 +19,7 @@ import { authenticate } from "../../lib/rbac/middleware";
  */
 export const myTasksCountRoute = new Elysia().use(authenticate).get(
   "/my-tasks/count",
-  async ({ user, set }) => {
+  async ({ user, requestLogger }: any) => {
     try {
       const userId = user!.id as string;
       const userRole = user!.role as string;
@@ -51,16 +52,9 @@ export const myTasksCountRoute = new Elysia().use(authenticate).get(
         },
       };
     } catch (error: unknown) {
-      console.error("Error fetching my tasks count:", error);
-      set.status = 500;
-      return {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch task count",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "error fetching my tasks count");
+      throw Errors.internal("Failed to fetch task count");
     }
   },
   {

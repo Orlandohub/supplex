@@ -1,291 +1,169 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../../lib/db";
-import {
-  workflowStepDocument,
-  stepInstance,
-  processInstance,
-  taskInstance,
-} from "@supplex/db";
-import { eq, and, isNull } from "drizzle-orm";
-import { WorkflowProcessStatus } from "@supplex/types";
 import { authenticate } from "../../../../lib/rbac/middleware";
-import { transitionToNextStep } from "../../../../lib/workflow-engine/transition-to-next-step";
-import { createTasksForStep } from "../../../../lib/workflow-engine/create-tasks-for-step";
-import { logWorkflowEvent, WorkflowEventType } from "../../../../services/workflow-event-logger";
+import { verifyTaskAssignment } from "../../../../lib/rbac/entity-authorization";
+import { ApiError, Errors } from "../../../../lib/errors";
+import { reviewStepDocuments } from "../../../../lib/workflow-engine/review-step-documents";
+import type { ReviewStepDocumentsResult } from "../../../../lib/workflow-engine/review-step-documents";
+import { logWorkflowEventTx, WorkflowEventType } from "../../../../services/workflow-event-logger";
 
 /**
  * POST /api/workflows/steps/:stepId/documents/review
  * Batch review: approve/decline individual documents.
  *
- * If any document is declined the step returns to active for re-upload.
- * If all are approved the step completes and workflow advances.
+ * Bug-fix (WFH-002): task verification, engine mutations, and event
+ * logging all run inside the same transaction so a post-mutation error
+ * rolls back atomically instead of committing partial state.
  */
 export const reviewStepDocumentsRoute = new Elysia()
   .use(authenticate)
   .post(
     "/steps/:stepInstanceId/documents/review",
-    async ({ params, body, user, set }) => {
+    async ({ params, body, user, set, correlationId: corrId, requestLogger }: any) => {
       if (!user?.id || !user?.tenantId) {
-        set.status = 401;
-        return { success: false, error: "Unauthorized" };
+        throw Errors.unauthorized("Unauthorized");
       }
 
       const stepId = params.stepInstanceId;
       const { decisions } = body;
 
-      const [step] = await db
-        .select()
-        .from(stepInstance)
-        .where(
-          and(
-            eq(stepInstance.id, stepId),
-            eq(stepInstance.tenantId, user.tenantId)
-          )
-        );
+      try {
+        const txResult = await db.transaction(async (tx) => {
+          // Task verification INSIDE the transaction (eliminates TOCTOU gap)
+          const taskCheck = await verifyTaskAssignment(user, stepId, ["validation"], tx);
+          if (!taskCheck.allowed) {
+            return { authorized: false as const };
+          }
 
-      if (!step) {
-        set.status = 404;
-        return { success: false, error: "Step not found" };
-      }
+          const engineResult: ReviewStepDocumentsResult = await reviewStepDocuments(tx, {
+            tenantId: user.tenantId,
+            stepInstanceId: stepId,
+            reviewedBy: user.id,
+            taskId: taskCheck.taskId!,
+            decisions,
+          });
 
-      if (step.status !== "awaiting_validation") {
-        set.status = 400;
-        return { success: false, error: "Step is not awaiting validation" };
-      }
+          // Pre-mutation structured failure — no events to log
+          if (!engineResult.success) {
+            return { authorized: true as const, engineResult };
+          }
 
-      const existingDocs = await db
-        .select()
-        .from(workflowStepDocument)
-        .where(
-          and(
-            eq(workflowStepDocument.stepInstanceId, stepId),
-            eq(workflowStepDocument.tenantId, user.tenantId),
-            isNull(workflowStepDocument.deletedAt)
-          )
-        );
+          // ── Atomic event logging (same tx) ──────────────────────
 
-      const docMap = new Map(existingDocs.map((d) => [d.requiredDocumentName, d]));
+          if (engineResult.outcome === "all_approved") {
+            if (engineResult.allValidationsComplete) {
+              await logWorkflowEventTx(tx, {
+                tenantId: user.tenantId,
+                processInstanceId: engineResult.processInstanceId!,
+                stepInstanceId: stepId,
+                eventType: WorkflowEventType.DOCUMENT_APPROVED,
+                eventDescription: `Validation approved - Step ${engineResult.stepName} Approved (${engineResult.approvedCount} document${engineResult.approvedCount! > 1 ? "s" : ""})`,
+                actorUserId: user.id,
+                actorName: user.fullName,
+                actorRole: user.role,
+                correlationId: corrId,
+              });
 
-      const hasDeclines = decisions.some((d: any) => d.action === "decline");
-
-      for (const decision of decisions) {
-        const doc = docMap.get(decision.requiredDocumentName);
-        if (!doc) continue;
-
-        if (decision.action === "approve") {
-          await db
-            .update(workflowStepDocument)
-            .set({
-              status: "approved",
-              declineComment: null,
-              reviewedBy: user.id,
-              reviewedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(workflowStepDocument.id, doc.id));
-        } else if (decision.action === "decline") {
-          await db
-            .update(workflowStepDocument)
-            .set({
-              status: "declined",
-              declineComment: decision.comment || null,
-              reviewedBy: user.id,
-              reviewedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(workflowStepDocument.id, doc.id));
-        }
-      }
-
-      if (hasDeclines) {
-        // Reset declined docs to pending for re-upload
-        for (const decision of decisions) {
-          if (decision.action === "decline") {
-            const doc = docMap.get(decision.requiredDocumentName);
-            if (doc) {
-              await db
-                .update(workflowStepDocument)
-                .set({
-                  status: "pending",
-                  documentId: null,
-                  updatedAt: new Date(),
-                })
-                .where(eq(workflowStepDocument.id, doc.id));
+              if (engineResult.processCompleted) {
+                await logWorkflowEventTx(tx, {
+                  tenantId: user.tenantId,
+                  processInstanceId: engineResult.processInstanceId!,
+                  eventType: WorkflowEventType.PROCESS_COMPLETED,
+                  eventDescription: "Workflow completed",
+                  actorUserId: user.id,
+                  actorName: user.fullName,
+                  actorRole: user.role,
+                  correlationId: corrId,
+                });
+              } else if (engineResult.nextStepActivated && engineResult.nextStepId) {
+                await logWorkflowEventTx(tx, {
+                  tenantId: user.tenantId,
+                  processInstanceId: engineResult.processInstanceId!,
+                  stepInstanceId: engineResult.nextStepId,
+                  eventType: WorkflowEventType.STEP_ACTIVATED,
+                  eventDescription: `Step - ${engineResult.nextStepName ?? "Unknown"} Active`,
+                  actorUserId: user.id,
+                  actorName: "Supplex",
+                  actorRole: "system",
+                  correlationId: corrId,
+                });
+              }
+            } else {
+              await logWorkflowEventTx(tx, {
+                tenantId: user.tenantId,
+                processInstanceId: engineResult.processInstanceId!,
+                stepInstanceId: stepId,
+                eventType: WorkflowEventType.VALIDATION_APPROVED,
+                eventDescription: `Validation approved - ${engineResult.remainingApprovals} more approval${(engineResult.remainingApprovals ?? 0) > 1 ? "s" : ""} required for this step`,
+                actorUserId: user.id,
+                actorName: user.fullName,
+                actorRole: user.role,
+                correlationId: corrId,
+              });
             }
+          } else if (engineResult.outcome === "declined") {
+            await logWorkflowEventTx(tx, {
+              tenantId: user.tenantId,
+              processInstanceId: engineResult.processInstanceId!,
+              stepInstanceId: stepId,
+              eventType: WorkflowEventType.DOCUMENT_DECLINED,
+              eventDescription: `Validation declined - Step ${engineResult.stepName} returned for revision (${engineResult.declinedCount} document${engineResult.declinedCount! > 1 ? "s" : ""} declined)`,
+              actorUserId: user.id,
+              actorName: user.fullName,
+              actorRole: user.role,
+              metadata: { declinedDocuments: engineResult.declinedDocumentNames },
+              correlationId: corrId,
+            });
           }
-        }
 
-        // Return step to active so uploader can re-upload
-        await db
-          .update(stepInstance)
-          .set({ status: "active", updatedAt: new Date() })
-          .where(eq(stepInstance.id, stepId));
-
-        // Mark the validator's task as completed
-        await db
-          .update(taskInstance)
-          .set({
-            status: "completed",
-            completedBy: user.id,
-            completedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(taskInstance.stepInstanceId, stepId),
-              eq(taskInstance.tenantId, user.tenantId),
-              eq(taskInstance.status, "pending")
-            )
-          );
-
-        await db
-          .update(processInstance)
-          .set({
-            status: WorkflowProcessStatus.DECLINED_RESUBMIT,
-            updatedAt: new Date(),
-          })
-          .where(eq(processInstance.id, step.processInstanceId));
-
-        // Re-create tasks for the step (for the uploader to re-upload)
-        const [proc] = await db
-          .select({ workflowTemplateId: processInstance.workflowTemplateId })
-          .from(processInstance)
-          .where(eq(processInstance.id, step.processInstanceId));
-        const workflowTemplateId = proc?.workflowTemplateId;
-
-        if (workflowTemplateId) {
-          const { workflowStepTemplate } = await import("@supplex/db");
-          const [stepTmpl] = await db
-            .select()
-            .from(workflowStepTemplate)
-            .where(
-              and(
-                eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
-                eq(workflowStepTemplate.tenantId, user.tenantId),
-                eq(workflowStepTemplate.stepOrder, step.stepOrder),
-                isNull(workflowStepTemplate.deletedAt)
-              )
-            );
-
-          if (stepTmpl) {
-            await createTasksForStep(
-              stepId,
-              stepTmpl.id,
-              step.processInstanceId,
-              user.tenantId
-            );
-          }
-        }
-
-        const declinedNames = decisions
-          .filter((d: any) => d.action === "decline")
-          .map((d: any) => d.requiredDocumentName);
-
-        logWorkflowEvent({
-          tenantId: user.tenantId,
-          processInstanceId: step.processInstanceId,
-          stepInstanceId: stepId,
-          eventType: WorkflowEventType.DOCUMENT_DECLINED,
-          eventDescription: `Validation declined - Step ${step.stepName} returned for revision (${declinedNames.length} document${declinedNames.length > 1 ? "s" : ""} declined)`,
-          actorUserId: user.id,
-          actorName: user.fullName,
-          actorRole: user.role,
-          metadata: { declinedDocuments: declinedNames },
+          return { authorized: true as const, engineResult };
         });
+
+        // ── Map structured results to HTTP responses ───────────────
+
+        if (!txResult.authorized) {
+          throw Errors.forbidden("Not authorized to review this step");
+        }
+
+        const { engineResult } = txResult;
+
+        if (!engineResult.success) {
+          if (engineResult.conflict) {
+            throw Errors.conflict(engineResult.error || "Step already processed");
+          }
+          throw Errors.badRequest(engineResult.error || "Failed to review documents");
+        }
+
+        if (engineResult.outcome === "all_approved") {
+          return {
+            success: true,
+            data: {
+              action: "all_approved",
+              approvedCount: engineResult.approvedCount,
+              stepCompleted: engineResult.allValidationsComplete ?? false,
+              nextStepActivated: engineResult.nextStepActivated ?? false,
+              processCompleted: engineResult.processCompleted ?? false,
+              ...(engineResult.remainingApprovals != null && {
+                remainingApprovals: engineResult.remainingApprovals,
+              }),
+            },
+          };
+        }
 
         return {
           success: true,
           data: {
             action: "declined",
-            declinedCount: declinedNames.length,
-            approvedCount: decisions.filter((d: any) => d.action === "approve").length,
+            declinedCount: engineResult.declinedCount,
+            approvedCount: engineResult.approvedCount,
           },
         };
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        // Post-mutation engine errors propagate here — tx already rolled back
+        requestLogger?.error?.({ err: error }, "document review failed");
+        throw Errors.internal("Failed to review documents");
       }
-
-      // All approved — mark step completed and transition
-
-      // Mark validator's tasks as completed
-      await db
-        .update(taskInstance)
-        .set({
-          status: "completed",
-          completedBy: user.id,
-          completedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(taskInstance.stepInstanceId, stepId),
-            eq(taskInstance.tenantId, user.tenantId),
-            eq(taskInstance.status, "pending")
-          )
-        );
-
-      // Mark step as validated (documents reviewed and approved)
-      await db
-        .update(stepInstance)
-        .set({
-          status: "validated",
-          completedBy: user.id,
-          completedDate: new Date(),
-        })
-        .where(eq(stepInstance.id, stepId));
-
-      // Transition to next step
-      const transitionResult = await transitionToNextStep(
-        stepId,
-        step.processInstanceId,
-        user.tenantId,
-        db
-      );
-
-      logWorkflowEvent({
-        tenantId: user.tenantId,
-        processInstanceId: step.processInstanceId,
-        stepInstanceId: stepId,
-        eventType: WorkflowEventType.DOCUMENT_APPROVED,
-        eventDescription: `Validation approved - Step ${step.stepName} Approved (${decisions.length} document${decisions.length > 1 ? "s" : ""})`,
-        actorUserId: user.id,
-        actorName: user.fullName,
-        actorRole: user.role,
-      });
-
-      if (transitionResult.processCompleted) {
-        logWorkflowEvent({
-          tenantId: user.tenantId,
-          processInstanceId: step.processInstanceId,
-          eventType: WorkflowEventType.PROCESS_COMPLETED,
-          eventDescription: "Workflow completed",
-          actorUserId: user.id,
-          actorName: user.fullName,
-          actorRole: user.role,
-        });
-      } else if (transitionResult.nextStepActivated && transitionResult.nextStepId) {
-        const [nextStep] = await db
-          .select({ stepName: stepInstance.stepName })
-          .from(stepInstance)
-          .where(eq(stepInstance.id, transitionResult.nextStepId));
-        logWorkflowEvent({
-          tenantId: user.tenantId,
-          processInstanceId: step.processInstanceId,
-          stepInstanceId: transitionResult.nextStepId,
-          eventType: WorkflowEventType.STEP_ACTIVATED,
-          eventDescription: `Step - ${nextStep?.stepName ?? "Unknown"} Active`,
-          actorUserId: user.id,
-          actorName: "Supplex",
-          actorRole: "system",
-        });
-      }
-
-      return {
-        success: true,
-        data: {
-          action: "all_approved",
-          approvedCount: decisions.length,
-          stepCompleted: true,
-          nextStepActivated: transitionResult.nextStepActivated,
-          processCompleted: transitionResult.processCompleted,
-        },
-      };
     },
     {
       params: t.Object({

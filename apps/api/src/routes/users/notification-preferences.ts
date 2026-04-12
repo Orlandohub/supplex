@@ -4,6 +4,7 @@ import { userNotificationPreferences } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 import { EmailEventType } from "@supplex/types";
+import { Errors } from "../../lib/errors";
 
 /**
  * GET /api/users/me/notification-preferences
@@ -15,7 +16,7 @@ export const getNotificationPreferencesRoute = new Elysia({ prefix: "/users" })
   .use(authenticate)
   .get(
     "/me/notification-preferences",
-    async ({ user, set }: any) => {
+    async ({ user, set, requestLogger }: any) => {
       try {
         const userId = user.id as string;
         const tenantId = user.tenantId as string;
@@ -53,12 +54,11 @@ export const getNotificationPreferencesRoute = new Elysia({ prefix: "/users" })
           data: result,
         };
       } catch (error: any) {
-        console.error("Error fetching notification preferences:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        requestLogger.error(
+          { err: error },
+          "Error fetching notification preferences"
+        );
+        throw Errors.internal("Internal server error");
       }
     },
     {
@@ -87,7 +87,7 @@ export const updateNotificationPreferencesRoute = new Elysia({
   .use(authenticate)
   .put(
     "/me/notification-preferences",
-    async ({ body, user, set }: any) => {
+    async ({ body, user, set, requestLogger }: any) => {
       try {
         const userId = user.id as string;
         const tenantId = user.tenantId as string;
@@ -145,12 +145,11 @@ export const updateNotificationPreferencesRoute = new Elysia({
           };
         }
       } catch (error: any) {
-        console.error("Error updating notification preferences:", error);
-        set.status = 500;
-        return {
-          success: false,
-          error: "Internal server error",
-        };
+        requestLogger.error(
+          { err: error },
+          "Error updating notification preferences"
+        );
+        throw Errors.internal("Internal server error");
       }
     },
     {

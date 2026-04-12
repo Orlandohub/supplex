@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { documentTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { ApiError, Errors } from "../../lib/errors";
 
 /**
  * PUT /api/document-templates/:id
@@ -17,7 +18,7 @@ export const updateDocumentTemplateRoute = new Elysia()
   .use(requireAdmin)
   .put(
     "/:id",
-    async ({ params, body, user, set }: any) => {
+    async ({ params, body, user, set, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const templateId = params.id;
@@ -36,15 +37,7 @@ export const updateDocumentTemplateRoute = new Elysia()
           .limit(1);
 
         if (!existingTemplate) {
-          set.status = 404;
-          return {
-            success: false,
-            error: {
-              code: "NOT_FOUND",
-              message: "Document template not found",
-              timestamp: new Date().toISOString(),
-            },
-          };
+          throw Errors.notFound("Document template not found");
         }
 
         // If isDefault is being set to true, unset other default templates
@@ -91,17 +84,9 @@ export const updateDocumentTemplateRoute = new Elysia()
           data: updatedTemplate,
         };
       } catch (error: any) {
-        console.error("Error updating document template:", error);
-
-        set.status = 500;
-        return {
-          success: false,
-          error: {
-            code: "INTERNAL_ERROR",
-            message: "Failed to update document template",
-            timestamp: new Date().toISOString(),
-          },
-        };
+        if (error instanceof ApiError) throw error;
+        requestLogger.error({ err: error }, "Document template update failed");
+        throw Errors.internal("Failed to update document template");
       }
     },
     {
