@@ -1,5 +1,7 @@
 # Database Migrations
 
+Use this note alongside [`../../../docs/deployment.md`](../../../docs/deployment.md) and [`../../../docs/README.md`](../../../docs/README.md). This file documents a local migration numbering exception, not the full migration workflow.
+
 ## Migration Numbering
 
 Migrations use sequential numeric prefixes (`0000_`, `0001_`, ...).

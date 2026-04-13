@@ -1,26 +1,53 @@
-# Role-Based Access Control (RBAC) - Frontend Guide
+# Frontend RBAC Guide
 
-This directory contains all frontend utilities for implementing role-based access control in the Supplex application.
+This directory contains the frontend role and permission helpers used by the Supplex web app.
 
-## Available Roles
+Use this guide for local RBAC usage patterns. Use the shared docs for broader contributor guidance:
 
-```typescript
-enum UserRole {
-  ADMIN = "admin",
-  PROCUREMENT_MANAGER = "procurement_manager",
-  QUALITY_MANAGER = "quality_manager",
-  VIEWER = "viewer",
+- [`../../../../../docs/README.md`](../../../../../docs/README.md)
+- [`../../../../../docs/standards.md`](../../../../../docs/standards.md)
+- [`../../../../../docs/frontend.md`](../../../../../docs/frontend.md)
+
+## Roles In Use
+
+Current roles from `@supplex/types`:
+
+- `admin`
+- `procurement_manager`
+- `quality_manager`
+- `viewer`
+- `supplier_user`
+
+## Preferred Pattern
+
+For route-rendered UI, prefer SSR-first permissions from the parent `_app` loader instead of relying only on client hooks. That avoids flash of unauthorized content and keeps route-level access decisions aligned with the server response.
+
+Use the hook for client-only behavior such as dialogs, event handlers, or progressively migrated components.
+
+## Reading Permissions In Route UI
+
+```tsx
+import { useRouteLoaderData } from "@remix-run/react";
+import type { AppLoaderData } from "~/routes/_app";
+
+function SupplierActions() {
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions;
+
+  return (
+    <>
+      {permissions?.canEditSuppliers && <EditSupplierButton />}
+    </>
+  );
 }
 ```
 
-## Quick Start
+## Using `usePermissions()`
 
-### 1. Using the `usePermissions` Hook
-
-The easiest way to check permissions in your components:
+For client-side permission checks:
 
 ```tsx
-import { usePermissions } from '~/hooks/usePermissions';
+import { usePermissions } from "~/hooks/usePermissions";
 
 function MyComponent() {
   const permissions = usePermissions();
@@ -35,30 +62,42 @@ function MyComponent() {
 }
 ```
 
-### 2. Using the `RoleGuard` Component
+The hook currently exposes these flags:
 
-For conditional rendering based on roles:
+- `canManageUsers`
+- `canViewSuppliers`
+- `canCreateSuppliers`
+- `canEditSupplier`
+- `canDeleteSuppliers`
+- `canUploadDocument`
+- `canDeleteDocument`
+- `canCreateEvaluations`
+- `canManageCapa`
+- `canViewAnalytics`
+- `canAccessSettings`
+- `isAdmin`
+- `isViewer`
+- `isSupplierUser`
+
+## Using `RoleGuard`
+
+For explicit role-gated rendering:
 
 ```tsx
-import { RoleGuard, AdminOnly, NonViewerOnly } from '~/lib/rbac/RoleGuard';
-import { UserRole } from '@supplex/types';
+import { RoleGuard, AdminOnly, NonViewerOnly } from "~/lib/rbac/RoleGuard";
+import { UserRole } from "@supplex/types";
 
 function SupplierPage() {
   return (
     <>
-      <h1>Supplier Details</h1>
-      
-      {/* Only admins and procurement managers can edit */}
       <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]}>
         <EditSupplierButton />
       </RoleGuard>
 
-      {/* Admin only shorthand */}
       <AdminOnly>
         <DeleteSupplierButton />
       </AdminOnly>
 
-      {/* Everyone except viewers */}
       <NonViewerOnly>
         <CreateButton />
       </NonViewerOnly>
@@ -67,211 +106,31 @@ function SupplierPage() {
 }
 ```
 
-### 3. Protecting Routes
+## Protecting Routes
 
-Route protection is handled server-side via Remix loaders. The `_app.tsx` layout
-loader calls `requireAuthSecure()` which validates the session and fetches the
-`userRecord`. Child loaders use `requireAuth()` (fast, local JWT parse). For
-role-based restrictions, use `requireRole()` from `~/lib/auth/require-auth`:
+Route protection is handled server-side in Remix loaders.
+
+- Use `requireAuthSecure()` once in the root `_app.tsx` loader
+- Use `requireAuth()` in child loaders when authentication is required
+- Use `requireRole()` for role-restricted routes
 
 ```tsx
-import { requireRole } from '~/lib/auth/require-auth';
-import { UserRole } from '@supplex/types';
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { requireRole } from "~/lib/auth/require-auth";
+import { UserRole } from "@supplex/types";
 
 export async function loader(args: LoaderFunctionArgs) {
-  const { user, userRecord } = await requireRole(args.request, UserRole.ADMIN);
-  // ... admin-only loader logic
+  const { userRecord } = await requireRole(args.request, UserRole.ADMIN);
+  return { email: userRecord.email };
 }
 ```
 
-### 4. Role-Based Navigation
+## Source Of Truth
 
-Use the permissions to filter navigation items:
+For the current permission behavior, prefer the live code over duplicated tables:
 
-```tsx
-import { usePermissions } from '~/hooks/usePermissions';
-
-function Navigation() {
-  const permissions = usePermissions();
-
-  const navItems = [
-    { name: 'Dashboard', href: '/', show: true },
-    { name: 'Suppliers', href: '/suppliers', show: true },
-    { name: 'Settings', href: '/settings', show: permissions.canAccessSettings },
-  ].filter(item => item.show);
-
-  return (
-    <nav>
-      {navItems.map(item => (
-        <Link key={item.href} to={item.href}>{item.name}</Link>
-      ))}
-    </nav>
-  );
-}
-```
-
-## Available Permission Checks
-
-The `usePermissions()` hook returns an object with these boolean flags:
-
-```typescript
-interface Permissions {
-  // User Management
-  canManageUsers: boolean;           // Admin only
-  
-  // Supplier Management
-  canViewSuppliers: boolean;         // All authenticated users
-  canCreateSuppliers: boolean;       // Admin, Procurement Manager
-  canEditSupplier: boolean;          // Admin, Procurement Manager
-  canDeleteSuppliers: boolean;       // Admin, Procurement Manager
-  
-  // Document Management
-  canUploadDocuments: boolean;       // Admin, Procurement Manager, Quality Manager
-  
-  // Evaluation Management
-  canCreateEvaluations: boolean;     // Admin, Quality Manager
-  
-  // CAPA Management
-  canManageCapa: boolean;            // Admin, Quality Manager
-  
-  // Analytics
-  canViewAnalytics: boolean;         // All authenticated users
-  
-  // Settings
-  canAccessSettings: boolean;        // Admin only
-  
-  // Role Checks
-  isAdmin: boolean;
-  isViewer: boolean;
-}
-```
-
-## Direct Permission Functions
-
-If you need to check permissions outside of React components:
-
-```typescript
-import { 
-  canManageUsers, 
-  canEditSupplier, 
-  isAdmin 
-} from '~/lib/rbac/permissions';
-import { UserRole } from '@supplex/types';
-
-const user = { role: UserRole.ADMIN, /* ... */ };
-
-if (canManageUsers(user)) {
-  // Do admin stuff
-}
-
-if (canEditSupplier(user)) {
-  // Allow editing
-}
-```
-
-## Permission Matrix
-
-| Action | Admin | Procurement Manager | Quality Manager | Viewer |
-|--------|-------|-------------------|-----------------|--------|
-| Manage Users | ✅ | ❌ | ❌ | ❌ |
-| Edit Suppliers | ✅ | ✅ | ❌ | ❌ |
-| Create Evaluations | ✅ | ❌ | ✅ | ❌ |
-| Manage CAPA | ✅ | ❌ | ✅ | ❌ |
-| Upload Documents | ✅ | ✅ | ✅ | ❌ |
-| View Analytics | ✅ | ✅ | ✅ | ✅ |
-| Access Settings | ✅ | ❌ | ❌ | ❌ |
-
-## Best Practices
-
-1. **Always check permissions on both frontend AND backend** - Frontend checks are for UX only
-2. **Use the `usePermissions` hook** - It's the most maintainable approach
-3. **Provide fallback UI** - Show helpful messages when users lack permissions
-4. **Test all role variations** - Ensure UI renders correctly for each role
-5. **Keep permission logic DRY** - Reuse permission functions across components
-
-## Examples
-
-### Hide Edit Button for Viewers
-
-```tsx
-function SupplierCard({ supplier }) {
-  const permissions = usePermissions();
-
-  return (
-    <div className="card">
-      <h3>{supplier.name}</h3>
-      {permissions.canEditSupplier && (
-        <button onClick={() => editSupplier(supplier)}>Edit</button>
-      )}
-    </div>
-  );
-}
-```
-
-### Different Actions Based on Role
-
-```tsx
-function EvaluationActions({ evaluation }) {
-  const permissions = usePermissions();
-
-  return (
-    <div>
-      {permissions.canCreateEvaluations && (
-        <button>Create Evaluation</button>
-      )}
-      {permissions.isAdmin && (
-        <button>Delete Evaluation</button>
-      )}
-      {permissions.isViewer && (
-        <p>You can only view evaluations</p>
-      )}
-    </div>
-  );
-}
-```
-
-### Conditional Form Fields
-
-```tsx
-function SupplierForm() {
-  const permissions = usePermissions();
-
-  return (
-    <form>
-      <input name="name" disabled={!permissions.canEditSupplier} />
-      <input name="email" disabled={!permissions.canEditSupplier} />
-      
-      {permissions.isAdmin && (
-        <select name="risk_level">
-          <option>Low</option>
-          <option>High</option>
-        </select>
-      )}
-      
-      {permissions.canEditSupplier ? (
-        <button type="submit">Save</button>
-      ) : (
-        <p className="text-gray-500">You don't have permission to edit</p>
-      )}
-    </form>
-  );
-}
-```
-
-## Troubleshooting
-
-**Q: Permission checks always return false**
-- Check that the user is authenticated
-- Verify the user's role is correctly set in the auth context
-- Check browser console for any errors
-
-**Q: UI shows edit button but API returns 403**
-- This is expected! Frontend checks are for UX only
-- Backend always validates permissions
-- Add better error handling in your API calls
-
-**Q: Role updates don't reflect immediately**
-- User may need to refresh their JWT token
-- Consider forcing a logout/login after role change
-- Or implement token refresh in the background
-
+- `apps/web/app/hooks/usePermissions.ts`
+- `apps/web/app/lib/rbac/permissions.ts`
+- `apps/web/app/lib/rbac/RoleGuard.tsx`
+- `packages/types/src/models/permissions.ts`
+- `packages/types/src/models/user.ts`

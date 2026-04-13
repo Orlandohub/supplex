@@ -92,13 +92,13 @@ describe("Form Submissions - Create Draft API", () => {
       expect(response.status).toBeOneOf([201, 500]);
     });
 
-    it("should return 400 for missing formTemplateVersionId", async () => {
+    it("should return 400 for missing formTemplateId", async () => {
       const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
         .use(createDraftRoute));
 
       const invalidData = { ...validDraftData };
-      delete (invalidData as any).formTemplateVersionId;
+      delete (invalidData as any).formTemplateId;
 
       const response = await app.handle(
         new Request("http://localhost/draft", {
@@ -113,14 +113,14 @@ describe("Form Submissions - Create Draft API", () => {
       expect(response.status).toBe(400);
     });
 
-    it("should return 400 for invalid formTemplateVersionId format", async () => {
+    it("should return 400 for invalid formTemplateId format", async () => {
       const app = withApiErrorHandler(new Elysia()
         .derive(() => ({ user: mockSupplierUser }))
         .use(createDraftRoute));
 
       const invalidData = {
         ...validDraftData,
-        formTemplateVersionId: "not-a-uuid",
+        formTemplateId: "not-a-uuid",
       };
 
       const response = await app.handle(

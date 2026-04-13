@@ -305,7 +305,7 @@ describe("Timeline API Error Handling", () => {
  * Timeline API Business Logic Tests
  * 
  * These tests validate timeline endpoint logic with mock data.
- * Full E2E integration tests are documented in docs/qa/integration-tests-story-2.10.md
+ * Complement with manual end-to-end timeline validation in the app before release.
  */
 describe("Timeline API Business Logic", () => {
   const now = new Date();
@@ -567,12 +567,9 @@ describe("Timeline API Business Logic", () => {
  * 
  * Total: 26 automated tests covering all AC requirements
  * 
- * Full E2E integration tests documented in:
- * - docs/qa/integration-tests-story-2.10.md (20 scenarios)
- * 
  * Production Validation Checklist:
  * - Run these tests: bun test apps/api/src/routes/workflows/__tests__/timeline.test.ts
- * - Execute E2E scenarios from integration test document
+ * - Execute manual end-to-end timeline scenarios in the UI
  * - Verify timeline displays correctly in UI
  * - Test with workflows containing 100+ events for performance
  * - Validate PDF export includes all timeline events

@@ -110,7 +110,7 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
 
         if (!field) {
           throw Errors.badRequest(
-            `Field ${answer.formFieldId} does not belong to this form template version`,
+            `Field ${answer.formFieldId} does not belong to this form template`,
             "INVALID_FIELD_ID"
           );
         }
@@ -128,7 +128,7 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
         }
       }
 
-      // Check if draft submission already exists for this user + version + process + step
+      // Check if draft submission already exists for this user + template + process + step
       const existingDraftQuery = db
         .select()
         .from(formSubmission)
