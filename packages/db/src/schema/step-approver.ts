@@ -11,7 +11,6 @@ import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { users } from "./users";
 import { workflowStepTemplate } from "./workflow-step-template";
-// import { workflowTemplateVersion } from "./workflow-template-version"; // REMOVED - Story 2.2.14
 
 /**
  * Approver Type Enum

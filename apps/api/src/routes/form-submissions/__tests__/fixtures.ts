@@ -29,8 +29,8 @@ export const mockProcurementUser: AuthContext["user"] = {
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
 };
 
-// Mock Form Template Version ID
-export const mockFormTemplateVersionId = "750e8400-e29b-41d4-a716-446655440000";
+// Mock Form Template ID
+export const mockFormTemplateId = "750e8400-e29b-41d4-a716-446655440000";
 
 // Mock Form Field IDs
 export const mockTextField1Id = "850e8400-e29b-41d4-a716-446655440001";
@@ -43,7 +43,7 @@ export const mockSubmissionId = "950e8400-e29b-41d4-a716-446655440000";
 
 // Valid Draft Data
 export const validDraftData = {
-  formTemplateVersionId: mockFormTemplateVersionId,
+  formTemplateId: mockFormTemplateId,
   processInstanceId: null,
   answers: [
     {
@@ -65,14 +65,14 @@ export const validDraftDataWithProcess = {
 
 // Draft Data with Empty Answers
 export const draftDataEmptyAnswers = {
-  formTemplateVersionId: mockFormTemplateVersionId,
+  formTemplateId: mockFormTemplateId,
   processInstanceId: null,
   answers: [],
 };
 
 // Draft Data with Invalid Field ID
 export const draftDataInvalidFieldId = {
-  formTemplateVersionId: mockFormTemplateVersionId,
+  formTemplateId: mockFormTemplateId,
   processInstanceId: null,
   answers: [
     {
@@ -84,7 +84,7 @@ export const draftDataInvalidFieldId = {
 
 // Draft Data with Invalid Number
 export const draftDataInvalidNumber = {
-  formTemplateVersionId: mockFormTemplateVersionId,
+  formTemplateId: mockFormTemplateId,
   processInstanceId: null,
   answers: [
     {

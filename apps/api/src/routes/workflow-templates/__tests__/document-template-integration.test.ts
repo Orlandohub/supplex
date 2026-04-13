@@ -10,7 +10,6 @@ import { db } from "../../../lib/db";
 import {
   documentTemplate,
   workflowTemplate,
-  workflowTemplateVersion,
   workflowStepTemplate,
   tenants,
   users,
@@ -24,7 +23,6 @@ describe("Document Template Integration Tests", () => {
   let testTenantId: string;
   let testTemplateId: string;
   let workflowTemplateId: string;
-  let workflowVersionId: string;
   let workflowStepId: string;
 
   beforeAll(async () => {
@@ -93,9 +91,6 @@ describe("Document Template Integration Tests", () => {
     if (workflowStepId) {
       await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, workflowStepId));
     }
-    if (workflowVersionId) {
-      await db.delete(workflowTemplateVersion).where(eq(workflowTemplateVersion.id, workflowVersionId));
-    }
     if (workflowTemplateId) {
       await db.delete(workflowTemplate).where(eq(workflowTemplate.id, workflowTemplateId));
     }
@@ -119,24 +114,11 @@ describe("Document Template Integration Tests", () => {
       .returning();
     workflowTemplateId = wfTemplate.id;
 
-    // Create workflow version
-    const [version] = await db
-      .insert(workflowTemplateVersion)
-      .values({
-        workflowTemplateId: workflowTemplateId,
-        tenantId: testTenantId,
-        version: 1,
-        status: "draft",
-        createdBy: adminUserId,
-      })
-      .returning();
-    workflowVersionId = version.id;
-
     // Create workflow step with document template
     const [step] = await db
       .insert(workflowStepTemplate)
       .values({
-        workflowTemplateVersionId: workflowVersionId,
+        workflowTemplateId,
         tenantId: testTenantId,
         stepOrder: 1,
         name: "Document Upload Step",
@@ -161,7 +143,7 @@ describe("Document Template Integration Tests", () => {
 
     try {
       await db.insert(workflowStepTemplate).values({
-        workflowTemplateVersionId: workflowVersionId,
+        workflowTemplateId,
         tenantId: testTenantId,
         stepOrder: 2,
         name: "Invalid Document Step",
@@ -247,7 +229,7 @@ describe("Document Template Integration Tests", () => {
     let _errorOccurred = false;
     try {
       await db.insert(workflowStepTemplate).values({
-        workflowTemplateVersionId: workflowVersionId, // Our tenant's workflow
+        workflowTemplateId, // Our tenant's workflow
         tenantId: testTenantId,
         stepOrder: 3,
         name: "Cross-Tenant Document Step",

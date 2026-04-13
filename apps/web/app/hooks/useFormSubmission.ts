@@ -2,7 +2,6 @@
  * useFormSubmission Hook
  * Manages form submission state and API calls for draft saving and form submission
  * Story: 2.2.4 - Form Runtime Execution with Save Draft
- * Updated: Story 2.2.14 - Changed formTemplateVersionId to formTemplateId
  */
 
 import { useState } from "react";

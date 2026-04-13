@@ -4,9 +4,9 @@ A modern, cloud-native supplier management platform built for pharmaceutical and
 
 ## 📊 Status
 
-[![CI](https://github.com/supplex/supplex/actions/workflows/ci.yml/badge.svg)](https://github.com/supplex/supplex/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/supplex/supplex/branch/main/graph/badge.svg)](https://codecov.io/gh/supplex/supplex)
-[![Deployment](https://img.shields.io/badge/deployment-active-success)](https://github.com/supplex/supplex/deployments)
+[![CI](https://github.com/Orlandohub/supplex/actions/workflows/ci.yml/badge.svg)](https://github.com/Orlandohub/supplex/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Orlandohub/supplex/branch/main/graph/badge.svg)](https://codecov.io/gh/Orlandohub/supplex)
+[![Deployment](https://img.shields.io/badge/deployment-active-success)](https://github.com/Orlandohub/supplex/deployments)
 
 **Deployments:**
 - 🌐 Frontend: [supplex.vercel.app](https://supplex.vercel.app) 
@@ -16,50 +16,26 @@ A modern, cloud-native supplier management platform built for pharmaceutical and
 ## 🚀 Quick Start
 
 ```bash
-# Install all dependencies
 pnpm install
-
-# Start development servers
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
-
-# Windows users: If you get "bun not recognized" error after installing Bun:
-# Option 1: Use the wrapper script
-.\dev.ps1
-
-# Option 2: Restart your terminal/IDE (recommended)
 ```
 
-**Access the application:**
+Open:
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:3001
-- API Health: http://localhost:3001/health
+- API Health: http://localhost:3001/api/health
 
-## 📋 Prerequisites
+Prerequisites:
+- Node.js 20+
+- pnpm 8.15+
+- Bun 1.1+
+- Supabase project for local configuration
 
-- **Node.js** >= 20.0.0
-- **pnpm** >= 8.15.0
-- **Bun** >= 1.1.0 (for backend API)
-- **PostgreSQL** (via Supabase)
-
-### Installing Prerequisites
-
-**pnpm:**
-```bash
-npm install -g pnpm@8.15.0
-```
-
-**Bun:**
-```bash
-# Windows
-powershell -c "irm bun.sh/install.ps1|iex"
-
-# macOS/Linux
-curl -fsSL https://bun.sh/install | bash
-```
-
-**Important for Windows users**: After installing Bun, you need to either:
-1. Restart your terminal/IDE (recommended), OR
-2. Use the included `dev.ps1` wrapper script
+Use `.\dev.ps1` on Windows if Bun is not available in the current shell yet.
 
 ## 📁 Project Structure
 
@@ -79,193 +55,55 @@ supplex/
 └── dev.bat           # Windows CMD development launcher
 ```
 
-## 🛠️ Tech Stack
+## 🛠️ Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | Remix + React + TypeScript | SSR web application |
-| **Backend** | Bun + ElysiaJS + TypeScript | High-performance REST API |
-| **Database** | PostgreSQL + Supabase | Managed database with RLS |
-| **ORM** | Drizzle | Type-safe database queries |
-| **Styling** | Tailwind CSS + shadcn/ui | Utility-first CSS + components |
-| **Auth** | Supabase Auth | Email/password + OAuth |
-| **State** | Zustand | Lightweight state management |
-| **Forms** | React Hook Form + Zod | Form handling + validation |
-| **Testing** | Vitest + Playwright | Unit + E2E testing |
-| **Package Manager** | pnpm workspaces | Monorepo management |
+Supplex is a pnpm monorepo with:
+- `apps/web` for the Remix + React frontend
+- `apps/api` for the Bun + Elysia API
+- `packages/db` for Drizzle schema and migrations
+- `packages/types`, `packages/ui`, and `packages/config` for shared types, UI surface, and tooling
 
-See [docs/architecture/tech-stack.md](./docs/architecture/tech-stack.md) for detailed rationale.
+For enforced implementation standards, architecture decisions, and current stack expectations, start in [`docs/README.md`](./docs/README.md).
 
-## 📦 Available Scripts
+## 🏁 Local Setup
 
-### Root Level
-
-```bash
-pnpm dev              # Start all dev servers
-pnpm build            # Build all packages
-pnpm test             # Run all tests
-pnpm lint             # Lint all packages
-pnpm type-check       # TypeScript checks
-pnpm format           # Format code with Prettier
-
-# Database
-pnpm db:generate      # Generate migrations
-pnpm db:migrate       # Run migrations
-pnpm db:push          # Push schema changes
-pnpm db:studio        # Open Drizzle Studio
-pnpm db:seed          # Seed database
-```
-
-### Package Specific
-
-```bash
-# Backend API
-cd apps/api
-bun run dev           # Start API server
-bun test              # Run API tests
-bun run build         # Build for production
-
-# Frontend
-cd apps/web
-pnpm dev              # Start Remix dev server
-pnpm test             # Run frontend tests
-pnpm build            # Build for production
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Copy the example files and configure:
-
-```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-```
-
-See [SETUP.md](./SETUP.md) for detailed configuration instructions.
-
-### Key Environment Variables
-
-**Backend (`apps/api/.env`):**
-- `PORT` - API server port (default: 3001)
-- `SUPABASE_URL` - Your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` - Service role key
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - JWT signing secret (min 32 chars)
-- `CORS_ORIGIN` - Frontend URL (default: http://localhost:5173)
-
-**Frontend (`apps/web/.env`):**
-- `SUPABASE_URL` - Your Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anon/public key
-- `SESSION_SECRET` - Remix session secret
+Use these docs instead of repeating the full setup guide here:
+- [`docs/deployment.md`](./docs/deployment.md) for environment, release, and migration guidance
+- [`apps/web/README.md`](./apps/web/README.md) for frontend environment behavior
+- [`apps/api/README.md`](./apps/api/README.md) for backend setup and API details
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
 pnpm test
-
-# Run tests in watch mode
-pnpm --filter @supplex/api test:watch
-pnpm --filter @supplex/web test:watch
-
-# Run E2E tests
-pnpm playwright test
-
-# Run with coverage
-pnpm --filter @supplex/api test:coverage
+pnpm lint
+pnpm type-check
 ```
+
+Browser-level coverage lives in `tests/e2e/` and `apps/web/tests/e2e/`.
 
 ## 🏗️ Development Workflow
 
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make changes and test**
-   ```bash
-   pnpm dev          # Start servers
-   pnpm test         # Run tests
-   pnpm lint         # Check code style
-   ```
-
-3. **Commit your changes**
-   ```bash
-   git add .
-   git commit -m "feat: your feature description"
-   ```
-   
-   Pre-commit hooks will automatically:
-   - Run ESLint and auto-fix issues
-   - Format code with Prettier
-   - Run TypeScript checks
-
-4. **Push and create PR**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+1. Create a feature branch.
+2. Run `pnpm dev` while developing.
+3. Verify changes with `pnpm test`, `pnpm lint`, and `pnpm type-check`, then run any relevant browser coverage from `tests/e2e/` or `apps/web/tests/e2e/`.
+4. Follow the standards and architecture docs before opening a PR.
 
 ## 📚 Documentation
 
-- **[SETUP.md](./SETUP.md)** - Detailed setup instructions
-- **[docs/architecture/](./docs/architecture/)** - Architecture documentation
-- **[docs/prd/](./docs/prd/)** - Product requirements
-- **[docs/stories/](./docs/stories/)** - User stories & tasks
-- **[apps/api/README.md](./apps/api/README.md)** - Backend API documentation
-
-### Key Documents
-
-- [Coding Standards](./docs/architecture/coding-standards.md)
-- [Tech Stack Rationale](./docs/architecture/tech-stack.md)
-- [Database Schema](./docs/architecture/database-schema.md)
-- [API Specification](./docs/architecture/api-specification.md)
-- [Testing Strategy](./docs/architecture/testing-strategy.md)
-
-## 🐛 Troubleshooting
-
-### "bun not recognized" Error (Windows)
-
-After installing Bun, you must either:
-1. **Restart your terminal/IDE** (recommended)
-2. **Use the wrapper script**: `.\dev.ps1`
-
-### Port Already in Use
-
-```bash
-# Windows
-netstat -ano | findstr :3001
-taskkill /PID <PID> /F
-
-# macOS/Linux
-lsof -ti:3001 | xargs kill -9
-```
-
-### TypeScript Errors
-
-```bash
-# Rebuild types package
-pnpm --filter @supplex/types build
-
-# Restart TypeScript server in your IDE
-```
-
-### Database Connection Issues
-
-1. Verify Supabase project is running
-2. Check `DATABASE_URL` in `apps/api/.env`
-3. Ensure IP is whitelisted in Supabase (or disable restrictions for development)
-
-### Frontend Not Loading
-
-1. Check that port 5173 is not in use
-2. Verify `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set in `apps/web/.env`
-3. Clear Vite cache: `rm -rf apps/web/node_modules/.vite`
+Start with [`docs/README.md`](./docs/README.md), then jump to the area you need:
+- [`docs/architecture.md`](./docs/architecture.md) for system structure and boundaries
+- [`docs/standards.md`](./docs/standards.md) for implementation rules and conventions
+- [`docs/frontend.md`](./docs/frontend.md) for UI and interaction guidance
+- [`docs/deployment.md`](./docs/deployment.md) for environment, release, and migration guidance
+- [`docs/troubleshooting.md`](./docs/troubleshooting.md) for known issues and operational fixes
+- [`docs/adr-guidelines.md`](./docs/adr-guidelines.md) and [`docs/adr/`](./docs/adr) for durable architecture decisions
+- [`apps/api/README.md`](./apps/api/README.md) for backend-specific details
+- [`apps/web/README.md`](./apps/web/README.md) for frontend-specific setup
 
 ## 🤝 Contributing
 
-1. Follow the [Coding Standards](./docs/architecture/coding-standards.md)
+1. Follow the [Standards](./docs/standards.md)
 2. Write tests for new features
 3. Ensure all tests pass: `pnpm test`
 4. Ensure no linting errors: `pnpm lint`
@@ -277,9 +115,9 @@ Private - Supplex Platform
 
 ## 🆘 Getting Help
 
-- Check [SETUP.md](./SETUP.md) for setup issues
-- Review [docs/architecture/](./docs/architecture/) for technical details
-- Check individual package READMEs for specific issues
+- Start in [`docs/README.md`](./docs/README.md)
+- Use the app-specific READMEs for frontend or backend setup questions
+- Treat `packages/db/src/schema/` as the database schema source of truth
 
 ---
 

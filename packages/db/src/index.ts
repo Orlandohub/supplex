@@ -76,7 +76,6 @@ export {
   formTemplateStatusEnum,
   FormTemplateStatus,
 } from "./schema/form-template";
-// export { formTemplateVersion } from "./schema/form-template-version"; // REMOVED - Story 2.2.14
 export { formSection } from "./schema/form-section";
 export { formField, fieldTypeEnum, FieldType } from "./schema/form-field";
 export {
@@ -94,7 +93,6 @@ export {
 export {
   workflowTemplate,
 } from "./schema/workflow-template";
-// export { workflowTemplateVersion } from "./schema/workflow-template-version"; // REMOVED - Story 2.2.14
 export {
   workflowStepTemplate,
   stepTypeEnum,
