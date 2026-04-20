@@ -27,7 +27,7 @@ Use the hook for client-only behavior such as dialogs, event handlers, or progre
 ## Reading Permissions In Route UI
 
 ```tsx
-import { useRouteLoaderData } from "@remix-run/react";
+import { useRouteLoaderData } from "react-router";
 import type { AppLoaderData } from "~/routes/_app";
 
 function SupplierActions() {
@@ -108,14 +108,14 @@ function SupplierPage() {
 
 ## Protecting Routes
 
-Route protection is handled server-side in Remix loaders.
+Route protection is handled server-side in React Router loaders.
 
 - Use `requireAuthSecure()` once in the root `_app.tsx` loader
 - Use `requireAuth()` in child loaders when authentication is required
 - Use `requireRole()` for role-restricted routes
 
 ```tsx
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "react-router";
 import { requireRole } from "~/lib/auth/require-auth";
 import { UserRole } from "@supplex/types";
 

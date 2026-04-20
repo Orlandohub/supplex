@@ -1,16 +1,13 @@
 /**
  * Workflow Processes List Page
  * Story: 2.2.8 - Workflow Execution Engine
- * 
+ *
  * Displays list of all workflow process instances
  */
 
-import type {
-  LoaderFunctionArgs,
-  MetaFunction,
-} from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data as json } from "react-router";
+import { useLoaderData, Link } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { WorkflowProcessList } from "~/components/workflow-engine/WorkflowProcessList";
@@ -46,10 +43,9 @@ export async function loader(args: LoaderFunctionArgs) {
     if (response.error) {
       const status = response.status || 500;
       console.error("Processes API Error:", response.error);
-      throw new Response(
-        response.error.message || "Failed to load processes",
-        { status }
-      );
+      throw new Response(response.error.message || "Failed to load processes", {
+        status,
+      });
     }
 
     const data = response.data;
@@ -99,4 +95,3 @@ export default function WorkflowProcessesIndex() {
     </div>
   );
 }
-

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Mobile Navigation Component
  * Bottom tab bar for mobile with "More" drawer
  * Uses SSR permissions from parent loader to prevent flash
  */
 
-import { Link, useLocation, useRouteLoaderData } from "@remix-run/react";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
 import { Home, Building2, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "~/lib/utils";
@@ -48,8 +48,8 @@ const moreNavItems: NavItem[] = [
 export function MobileNavigation() {
   const location = useLocation();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
-  
-  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+
+  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;
 
@@ -73,7 +73,8 @@ export function MobileNavigation() {
   // Filter navigation based on SERVER permissions (prevents flash)
   const visibleMoreItems = moreNavItems.filter((item) => {
     if (item.adminOnly && !permissions?.isAdmin) return false;
-    if (item.requiredPermissions && permissions) return permissions[item.requiredPermissions];
+    if (item.requiredPermissions && permissions)
+      return permissions[item.requiredPermissions];
     return true;
   });
 

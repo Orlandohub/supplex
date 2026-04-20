@@ -4,6 +4,8 @@
 
 Accepted — 2026-04-13
 
+> **Partially superseded by [ADR 0007: Adopt React Router v7 (Framework Mode) For The Web App](./0007-react-router-v7.md) (2026-04-19).** The "Remix" framework choice has been replaced by React Router v7 in Framework mode. The SSR web app + Elysia API split described below is unchanged and still authoritative.
+
 ## Context
 
 Supplex needs both a strong user-facing web experience and a backend that can own cross-cutting business logic, workflow execution, and operational capabilities. The system could have been built as a single app layer or as more isolated services, but the team needed a practical middle ground.

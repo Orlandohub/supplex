@@ -43,7 +43,7 @@ Use `.\dev.ps1` on Windows if Bun is not available in the current shell yet.
 supplex/
 ├── apps/
 │   ├── api/          # Backend API (Bun + ElysiaJS)
-│   └── web/          # Frontend (Remix + React)
+│   └── web/          # Frontend (React Router v7 + React)
 ├── packages/
 │   ├── config/       # Shared ESLint/Prettier configs
 │   ├── db/           # Database schema & migrations (Drizzle)
@@ -58,7 +58,7 @@ supplex/
 ## 🛠️ Stack
 
 Supplex is a pnpm monorepo with:
-- `apps/web` for the Remix + React frontend
+- `apps/web` for the React Router v7 (Framework mode) + React frontend
 - `apps/api` for the Bun + Elysia API
 - `packages/db` for Drizzle schema and migrations
 - `packages/types`, `packages/ui`, and `packages/config` for shared types, UI surface, and tooling

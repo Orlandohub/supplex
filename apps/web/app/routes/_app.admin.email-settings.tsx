@@ -3,9 +3,9 @@
  * Allows admins to manage tenant-wide email notification settings
  */
 
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, Form, useNavigation, useNavigate } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { data as json } from "react-router";
+import { useLoaderData, Form, useNavigation, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { requireAdmin } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -26,7 +26,7 @@ interface TenantEmailSettings {
 
 export async function loader(args: LoaderFunctionArgs) {
   const { request } = args;
-  const { session, userRecord } = await requireAdmin(request);
+  const { session, userRecord: _userRecord } = await requireAdmin(request);
 
   try {
     const token = session?.access_token;
@@ -67,7 +67,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
 export async function action(args: ActionFunctionArgs) {
   const { request } = args;
-  const { session, userRecord } = await requireAdmin(request);
+  const { session, userRecord: _userRecord } = await requireAdmin(request);
 
   try {
     const formData = await request.formData();
@@ -223,7 +223,11 @@ export default function AdminEmailSettingsPage() {
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-3xl mx-auto">
         <div className="mb-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/settings")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Settings
           </Button>
@@ -271,7 +275,7 @@ export default function AdminEmailSettingsPage() {
 
             <div className="mt-6 pt-6 border-t border-gray-200">
               <p className="text-xs text-gray-500">
-                ⚠️ <strong>Note:</strong> Disabling a notification type will
+                <strong>Note:</strong> Disabling a notification type will
                 prevent <strong>all users</strong> in your organization from
                 receiving those emails, regardless of their individual
                 preferences.

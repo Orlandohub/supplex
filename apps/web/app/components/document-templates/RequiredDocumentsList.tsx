@@ -8,17 +8,26 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Checkbox } from "~/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Label } from "~/components/ui/label";
 import { X, Plus } from "lucide-react";
-import type { RequiredDocumentItem, RequiredDocumentType } from "@supplex/types";
+import type { RequiredDocumentItem } from "@supplex/types";
 
 interface RequiredDocumentsListProps {
   documents: RequiredDocumentItem[];
   onChange: (documents: RequiredDocumentItem[]) => void;
 }
 
-export function RequiredDocumentsList({ documents, onChange }: RequiredDocumentsListProps) {
+export function RequiredDocumentsList({
+  documents,
+  onChange,
+}: RequiredDocumentsListProps) {
   const addDocument = () => {
     onChange([
       ...documents,
@@ -35,7 +44,11 @@ export function RequiredDocumentsList({ documents, onChange }: RequiredDocuments
     onChange(documents.filter((_, i) => i !== index));
   };
 
-  const updateDocument = (index: number, field: keyof RequiredDocumentItem, value: any) => {
+  const updateDocument = (
+    index: number,
+    field: keyof RequiredDocumentItem,
+    value: any
+  ) => {
     const updated = documents.map((doc, i) => {
       if (i === index) {
         return { ...doc, [field]: value };
@@ -57,7 +70,8 @@ export function RequiredDocumentsList({ documents, onChange }: RequiredDocuments
 
       {documents.length === 0 && (
         <p className="text-sm text-muted-foreground py-4 text-center border-2 border-dashed rounded-lg">
-          No documents added yet. Click "Add Document" to get started.
+          No documents added yet. Click &ldquo;Add Document&rdquo; to get
+          started.
         </p>
       )}
 
@@ -88,7 +102,9 @@ export function RequiredDocumentsList({ documents, onChange }: RequiredDocuments
             <Textarea
               id={`doc-description-${index}`}
               value={doc.description}
-              onChange={(e) => updateDocument(index, "description", e.target.value)}
+              onChange={(e) =>
+                updateDocument(index, "description", e.target.value)
+              }
               placeholder="e.g., Current ISO certification"
               rows={2}
             />
@@ -119,9 +135,14 @@ export function RequiredDocumentsList({ documents, onChange }: RequiredDocuments
                 <Checkbox
                   id={`doc-required-${index}`}
                   checked={doc.required}
-                  onCheckedChange={(checked) => updateDocument(index, "required", checked)}
+                  onCheckedChange={(checked) =>
+                    updateDocument(index, "required", checked)
+                  }
                 />
-                <Label htmlFor={`doc-required-${index}`} className="cursor-pointer">
+                <Label
+                  htmlFor={`doc-required-${index}`}
+                  className="cursor-pointer"
+                >
                   Required
                 </Label>
               </div>
@@ -132,4 +153,3 @@ export function RequiredDocumentsList({ documents, onChange }: RequiredDocuments
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+﻿import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useAuth } from "~/hooks/useAuth";
-import { useRouteLoaderData, useNavigate } from "@remix-run/react";
+import { useRouteLoaderData, useNavigate } from "react-router";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { User } from "@supplex/types";
@@ -45,7 +45,8 @@ export function AuthProvider({
 
   useEffect(() => {
     if (initialUser && initialSession) {
-      const serverUserRecord = (appData?.userRecord as User | undefined) ?? null;
+      const serverUserRecord =
+        (appData?.userRecord as User | undefined) ?? null;
       setAuth(initialUser, initialSession, serverUserRecord);
     }
 

@@ -1,11 +1,27 @@
-import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
+import {
+  data as json,
+  redirect,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "react-router";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+} from "react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
@@ -29,7 +45,7 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-type PasswordFormData = z.infer<typeof passwordSchema>;
+type _PasswordFormData = z.infer<typeof passwordSchema>;
 
 // Loader: Get token from URL and validate it exists
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -178,8 +194,8 @@ export default function AcceptInvitation() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">
-              Your account has been activated. You can now log in with your email
-              and password.
+              Your account has been activated. You can now log in with your
+              email and password.
             </p>
             <Button asChild className="w-full">
               <a href="/login">Go to Login</a>
@@ -205,15 +221,18 @@ export default function AcceptInvitation() {
             <input type="hidden" name="token" value={loaderData.token || ""} />
 
             {/* Error Alert */}
-            {actionData && !actionData.success && actionData.error !== "INVITATION_EXPIRED" && actionData.error !== "INVITATION_USED" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>
-                  {actionData.message || "Failed to set password"}
-                </AlertDescription>
-              </Alert>
-            )}
+            {actionData &&
+              !actionData.success &&
+              actionData.error !== "INVITATION_EXPIRED" &&
+              actionData.error !== "INVITATION_USED" && (
+                <Alert variant="destructive">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>
+                    {actionData.message || "Failed to set password"}
+                  </AlertDescription>
+                </Alert>
+              )}
 
             {/* Password Requirements */}
             <div className="rounded-md bg-blue-50 p-4">
@@ -286,12 +305,10 @@ export default function AcceptInvitation() {
             </div>
 
             {/* Submit Button */}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Setting Password..." : "Set Password & Activate Account"}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting
+                ? "Setting Password..."
+                : "Set Password & Activate Account"}
             </Button>
           </Form>
         </CardContent>
@@ -299,4 +316,3 @@ export default function AcceptInvitation() {
     </div>
   );
 }
-

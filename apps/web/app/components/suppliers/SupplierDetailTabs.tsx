@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams, useRouteLoaderData } from "@remix-run/react";
+﻿import { useState } from "react";
+import { useSearchParams, useRouteLoaderData } from "react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { SupplierOverview } from "./SupplierOverview";
@@ -11,7 +11,7 @@ import { InitiateWorkflowDialog } from "../workflows/InitiateWorkflowDialog";
 import type { AppLoaderData } from "~/routes/_app";
 import { Edit, Trash2, History, CheckCircle } from "lucide-react";
 import { SupplierFormsTab } from "./SupplierFormsTab";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { cn } from "~/lib/utils";
 import type {
   SupplierStatus,
@@ -114,12 +114,12 @@ export function SupplierDetailTabs({
   token,
 }: SupplierDetailTabsProps) {
   const [searchParams] = useSearchParams();
-  
-  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+
+  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;
   const _currentUser = appData?.user;
-  
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
@@ -131,7 +131,7 @@ export function SupplierDetailTabs({
   const handleTabChange = (value: string) => {
     // Update local state immediately (instant UI update)
     setActiveTab(value);
-    
+
     // Update URL without triggering navigation (for bookmarking)
     const url = new URL(window.location.href);
     url.searchParams.set("tab", value);
@@ -216,7 +216,11 @@ export function SupplierDetailTabs({
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-6">
-          <SupplierOverview supplier={supplier} supplierUser={supplierUser} token={token} />
+          <SupplierOverview
+            supplier={supplier}
+            supplierUser={supplierUser}
+            token={token}
+          />
         </TabsContent>
 
         {/* Documents Tab */}
@@ -243,7 +247,11 @@ export function SupplierDetailTabs({
 
         {/* Forms Tab (Story 2.2.16 - AC 26-30) */}
         <TabsContent value="forms" className="mt-6">
-          <SupplierFormsTab submissions={formSubmissions} supplierName={supplier.name} supplierId={supplier.id} />
+          <SupplierFormsTab
+            submissions={formSubmissions}
+            supplierName={supplier.name}
+            supplierId={supplier.id}
+          />
         </TabsContent>
 
         {/* History Tab - Placeholder */}

@@ -1,4 +1,4 @@
-import { useSearchParams } from "@remix-run/react";
+﻿import { useSearchParams } from "react-router";
 import { useState } from "react";
 import { SupplierStatus, SupplierCategory } from "@supplex/types";
 
@@ -23,7 +23,10 @@ const categoryOptions = [
   { value: SupplierCategory.LOGISTICS, label: "Logistics" },
 ];
 
-export function SupplierFilters({ activeStatus, activeCategory }: SupplierFiltersProps) {
+export function SupplierFilters({
+  activeStatus,
+  activeCategory,
+}: SupplierFiltersProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -35,7 +38,9 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
     if (currentStatus.includes(status)) {
       // Remove the status
       newParams.delete("status");
-      currentStatus.filter((s) => s !== status).forEach((s) => newParams.append("status", s));
+      currentStatus
+        .filter((s) => s !== status)
+        .forEach((s) => newParams.append("status", s));
     } else {
       // Add the status
       newParams.append("status", status);
@@ -53,7 +58,9 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
     if (currentCategory.includes(category)) {
       // Remove the category
       newParams.delete("category");
-      currentCategory.filter((c) => c !== category).forEach((c) => newParams.append("category", c));
+      currentCategory
+        .filter((c) => c !== category)
+        .forEach((c) => newParams.append("category", c));
     } else {
       // Add the category
       newParams.append("category", category);
@@ -75,7 +82,9 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
   const removeStatusFilter = (status: string) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.delete("status");
-    activeStatus.filter((s) => s !== status).forEach((s) => newParams.append("status", s));
+    activeStatus
+      .filter((s) => s !== status)
+      .forEach((s) => newParams.append("status", s));
     newParams.set("page", "1");
     setSearchParams(newParams, { replace: true });
   };
@@ -83,7 +92,9 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
   const removeCategoryFilter = (category: string) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.delete("category");
-    activeCategory.filter((c) => c !== category).forEach((c) => newParams.append("category", c));
+    activeCategory
+      .filter((c) => c !== category)
+      .forEach((c) => newParams.append("category", c));
     newParams.set("page", "1");
     setSearchParams(newParams, { replace: true });
   };
@@ -107,13 +118,24 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
                 {activeStatus.length}
               </span>
             )}
-            <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <svg
+              className="ml-2 h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
 
           {showStatusDropdown && (
             <>
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- dropdown backdrop; see SUP-8 for a proper <Popover> rewrite */}
               <div
                 className="fixed inset-0 z-10"
                 onClick={() => setShowStatusDropdown(false)}
@@ -130,8 +152,16 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
                     >
                       <span>{option.label}</span>
                       {activeStatus.includes(option.value) && (
-                        <svg className="h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <svg
+                          className="h-4 w-4 text-blue-600"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       )}
                     </button>
@@ -155,13 +185,24 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
                 {activeCategory.length}
               </span>
             )}
-            <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <svg
+              className="ml-2 h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
 
           {showCategoryDropdown && (
             <>
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- dropdown backdrop; see SUP-8 for a proper <Popover> rewrite */}
               <div
                 className="fixed inset-0 z-10"
                 onClick={() => setShowCategoryDropdown(false)}
@@ -178,8 +219,16 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
                     >
                       <span>{option.label}</span>
                       {activeCategory.includes(option.value) && (
-                        <svg className="h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <svg
+                          className="h-4 w-4 text-blue-600"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       )}
                     </button>
@@ -219,8 +268,16 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
                   className="ml-2 inline-flex items-center hover:text-blue-900"
                   aria-label={`Remove ${option?.label} filter`}
                 >
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
               </span>
@@ -240,8 +297,16 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
                   className="ml-2 inline-flex items-center hover:text-purple-900"
                   aria-label={`Remove ${option?.label} filter`}
                 >
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
               </span>
@@ -252,4 +317,3 @@ export function SupplierFilters({ activeStatus, activeCategory }: SupplierFilter
     </div>
   );
 }
-

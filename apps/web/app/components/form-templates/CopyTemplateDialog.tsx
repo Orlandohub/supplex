@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Copy Form Template Dialog
  * Story 2.2.14 - Copy template functionality
  */
 
 import { useState } from "react";
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -54,7 +54,7 @@ export function CopyFormTemplateDialog({
       const response = await fetch(`/api/form-templates/${templateId}/copy`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name: name.trim() }),
@@ -66,7 +66,7 @@ export function CopyFormTemplateDialog({
       }
 
       const data = await response.json();
-      
+
       toast({
         title: "Template Copied",
         description: `Created draft copy: "${name}"`,
@@ -77,7 +77,8 @@ export function CopyFormTemplateDialog({
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to copy template",
+        description:
+          error instanceof Error ? error.message : "Failed to copy template",
         variant: "destructive",
       });
     } finally {
@@ -91,8 +92,8 @@ export function CopyFormTemplateDialog({
         <DialogHeader>
           <DialogTitle>Copy Form Template</DialogTitle>
           <DialogDescription>
-            Create an editable copy of this form template as a new draft.
-            All sections, fields, and settings will be duplicated.
+            Create an editable copy of this form template as a new draft. All
+            sections, fields, and settings will be duplicated.
           </DialogDescription>
         </DialogHeader>
 

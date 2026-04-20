@@ -1,9 +1,9 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 
 // Validation schema
 const forgotPasswordSchema = z.object({
@@ -163,7 +163,7 @@ export function ForgotPasswordForm({
                 to="/login"
                 className="text-sm text-blue-600 hover:text-blue-500 font-medium"
               >
-                ← Back to sign in
+                â† Back to sign in
               </Link>
             </div>
           </div>
@@ -286,7 +286,7 @@ export function ForgotPasswordForm({
             to="/login"
             className="text-sm text-blue-600 hover:text-blue-500 font-medium"
           >
-            ← Back to sign in
+            â† Back to sign in
           </Link>
         </div>
       </form>

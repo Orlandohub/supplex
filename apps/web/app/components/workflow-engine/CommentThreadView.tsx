@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Comment Thread View Component
  * Story: 2.2.8 - Workflow Execution Engine
- * 
+ *
  * Displays and manages comment threads for workflow processes
  */
 
@@ -9,7 +9,7 @@ import { useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 
 interface CommentThread {
   id: string;
@@ -93,17 +93,23 @@ export function CommentThreadView({
   };
 
   // Group comments by step, then sort each group newest-first
-  const commentsByStep = comments.reduce((acc, comment) => {
-    const key = comment.stepInstanceId || "general";
-    if (!acc[key]) {
-      acc[key] = [];
-    }
-    acc[key].push(comment);
-    return acc;
-  }, {} as Record<string, CommentThread[]>);
+  const commentsByStep = comments.reduce(
+    (acc, comment) => {
+      const key = comment.stepInstanceId || "general";
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(comment);
+      return acc;
+    },
+    {} as Record<string, CommentThread[]>
+  );
 
   for (const group of Object.values(commentsByStep)) {
-    group.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    group.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   return (
@@ -111,7 +117,7 @@ export function CommentThreadView({
       {/* Add New Comment */}
       <Card className="p-6">
         <h3 className="font-semibold text-gray-900 mb-4">Add Comment</h3>
-        
+
         <textarea
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
@@ -159,7 +165,9 @@ export function CommentThreadView({
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {comment.commenterFullName || comment.commenterEmail || "Unknown User"}
+                        {comment.commenterFullName ||
+                          comment.commenterEmail ||
+                          "Unknown User"}
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(comment.createdAt).toLocaleString()}
@@ -178,4 +186,3 @@ export function CommentThreadView({
     </div>
   );
 }
-

@@ -2,9 +2,9 @@ import type {
   LoaderFunctionArgs,
   ActionFunctionArgs,
   MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useActionData, useNavigation } from "@remix-run/react";
+} from "react-router";
+import { data as json, redirect } from "react-router";
+import { useActionData, useNavigation } from "react-router";
 import { requireRole } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { UserRole } from "@supplex/types";
@@ -14,7 +14,7 @@ import { Button } from "~/components/ui/button";
 import { useState, useEffect } from "react";
 import { DuplicateWarningModal } from "~/components/suppliers/DuplicateWarningModal";
 import { InvitationLinkModal } from "~/components/suppliers/InvitationLinkModal";
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 
 export const meta: MetaFunction = () => {
   return [
@@ -86,7 +86,8 @@ export async function action(args: ActionFunctionArgs) {
   if (createPlatformAccess) {
     const contactName = formData.get("supplierContact.name") as string;
     const contactEmail = formData.get("supplierContact.email") as string;
-    const contactPhone = (formData.get("supplierContact.phone") as string) || undefined;
+    const contactPhone =
+      (formData.get("supplierContact.phone") as string) || undefined;
 
     if (contactName && contactEmail) {
       supplierData.supplierContact = {
@@ -236,7 +237,11 @@ export default function CreateSupplier() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="mb-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/suppliers")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/suppliers")}
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Suppliers
             </Button>
@@ -280,18 +285,20 @@ export default function CreateSupplier() {
       )}
 
       {/* Invitation Link Modal */}
-      {showInvitationModal && actionData?.success && actionData?.invitationToken && (
-        <InvitationLinkModal
-          isOpen={showInvitationModal}
-          onClose={() => {
-            setShowInvitationModal(false);
-            // Navigate to supplier detail page after closing modal
-            navigate(`/suppliers/${actionData.supplierId}?success=created`);
-          }}
-          invitationToken={actionData.invitationToken}
-          supplierUser={actionData.supplierUser}
-        />
-      )}
+      {showInvitationModal &&
+        actionData?.success &&
+        actionData?.invitationToken && (
+          <InvitationLinkModal
+            isOpen={showInvitationModal}
+            onClose={() => {
+              setShowInvitationModal(false);
+              // Navigate to supplier detail page after closing modal
+              navigate(`/suppliers/${actionData.supplierId}?success=created`);
+            }}
+            invitationToken={actionData.invitationToken}
+            supplierUser={actionData.supplierUser}
+          />
+        )}
     </div>
   );
 }

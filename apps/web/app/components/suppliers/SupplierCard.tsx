@@ -1,4 +1,4 @@
-import { Link } from "@remix-run/react";
+﻿import { Link } from "react-router";
 import type { Supplier, SupplierStatus } from "@supplex/types";
 import { StatusBadge } from "./StatusBadge";
 import { SupplierCategory } from "@supplex/types";

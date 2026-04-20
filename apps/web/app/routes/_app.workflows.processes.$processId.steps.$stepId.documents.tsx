@@ -10,17 +10,17 @@
  */
 
 import {
-  json,
+  data as json,
   redirect,
   type LoaderFunctionArgs,
   type MetaFunction,
-} from "@remix-run/node";
+} from "react-router";
 import {
   useLoaderData,
   useNavigate,
   isRouteErrorResponse,
   useRouteError,
-} from "@remix-run/react";
+} from "react-router";
 import { useState, useRef } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -39,9 +39,7 @@ import {
   Send,
 } from "lucide-react";
 
-export const meta: MetaFunction = () => [
-  { title: "Documents | Supplex" },
-];
+export const meta: MetaFunction = () => [{ title: "Documents | Supplex" }];
 
 interface ReviewerDecision {
   reviewerUserId: string;
@@ -159,7 +157,9 @@ export default function WorkflowStepDocumentsPage() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerMime, setViewerMime] = useState<string>("");
   const [viewerName, setViewerName] = useState<string>("");
-  const [decisions, setDecisions] = useState<Record<string, { action: "approve" | "decline"; comment?: string }>>({});
+  const [decisions, setDecisions] = useState<
+    Record<string, { action: "approve" | "decline"; comment?: string }>
+  >({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -180,7 +180,8 @@ export default function WorkflowStepDocumentsPage() {
   // has not yet decided in the current round (using reviewerDecisions from the API)
   const docsNeedingDecision = isValidationMode
     ? docs.filter((d) => {
-        if (!d.required && d.status === "pending" && !d.documentId) return false;
+        if (!d.required && d.status === "pending" && !d.documentId)
+          return false;
         const alreadyDecided = d.reviewerDecisions?.some(
           (rd) => rd.reviewerUserId === user.id
         );
@@ -334,7 +335,10 @@ export default function WorkflowStepDocumentsPage() {
   };
 
   const currentUserAlreadyDecided = (doc: StepDocument) => {
-    return doc.reviewerDecisions?.some((rd) => rd.reviewerUserId === user.id) ?? false;
+    return (
+      doc.reviewerDecisions?.some((rd) => rd.reviewerUserId === user.id) ??
+      false
+    );
   };
 
   return (
@@ -351,14 +355,17 @@ export default function WorkflowStepDocumentsPage() {
           Back to Workflow
         </Button>
         <h1 className="text-2xl font-bold text-gray-900">
-          {isValidationMode ? "Review Documents" : isReadOnly ? "Documents" : "Upload Documents"}
+          {isValidationMode
+            ? "Review Documents"
+            : isReadOnly
+              ? "Documents"
+              : "Upload Documents"}
         </h1>
-        <p className="text-gray-500 mt-1">
-          Step: {stepName}
-        </p>
+        <p className="text-gray-500 mt-1">Step: {stepName}</p>
         <div className="flex items-center gap-4 mt-2">
           <span className="text-sm text-gray-600">
-            {summary.uploaded + summary.approved}/{summary.total} documents ready
+            {summary.uploaded + summary.approved}/{summary.total} documents
+            ready
           </span>
           {summary.declined > 0 && (
             <Badge className="bg-red-100 text-red-800">
@@ -392,7 +399,10 @@ export default function WorkflowStepDocumentsPage() {
           const userDecided = currentUserAlreadyDecided(doc);
 
           return (
-            <Card key={doc.id} className={`p-4 ${doc.status === "declined" ? "border-red-300 bg-red-50/30" : ""}`}>
+            <Card
+              key={doc.id}
+              className={`p-4 ${doc.status === "declined" ? "border-red-300 bg-red-50/30" : ""}`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -401,7 +411,9 @@ export default function WorkflowStepDocumentsPage() {
                       {doc.requiredDocumentName}
                     </h3>
                     {doc.required && (
-                      <span className="text-xs text-red-500 font-medium">Required</span>
+                      <span className="text-xs text-red-500 font-medium">
+                        Required
+                      </span>
                     )}
                   </div>
                   {doc.description && (
@@ -412,7 +424,8 @@ export default function WorkflowStepDocumentsPage() {
                   {doc.filename && (
                     <p className="text-sm text-gray-600 mt-1 ml-7">
                       Uploaded: {doc.filename}
-                      {doc.fileSize && ` (${(doc.fileSize / 1024).toFixed(0)} KB)`}
+                      {doc.fileSize &&
+                        ` (${(doc.fileSize / 1024).toFixed(0)} KB)`}
                     </p>
                   )}
                   {doc.declineComment && (
@@ -438,84 +451,112 @@ export default function WorkflowStepDocumentsPage() {
                   )}
 
                   {/* Upload mode actions */}
-                  {!isValidationMode && !isReadOnly && (doc.status === "pending" || doc.status === "declined") && (
-                    <>
-                      <input
-                        type="file"
-                        ref={(el) => { fileInputRefs.current[doc.requiredDocumentName] = el; }}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleUpload(doc, file);
-                        }}
-                        accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx,.doc,.docx"
-                      />
-                      <Button
-                        size="sm"
-                        disabled={isUploading || submitting}
-                        onClick={() => fileInputRefs.current[doc.requiredDocumentName]?.click()}
-                      >
-                        {isUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Upload className="w-4 h-4 mr-1" />
-                            Upload
-                          </>
-                        )}
-                      </Button>
-                    </>
-                  )}
+                  {!isValidationMode &&
+                    !isReadOnly &&
+                    (doc.status === "pending" || doc.status === "declined") && (
+                      <>
+                        <input
+                          type="file"
+                          ref={(el) => {
+                            fileInputRefs.current[doc.requiredDocumentName] =
+                              el;
+                          }}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpload(doc, file);
+                          }}
+                          accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx,.doc,.docx"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={isUploading || submitting}
+                          onClick={() =>
+                            fileInputRefs.current[
+                              doc.requiredDocumentName
+                            ]?.click()
+                          }
+                        >
+                          {isUploading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-1" />
+                              Upload
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
 
                   {/* Re-upload for uploaded docs (replace) */}
-                  {!isValidationMode && !isReadOnly && doc.status === "uploaded" && (
-                    <>
-                      <input
-                        type="file"
-                        ref={(el) => { fileInputRefs.current[`replace_${doc.requiredDocumentName}`] = el; }}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleUpload(doc, file);
-                        }}
-                        accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx,.doc,.docx"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isUploading || submitting}
-                        onClick={() => fileInputRefs.current[`replace_${doc.requiredDocumentName}`]?.click()}
-                      >
-                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Replace"}
-                      </Button>
-                    </>
-                  )}
+                  {!isValidationMode &&
+                    !isReadOnly &&
+                    doc.status === "uploaded" && (
+                      <>
+                        <input
+                          type="file"
+                          ref={(el) => {
+                            fileInputRefs.current[
+                              `replace_${doc.requiredDocumentName}`
+                            ] = el;
+                          }}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpload(doc, file);
+                          }}
+                          accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx,.doc,.docx"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isUploading || submitting}
+                          onClick={() =>
+                            fileInputRefs.current[
+                              `replace_${doc.requiredDocumentName}`
+                            ]?.click()
+                          }
+                        >
+                          {isUploading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Replace"
+                          )}
+                        </Button>
+                      </>
+                    )}
                 </div>
               </div>
 
               {/* Per-reviewer decision badges */}
-              {isValidationMode && doc.reviewerDecisions && doc.reviewerDecisions.length > 0 && (
-                <div className="mt-2 ml-7 flex flex-wrap gap-2">
-                  {(doc.reviewerDecisions as ReviewerDecision[]).map((rd) => (
-                    <Badge
-                      key={rd.taskInstanceId}
-                      className={
-                        rd.decision === "approved"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }
-                    >
-                      {rd.reviewerName} ({rd.reviewerRole}): {rd.decision === "approved" ? "Approved" : "Declined"}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              {isValidationMode &&
+                doc.reviewerDecisions &&
+                doc.reviewerDecisions.length > 0 && (
+                  <div className="mt-2 ml-7 flex flex-wrap gap-2">
+                    {(doc.reviewerDecisions as ReviewerDecision[]).map((rd) => (
+                      <Badge
+                        key={rd.taskInstanceId}
+                        className={
+                          rd.decision === "approved"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }
+                      >
+                        {rd.reviewerName} ({rd.reviewerRole}):{" "}
+                        {rd.decision === "approved" ? "Approved" : "Declined"}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
 
               {/* Validation mode: per-document approve/decline */}
               {isValidationMode && !userDecided && (
                 <div className="mt-3 ml-7 pt-3 border-t">
                   {/* Non-required document that was not submitted */}
-                  {!doc.required && doc.status === "pending" && !doc.documentId ? (
+                  {!doc.required &&
+                  doc.status === "pending" &&
+                  !doc.documentId ? (
                     <p className="text-sm text-gray-500 italic">
                       Not mandatory document was not submitted.
                     </p>
@@ -543,7 +584,10 @@ export default function WorkflowStepDocumentsPage() {
                         onClick={() =>
                           setDecisions((prev) => ({
                             ...prev,
-                            [doc.requiredDocumentName]: { action: "decline", comment: "" },
+                            [doc.requiredDocumentName]: {
+                              action: "decline",
+                              comment: "",
+                            },
                           }))
                         }
                       >
@@ -553,7 +597,9 @@ export default function WorkflowStepDocumentsPage() {
                     </div>
                   ) : decision.action === "approve" ? (
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-green-100 text-green-800">Will approve</Badge>
+                      <Badge className="bg-green-100 text-green-800">
+                        Will approve
+                      </Badge>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -570,7 +616,9 @@ export default function WorkflowStepDocumentsPage() {
                   ) : (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-red-100 text-red-800">Will decline</Badge>
+                        <Badge className="bg-red-100 text-red-800">
+                          Will decline
+                        </Badge>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -653,7 +701,8 @@ export default function WorkflowStepDocumentsPage() {
               ) : (
                 <Send className="w-4 h-4 mr-2" />
               )}
-              Submit Review ({Object.keys(decisions).length}/{docsNeedingDecision.length})
+              Submit Review ({Object.keys(decisions).length}/
+              {docsNeedingDecision.length})
             </Button>
           )}
         </div>

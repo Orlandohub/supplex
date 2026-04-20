@@ -1,11 +1,11 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data as json } from "react-router";
 import {
   useLoaderData,
   useNavigation,
   Link,
   useSearchParams,
-} from "@remix-run/react";
+} from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { Button } from "~/components/ui/button";
@@ -49,7 +49,10 @@ interface Counts {
 
 export const meta: MetaFunction = () => [
   { title: "My Tasks | Supplex" },
-  { name: "description", content: "Review and complete workflow tasks assigned to you." },
+  {
+    name: "description",
+    content: "Review and complete workflow tasks assigned to you.",
+  },
 ];
 
 /* ===== Loader ===== */
@@ -81,7 +84,8 @@ export async function loader(args: LoaderFunctionArgs) {
     }
 
     const data = response.data as any;
-    if (!data?.success || !data.data) throw new Response("Invalid API response", { status: 500 });
+    if (!data?.success || !data.data)
+      throw new Response("Invalid API response", { status: 500 });
 
     return json({
       tasks: data.data.tasks as TaskItem[],
@@ -122,12 +126,17 @@ function prettifyType(type: string): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function dueUrgency(task: TaskItem): { primary: string; secondary: string; tone: "red" | "amber" | "gray" | "muted" } {
+function dueUrgency(task: TaskItem): {
+  primary: string;
+  secondary: string;
+  tone: "red" | "amber" | "gray" | "muted";
+} {
   if (task.taskStatus === "completed") {
     if (task.completedAt) {
       const diff = Date.now() - new Date(task.completedAt).getTime();
       const days = Math.floor(diff / 86_400_000);
-      const label = days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days}d ago`;
+      const label =
+        days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days}d ago`;
       return { primary: "Completed", secondary: label, tone: "gray" };
     }
     return { primary: "Completed", secondary: "", tone: "gray" };
@@ -141,10 +150,17 @@ function dueUrgency(task: TaskItem): { primary: string; secondary: string; tone:
   const due = new Date(task.dueAt);
   const diffMs = due.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / 86_400_000);
-  const timeStr = due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const timeStr = due.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
   if (diffDays < 0) {
-    return { primary: "Overdue", secondary: `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? "s" : ""}`, tone: "red" };
+    return {
+      primary: "Overdue",
+      secondary: `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? "s" : ""}`,
+      tone: "red",
+    };
   }
 
   const isToday = due.toDateString() === now.toDateString();
@@ -158,8 +174,15 @@ function dueUrgency(task: TaskItem): { primary: string; secondary: string; tone:
     return { primary: "Tomorrow", secondary: timeStr, tone: "amber" };
   }
 
-  const dateStr = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return { primary: dateStr, secondary: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, tone: "muted" };
+  const dateStr = due.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return {
+    primary: dateStr,
+    secondary: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`,
+    tone: "muted",
+  };
 }
 
 /* ===== Constants ===== */
@@ -174,12 +197,30 @@ const VIEW_TABS = [
 ] as const;
 
 const EMPTY_STATES: Record<string, { title: string; desc: string }> = {
-  pending:              { title: "No Pending Tasks",           desc: "You don't have any workflow tasks awaiting your action right now." },
-  due_today:            { title: "Nothing Due Today",          desc: "No tasks are due today. You're all caught up!" },
-  overdue:              { title: "No Overdue Tasks",           desc: "All your tasks are on track. No overdue items detected." },
-  waiting_review:       { title: "No Tasks Waiting Review",    desc: "No validation tasks are waiting for your review." },
-  completed_this_week:  { title: "No Completions This Week",   desc: "No tasks have been completed this week yet." },
-  all:                  { title: "No Tasks Found",             desc: "You don't have any workflow tasks assigned to you." },
+  pending: {
+    title: "No Pending Tasks",
+    desc: "You don't have any workflow tasks awaiting your action right now.",
+  },
+  due_today: {
+    title: "Nothing Due Today",
+    desc: "No tasks are due today. You're all caught up!",
+  },
+  overdue: {
+    title: "No Overdue Tasks",
+    desc: "All your tasks are on track. No overdue items detected.",
+  },
+  waiting_review: {
+    title: "No Tasks Waiting Review",
+    desc: "No validation tasks are waiting for your review.",
+  },
+  completed_this_week: {
+    title: "No Completions This Week",
+    desc: "No tasks have been completed this week yet.",
+  },
+  all: {
+    title: "No Tasks Found",
+    desc: "You don't have any workflow tasks assigned to you.",
+  },
 };
 
 const DUE_TONE: Record<string, string> = {
@@ -227,17 +268,23 @@ export default function MyTasksPage() {
     { label: "Pending", count: counts.pending, view: "pending" },
     { label: "Due Today", count: counts.dueToday, view: "due_today" },
     { label: "Overdue", count: counts.overdue, view: "overdue", warn: true },
-    { label: "Waiting Review", count: counts.waitingReview, view: "waiting_review" },
-    { label: "Completed This Week", count: counts.completedThisWeek, view: "completed_this_week" },
+    {
+      label: "Waiting Review",
+      count: counts.waitingReview,
+      view: "waiting_review",
+    },
+    {
+      label: "Completed This Week",
+      count: counts.completedThisWeek,
+      view: "completed_this_week",
+    },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-
         {/* ── Top Panel ── */}
         <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200 space-y-5">
-
           {/* Header */}
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">My Tasks</h1>
@@ -253,7 +300,12 @@ export default function MyTasksPage() {
               return (
                 <button
                   key={c.view}
-                  onClick={() => resetToPage1({ view: c.view === "pending" ? null : c.view, search: null })}
+                  onClick={() =>
+                    resetToPage1({
+                      view: c.view === "pending" ? null : c.view,
+                      search: null,
+                    })
+                  }
                   className={`rounded-lg border p-3 text-left transition-colors ${
                     active
                       ? "border-gray-400 bg-gray-50 ring-1 ring-gray-300"
@@ -263,9 +315,11 @@ export default function MyTasksPage() {
                   <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
                     {c.label}
                   </div>
-                  <div className={`mt-1 text-2xl font-semibold tabular-nums ${
-                    c.warn && c.count > 0 ? "text-red-600" : "text-gray-900"
-                  }`}>
+                  <div
+                    className={`mt-1 text-2xl font-semibold tabular-nums ${
+                      c.warn && c.count > 0 ? "text-red-600" : "text-gray-900"
+                    }`}
+                  >
                     {c.count}
                   </div>
                 </button>
@@ -276,23 +330,40 @@ export default function MyTasksPage() {
           {/* View tabs */}
           <div className="flex flex-wrap gap-1.5">
             {VIEW_TABS.map((tab) => {
-              const active = currentView === tab.value || (currentView === "pending" && tab.value === "pending" && !searchParams.has("view"));
+              const active =
+                currentView === tab.value ||
+                (currentView === "pending" &&
+                  tab.value === "pending" &&
+                  !searchParams.has("view"));
               const cnt = tabCount(tab.value);
               return (
                 <button
                   key={tab.value}
-                  onClick={() => resetToPage1({ view: tab.value === "pending" ? null : tab.value, search: null })}
+                  onClick={() =>
+                    resetToPage1({
+                      view: tab.value === "pending" ? null : tab.value,
+                      search: null,
+                    })
+                  }
                   className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                    active ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    active
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   {tab.label}
                   {cnt != null && cnt > 0 && (
-                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${
-                      active
-                        ? tab.value === "overdue" ? "bg-red-500 text-white" : "bg-white/20 text-white"
-                        : tab.value === "overdue" ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-600"
-                    }`}>
+                    <span
+                      className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${
+                        active
+                          ? tab.value === "overdue"
+                            ? "bg-red-500 text-white"
+                            : "bg-white/20 text-white"
+                          : tab.value === "overdue"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
                       {cnt}
                     </span>
                   )}
@@ -318,16 +389,20 @@ export default function MyTasksPage() {
               {currentSearch ? "No Results" : empty.title}
             </h2>
             <p className="text-sm text-gray-500 max-w-md mx-auto">
-              {currentSearch ? `No tasks found matching "${currentSearch}"` : empty.desc}
+              {currentSearch
+                ? `No tasks found matching "${currentSearch}"`
+                : empty.desc}
             </p>
           </div>
         )}
 
         {/* ── Task List ── */}
         {tasks.length > 0 && (
-          <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden ${
-            isLoading ? "opacity-60 pointer-events-none" : ""
-          }`}>
+          <div
+            className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden ${
+              isLoading ? "opacity-60 pointer-events-none" : ""
+            }`}
+          >
             <div className="divide-y divide-gray-100">
               {tasks.map((task) => (
                 <TaskRow key={task.taskId} task={task} />
@@ -348,19 +423,22 @@ function TaskRow({ task }: { task: TaskItem }) {
 
   return (
     <div className="grid gap-x-6 gap-y-4 px-6 py-5 lg:grid-cols-3 lg:items-start">
-
       {/* ── Section 1: Task Identity ── */}
       <div className="space-y-1.5">
         <div className="font-semibold text-gray-900">{task.taskTitle}</div>
         <div>
           <div className="font-medium text-gray-900">{task.entityName}</div>
-          <div className="text-sm text-gray-500 capitalize">{task.entityType}</div>
+          <div className="text-sm text-gray-500 capitalize">
+            {task.entityType}
+          </div>
         </div>
         {task.workflowName && (
           <div className="text-sm text-gray-400">{task.workflowName}</div>
         )}
         {!task.workflowName && (
-          <div className="text-sm text-gray-400">{prettifyType(task.processType)}</div>
+          <div className="text-sm text-gray-400">
+            {prettifyType(task.processType)}
+          </div>
         )}
       </div>
 
@@ -382,20 +460,27 @@ function TaskRow({ task }: { task: TaskItem }) {
         <div className="space-y-2">
           <div>
             <div className="text-xs text-gray-500 mb-0.5">Task</div>
-            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${
-              TASK_STATUS_CLASSES[task.taskStatus] ?? "border-gray-200 bg-gray-50 text-gray-600"
-            }`}>
+            <span
+              className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${
+                TASK_STATUS_CLASSES[task.taskStatus] ??
+                "border-gray-200 bg-gray-50 text-gray-600"
+              }`}
+            >
               {task.taskStatus === "completed" ? "Completed" : "Pending"}
             </span>
           </div>
           <div>
             <div className="text-xs text-gray-500 mb-0.5">Workflow step</div>
-            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${
-              PROCESS_STATUS_CLASSES[task.processStatus] ?? "border-gray-200 bg-gray-50 text-gray-600"
-            }`}>
+            <span
+              className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${
+                PROCESS_STATUS_CLASSES[task.processStatus] ??
+                "border-gray-200 bg-gray-50 text-gray-600"
+              }`}
+            >
               {task.stepName
                 ? `${task.stepName} - ${PROCESS_STATUS_DISPLAY[task.processStatus] ?? task.processStatus}`
-                : PROCESS_STATUS_DISPLAY[task.processStatus] ?? task.processStatus}
+                : (PROCESS_STATUS_DISPLAY[task.processStatus] ??
+                  task.processStatus)}
             </span>
           </div>
           {task.isResubmission && (

@@ -18,7 +18,7 @@ Alternatives existed:
 
 Supplex uses a pnpm workspace monorepo with these primary boundaries:
 
-- `apps/web` for the Remix frontend
+- `apps/web` for the React Router v7 (Framework mode) frontend (originally Remix; see [ADR 0007](./0007-react-router-v7.md))
 - `apps/api` for the ElysiaJS backend
 - `packages/db` for Drizzle schema and migrations
 - `packages/types` for shared types

@@ -5,16 +5,13 @@
  * Updated: Story 2.2.14 - Changed to use formTemplateId
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import type {
-  FormTemplateWithStructure,
-  FormAnswer,
-} from "@supplex/types";
+import type { FormTemplateWithStructure } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
 import { FormRenderer } from "~/components/form-runtime/FormRenderer";
 import { useFormSubmission } from "~/hooks/useFormSubmission";
@@ -95,8 +92,7 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export default function CreateFormSubmissionPage() {
-  const { formVersion, formTemplateId, token } =
-    useLoaderData<typeof loader>();
+  const { formVersion, formTemplateId, token } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const processInstanceId = searchParams.get("processInstanceId");
@@ -133,7 +129,7 @@ export default function CreateFormSubmissionPage() {
     if (saveResult.success && saveResult.submissionId) {
       // Then submit the form
       const submitResult = await submitForm(saveResult.submissionId);
-      
+
       if (submitResult.success) {
         // Navigate to view the submitted form
         navigate(`/forms/${saveResult.submissionId}`);
@@ -183,4 +179,3 @@ export default function CreateFormSubmissionPage() {
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import { Link } from "@remix-run/react";
+﻿import { Link } from "react-router";
 import { ChevronRight } from "lucide-react";
 
 interface BreadcrumbItem {
@@ -13,7 +13,7 @@ interface BreadcrumbProps {
 
 /**
  * Breadcrumb Navigation Component
- * 
+ *
  * Displays hierarchical navigation breadcrumbs with proper accessibility
  * - Current page is not clickable
  * - Proper ARIA labels for screen readers
@@ -58,4 +58,3 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
     </nav>
   );
 }
-

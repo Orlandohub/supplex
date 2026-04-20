@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DeleteSupplierModal } from "../DeleteSupplierModal";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 // Mock useNavigation and Form
-vi.mock("@remix-run/react", async () => {
-  const actual = await vi.importActual("@remix-run/react");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   const React = await import("react");
   const MockForm = React.forwardRef<HTMLFormElement, any>(
     ({ children, ...props }, ref) =>

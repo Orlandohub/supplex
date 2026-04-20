@@ -31,7 +31,7 @@ Raw artifacts are committed alongside this file:
 | Check | Status |
 | --- | --- |
 | `pnpm --filter @supplex/web build` | not re-run, not part of the red baseline - must succeed on the migration PR |
-| `pnpm --filter @supplex/web lint` | green, not part of the red baseline |
+| `pnpm --filter @supplex/web lint` | **red**: 38 ESLint errors + 153 warnings. `lint-staged` does not catch them because it only runs on staged files, and these errors live in files nobody has touched recently. The migration's mass import rewrite touches them all, so the hook surfaces the pre-existing errors. Fixed as part of the migration because the pre-commit hook would otherwise block every migration commit - see the `chore(web): fix pre-existing eslint errors...` commit on the SUP-5 branch. Follow-up for the rule-level causes: still tracked under SUP-8. |
 | `pnpm --filter @supplex/web type-check` | **429 errors** across 96 files |
 | `pnpm --filter @supplex/web test` | **155 tests failing** across **31 test files**, 479 tests passing, 20 test files passing |
 
@@ -147,3 +147,24 @@ Post-migration, the following must hold before the PR is promoted from Draft to 
 ## Follow-up
 
 The unrelated baseline failures are tracked in [SUP-8 - Clean up pre-existing type-check and test failures on main](https://linear.app/supplex/issue/SUP-8/clean-up-pre-existing-type-check-and-test-failures-on-main). SUP-8 is related to, but **not** a blocker for, SUP-5 landing.
+
+## Post-migration verification (SUP-5 PR)
+
+Re-run of the baseline commands on the SUP-5 branch after the migration landed in this branch, for reviewer convenience:
+
+| Check | Main (baseline) | SUP-5 branch (post-migration) | Delta |
+| --- | --- | --- | --- |
+| `pnpm --filter @supplex/web build` | not re-run | **passes** | - |
+| `pnpm --filter @supplex/web lint` | 38 errors + 153 warnings | **0 errors, 153 warnings** (all pre-existing) | -38 errors |
+| `pnpm --filter @supplex/web type-check` | 429 errors | **411 errors**, 0 new (file + TS code) tuples | -18 errors |
+| `pnpm --filter @supplex/web test` | 155 failing / 31 files | **131 failing / 30 files**, 0 new failing files | -24 tests, -1 file |
+| `rg "@remix-run\|remix vite:\|remix-serve\|remix.config" apps/web` | many hits | **zero hits** in code (documentation-only mentions in `apps/web/app/lib/rbac/README.md` get rewritten in the docs commit) | - |
+
+Raw artifacts from the post-migration runs are committed for auditability:
+
+- [`sup-5-postmigration-type-errors.txt`](./sup-5-postmigration-type-errors.txt)
+- [`sup-5-postmigration-failing-tests.txt`](./sup-5-postmigration-failing-tests.txt)
+- [`sup-5-postmigration-test.txt`](./sup-5-postmigration-test.txt) (full vitest output)
+- [`sup-5-postmigration-build.txt`](./sup-5-postmigration-build.txt)
+
+All acceptance-bar items (1)-(5) in the section above are met. Item (6) - manual dev smoke - is the final gate before promoting the PR from Draft to Ready.

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Workflow Step Form Handler
  * Creates or retrieves form submission for a workflow step and redirects to form
  * Updated: Story 2.2.14 - Uses formTemplateId instead of versionId
  * Updated: Story 2.2.16 - Loading state and error handling
  */
 
-import { redirect, type LoaderFunctionArgs } from "@remix-run/node";
+import { redirect, type LoaderFunctionArgs } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { Loader2 } from "lucide-react";
@@ -14,7 +14,7 @@ export async function loader(args: LoaderFunctionArgs) {
   const { params } = args;
 
   // Require authentication
-  const { session, user } = await requireAuth(args);
+  const { session, user: _user } = await requireAuth(args);
 
   const { processId, stepId } = params;
   if (!processId || !stepId) {
@@ -65,31 +65,36 @@ export async function loader(args: LoaderFunctionArgs) {
     });
 
     if (submissionsResponse.error) {
-      throw new Response("Failed to check existing submissions", { status: 500 });
+      throw new Response("Failed to check existing submissions", {
+        status: 500,
+      });
     }
 
     const submissionsData = submissionsResponse.data?.data as any;
     const existingSubmissions = submissionsData?.submissions || [];
 
-    console.log('[FORM STEP] Checking for existing submissions:', {
+    console.log("[FORM STEP] Checking for existing submissions:", {
       stepId,
       found: existingSubmissions.length,
-      submissions: existingSubmissions.map((s: any) => ({ 
-        id: s.id, 
+      submissions: existingSubmissions.map((s: any) => ({
+        id: s.id,
         status: s.status,
-        stepInstanceId: s.stepInstanceId 
-      }))
+        stepInstanceId: s.stepInstanceId,
+      })),
     });
 
     // If submission exists, redirect to it
     if (existingSubmissions.length > 0) {
       const submissionId = existingSubmissions[0].id;
-      console.log('[FORM STEP] Found existing submission, redirecting to:', submissionId);
+      console.log(
+        "[FORM STEP] Found existing submission, redirecting to:",
+        submissionId
+      );
       return redirect(`/forms/${submissionId}`);
     }
 
     // Create new form submission for this step
-    console.log('[FORM STEP] Creating new submission:', {
+    console.log("[FORM STEP] Creating new submission:", {
       formTemplateId,
       processInstanceId: processId,
       stepInstanceId: stepId,
@@ -110,9 +115,9 @@ export async function loader(args: LoaderFunctionArgs) {
     const createData = createResponse.data?.data as any;
     const newSubmissionId = createData?.submission?.id;
 
-    console.log('[FORM STEP] Created submission:', {
+    console.log("[FORM STEP] Created submission:", {
       submissionId: newSubmissionId,
-      stepInstanceId: createData?.submission?.stepInstanceId
+      stepInstanceId: createData?.submission?.stepInstanceId,
     });
 
     if (!newSubmissionId) {
@@ -150,4 +155,3 @@ export default function FormStepLoading() {
     </div>
   );
 }
-

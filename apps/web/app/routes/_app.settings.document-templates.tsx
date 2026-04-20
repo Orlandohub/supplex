@@ -4,10 +4,9 @@
  * Story 2.2.11
  */
 
-import { json, redirect, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useRevalidator, useNavigate } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useRevalidator, useNavigate } from "react-router";
 import { useState } from "react";
-import { Breadcrumb } from "~/components/ui/Breadcrumb";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -24,7 +23,7 @@ import { DeleteTemplateDialog } from "~/components/document-templates/DeleteTemp
 export async function loader(args: LoaderFunctionArgs) {
   // Require authentication
   const { userRecord, session } = await requireAuth(args);
-  
+
   // Server-side permission check - Admin only
   if (userRecord.role !== UserRole.ADMIN) {
     return redirect("/");
@@ -42,7 +41,8 @@ export async function loader(args: LoaderFunctionArgs) {
     // Fetch all document templates
     const templatesResponse = await client.api["document-templates"].get();
 
-    const templates = (templatesResponse.data?.data?.templates || []) as DocumentTemplate[];
+    const templates = (templatesResponse.data?.data?.templates ||
+      []) as DocumentTemplate[];
 
     return json({
       templates,
@@ -65,15 +65,18 @@ export default function DocumentTemplatesPage() {
   const revalidator = useRevalidator();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   // Modal states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
-  
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<DocumentTemplate | null>(null);
+
   // Filter state
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "archived">("all");
+  const [statusFilter, _setStatusFilter] = useState<
+    "all" | "draft" | "published" | "archived"
+  >("all");
 
   // Filter templates by status
   const filteredTemplates = templates.filter((template) => {
@@ -149,7 +152,8 @@ export default function DocumentTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
-      const response = await client.api["document-templates"][selectedTemplate.id].put(data);
+      const response =
+        await client.api["document-templates"][selectedTemplate.id].put(data);
 
       if (response.error) {
         toast({
@@ -191,13 +195,16 @@ export default function DocumentTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
-      const response = await client.api["document-templates"][selectedTemplate.id].delete();
+      const response =
+        await client.api["document-templates"][selectedTemplate.id].delete();
 
       if (response.error) {
         const errorData = response.error as any;
         toast({
           title: "Error",
-          description: errorData.value?.error?.message || "Failed to delete document template",
+          description:
+            errorData.value?.error?.message ||
+            "Failed to delete document template",
           variant: "destructive",
         });
         return;
@@ -232,9 +239,12 @@ export default function DocumentTemplatesPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Document Templates</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Document Templates
+          </h1>
           <p className="text-muted-foreground mt-2">
-            Define required documents for workflow steps. Templates can be reused across multiple workflows.
+            Define required documents for workflow steps. Templates can be
+            reused across multiple workflows.
           </p>
         </div>
         <Button onClick={handleCreateClick}>
@@ -279,4 +289,3 @@ export default function DocumentTemplatesPage() {
     </div>
   );
 }
-

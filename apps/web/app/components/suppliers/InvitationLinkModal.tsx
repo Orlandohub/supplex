@@ -41,6 +41,7 @@ export function InvitationLinkModal({
   };
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- backdrop click-to-close pattern on the dialog container; see SUP-8 for a proper focus-trap rewrite
     <div
       role="dialog"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
@@ -156,8 +157,8 @@ export function InvitationLinkModal({
                     account
                   </li>
                   <li>
-                    You can resend the invitation from the &quot;Pending Invitations&quot;
-                    page if needed
+                    You can resend the invitation from the &quot;Pending
+                    Invitations&quot; page if needed
                   </li>
                 </ul>
               </div>
@@ -175,4 +176,3 @@ export function InvitationLinkModal({
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { createRemixStub } from "@remix-run/testing";
+import { createRoutesStub } from "react-router";
 import NotificationPreferencesPage, {
   loader,
   action,
@@ -65,7 +65,7 @@ describe("Notification Preferences Page", () => {
   });
 
   it("should render notification preferences", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/settings/notifications",
         Component: NotificationPreferencesPage,
@@ -81,7 +81,7 @@ describe("Notification Preferences Page", () => {
   });
 
   it("should display all notification types", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/settings/notifications",
         Component: NotificationPreferencesPage,
@@ -101,7 +101,7 @@ describe("Notification Preferences Page", () => {
   });
 
   it("should show toggle switches for each notification type", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/settings/notifications",
         Component: NotificationPreferencesPage,
@@ -118,7 +118,7 @@ describe("Notification Preferences Page", () => {
   });
 
   it("should display tip about unsubscribe links", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/settings/notifications",
         Component: NotificationPreferencesPage,
@@ -138,7 +138,7 @@ describe("Notification Preferences Page", () => {
   });
 
   it("should have back button", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/settings/notifications",
         Component: NotificationPreferencesPage,
@@ -156,13 +156,9 @@ describe("Notification Preferences Page", () => {
   describe("Loader", () => {
     it("should fetch notification preferences", async () => {
       const request = new Request("http://localhost/settings/notifications");
-      const result = await loader({
-        request,
-        params: {},
-        context: {},
-      });
+      const result = await loader({ request, params: {}, context: {} } as any);
 
-      const data = await result.json();
+      const data = (result as unknown as { data: any }).data;
       expect(data.preferences).toBeDefined();
       expect(data.preferences.workflowSubmitted).toBe(true);
     });
@@ -183,13 +179,9 @@ describe("Notification Preferences Page", () => {
       }));
 
       const request = new Request("http://localhost/settings/notifications");
-      const result = await loader({
-        request,
-        params: {},
-        context: {},
-      });
+      const result = await loader({ request, params: {}, context: {} } as any);
 
-      const data = await result.json();
+      const data = (result as unknown as { data: any }).data;
       expect(data.error).toBeDefined();
       expect(data.preferences).toBeDefined(); // Should have defaults
     });
@@ -210,9 +202,9 @@ describe("Notification Preferences Page", () => {
         request,
         params: {},
         context: {},
-      });
+      } as any);
 
-      const data = await result.json();
+      const data = (result as unknown as { data: any }).data;
       expect(data.success).toBe(true);
     });
   });

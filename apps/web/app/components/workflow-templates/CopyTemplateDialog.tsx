@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Copy Workflow Template Dialog
  * Story 2.2.14 - Copy template functionality
  */
 
 import { useState } from "react";
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -55,17 +55,20 @@ export function CopyWorkflowTemplateDialog({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/workflow-templates/${templateId}/copy`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || null,
-        }),
-      });
+      const response = await fetch(
+        `/api/workflow-templates/${templateId}/copy`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            description: description.trim() || null,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
@@ -73,7 +76,7 @@ export function CopyWorkflowTemplateDialog({
       }
 
       const data = await response.json();
-      
+
       toast({
         title: "Template Copied",
         description: `Created draft copy: "${name}"`,
@@ -84,7 +87,8 @@ export function CopyWorkflowTemplateDialog({
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to copy template",
+        description:
+          error instanceof Error ? error.message : "Failed to copy template",
         variant: "destructive",
       });
     } finally {

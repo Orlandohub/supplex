@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Add Field Modal Component
  * Modal form for adding a new field to a section
  */
 
 import { useState } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -65,7 +65,8 @@ export function AddFieldModal({
       if (options.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Dropdown and multi-select fields must have at least one option",
+          description:
+            "Dropdown and multi-select fields must have at least one option",
           variant: "destructive",
         });
         return;
@@ -88,7 +89,7 @@ export function AddFieldModal({
     setIsSubmitting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      
+
       // Prepare options payload
       const optionsPayload =
         fieldType === "dropdown" || fieldType === "multi_select"
@@ -189,7 +190,9 @@ export function AddFieldModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="text">Text (single line)</SelectItem>
-                  <SelectItem value="textarea">Text Area (multi line)</SelectItem>
+                  <SelectItem value="textarea">
+                    Text Area (multi line)
+                  </SelectItem>
                   <SelectItem value="number">Number</SelectItem>
                   <SelectItem value="date">Date</SelectItem>
                   <SelectItem value="dropdown">Dropdown</SelectItem>
@@ -259,4 +262,3 @@ export function AddFieldModal({
     </Dialog>
   );
 }
-

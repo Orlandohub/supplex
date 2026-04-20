@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+﻿import { describe, it, expect, vi } from "vitest";
 
 /**
  * Test Suite for WorkflowReviewPage Component
@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from "vitest";
  */
 
 // Mock dependencies
-vi.mock("@remix-run/react", () => ({
+vi.mock("react-router", () => ({
   Link: ({ to, children, className }: any) => (
     <a href={to} className={className}>
       {children}

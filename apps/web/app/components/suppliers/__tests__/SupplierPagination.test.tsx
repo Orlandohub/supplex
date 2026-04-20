@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { SupplierPagination } from "../SupplierPagination";
 
 // Mock Remix hooks since MemoryRouter doesn't provide them
-vi.mock("@remix-run/react", async () => {
-  const actual = await vi.importActual("@remix-run/react");
-  const ReactRouterDOM = await import("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  const ReactRouterDOM = await import("react-router");
   return {
     ...actual,
     useSearchParams: () => [new URLSearchParams(), vi.fn()],

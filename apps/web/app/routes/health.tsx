@@ -1,15 +1,17 @@
-import { json } from "@remix-run/node";
-
 /**
  * Frontend Health Check Endpoint
  *
  * Used by monitoring systems (Vercel, Sentry) to verify the frontend application is running.
  * Returns basic health information without checking external dependencies.
  *
+ * Implementation note: returns a native `Response` (not React Router's `data()`)
+ * so that downstream consumers (monitoring probes, tests) receive a proper
+ * HTTP Response they can `.json()`-parse and inspect headers/status on.
+ *
  * @returns Health status with timestamp and version
  */
 export async function loader() {
-  return json(
+  return Response.json(
     {
       status: "ok",
       timestamp: new Date().toISOString(),

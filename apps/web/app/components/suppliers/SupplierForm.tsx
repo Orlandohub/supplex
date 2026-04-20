@@ -1,4 +1,4 @@
-import { Form, useNavigate, useBeforeUnload } from "@remix-run/react";
+﻿import { Form, useNavigate, useBeforeUnload } from "react-router";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -520,8 +520,8 @@ export function SupplierForm({
                 Supplier Contact (Platform Access)
               </h2>
               <p className="text-sm text-gray-600 mb-4">
-                Create a user account for this supplier to access the platform and
-                manage their tasks.
+                Create a user account for this supplier to access the platform
+                and manage their tasks.
               </p>
 
               {/* Checkbox to enable platform access */}
@@ -597,9 +597,9 @@ export function SupplierForm({
                   {/* Info Box */}
                   <div className="md:col-span-2 bg-blue-50 border border-blue-200 rounded-md p-3">
                     <p className="text-sm text-blue-800">
-                      <strong>ℹ️ Note:</strong> This user will be assigned the
-                      &apos;Supplier User&apos; role and can view their own supplier
-                      information and tasks only.
+                      <strong>â„¹ï¸ Note:</strong> This user will be assigned
+                      the &apos;Supplier User&apos; role and can view their own
+                      supplier information and tasks only.
                     </p>
                   </div>
                 </div>

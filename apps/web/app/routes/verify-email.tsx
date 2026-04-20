@@ -1,11 +1,11 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data as json } from "react-router";
 import {
   useLoaderData,
   useSearchParams,
   Link,
   useNavigate,
-} from "@remix-run/react";
+} from "react-router";
 import { useEffect, useState } from "react";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
 

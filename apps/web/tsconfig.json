@@ -2,7 +2,12 @@
   "extends": "../../packages/config/tsconfig.base.json",
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": ["@remix-run/node", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "types": [
+      "@react-router/node",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ],
     "paths": {
       "~/*": ["./app/*"],
       "@supplex/types": ["../../packages/types/src"],
@@ -10,11 +15,12 @@
     }
   },
   "include": [
+    ".react-router/types/**/*",
     "app/**/*",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "vite.config.ts"
+    "vite.config.ts",
+    "react-router.config.ts"
   ],
-  "exclude": ["node_modules", "build", ".cache"]
+  "exclude": ["node_modules", "build", ".cache", ".react-router"]
 }
-

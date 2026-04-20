@@ -3,9 +3,9 @@
  * Allows users to manage their email notification preferences
  */
 
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData, useNavigation, useNavigate } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { data as json } from "react-router";
+import { useLoaderData, useNavigation, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -230,7 +230,11 @@ export default function NotificationPreferencesPage() {
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-3xl mx-auto">
         <div className="mb-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/settings")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Settings
           </Button>

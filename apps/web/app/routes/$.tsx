@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+﻿import type { LoaderFunctionArgs } from "react-router";
 
 /**
  * Catch-all route for handling special URLs that shouldn't throw errors
