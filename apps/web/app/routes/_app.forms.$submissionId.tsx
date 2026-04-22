@@ -17,7 +17,10 @@ import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
-import { createEdenTreatyClient, createClientEdenTreatyClient } from "~/lib/api-client";
+import {
+  createEdenTreatyClient,
+  createClientEdenTreatyClient,
+} from "~/lib/api-client";
 import type {
   FormSubmission,
   FormTemplateWithStructure,
@@ -50,9 +53,8 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch submission with answers and form structure
-    const submissionResponse = await client.api["form-submissions"][
-      submissionId
-    ].get();
+    const submissionResponse =
+      await client.api["form-submissions"][submissionId].get();
 
     if (submissionResponse.error) {
       const status = submissionResponse.status || 500;
@@ -74,6 +76,7 @@ export async function loader(args: LoaderFunctionArgs) {
     const answers = data.answers as FormAnswer[];
     const formStructure = data.formStructure;
     const isReadOnly = data.isReadOnly ?? false;
+    const canValidate = data.canValidate ?? false;
 
     const formVersion: FormTemplateWithStructure = {
       ...formTemplate,
@@ -89,9 +92,10 @@ export async function loader(args: LoaderFunctionArgs) {
 
     if (submission.processInstanceId) {
       try {
-        const processResponse = await client.api.workflows.processes[
-          submission.processInstanceId
-        ].get();
+        const processResponse =
+          await client.api.workflows.processes[
+            submission.processInstanceId
+          ].get();
         if (!processResponse.error) {
           const processData = (processResponse.data as any)?.data;
           const process = processData?.process;
@@ -129,6 +133,7 @@ export async function loader(args: LoaderFunctionArgs) {
       token,
       workflowContext,
       isReadOnly,
+      canValidate,
       supplierContext,
     });
   } catch (error) {
@@ -141,14 +146,22 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export default function FormExecutionPage() {
-  const { submission, formVersion, answers, token, workflowContext, isReadOnly, supplierContext } =
-    useLoaderData<typeof loader>();
+  const {
+    submission,
+    formVersion,
+    answers,
+    token,
+    workflowContext,
+    isReadOnly,
+    canValidate,
+    supplierContext,
+  } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { toast } = useToast();
   const isSupplierContext = !!supplierContext;
   const isWorkflowContext = !!workflowContext && !isSupplierContext;
-  const isValidator = isReadOnly && isWorkflowContext;
+  const isValidator = canValidate && isWorkflowContext;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDeclineForm, setShowDeclineForm] = useState(false);
@@ -198,15 +211,22 @@ export default function FormExecutionPage() {
     setValidationError(null);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api.workflows.steps[submission.stepInstanceId].complete.post({
+      const response = await client.api.workflows.steps[
+        submission.stepInstanceId
+      ].complete.post({
         action: "approve",
       });
       if (response.error) {
-        setValidationError((response.error as any).message || "Failed to approve");
+        setValidationError(
+          (response.error as any).message || "Failed to approve"
+        );
         setIsProcessing(false);
         return;
       }
-      toast({ title: "Approved", description: "Form submission has been approved." });
+      toast({
+        title: "Approved",
+        description: "Form submission has been approved.",
+      });
       navigate(`/workflows/processes/${workflowContext!.processInstanceId}`);
     } catch (err) {
       setValidationError("An unexpected error occurred");
@@ -215,21 +235,29 @@ export default function FormExecutionPage() {
   };
 
   const handleDecline = async () => {
-    if (!submission.stepInstanceId || !declineComment.trim() || isProcessing) return;
+    if (!submission.stepInstanceId || !declineComment.trim() || isProcessing)
+      return;
     setIsProcessing(true);
     setValidationError(null);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api.workflows.steps[submission.stepInstanceId].complete.post({
+      const response = await client.api.workflows.steps[
+        submission.stepInstanceId
+      ].complete.post({
         action: "decline",
         comment: declineComment.trim(),
       });
       if (response.error) {
-        setValidationError((response.error as any).message || "Failed to decline");
+        setValidationError(
+          (response.error as any).message || "Failed to decline"
+        );
         setIsProcessing(false);
         return;
       }
-      toast({ title: "Declined", description: "Form submission has been declined." });
+      toast({
+        title: "Declined",
+        description: "Form submission has been declined.",
+      });
       navigate(`/workflows/processes/${workflowContext!.processInstanceId}`);
     } catch (err) {
       setValidationError("An unexpected error occurred");
@@ -237,7 +265,8 @@ export default function FormExecutionPage() {
     }
   };
 
-  const mode = submission.status === "submitted" || isReadOnly ? "view" : "edit";
+  const mode =
+    submission.status === "submitted" || isReadOnly ? "view" : "edit";
 
   return (
     <div className="container mx-auto py-6 space-y-6 max-w-4xl">
@@ -251,32 +280,36 @@ export default function FormExecutionPage() {
               isSupplierContext
                 ? `/suppliers/${supplierContext!.supplierId}`
                 : isWorkflowContext
-                ? `/workflows/processes/${workflowContext!.processInstanceId}`
-                : "/forms"
+                  ? `/workflows/processes/${workflowContext!.processInstanceId}`
+                  : "/forms"
             )
           }
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          {isSupplierContext ? "Back to Supplier" : isWorkflowContext ? "Back to Workflow" : "Back to Forms"}
+          {isSupplierContext
+            ? "Back to Supplier"
+            : isWorkflowContext
+              ? "Back to Workflow"
+              : "Back to Forms"}
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isSupplierContext
               ? `${supplierContext!.supplierName} — ${formVersion.name || "Form"}`
               : isValidator
-              ? "Review Form Submission"
-              : mode === "view"
-                ? "View Form Submission"
-                : "Fill Form"}
+                ? "Review Form Submission"
+                : mode === "view"
+                  ? "View Form Submission"
+                  : "Fill Form"}
           </h1>
           <p className="text-muted-foreground mt-1">
             {isSupplierContext
               ? "Submitted form data (read-only)"
               : isValidator
-              ? "Review the submission below, then approve or decline."
-              : mode === "view"
-                ? "This form has been submitted"
-                : "Save your progress as you go, submit when complete"}
+                ? "Review the submission below, then approve or decline."
+                : mode === "view"
+                  ? "This form has been submitted"
+                  : "Save your progress as you go, submit when complete"}
           </p>
         </div>
       </div>
@@ -285,7 +318,8 @@ export default function FormExecutionPage() {
       {isValidator && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm font-medium text-amber-900">
-            You are reviewing this form as a validator. Use the buttons at the bottom to approve or decline.
+            You are reviewing this form as a validator. Use the buttons at the
+            bottom to approve or decline.
           </p>
         </div>
       )}
@@ -310,7 +344,10 @@ export default function FormExecutionPage() {
 
           {showDeclineForm ? (
             <div className="space-y-3">
-              <label htmlFor="decline-reason" className="block text-sm font-medium text-gray-900">
+              <label
+                htmlFor="decline-reason"
+                className="block text-sm font-medium text-gray-900"
+              >
                 Reason for declining
               </label>
               <textarea
@@ -408,4 +445,3 @@ export function ErrorBoundary() {
     </div>
   );
 }
-

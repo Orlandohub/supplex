@@ -22,9 +22,9 @@ import { ApiError, Errors } from "../../lib/errors";
  * Access Control: User must be submitter OR have permission to view submissions
  * Returns: Full submission with answers and field metadata for rendering
  */
-export const getSubmissionRoute = new Elysia().use(authenticate).get(
-  "/:submissionId",
-  async ({ params, user, set, requestLogger }: any) => {
+export const getSubmissionRoute = new Elysia()
+  .use(authenticate)
+  .get("/:submissionId", async ({ params, user, set, requestLogger }: any) => {
     try {
       const tenantId = user.tenantId as string;
       const userId = user.id as string;
@@ -63,47 +63,70 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
         );
       }
 
-      // Access control: submitter always allowed
-      let isReadOnly = false;
-      if (submissionRecord.submission.submittedBy !== userId) {
-        // Check if user has a validation task for the linked step
-        let hasAccess = false;
-        if (submissionRecord.submission.stepInstanceId) {
-          const [validationTask] = await db
-            .select({ id: taskInstance.id })
-            .from(taskInstance)
-            .where(
-              and(
-                eq(taskInstance.stepInstanceId, submissionRecord.submission.stepInstanceId),
-                eq(taskInstance.tenantId, tenantId),
-                eq(taskInstance.status, "pending"),
-                or(
-                  eq(taskInstance.assigneeUserId, userId),
-                  and(
-                    eq(taskInstance.assigneeType, "role"),
-                    eq(taskInstance.assigneeRole, user.role),
-                    isNull(taskInstance.assigneeUserId)
-                  )
+      // Always check whether the current user has a pending *validation* task
+      // for this step. This must run regardless of who submitted the form so
+      // that a user who is both submitter and validator (e.g. a Procurement
+      // Manager acting on behalf of a supplier with no user) still gets the
+      // validator UI rather than a plain read-only view.
+      //
+      // The taskType filter is critical: a step can also have a pending
+      // "action" / "resubmission" task assigned to the same user (e.g. when
+      // a fresh form step has just been activated and a draft submission
+      // was auto-created). Those are NOT validation tasks and must not
+      // surface Approve/Decline controls on the draft form.
+      let canValidate = false;
+      if (submissionRecord.submission.stepInstanceId) {
+        const [validationTask] = await db
+          .select({ id: taskInstance.id })
+          .from(taskInstance)
+          .where(
+            and(
+              eq(
+                taskInstance.stepInstanceId,
+                submissionRecord.submission.stepInstanceId
+              ),
+              eq(taskInstance.tenantId, tenantId),
+              eq(taskInstance.status, "pending"),
+              eq(taskInstance.taskType, "validation"),
+              or(
+                eq(taskInstance.assigneeUserId, userId),
+                and(
+                  eq(taskInstance.assigneeType, "role"),
+                  eq(taskInstance.assigneeRole, user.role),
+                  isNull(taskInstance.assigneeUserId)
                 )
               )
             )
-            .limit(1);
+          )
+          .limit(1);
 
-          if (validationTask) {
-            hasAccess = true;
-            isReadOnly = true;
-          }
-        }
+        canValidate = !!validationTask;
+      }
 
-        if (!hasAccess && !["admin", "quality_manager", "procurement_manager"].includes(user.role)) {
+      const isSubmitter = submissionRecord.submission.submittedBy === userId;
+
+      // Access control: submitter always allowed; otherwise validator or
+      // privileged roles may view read-only.
+      let isReadOnly = false;
+      if (!isSubmitter) {
+        if (
+          !canValidate &&
+          !["admin", "quality_manager", "procurement_manager"].includes(
+            user.role
+          )
+        ) {
           throw Errors.forbidden(
             "You don't have permission to view this submission",
             "PERMISSION_DENIED"
           );
         }
-        if (!hasAccess) {
-          isReadOnly = true;
-        }
+        isReadOnly = true;
+      }
+
+      // A submitter who is also the validator must not be able to re-edit
+      // their already-submitted answers while reviewing.
+      if (canValidate) {
+        isReadOnly = true;
       }
 
       // Fetch all answers with field metadata
@@ -145,10 +168,7 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
           section: formSection,
         })
         .from(formField)
-        .innerJoin(
-          formSection,
-          eq(formField.formSectionId, formSection.id)
-        )
+        .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
         .where(
           and(
             eq(
@@ -170,6 +190,7 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
           formTemplate: submissionRecord.template,
           submittedByUser: submissionRecord.submittedByUser,
           isReadOnly,
+          canValidate,
           answers: answersWithFields.map((row) => ({
             ...row.answer,
             field: row.field,
@@ -189,6 +210,4 @@ export const getSubmissionRoute = new Elysia().use(authenticate).get(
       requestLogger.error({ err: error }, "Submission fetch failed");
       throw Errors.internal("Failed to fetch submission");
     }
-  }
-);
-
+  });
