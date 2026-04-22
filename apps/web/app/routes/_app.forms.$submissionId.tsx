@@ -76,6 +76,7 @@ export async function loader(args: LoaderFunctionArgs) {
     const answers = data.answers as FormAnswer[];
     const formStructure = data.formStructure;
     const isReadOnly = data.isReadOnly ?? false;
+    const canValidate = data.canValidate ?? false;
 
     const formVersion: FormTemplateWithStructure = {
       ...formTemplate,
@@ -132,6 +133,7 @@ export async function loader(args: LoaderFunctionArgs) {
       token,
       workflowContext,
       isReadOnly,
+      canValidate,
       supplierContext,
     });
   } catch (error) {
@@ -151,6 +153,7 @@ export default function FormExecutionPage() {
     token,
     workflowContext,
     isReadOnly,
+    canValidate,
     supplierContext,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
@@ -158,7 +161,7 @@ export default function FormExecutionPage() {
   const { toast } = useToast();
   const isSupplierContext = !!supplierContext;
   const isWorkflowContext = !!workflowContext && !isSupplierContext;
-  const isValidator = isReadOnly && isWorkflowContext;
+  const isValidator = canValidate && isWorkflowContext;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDeclineForm, setShowDeclineForm] = useState(false);
