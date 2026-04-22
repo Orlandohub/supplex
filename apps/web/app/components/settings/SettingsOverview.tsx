@@ -1,10 +1,18 @@
-/**
+﻿/**
  * Settings Overview Component
  * Displays card grid with links to all settings sections
  */
 
-import { Link } from "@remix-run/react";
-import { Users, Bell, Mail, ClipboardList, FileCheck, Workflow, ScrollText } from "lucide-react";
+import { Link } from "react-router";
+import {
+  Users,
+  Bell,
+  Mail,
+  ClipboardList,
+  FileCheck,
+  Workflow,
+  ScrollText,
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 
@@ -26,35 +34,40 @@ const settingsCards: SettingCard[] = [
   },
   {
     title: "Workflow Templates",
-    description: "Create and manage workflow templates with steps, approvers, and validation rules.",
+    description:
+      "Create and manage workflow templates with steps, approvers, and validation rules.",
     href: "/settings/workflow-templates",
     icon: Workflow,
     adminOnly: true,
   },
   {
     title: "Form Templates",
-    description: "Create and manage dynamic form templates for supplier qualification and evaluation.",
+    description:
+      "Create and manage dynamic form templates for supplier qualification and evaluation.",
     href: "/settings/form-templates",
     icon: ClipboardList,
     adminOnly: true,
   },
   {
     title: "Document Templates",
-    description: "Define required documents for workflow steps. Templates can be reused across workflows.",
+    description:
+      "Define required documents for workflow steps. Templates can be reused across workflows.",
     href: "/settings/document-templates",
     icon: FileCheck,
     adminOnly: true,
   },
   {
     title: "Email Notifications",
-    description: "Configure your email notification preferences for workflow updates.",
+    description:
+      "Configure your email notification preferences for workflow updates.",
     href: "/settings/notifications",
     icon: Bell,
     adminOnly: false,
   },
   {
     title: "Audit Log",
-    description: "View all workflow events and template changes for compliance and traceability.",
+    description:
+      "View all workflow events and template changes for compliance and traceability.",
     href: "/settings/audit-log",
     icon: ScrollText,
     adminOnly: true,
@@ -99,7 +112,7 @@ export function SettingsOverview({ user }: SettingsOverviewProps) {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {visibleCards.map((card) => {
           const Icon = card.icon;
-          
+
           return (
             <Card key={card.href} className="hover:shadow-lg transition-shadow">
               <CardHeader>
@@ -111,13 +124,9 @@ export function SettingsOverview({ user }: SettingsOverviewProps) {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-600 mb-4">
-                  {card.description}
-                </p>
+                <p className="text-sm text-gray-600 mb-4">{card.description}</p>
                 <Button asChild variant="outline" className="w-full">
-                  <Link to={card.href}>
-                    Manage →
-                  </Link>
+                  <Link to={card.href}>Manage â†’</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -127,4 +136,3 @@ export function SettingsOverview({ user }: SettingsOverviewProps) {
     </div>
   );
 }
-

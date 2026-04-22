@@ -21,7 +21,7 @@ Use this file as the quick-start guide for agents working in this repository.
 
 ## Repo Shape
 
-- `apps/web` - Remix frontend
+- `apps/web` - React Router v7 (Framework mode) frontend
 - `apps/api` - Bun + Elysia API
 - `packages/db` - Drizzle schema and migrations
 - `packages/types` - shared types
@@ -31,7 +31,8 @@ Use this file as the quick-start guide for agents working in this repository.
 ## Implementation Guardrails
 
 - Define shared contracts in `packages/types` when used across apps.
-- In Remix, load route data in loaders, not `useEffect`.
+- In React Router (Framework mode), load route data in `loader` / `clientLoader`, not `useEffect`.
+- Import framework primitives from `react-router` (and server adapters from `@react-router/node`). Do **not** import from `@remix-run/*` or `react-router-dom`.
 - Use `shouldRevalidate` intentionally for URL-state changes.
 - In Elysia, use TypeBox for route validation.
 - Let parent Elysia route aggregators own prefixes; child modules should stay prefix-free.

@@ -1,10 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
-import type {
-  FormTemplateWithStructure,
-  FormAnswer,
-  FieldType,
-} from "@supplex/types";
+import type { FormTemplateWithStructure, FormAnswer } from "@supplex/types";
 import { validateFieldValue as sharedValidateFieldValue } from "@supplex/types";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -193,7 +189,10 @@ export function FormRenderer({
                           ? `${field.label} is required`
                           : false,
                         validate: (value) => {
-                          if (!field.required && (!value || value.trim() === "")) {
+                          if (
+                            !field.required &&
+                            (!value || value.trim() === "")
+                          ) {
                             return true;
                           }
                           return validateFieldValue(value, field as any);

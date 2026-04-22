@@ -47,16 +47,21 @@ export function DeleteTemplateDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Document Template</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete "{templateName}"?
+            Are you sure you want to delete &ldquo;{templateName}&rdquo;?
             <br />
             <br />
-            <strong>Note:</strong> If this template is used by any workflow steps, the deletion will fail.
-            You must remove it from workflows before deleting.
+            <strong>Note:</strong> If this template is used by any workflow
+            steps, the deletion will fail. You must remove it from workflows
+            before deleting.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogAction
+            onClick={handleConfirm}
+            disabled={isDeleting}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
             Delete Template
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -64,4 +69,3 @@ export function DeleteTemplateDialog({
     </AlertDialog>
   );
 }
-

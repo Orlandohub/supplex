@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { createRemixStub } from "@remix-run/testing";
+import { createRoutesStub } from "react-router";
 import AdminEmailLogsPage, { loader } from "../_app.admin.email-logs";
 
 // Mock API client
@@ -75,7 +75,7 @@ describe("Admin Email Logs Page", () => {
   });
 
   it("should render email logs page", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -91,7 +91,7 @@ describe("Admin Email Logs Page", () => {
   });
 
   it("should display filter controls", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -109,7 +109,7 @@ describe("Admin Email Logs Page", () => {
   });
 
   it("should have clear filters button", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -127,7 +127,7 @@ describe("Admin Email Logs Page", () => {
   });
 
   it("should display email logs in table", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -145,7 +145,7 @@ describe("Admin Email Logs Page", () => {
   });
 
   it("should display failed email with error message", async () => {
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -191,7 +191,7 @@ describe("Admin Email Logs Page", () => {
       })),
     }));
 
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -236,7 +236,7 @@ describe("Admin Email Logs Page", () => {
       })),
     }));
 
-    const RemixStub = createRemixStub([
+    const RemixStub = createRoutesStub([
       {
         path: "/admin/email-logs",
         Component: AdminEmailLogsPage,
@@ -258,13 +258,9 @@ describe("Admin Email Logs Page", () => {
   describe("Loader", () => {
     it("should fetch email logs with default parameters", async () => {
       const request = new Request("http://localhost/admin/email-logs");
-      const result = await loader({
-        request,
-        params: {},
-        context: {},
-      });
+      const result = await loader({ request, params: {}, context: {} } as any);
 
-      const data = await result.json();
+      const data = (result as unknown as { data: any }).data;
       expect(data.logs).toBeDefined();
       expect(data.pagination).toBeDefined();
     });
@@ -273,13 +269,9 @@ describe("Admin Email Logs Page", () => {
       const request = new Request(
         "http://localhost/admin/email-logs?status=failed&startDate=2025-10-01"
       );
-      const result = await loader({
-        request,
-        params: {},
-        context: {},
-      });
+      const result = await loader({ request, params: {}, context: {} } as any);
 
-      const data = await result.json();
+      const data = (result as unknown as { data: any }).data;
       expect(data.filters.status).toBe("failed");
       expect(data.filters.startDate).toBe("2025-10-01");
     });
@@ -299,11 +291,7 @@ describe("Admin Email Logs Page", () => {
 
       // Should redirect (throw redirect response)
       await expect(
-        loader({
-          request,
-          params: {},
-          context: {},
-        })
+        loader({ request, params: {}, context: {} } as any)
       ).rejects.toThrow();
     });
   });

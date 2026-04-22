@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { useRouteLoaderData } from "@remix-run/react";
+import { useRouteLoaderData } from "react-router";
 import type { AppLoaderData } from "~/routes/_app";
 import { StatusChangeConfirmModal } from "./StatusChangeConfirmModal";
 import type { SupplierStatus } from "@supplex/types";
@@ -40,18 +40,29 @@ export function StatusChangeDropdown({
 }: StatusChangeDropdownProps) {
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;
-  
-  const [selectedStatus, setSelectedStatus] = useState<SupplierStatus | null>(null);
+
+  const [selectedStatus, setSelectedStatus] = useState<SupplierStatus | null>(
+    null
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Use tenant-provided statuses if available, otherwise fall back to hardcoded
-  const statusOptions = supplierStatuses && supplierStatuses.length > 0
-    ? supplierStatuses.map((s) => ({ value: s.name as SupplierStatus, label: s.name.charAt(0).toUpperCase() + s.name.slice(1) }))
-    : FALLBACK_OPTIONS.map((o) => ({ value: o.value as SupplierStatus, label: o.label }));
+  const statusOptions =
+    supplierStatuses && supplierStatuses.length > 0
+      ? supplierStatuses.map((s) => ({
+          value: s.name as SupplierStatus,
+          label: s.name.charAt(0).toUpperCase() + s.name.slice(1),
+        }))
+      : FALLBACK_OPTIONS.map((o) => ({
+          value: o.value as SupplierStatus,
+          label: o.label,
+        }));
 
   // Non-admin users only see a read-only badge
   if (!permissions?.canEditSupplier) {
-    const label = statusOptions.find((o) => o.value === currentStatus)?.label || currentStatus;
+    const label =
+      statusOptions.find((o) => o.value === currentStatus)?.label ||
+      currentStatus;
     return <Badge variant="outline">{label}</Badge>;
   }
 
@@ -75,7 +86,10 @@ export function StatusChangeDropdown({
   return (
     <>
       <div className="flex items-center space-x-2">
-        <label htmlFor="status-select" className="text-sm font-medium text-gray-700">
+        <label
+          htmlFor="status-select"
+          className="text-sm font-medium text-gray-700"
+        >
           Change Status:
         </label>
         <Select value={currentStatus} onValueChange={handleStatusSelect}>
@@ -107,4 +121,3 @@ export function StatusChangeDropdown({
     </>
   );
 }
-

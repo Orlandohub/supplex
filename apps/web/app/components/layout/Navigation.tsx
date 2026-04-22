@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Navigation Component
  * Main navigation with role-based menu filtering
  * Uses SSR permissions from parent loader to prevent flash
  */
 
-import { Link, useLocation, useRouteLoaderData } from "@remix-run/react";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
 import type { AppLoaderData } from "~/routes/_app";
 
 interface NavItem {
@@ -141,8 +141,8 @@ const navigation: NavItem[] = [
 
 export function Navigation() {
   const location = useLocation();
-  
-  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+
+  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;
 

@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { SupplierSearchBar } from "../SupplierSearchBar";
 
 // Mock useSearchParams
 const mockSetSearchParams = vi.fn();
-vi.mock("@remix-run/react", async () => {
-  const actual = await vi.importActual("@remix-run/react");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     useSearchParams: () => [new URLSearchParams(), mockSetSearchParams],

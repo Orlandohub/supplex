@@ -3,8 +3,13 @@
  * Allows admins to create a new workflow template
  */
 
-import { json, redirect, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useNavigate } from "@remix-run/react";
+import {
+  data as json,
+  redirect,
+  type LoaderFunctionArgs,
+  type ActionFunctionArgs,
+} from "react-router";
+import { Form, useActionData, useNavigate } from "react-router";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -33,7 +38,7 @@ import { useState } from "react";
 export async function loader(args: LoaderFunctionArgs) {
   // Require authentication
   const { userRecord } = await requireAuth(args);
-  
+
   // Server-side permission check - Admin only
   if (userRecord.role !== UserRole.ADMIN) {
     return redirect("/");
@@ -44,7 +49,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
 export async function action(args: ActionFunctionArgs) {
   const { request } = args;
-  
+
   // Require authentication
   const { session } = await requireAuth(args);
 
@@ -76,10 +81,7 @@ export async function action(args: ActionFunctionArgs) {
 
     const template = response.data?.data as any;
     if (!template?.id) {
-      return json(
-        { error: "Invalid response from server" },
-        { status: 500 }
-      );
+      return json({ error: "Invalid response from server" }, { status: 500 });
     }
 
     // Redirect to edit page
@@ -111,7 +113,9 @@ export default function NewWorkflowTemplatePage() {
           Back to Templates
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">New Workflow Template</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            New Workflow Template
+          </h1>
           <p className="text-muted-foreground mt-1">
             Create a new workflow template for your organization
           </p>
@@ -163,23 +167,17 @@ export default function NewWorkflowTemplatePage() {
                   <SelectItem value="supplier_qualification">
                     Supplier Qualification
                   </SelectItem>
-                  <SelectItem value="sourcing">
-                    Sourcing
-                  </SelectItem>
+                  <SelectItem value="sourcing">Sourcing</SelectItem>
                   <SelectItem value="product_lifecycle">
                     Product Lifecycle
                   </SelectItem>
-                  <SelectItem value="custom">
-                    Custom
-                  </SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {actionData?.error && (
-              <div className="text-sm text-destructive">
-                {actionData.error}
-              </div>
+              <div className="text-sm text-destructive">{actionData.error}</div>
             )}
 
             <div className="flex gap-2 justify-end">
@@ -190,9 +188,7 @@ export default function NewWorkflowTemplatePage() {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Template
-              </Button>
+              <Button type="submit">Create Template</Button>
             </div>
           </Form>
         </CardContent>
@@ -200,7 +196,3 @@ export default function NewWorkflowTemplatePage() {
     </div>
   );
 }
-
-
-
-

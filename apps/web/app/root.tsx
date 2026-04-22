@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "react-router";
+import { data as json } from "react-router";
 import {
   Links,
   Meta,
@@ -8,8 +8,8 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
-} from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+} from "react-router";
+import type { LinksFunction } from "react-router";
 import { AuthProvider } from "~/providers/AuthProvider";
 import { getSessionFast } from "~/lib/auth/session.server";
 import { getSecurityHeaders } from "~/lib/security/csp";
@@ -78,10 +78,7 @@ export default function App() {
   const { user, session, env } = useLoaderData<typeof loader>();
 
   return (
-    <AuthProvider
-      initialUser={user}
-      initialSession={session}
-    >
+    <AuthProvider initialUser={user} initialSession={session}>
       {/* Make environment variables available to the client */}
       <script
         dangerouslySetInnerHTML={{

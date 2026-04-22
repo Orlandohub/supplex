@@ -3,9 +3,9 @@
  * Main dashboard view (inside app shell)
  */
 
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data as json } from "react-router";
+import { useLoaderData } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 
 export const meta: MetaFunction = () => {

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Form Template Table Component
  * Displays list of form templates with actions
  * Updated: Story 2.2.14 - Removed versioning, added copy functionality
  */
 
 import { useState } from "react";
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 import type { FormTemplateListItem } from "@supplex/types";
 import {
   Table,
@@ -46,7 +46,10 @@ export function FormTemplateTable({
   const navigate = useNavigate();
   const { toast } = useToast();
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
-  const [copyTemplate, setCopyTemplate] = useState<{ id: string; name: string } | null>(null);
+  const [copyTemplate, setCopyTemplate] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -71,29 +74,40 @@ export function FormTemplateTable({
     }
   };
 
-  const handleTogglePublish = async (templateId: string, currentStatus: string, e: React.MouseEvent) => {
+  const handleTogglePublish = async (
+    templateId: string,
+    currentStatus: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     if (isPublishing) return;
     setIsPublishing(true);
-    
+
     try {
-      const response = await fetch(`/api/form-templates/${templateId}/publish`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `/api/form-templates/${templateId}/publish`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to toggle publish status");
       }
 
       toast({
-        title: currentStatus === "draft" ? "Template Published" : "Template Unpublished",
-        description: currentStatus === "draft" 
-          ? "Template is now published and ready for use"
-          : "Template returned to draft status",
+        title:
+          currentStatus === "draft"
+            ? "Template Published"
+            : "Template Unpublished",
+        description:
+          currentStatus === "draft"
+            ? "Template is now published and ready for use"
+            : "Template returned to draft status",
       });
 
       window.location.reload();
@@ -148,7 +162,7 @@ export function FormTemplateTable({
           <TableBody>
             {templates.map((template) => {
               const isPublished = template.status === "published";
-              
+
               return (
                 <TableRow
                   key={template.id}
@@ -172,7 +186,7 @@ export function FormTemplateTable({
                       className="flex items-center justify-end gap-2"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
+                        if (e.key === "Enter" || e.key === " ") {
                           e.stopPropagation();
                         }
                       }}
@@ -182,7 +196,11 @@ export function FormTemplateTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(template.id)}
-                        title={isPublished ? "View template (read-only)" : "Edit template"}
+                        title={
+                          isPublished
+                            ? "View template (read-only)"
+                            : "Edit template"
+                        }
                       >
                         {isPublished ? (
                           <Eye className="h-4 w-4" />
@@ -190,11 +208,16 @@ export function FormTemplateTable({
                           <Edit className="h-4 w-4" />
                         )}
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setCopyTemplate({ id: template.id, name: template.name })}
+                        onClick={() =>
+                          setCopyTemplate({
+                            id: template.id,
+                            name: template.name,
+                          })
+                        }
                         title="Copy template"
                       >
                         <Copy className="h-4 w-4" />
@@ -203,11 +226,21 @@ export function FormTemplateTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => handleTogglePublish(template.id, template.status, e)}
-                        title={isPublished ? "Unpublish template" : "Publish template"}
-                        disabled={template.status === "archived" || isPublishing}
+                        onClick={(e) =>
+                          handleTogglePublish(template.id, template.status, e)
+                        }
+                        title={
+                          isPublished
+                            ? "Unpublish template"
+                            : "Publish template"
+                        }
+                        disabled={
+                          template.status === "archived" || isPublishing
+                        }
                       >
-                        <CheckCircle className={`h-4 w-4 ${isPublished ? "text-green-600" : "text-gray-400"}`} />
+                        <CheckCircle
+                          className={`h-4 w-4 ${isPublished ? "text-green-600" : "text-gray-400"}`}
+                        />
                       </Button>
 
                       <Button
@@ -253,11 +286,12 @@ export function FormTemplateTable({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
 }
-

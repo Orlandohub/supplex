@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+﻿import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SupplierContactCard } from "../SupplierContactCard";
-import * as RemixReact from "@remix-run/react";
+import * as RemixReact from "react-router";
 
 // Mock Remix hooks
-vi.mock("@remix-run/react", async () => {
-  const actual = await vi.importActual("@remix-run/react");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     useRouteLoaderData: vi.fn(),
@@ -23,10 +23,12 @@ vi.mock("~/lib/api-client", () => ({
       suppliers: {
         "test-supplier-id": {
           contact: {
-            patch: vi.fn(() => Promise.resolve({
-              data: { success: true },
-              error: null,
-            })),
+            patch: vi.fn(() =>
+              Promise.resolve({
+                data: { success: true },
+                error: null,
+              })
+            ),
           },
         },
       },
@@ -80,7 +82,9 @@ describe("SupplierContactCard", () => {
         />
       );
 
-      expect(screen.getByText("No contact user associated")).toBeInTheDocument();
+      expect(
+        screen.getByText("No contact user associated")
+      ).toBeInTheDocument();
       expect(screen.queryByText("Edit Contact")).not.toBeInTheDocument();
     });
 
@@ -257,7 +261,9 @@ describe("SupplierContactCard", () => {
 
       // Modal should close (dialog no longer visible)
       await waitFor(() => {
-        expect(screen.queryByText("Edit Supplier Contact")).not.toBeInTheDocument();
+        expect(
+          screen.queryByText("Edit Supplier Contact")
+        ).not.toBeInTheDocument();
       });
     });
   });
@@ -310,7 +316,7 @@ describe("SupplierContactCard", () => {
       );
 
       // Check for SVG icons (lucide-react renders as SVG)
-      const svgs = container.querySelectorAll('svg');
+      const svgs = container.querySelectorAll("svg");
       expect(svgs.length).toBeGreaterThan(0);
     });
   });
@@ -353,25 +359,24 @@ describe("SupplierContactCard", () => {
 
 /**
  * Integration Test Notes:
- * 
+ *
  * These tests cover:
- * ✅ Display logic (null vs active vs deactivated user)
- * ✅ SSR-first permissions (useRouteLoaderData instead of usePermissions)
- * ✅ Edit button visibility based on permissions
- * ✅ Modal open/close interactions
- * ✅ Component structure and styling
- * ✅ Edge cases and error handling
- * 
+ * âœ… Display logic (null vs active vs deactivated user)
+ * âœ… SSR-first permissions (useRouteLoaderData instead of usePermissions)
+ * âœ… Edit button visibility based on permissions
+ * âœ… Modal open/close interactions
+ * âœ… Component structure and styling
+ * âœ… Edge cases and error handling
+ *
  * Not covered (would require more complex mocking):
  * - Actual API calls in the modal
  * - Form validation in the modal
  * - Success toast notifications
  * - Page revalidation after successful update
  * - Duplicate email error handling
- * 
+ *
  * For full coverage, consider:
  * - E2E tests with Playwright for modal form submission
  * - Integration tests with MSW for API mocking
  * - Visual regression tests with Chromatic/Percy
  */
-

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { ActiveStepPanel } from "../ActiveStepPanel";
 
 /**
@@ -75,9 +75,7 @@ describe("ActiveStepPanel", () => {
   it("should render task title when tasks exist", () => {
     renderWithRouter(<ActiveStepPanel {...defaultProps} />);
 
-    expect(
-      screen.getByText(/Review Supplier Documents/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Review Supplier Documents/i)).toBeInTheDocument();
   });
 
   it("should render task description when provided", () => {
@@ -148,9 +146,7 @@ describe("ActiveStepPanel", () => {
       metadata: { documentActionMode: "upload" },
     };
 
-    renderWithRouter(
-      <ActiveStepPanel {...defaultProps} step={documentStep} />
-    );
+    renderWithRouter(<ActiveStepPanel {...defaultProps} step={documentStep} />);
 
     expect(screen.getByText(/Upload Documents/i)).toBeInTheDocument();
   });
@@ -243,4 +239,3 @@ describe("ActiveStepPanel", () => {
     expect(screen.getByText(/Review Documents/i)).toBeInTheDocument();
   });
 });
-

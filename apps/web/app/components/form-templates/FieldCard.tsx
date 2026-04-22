@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Field Card Component
  * Displays a field with its configuration
  */
 
 import { useState } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import type { FormFieldWithDetails } from "@supplex/types";
 
 import { Badge } from "~/components/ui/badge";
@@ -56,9 +56,8 @@ export function FieldCard({
     setIsDeleting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"].fields[
-        field.id
-      ].delete();
+      const response =
+        await client.api["form-templates"].fields[field.id].delete();
 
       if (response.error) {
         toast({
@@ -92,7 +91,8 @@ export function FieldCard({
     setIsReordering(true);
     try {
       const currentIndex = allFields.findIndex((f) => f.id === field.id);
-      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      const targetIndex =
+        direction === "up" ? currentIndex - 1 : currentIndex + 1;
 
       if (targetIndex < 0 || targetIndex >= allFields.length) return;
 
@@ -213,17 +213,18 @@ export function FieldCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Field?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the field &quot;{field.label}&quot;. This action
-              cannot be undone.
+              This will permanently delete the field &quot;{field.label}&quot;.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
 }
-

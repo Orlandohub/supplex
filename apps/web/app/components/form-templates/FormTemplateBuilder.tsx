@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Form Template Builder Component
  * Main orchestrator for building form templates with sections and fields
  * Updated: Story 2.2.14 - Removed versioning, added direct template editing
  */
 
 import { useState } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import type { FormTemplateWithDetails } from "@supplex/types";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -52,7 +52,8 @@ export function FormTemplateBuilder({
     if (!canEdit) {
       toast({
         title: "Cannot Edit",
-        description: "Published templates cannot be edited. Please copy the template to make changes.",
+        description:
+          "Published templates cannot be edited. Please copy the template to make changes.",
         variant: "destructive",
       });
       return;
@@ -84,7 +85,8 @@ export function FormTemplateBuilder({
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"][template.id].publish.patch();
+      const response =
+        await client.api["form-templates"][template.id].publish.patch();
 
       if (response.error) {
         const errorData = response.error as any;
@@ -97,10 +99,14 @@ export function FormTemplateBuilder({
       }
 
       toast({
-        title: template.status === "draft" ? "Template Published" : "Template Unpublished",
-        description: template.status === "draft"
-          ? "Form template is now published and ready for use"
-          : "Form template returned to draft status",
+        title:
+          template.status === "draft"
+            ? "Template Published"
+            : "Template Unpublished",
+        description:
+          template.status === "draft"
+            ? "Form template is now published and ready for use"
+            : "Form template returned to draft status",
       });
 
       // Small delay to ensure database transaction is committed
@@ -131,17 +137,20 @@ export function FormTemplateBuilder({
                 {template.status === "published"
                   ? "This template is published and cannot be edited. Copy it to make changes."
                   : template.status === "draft"
-                  ? "Draft template - make changes and publish when ready"
-                  : "This template is archived"}
+                    ? "Draft template - make changes and publish when ready"
+                    : "This template is archived"}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge
-                variant={template.status === "published" ? "default" : "secondary"}
+                variant={
+                  template.status === "published" ? "default" : "secondary"
+                }
               >
-                {template.status.charAt(0).toUpperCase() + template.status.slice(1)}
+                {template.status.charAt(0).toUpperCase() +
+                  template.status.slice(1)}
               </Badge>
-              
+
               <Button
                 variant="outline"
                 size="sm"
@@ -153,10 +162,15 @@ export function FormTemplateBuilder({
 
               {template.status !== "archived" && (
                 <Button
-                  variant={template.status === "published" ? "outline" : "default"}
+                  variant={
+                    template.status === "published" ? "outline" : "default"
+                  }
                   size="sm"
                   onClick={handleTogglePublish}
-                  disabled={(template.status === "draft" && sections.length === 0) || isPublishing}
+                  disabled={
+                    (template.status === "draft" && sections.length === 0) ||
+                    isPublishing
+                  }
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   {template.status === "published" ? "Unpublish" : "Publish"}
@@ -229,4 +243,3 @@ export function FormTemplateBuilder({
     </div>
   );
 }
-

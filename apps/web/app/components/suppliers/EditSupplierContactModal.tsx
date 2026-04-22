@@ -1,4 +1,9 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+﻿import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -6,7 +11,7 @@ import { Switch } from "~/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import { useEffect, useState } from "react";
 import { useToast } from "~/hooks/use-toast";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -34,10 +39,10 @@ interface EditSupplierContactModalProps {
 
 /**
  * EditSupplierContactModal Component
- * 
+ *
  * Modal form for editing supplier contact information
  * Uses React Hook Form with Zod validation
- * 
+ *
  * Features:
  * - Edit contact name, email, and access status
  * - Validation with helpful error messages
@@ -103,9 +108,12 @@ export function EditSupplierContactModal({
 
       if (response.error) {
         const errorData = response.data as any;
-        
+
         // Handle duplicate email error (409)
-        if (response.status === 409 || errorData?.error?.code === "USER_EMAIL_EXISTS") {
+        if (
+          response.status === 409 ||
+          errorData?.error?.code === "USER_EMAIL_EXISTS"
+        ) {
           setError("email", {
             type: "manual",
             message: "A user with this email already exists",
@@ -118,7 +126,9 @@ export function EditSupplierContactModal({
         } else {
           toast({
             title: "Update failed",
-            description: errorData?.error?.message || "Failed to update contact information",
+            description:
+              errorData?.error?.message ||
+              "Failed to update contact information",
             variant: "destructive",
           });
         }
@@ -153,7 +163,10 @@ export function EditSupplierContactModal({
 
   return (
     <>
-      <Dialog open={isOpen && !showDeactivateConfirm} onOpenChange={(open) => !open && onClose()}>
+      <Dialog
+        open={isOpen && !showDeactivateConfirm}
+        onOpenChange={(open) => !open && onClose()}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Supplier Contact</DialogTitle>
@@ -170,7 +183,9 @@ export function EditSupplierContactModal({
                 disabled={isSubmitting}
               />
               {errors.fullName && (
-                <p className="mt-1 text-sm text-red-600">{errors.fullName.message}</p>
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.fullName.message}
+                </p>
               )}
             </div>
 
@@ -185,7 +200,9 @@ export function EditSupplierContactModal({
                 disabled={isSubmitting}
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
@@ -194,20 +211,29 @@ export function EditSupplierContactModal({
               <div>
                 <Label htmlFor="isActive">Platform Access</Label>
                 <p className="text-sm text-gray-500">
-                  {isActiveValue ? "User can access the platform" : "User access is disabled"}
+                  {isActiveValue
+                    ? "User can access the platform"
+                    : "User access is disabled"}
                 </p>
               </div>
               <Switch
                 id="isActive"
                 checked={isActiveValue}
-                onCheckedChange={(checked) => form.setValue("isActive", checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue("isActive", checked)
+                }
                 disabled={isSubmitting}
               />
             </div>
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
@@ -219,17 +245,21 @@ export function EditSupplierContactModal({
       </Dialog>
 
       {/* Deactivation Confirmation Modal */}
-      <Dialog open={showDeactivateConfirm} onOpenChange={setShowDeactivateConfirm}>
+      <Dialog
+        open={showDeactivateConfirm}
+        onOpenChange={setShowDeactivateConfirm}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Deactivate Supplier Contact?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600 py-4">
-            This user will no longer be able to access the platform. Any pending tasks may need to be reassigned in the future.
+            This user will no longer be able to access the platform. Any pending
+            tasks may need to be reassigned in the future.
           </p>
           <div className="flex justify-end space-x-2 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowDeactivateConfirm(false)}
               disabled={isSubmitting}
             >
@@ -251,4 +281,3 @@ export function EditSupplierContactModal({
     </>
   );
 }
-

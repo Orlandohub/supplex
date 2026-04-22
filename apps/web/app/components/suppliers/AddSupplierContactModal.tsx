@@ -1,11 +1,16 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+﻿import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useFetcher, useRevalidator } from "@remix-run/react";
+import { useFetcher, useRevalidator } from "react-router";
 import { useEffect } from "react";
 import { useToast } from "~/hooks/use-toast";
 
@@ -26,10 +31,10 @@ interface AddSupplierContactModalProps {
 
 /**
  * AddSupplierContactModal Component
- * 
+ *
  * Modal form for adding a contact user to a supplier without one.
  * Creates a new supplier_user and links them to the supplier.
- * 
+ *
  * Features:
  * - Form validation with Zod
  * - Email uniqueness enforcement
@@ -63,7 +68,8 @@ export function AddSupplierContactModal({
   useEffect(() => {
     if (fetcher.data) {
       if (fetcher.data.success) {
-        const contactName = fetcher.data.data?.supplierUser?.fullName || "contact";
+        const contactName =
+          fetcher.data.data?.supplierUser?.fullName || "contact";
         toast({
           title: "Contact added successfully",
           description: `Platform access granted to ${contactName}.`,
@@ -114,7 +120,8 @@ export function AddSupplierContactModal({
         </DialogHeader>
 
         <p className="text-sm text-gray-600 mb-4">
-          Create a user account for this supplier to access the platform and manage their tasks.
+          Create a user account for this supplier to access the platform and
+          manage their tasks.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -141,7 +148,9 @@ export function AddSupplierContactModal({
               placeholder="contact@supplier.com"
             />
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {errors.email.message}
+              </p>
             )}
             <p className="mt-1 text-xs text-gray-500">
               This email will be used for platform login
@@ -158,15 +167,18 @@ export function AddSupplierContactModal({
               placeholder="+1 (555) 123-4567"
             />
             {errors.phone && (
-              <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {errors.phone.message}
+              </p>
             )}
           </div>
 
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-sm text-blue-800">
-              <strong>ℹ️ Note:</strong> This user will be assigned the &apos;Supplier User&apos; role 
-              and can view their own supplier information and tasks only.
+              <strong>â„¹ï¸ Note:</strong> This user will be assigned the
+              &apos;Supplier User&apos; role and can view their own supplier
+              information and tasks only.
             </p>
           </div>
 
@@ -184,4 +196,3 @@ export function AddSupplierContactModal({
     </Dialog>
   );
 }
-

@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import type { User } from "@supplex/types";
-import { UserRole } from "@supplex/types";
+import type { UserRole } from "@supplex/types";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -28,7 +28,9 @@ export function SupplierUsersTab({
   onToggleStatus,
   currentUserId,
 }: SupplierUsersTabProps) {
-  const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
+  const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(
+    new Set()
+  );
 
   const toggleSupplier = (supplierId: string) => {
     setExpandedSuppliers((prev) => {
@@ -46,7 +48,9 @@ export function SupplierUsersTab({
     <div className="space-y-8">
       {/* Suppliers with Users Section */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Suppliers & Their Users</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Suppliers & Their Users
+        </h3>
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <table className="min-w-full">
             <thead className="bg-gray-50">
@@ -63,7 +67,10 @@ export function SupplierUsersTab({
             <tbody className="bg-white divide-y divide-gray-200">
               {suppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-sm text-gray-500">
+                  <td
+                    colSpan={3}
+                    className="px-6 py-12 text-center text-sm text-gray-500"
+                  >
                     No suppliers with platform access found.
                   </td>
                 </tr>
@@ -87,7 +94,8 @@ export function SupplierUsersTab({
                           {supplier.name}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
-                          {supplier.users.length} user{supplier.users.length !== 1 ? "s" : ""}
+                          {supplier.users.length} user
+                          {supplier.users.length !== 1 ? "s" : ""}
                         </td>
                       </tr>
                       {isExpanded && supplier.users.length > 0 && (
@@ -125,14 +133,22 @@ export function SupplierUsersTab({
                                       </td>
                                       <td className="px-4 py-3">
                                         <Badge variant="outline">
-                                          {getRoleDisplayName(user.role as UserRole)}
+                                          {getRoleDisplayName(
+                                            user.role as UserRole
+                                          )}
                                         </Badge>
                                       </td>
                                       <td className="px-4 py-3">
                                         <Badge
-                                          variant={user.isActive ? "default" : "secondary"}
+                                          variant={
+                                            user.isActive
+                                              ? "default"
+                                              : "secondary"
+                                          }
                                         >
-                                          {user.isActive ? "Active" : "Inactive"}
+                                          {user.isActive
+                                            ? "Active"
+                                            : "Inactive"}
                                         </Badge>
                                       </td>
                                       <td className="px-4 py-3 text-sm space-x-2">
@@ -145,7 +161,9 @@ export function SupplierUsersTab({
                                           }}
                                           disabled={user.id === currentUserId}
                                         >
-                                          {user.isActive ? "Deactivate" : "Activate"}
+                                          {user.isActive
+                                            ? "Deactivate"
+                                            : "Activate"}
                                         </Button>
                                       </td>
                                     </tr>
@@ -170,4 +188,3 @@ export function SupplierUsersTab({
 
 // Add React import for Fragment
 import * as React from "react";
-

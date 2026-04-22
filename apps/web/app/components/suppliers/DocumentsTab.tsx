@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -7,7 +7,7 @@ import { DeleteDocumentModal } from "./DeleteDocumentModal";
 import { DocumentExpiryBadge } from "./DocumentExpiryBadge";
 import type { AppLoaderData } from "~/routes/_app";
 import { useToast } from "~/hooks/use-toast";
-import { useRevalidator, useRouteLoaderData } from "@remix-run/react";
+import { useRevalidator, useRouteLoaderData } from "react-router";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { Document } from "@supplex/types";
 import { Upload, Download, Trash2, FileText, ArrowUpDown } from "lucide-react";
@@ -45,10 +45,10 @@ export function DocumentsTab({
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
-  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;
-  
+
   const { toast } = useToast();
   const revalidator = useRevalidator();
 
@@ -178,7 +178,7 @@ export function DocumentsTab({
 
   // Format date
   const formatDate = (date: Date | string | null) => {
-    if (!date) return "—";
+    if (!date) return "â€”";
     const d = typeof date === "string" ? new Date(date) : date;
     return d.toLocaleDateString("en-US", {
       year: "numeric",
@@ -300,7 +300,7 @@ export function DocumentsTab({
                         <DocumentExpiryBadge expiryDate={doc.expiryDate} />
                       </div>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-gray-400">â€”</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">

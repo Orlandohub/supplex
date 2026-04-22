@@ -3,9 +3,9 @@
  * Wraps all authenticated pages with AppShell (sidebar, top nav, mobile nav)
  */
 
-import { Outlet, useNavigation } from "@remix-run/react";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { Outlet, useNavigation } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
+import { data as json } from "react-router";
 import { requireAuthSecure } from "~/lib/auth/require-auth";
 import { AppShell } from "~/components/layout/AppShell";
 import { UserRole, PermissionAction, hasPermission } from "@supplex/types";
@@ -27,7 +27,7 @@ export type AppLoaderData = {
     isViewer: boolean;
     isProcurementManager: boolean;
     isQualityManager: boolean;
-    
+
     // Permission flags (for granular checks)
     canManageUsers: boolean;
     canCreateSuppliers: boolean;
@@ -51,7 +51,7 @@ export type AppLoaderData = {
  */
 export function shouldRevalidate({
   formAction,
-  defaultShouldRevalidate,
+  defaultShouldRevalidate: _defaultShouldRevalidate,
 }: {
   currentUrl: URL;
   nextUrl: URL;
@@ -88,21 +88,26 @@ export async function loader(args: LoaderFunctionArgs) {
       // Validate cache: check if it's for the same user and not too old
       const cacheTimestamp = remixSession.get("supplierInfoTimestamp");
       const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-      const isCacheValid = 
-        cachedSupplierInfo && 
+      const isCacheValid =
+        cachedSupplierInfo &&
         cachedSupplierInfo.userId === user.id &&
         cacheTimestamp &&
-        (Date.now() - cacheTimestamp) < CACHE_TTL;
+        Date.now() - cacheTimestamp < CACHE_TTL;
 
       if (isCacheValid) {
         // Return cached supplier info (saves ~50-150ms API call)
-        supplierInfo = { id: cachedSupplierInfo.id, name: cachedSupplierInfo.name };
+        supplierInfo = {
+          id: cachedSupplierInfo.id,
+          name: cachedSupplierInfo.name,
+        };
       } else {
         // Cache miss or expired - fetch from API
-        supplierInfo = await getSupplierForUser(user.id, token).catch(error => {
-          console.error("Failed to fetch supplier info:", error);
-          throw new Error("Supplier user is not associated with a supplier");
-        });
+        supplierInfo = await getSupplierForUser(user.id, token).catch(
+          (error) => {
+            console.error("Failed to fetch supplier info:", error);
+            throw new Error("Supplier user is not associated with a supplier");
+          }
+        );
 
         if (!supplierInfo) {
           throw new Error("Supplier user is not associated with a supplier");
@@ -117,7 +122,11 @@ export async function loader(args: LoaderFunctionArgs) {
   } catch (error) {
     console.error("Error in root loader:", error);
     // Re-throw supplier info errors (critical for supplier_user)
-    if (userRecord && userRecord.role === UserRole.SUPPLIER_USER && error instanceof Error) {
+    if (
+      userRecord &&
+      userRecord.role === UserRole.SUPPLIER_USER &&
+      error instanceof Error
+    ) {
       throw error;
     }
   }
@@ -131,17 +140,44 @@ export async function loader(args: LoaderFunctionArgs) {
     isViewer: userRecord.role === UserRole.VIEWER,
     isProcurementManager: userRecord.role === UserRole.PROCUREMENT_MANAGER,
     isQualityManager: userRecord.role === UserRole.QUALITY_MANAGER,
-    
+
     // Permission flags (using permission matrix)
-    canManageUsers: hasPermission(userRecord.role, PermissionAction.MANAGE_USERS),
-    canCreateSuppliers: hasPermission(userRecord.role, PermissionAction.CREATE_SUPPLIERS),
-    canEditSuppliers: hasPermission(userRecord.role, PermissionAction.EDIT_SUPPLIERS),
-    canDeleteSuppliers: hasPermission(userRecord.role, PermissionAction.DELETE_SUPPLIERS),
-    canViewAnalytics: hasPermission(userRecord.role, PermissionAction.VIEW_ANALYTICS),
-    canAccessSettings: hasPermission(userRecord.role, PermissionAction.ACCESS_SETTINGS),
-    canCreateQualifications: hasPermission(userRecord.role, PermissionAction.CREATE_QUALIFICATIONS),
-    canUploadDocuments: hasPermission(userRecord.role, PermissionAction.UPLOAD_DOCUMENTS),
-    canDeleteDocuments: hasPermission(userRecord.role, PermissionAction.DELETE_DOCUMENTS),
+    canManageUsers: hasPermission(
+      userRecord.role,
+      PermissionAction.MANAGE_USERS
+    ),
+    canCreateSuppliers: hasPermission(
+      userRecord.role,
+      PermissionAction.CREATE_SUPPLIERS
+    ),
+    canEditSuppliers: hasPermission(
+      userRecord.role,
+      PermissionAction.EDIT_SUPPLIERS
+    ),
+    canDeleteSuppliers: hasPermission(
+      userRecord.role,
+      PermissionAction.DELETE_SUPPLIERS
+    ),
+    canViewAnalytics: hasPermission(
+      userRecord.role,
+      PermissionAction.VIEW_ANALYTICS
+    ),
+    canAccessSettings: hasPermission(
+      userRecord.role,
+      PermissionAction.ACCESS_SETTINGS
+    ),
+    canCreateQualifications: hasPermission(
+      userRecord.role,
+      PermissionAction.CREATE_QUALIFICATIONS
+    ),
+    canUploadDocuments: hasPermission(
+      userRecord.role,
+      PermissionAction.UPLOAD_DOCUMENTS
+    ),
+    canDeleteDocuments: hasPermission(
+      userRecord.role,
+      PermissionAction.DELETE_DOCUMENTS
+    ),
   };
 
   return json({

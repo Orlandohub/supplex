@@ -1,4 +1,4 @@
-import { Form, useNavigation } from "@remix-run/react";
+﻿import { Form, useNavigation } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +35,7 @@ const statusLabels: Record<SupplierStatus, string> = {
  * Status Change Confirmation Modal
  *
  * Displays a confirmation dialog before changing supplier status
- * - Shows old status → new status transition
+ * - Shows old status â†’ new status transition
  * - Requires explicit confirmation
  * - Submits via Remix form action
  * - Shows success/error toast notifications

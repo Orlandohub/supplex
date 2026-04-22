@@ -61,12 +61,19 @@ describe("WorkflowTimeline Component", () => {
     it("should render empty state when no events exist", () => {
       render(<WorkflowTimeline {...defaultProps} />);
 
-      expect(screen.getByText("No audit trail events found")).toBeInTheDocument();
+      expect(
+        screen.getByText("No audit trail events found")
+      ).toBeInTheDocument();
     });
 
     it("should show filter dropdown when onFilterChange is provided", () => {
       const mockOnFilterChange = vi.fn();
-      render(<WorkflowTimeline {...defaultProps} onFilterChange={mockOnFilterChange} />);
+      render(
+        <WorkflowTimeline
+          {...defaultProps}
+          onFilterChange={mockOnFilterChange}
+        />
+      );
 
       const filterDropdown = screen.getByLabelText("Filter Events");
       expect(filterDropdown).toBeInTheDocument();
@@ -82,7 +89,9 @@ describe("WorkflowTimeline Component", () => {
     it("should show print button even with empty events", () => {
       render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       expect(printButton).toBeInTheDocument();
     });
   });
@@ -240,7 +249,9 @@ describe("WorkflowTimeline Component", () => {
 
       render(<WorkflowTimeline {...defaultProps} timelineEvents={events} />);
 
-      expect(screen.getByRole("button", { name: /show comments/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /show comments/i })
+      ).toBeInTheDocument();
     });
 
     it("should not show comments button when comments are null", () => {
@@ -252,7 +263,9 @@ describe("WorkflowTimeline Component", () => {
 
       render(<WorkflowTimeline {...defaultProps} timelineEvents={events} />);
 
-      expect(screen.queryByRole("button", { name: /show comments/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /show comments/i })
+      ).not.toBeInTheDocument();
     });
 
     it("should expand comments when 'Show Comments' is clicked", () => {
@@ -267,8 +280,12 @@ describe("WorkflowTimeline Component", () => {
       const showButton = screen.getByRole("button", { name: /show comments/i });
       fireEvent.click(showButton);
 
-      expect(screen.getByText("This is a test comment with important information")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /hide comments/i })).toBeInTheDocument();
+      expect(
+        screen.getByText("This is a test comment with important information")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /hide comments/i })
+      ).toBeInTheDocument();
     });
 
     it("should collapse comments when 'Hide Comments' is clicked", () => {
@@ -289,8 +306,12 @@ describe("WorkflowTimeline Component", () => {
       fireEvent.click(hideButton);
 
       // Comments text should not be visible
-      expect(screen.queryByText("This is a test comment")).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /show comments/i })).toBeInTheDocument();
+      expect(
+        screen.queryByText("This is a test comment")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /show comments/i })
+      ).toBeInTheDocument();
     });
 
     it("should handle multiple events with independent expand/collapse", () => {
@@ -307,7 +328,9 @@ describe("WorkflowTimeline Component", () => {
 
       render(<WorkflowTimeline {...defaultProps} timelineEvents={events} />);
 
-      const showButtons = screen.getAllByRole("button", { name: /show comments/i });
+      const showButtons = screen.getAllByRole("button", {
+        name: /show comments/i,
+      });
 
       // Expand only first event
       fireEvent.click(showButtons[0]);
@@ -351,11 +374,21 @@ describe("WorkflowTimeline Component", () => {
       expect(filterDropdown).toBeInTheDocument();
 
       // Check filter options
-      expect(screen.getByRole("option", { name: /all events/i })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: /approvals/i })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: /rejections/i })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: /documents/i })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: /comments/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", { name: /all events/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", { name: /approvals/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", { name: /rejections/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", { name: /documents/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", { name: /comments/i })
+      ).toBeInTheDocument();
     });
 
     it("should call onFilterChange when filter is changed", () => {
@@ -386,7 +419,9 @@ describe("WorkflowTimeline Component", () => {
         />
       );
 
-      const filterDropdown = screen.getByLabelText("Filter Events") as HTMLSelectElement;
+      const filterDropdown = screen.getByLabelText(
+        "Filter Events"
+      ) as HTMLSelectElement;
       expect(filterDropdown.value).toBe("approvals");
     });
   });
@@ -453,14 +488,18 @@ describe("WorkflowTimeline Component", () => {
     it("should render Print Audit Trail button", () => {
       render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       expect(printButton).toBeInTheDocument();
     });
 
     it("should have printer icon in button", () => {
-      const { container } = render(<WorkflowTimeline {...defaultProps} />);
+      render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       const icon = printButton.querySelector("svg");
 
       expect(icon).toBeInTheDocument();
@@ -468,20 +507,26 @@ describe("WorkflowTimeline Component", () => {
 
     it("should show loading state when PDF is being generated", async () => {
       // Mock fetch to delay response
-      (global.fetch as any).mockImplementation(() =>
-        new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              ok: true,
-              blob: () => Promise.resolve(new Blob(["PDF content"], { type: "application/pdf" })),
-            });
-          }, 100);
-        })
+      (global.fetch as any).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve({
+                ok: true,
+                blob: () =>
+                  Promise.resolve(
+                    new Blob(["PDF content"], { type: "application/pdf" })
+                  ),
+              });
+            }, 100);
+          })
       );
 
       render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       fireEvent.click(printButton);
 
       // Should show loading text immediately
@@ -510,7 +555,9 @@ describe("WorkflowTimeline Component", () => {
 
       render(<WorkflowTimeline {...defaultProps} workflowId="workflow-123" />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       fireEvent.click(printButton);
 
       await waitFor(() => {
@@ -541,7 +588,9 @@ describe("WorkflowTimeline Component", () => {
 
       render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       fireEvent.click(printButton);
 
       await waitFor(() => {
@@ -568,7 +617,12 @@ describe("WorkflowTimeline Component", () => {
 
     it("should render filter dropdown with responsive classes", () => {
       const mockOnFilterChange = vi.fn();
-      render(<WorkflowTimeline {...defaultProps} onFilterChange={mockOnFilterChange} />);
+      render(
+        <WorkflowTimeline
+          {...defaultProps}
+          onFilterChange={mockOnFilterChange}
+        />
+      );
 
       const filterDropdown = screen.getByLabelText("Filter Events");
       const filterContainer = filterDropdown.parentElement;
@@ -580,7 +634,9 @@ describe("WorkflowTimeline Component", () => {
     it("should render print button with responsive classes", () => {
       render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
 
       // Should have mobile-responsive width classes
       expect(printButton.className).toMatch(/w-full|md:w-/);
@@ -606,7 +662,12 @@ describe("WorkflowTimeline Component", () => {
 
     it("should have accessible filter label", () => {
       const mockOnFilterChange = vi.fn();
-      render(<WorkflowTimeline {...defaultProps} onFilterChange={mockOnFilterChange} />);
+      render(
+        <WorkflowTimeline
+          {...defaultProps}
+          onFilterChange={mockOnFilterChange}
+        />
+      );
 
       const filterLabel = screen.getByLabelText("Filter Events");
       expect(filterLabel).toBeInTheDocument();
@@ -615,9 +676,10 @@ describe("WorkflowTimeline Component", () => {
     it("should have accessible button labels", () => {
       render(<WorkflowTimeline {...defaultProps} />);
 
-      const printButton = screen.getByRole("button", { name: /print audit trail/i });
+      const printButton = screen.getByRole("button", {
+        name: /print audit trail/i,
+      });
       expect(printButton).toBeInTheDocument();
     });
   });
 });
-

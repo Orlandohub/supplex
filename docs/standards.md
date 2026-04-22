@@ -5,7 +5,7 @@ This document captures the contributor-facing implementation standards for Suppl
 Use it for:
 
 - coding rules
-- Remix route and data-loading patterns
+- React Router (Framework mode) route and data-loading patterns
 - routing conventions
 - stack choices that are still actively enforced
 - logging expectations
@@ -16,7 +16,7 @@ When standards and code differ, prefer the live implementation and update this d
 
 | Layer | Technology | Purpose |
 | --- | --- | --- |
-| Frontend | Remix + React + TypeScript | SSR web application |
+| Frontend | React Router v7 (Framework mode) + React + TypeScript | SSR web application |
 | Backend | Bun + ElysiaJS + TypeScript | API and business logic |
 | Database | PostgreSQL on Supabase | Relational data, auth, storage |
 | ORM | Drizzle | Type-safe schema and queries |
@@ -29,7 +29,7 @@ When standards and code differ, prefer the live implementation and update this d
 
 ## Repo Shape
 
-- `apps/web` - Remix app
+- `apps/web` - React Router v7 (Framework mode) app
 - `apps/api` - Elysia API
 - `packages/db` - schema and migrations
 - `packages/types` - shared types
@@ -77,15 +77,18 @@ When standards and code differ, prefer the live implementation and update this d
 - Use TypeBox for route validation
 - Do not mix Zod schemas into Elysia route schema definitions
 
-## Remix Patterns
+## React Router Patterns
 
-- Fetch route data in loaders, not `useEffect`
+- Fetch route data in `loader` / `clientLoader`, not `useEffect`
 - Load related data in parallel where possible
 - Return route data together and pass it into child components
 - Route components own data loading
 - Child components receive route-owned data via props
 - Use `shouldRevalidate` for URL-state changes like tabs and filters when a full reload is unnecessary
 - Use `useRevalidator()` after mutations instead of manual client-side state repair
+- Import framework primitives from `react-router` (and server adapters from `@react-router/node`). Do **not** import from `@remix-run/*` or `react-router-dom` - these are removed from the dependency tree.
+- For typed loader data in new route code, prefer the generated `Route.LoaderArgs` / `Route.ComponentProps` types from `./+types/<route-name>` over ad-hoc `LoaderFunctionArgs`. Older routes using `useLoaderData<typeof loader>()` still work but should be migrated opportunistically.
+- Return plain objects from loaders/actions for simple cases. Use `data(value, init)` from `react-router` when you need to set status or headers. Use `Response.json(...)` when downstream consumers (tests, probes) need a real `Response`.
 
 ## Routing Conventions
 
@@ -111,7 +114,7 @@ When standards and code differ, prefer the live implementation and update this d
 
 Before pushing code, verify:
 
-- data loading follows Remix route patterns
+- data loading follows React Router route patterns
 - schema field names were verified
 - auth and role checks include null safety
 - TypeBox is used for route validation

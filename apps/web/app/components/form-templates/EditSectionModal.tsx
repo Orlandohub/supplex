@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Edit Section Modal Component
  * Modal form for editing an existing section
  */
 
 import { useState, useEffect } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import type { FormSectionWithFields } from "@supplex/types";
 import {
   Dialog,
@@ -143,4 +143,3 @@ export function EditSectionModal({
     </Dialog>
   );
 }
-

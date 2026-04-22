@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Section Card Component
  * Displays a section with its fields and actions
  * Updated: Story 2.2.14 - Removed versionId
  */
 
 import { useState } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import type { FormSectionWithFields } from "@supplex/types";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -61,9 +61,8 @@ export function SectionCard({
     setIsDeleting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"].sections[
-        section.id
-      ].delete();
+      const response =
+        await client.api["form-templates"].sections[section.id].delete();
 
       if (response.error) {
         toast({
@@ -97,7 +96,8 @@ export function SectionCard({
     setIsReordering(true);
     try {
       const currentIndex = allSections.findIndex((s) => s.id === section.id);
-      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      const targetIndex =
+        direction === "up" ? currentIndex - 1 : currentIndex + 1;
 
       if (targetIndex < 0 || targetIndex >= allSections.length) return;
 
@@ -111,7 +111,9 @@ export function SectionCard({
       const sectionIds = newOrder.map((s) => s.id);
 
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"][templateId].sections.reorder.post({
+      const response = await client.api["form-templates"][
+        templateId
+      ].sections.reorder.post({
         sectionIds,
       });
 
@@ -265,11 +267,12 @@ export function SectionCard({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
 }
-

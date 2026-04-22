@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { config } from "~/lib/config";
 
 // Validation schema
@@ -55,7 +55,7 @@ export function LoginForm({
   redirectTo,
   className = "",
 }: LoginFormProps) {
-  const { signIn, isLoading, setAuth } = useAuth();
+  const { signIn, isLoading, setAuth: _setAuth } = useAuth();
   const [submitError, setSubmitError] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -146,7 +146,7 @@ export function LoginForm({
     }
   };
 
-  // Dev Quick Login — uses signInWithPassword with a temporary password set by the API
+  // Dev Quick Login â€” uses signInWithPassword with a temporary password set by the API
   const handleDevLogin = async () => {
     if (!selectedUser) return;
 
@@ -170,7 +170,11 @@ export function LoginForm({
       }
 
       // Use the exact same signIn flow as normal login
-      const signInResult = await signIn(result.email, result.tempPassword, false);
+      const signInResult = await signIn(
+        result.email,
+        result.tempPassword,
+        false
+      );
 
       if (!signInResult.success) {
         setDevError(signInResult.error || "Dev login failed");
@@ -193,7 +197,7 @@ export function LoginForm({
   const selectedTenantData = devUsers?.tenants.find(
     (t) => t.id === selectedTenant
   );
-  const allUsersForTenant = selectedTenantData
+  const _allUsersForTenant = selectedTenantData
     ? [...selectedTenantData.users, ...selectedTenantData.supplierUsers]
     : [];
 
@@ -209,7 +213,7 @@ export function LoginForm({
       {isDevelopment && devUsers && (
         <div className="mb-8 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🚀</span>
+            <span className="text-2xl">ðŸš€</span>
             <h2 className="text-lg font-semibold text-gray-900">
               Dev Quick Login
             </h2>
@@ -264,29 +268,31 @@ export function LoginForm({
                   disabled={devLoading}
                 >
                   <option value="">Select user...</option>
-                  
+
                   {/* Tenant Users */}
-                  {selectedTenantData && selectedTenantData.users.length > 0 && (
-                    <optgroup label="Tenant Users">
-                      {selectedTenantData.users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.fullName} ({user.role}) - {user.email}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  {selectedTenantData &&
+                    selectedTenantData.users.length > 0 && (
+                      <optgroup label="Tenant Users">
+                        {selectedTenantData.users.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.fullName} ({user.role}) - {user.email}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
 
                   {/* Supplier Users */}
-                  {selectedTenantData && selectedTenantData.supplierUsers.length > 0 && (
-                    <optgroup label="Supplier Users">
-                      {selectedTenantData.supplierUsers.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.fullName} ({user.role}) - {user.email}
-                          {user.supplierName && ` [${user.supplierName}]`}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  {selectedTenantData &&
+                    selectedTenantData.supplierUsers.length > 0 && (
+                      <optgroup label="Supplier Users">
+                        {selectedTenantData.supplierUsers.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.fullName} ({user.role}) - {user.email}
+                            {user.supplierName && ` [${user.supplierName}]`}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                 </select>
               </div>
             )}
@@ -496,7 +502,9 @@ export function LoginForm({
                 />
               </svg>
               <div className="ml-3">
-                <p className="text-sm text-red-800 whitespace-pre-line">{submitError}</p>
+                <p className="text-sm text-red-800 whitespace-pre-line">
+                  {submitError}
+                </p>
               </div>
             </div>
           </div>

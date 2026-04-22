@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "@remix-run/react";
+﻿import { Link, useSearchParams } from "react-router";
 
 interface SupplierPaginationProps {
   currentPage: number;
@@ -226,4 +226,3 @@ export function SupplierPagination({
     </div>
   );
 }
-

@@ -2,8 +2,8 @@ import type {
   LoaderFunctionArgs,
   ActionFunctionArgs,
   MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+} from "react-router";
+import { data as json, redirect } from "react-router";
 import {
   useLoaderData,
   useNavigation,
@@ -13,8 +13,7 @@ import {
   Link,
   useSearchParams,
   useRouteLoaderData,
-} from "@remix-run/react";
-import type { AppLoaderData } from "./_app";
+} from "react-router";
 import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -89,13 +88,13 @@ export async function loader(args: LoaderFunctionArgs) {
     if (!token) {
       throw new Response("Unauthorized", { status: 401 });
     }
-    
+
     const supplierInfo = await getSupplierForUser(user.id, token);
-    
+
     if (!supplierInfo) {
       throw new Error("Supplier user is not associated with a supplier");
     }
-    
+
     // If trying to access a different supplier's page, throw 403
     if (supplierInfo.id !== id) {
       throw new Response("You do not have permission to view this supplier", {
@@ -115,13 +114,17 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Fetch supplier, documents, and workflows in parallel for optimal performance
   try {
-    const [supplierResponse, documentsResponse, workflowsResponse, supplierStatusesResponse] =
-      await Promise.all([
-        client.api.suppliers[id].get(),
-        client.api.suppliers[id].documents.get(),
-        client.api.workflows.supplier[id].processes.get(),
-        client.api.admin["supplier-statuses"].get(),
-      ]);
+    const [
+      supplierResponse,
+      documentsResponse,
+      workflowsResponse,
+      supplierStatusesResponse,
+    ] = await Promise.all([
+      client.api.suppliers[id].get(),
+      client.api.suppliers[id].documents.get(),
+      client.api.workflows.supplier[id].processes.get(),
+      client.api.admin["supplier-statuses"].get(),
+    ]);
 
     // Handle supplier API errors
     if (supplierResponse.error) {
@@ -192,7 +195,8 @@ export async function loader(args: LoaderFunctionArgs) {
     // Fetch supplier form submissions (non-fatal)
     let formSubmissions: any[] = [];
     try {
-      const formsResponse = await client.api["form-submissions"]["by-supplier"][id].get();
+      const formsResponse =
+        await client.api["form-submissions"]["by-supplier"][id].get();
       if (!formsResponse.error && formsResponse.data) {
         const formsData = formsResponse.data as any;
         formSubmissions = formsData?.data?.submissions || [];
@@ -203,7 +207,8 @@ export async function loader(args: LoaderFunctionArgs) {
 
     let supplierStatuses: { id: string; name: string }[] = [];
     if (!supplierStatusesResponse.error && supplierStatusesResponse.data) {
-      supplierStatuses = ((supplierStatusesResponse.data as any)?.data || []) as { id: string; name: string }[];
+      supplierStatuses = ((supplierStatusesResponse.data as any)?.data ||
+        []) as { id: string; name: string }[];
     }
 
     return json({
@@ -372,9 +377,15 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function SupplierDetail() {
-  const { supplier, supplierUser, documents, workflows, formSubmissions, supplierStatuses, token } = useLoaderData<
-    typeof loader
-  >() as {
+  const {
+    supplier,
+    supplierUser,
+    documents,
+    workflows,
+    formSubmissions,
+    supplierStatuses,
+    token,
+  } = useLoaderData<typeof loader>() as {
     supplier: SerializedSupplier;
     supplierUser: {
       id: string;
@@ -416,7 +427,6 @@ export default function SupplierDetail() {
     }
   }, [searchParams, toast]);
 
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -435,7 +445,11 @@ export default function SupplierDetail() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="mb-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/suppliers")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/suppliers")}
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Suppliers
             </Button>
@@ -528,7 +542,8 @@ export function ErrorBoundary() {
 
     if (error.status === 403) {
       // Check if user is supplier_user (has supplierInfo)
-      const isSupplierUser = appData?.supplierInfo !== null && appData?.supplierInfo !== undefined;
+      const isSupplierUser =
+        appData?.supplierInfo !== null && appData?.supplierInfo !== undefined;
 
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Active Step Panel Component
  * Story: 2.2.8 - Workflow Execution Engine
- * 
+ *
  * Displays active step details and action buttons
  */
 
@@ -10,7 +10,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 
 interface StepInstance {
   id: string;
@@ -75,7 +75,7 @@ export function ActiveStepPanel({
   const navigate = useNavigate();
   const [isCompleting, setIsCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showDeclineForm, setShowDeclineForm] = useState(false);
+  const [_showDeclineForm, setShowDeclineForm] = useState(false);
   const [declineComment, setDeclineComment] = useState("");
 
   const client = createEdenTreatyClient(token);
@@ -85,7 +85,8 @@ export function ActiveStepPanel({
   const isApprovalStep = step.stepType === "approval";
   const isReviewStep = step.stepType === "review";
   const isFormStep = step.stepType === "form";
-  const isDocumentStep = step.stepType === "document" || step.stepType === "document_upload";
+  const isDocumentStep =
+    step.stepType === "document" || step.stepType === "document_upload";
   const hasUserTasks = userTasks.length > 0;
   const allTasksCompleted = userTasks.every((t) => t.status === "completed");
 
@@ -94,7 +95,10 @@ export function ActiveStepPanel({
   const latestRejectionComment = wasRejected
     ? stepComments
         .filter((c) => c.entityType === "form" || c.entityType === "document")
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0]
     : null;
 
   // For form steps, check if form is submitted
@@ -109,7 +113,11 @@ export function ActiveStepPanel({
       setIsCompleting(true);
       setError(null);
 
-      const action = isAwaitingValidation ? "approve" : isFormStep ? "submit" : "approve";
+      const action = isAwaitingValidation
+        ? "approve"
+        : isFormStep
+          ? "submit"
+          : "approve";
 
       const response = await client.api.workflows.steps[step.id].complete.post({
         action,
@@ -197,7 +205,9 @@ export function ActiveStepPanel({
               : "bg-blue-100 text-blue-800"
           }
         >
-          {step.status === "awaiting_validation" ? "Awaiting Validation" : "Active"}
+          {step.status === "awaiting_validation"
+            ? "Awaiting Validation"
+            : "Active"}
         </Badge>
       </div>
 
@@ -205,8 +215,18 @@ export function ActiveStepPanel({
       {wasRejected && !isAwaitingValidation && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
           <div className="flex items-start space-x-3">
-            <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            <svg
+              className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
             <div className="flex-1">
               <p className="text-sm font-semibold text-red-800">
@@ -218,8 +238,14 @@ export function ActiveStepPanel({
                     &ldquo;{latestRejectionComment.commentText}&rdquo;
                   </p>
                   <p className="text-xs text-red-600 mt-1">
-                    by {latestRejectionComment.commenterFullName || latestRejectionComment.commenterEmail || "Reviewer"}{" "}
-                    on {new Date(latestRejectionComment.createdAt).toLocaleString()}
+                    by{" "}
+                    {latestRejectionComment.commenterFullName ||
+                      latestRejectionComment.commenterEmail ||
+                      "Reviewer"}{" "}
+                    on{" "}
+                    {new Date(
+                      latestRejectionComment.createdAt
+                    ).toLocaleString()}
                   </p>
                 </div>
               )}
@@ -279,12 +305,13 @@ export function ActiveStepPanel({
       {/* Action Buttons */}
       {hasUserTasks && (
         <div className="space-y-4">
-          {/* Validation Step Actions — single button to review the form (form steps only) */}
+          {/* Validation Step Actions â€” single button to review the form (form steps only) */}
           {isAwaitingValidation && !isDocumentStep && (
             <div className="space-y-4">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                 <p className="text-sm font-medium text-amber-900">
-                  This step requires your validation review. Open the form to approve or decline.
+                  This step requires your validation review. Open the form to
+                  approve or decline.
                 </p>
               </div>
 
@@ -311,10 +338,12 @@ export function ActiveStepPanel({
               {formSubmission && (
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-md flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Form Status</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      Form Status
+                    </p>
                     <p className="text-xs text-gray-600 mt-0.5">
-                      {isFormSubmitted && "✅ Form has been submitted"}
-                      {isFormDraft && "📝 Form saved as draft"}
+                      {isFormSubmitted && "âœ… Form has been submitted"}
+                      {isFormDraft && "ðŸ“ Form saved as draft"}
                     </p>
                   </div>
                   <Badge
@@ -328,14 +357,18 @@ export function ActiveStepPanel({
                   </Badge>
                 </div>
               )}
-              
+
               {/* Action Buttons */}
               <div className="flex items-center space-x-4">
                 <Button
                   onClick={handleFillForm}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {formSubmission ? (isFormSubmitted ? "📄 View Form" : "📝 Edit Form") : "📝 Fill Out Form"}
+                  {formSubmission
+                    ? isFormSubmitted
+                      ? "ðŸ“„ View Form"
+                      : "ðŸ“ Edit Form"
+                    : "ðŸ“ Fill Out Form"}
                 </Button>
                 {canCompleteFormStep && (
                   <Button
@@ -343,15 +376,14 @@ export function ActiveStepPanel({
                     disabled={isCompleting}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    {isCompleting ? "Processing..." : "✓ Complete Step"}
+                    {isCompleting ? "Processing..." : "âœ“ Complete Step"}
                   </Button>
                 )}
                 {!canCompleteFormStep && (
                   <p className="text-sm text-gray-500">
-                    {formSubmission 
+                    {formSubmission
                       ? "Submit the form before completing this step"
-                      : "Fill out and submit the form to continue"
-                    }
+                      : "Fill out and submit the form to continue"}
                   </p>
                 )}
               </div>
@@ -390,12 +422,23 @@ export function ActiveStepPanel({
               {documentProgress && documentProgress.declined > 0 && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-md">
                   <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    <svg
+                      className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
                     </svg>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-red-800">
-                        {documentProgress.declined} of {documentProgress.total} document(s) were declined
+                        {documentProgress.declined} of {documentProgress.total}{" "}
+                        document(s) were declined
                       </p>
                       <p className="text-xs text-red-600 mt-1">
                         Please re-upload the declined documents to proceed.
@@ -406,9 +449,14 @@ export function ActiveStepPanel({
                             .filter((d) => d.status === "declined")
                             .map((d, idx) => (
                               <li key={idx} className="text-sm text-red-700">
-                                <span className="font-medium">{d.requiredDocumentName}</span>
+                                <span className="font-medium">
+                                  {d.requiredDocumentName}
+                                </span>
                                 {d.declineComment && (
-                                  <span className="italic text-red-600"> &mdash; &ldquo;{d.declineComment}&rdquo;</span>
+                                  <span className="italic text-red-600">
+                                    {" "}
+                                    &mdash; &ldquo;{d.declineComment}&rdquo;
+                                  </span>
                                 )}
                               </li>
                             ))}
@@ -421,15 +469,20 @@ export function ActiveStepPanel({
               {documentProgress && (
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-gray-900">Document Progress</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      Document Progress
+                    </p>
                     <Badge
                       className={
-                        documentProgress.uploaded + documentProgress.approved === documentProgress.total
+                        documentProgress.uploaded +
+                          documentProgress.approved ===
+                        documentProgress.total
                           ? "bg-green-100 text-green-800"
                           : "bg-yellow-100 text-yellow-800"
                       }
                     >
-                      {documentProgress.uploaded + documentProgress.approved}/{documentProgress.total}
+                      {documentProgress.uploaded + documentProgress.approved}/
+                      {documentProgress.total}
                     </Badge>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -456,7 +509,8 @@ export function ActiveStepPanel({
             <div className="space-y-4">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                 <p className="text-sm font-medium text-amber-900">
-                  Review the uploaded documents. You can approve or decline each document individually.
+                  Review the uploaded documents. You can approve or decline each
+                  document individually.
                 </p>
               </div>
               <Button
@@ -469,21 +523,24 @@ export function ActiveStepPanel({
           )}
 
           {/* Other Step Types */}
-          {!isApprovalStep && !isReviewStep && !isFormStep && !isDocumentStep && (
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={handleCompleteStep}
-                disabled={isCompleting || !allTasksCompleted}
-              >
-                {isCompleting ? "Processing..." : "Complete Step"}
-              </Button>
-              {!allTasksCompleted && (
-                <p className="text-sm text-gray-500">
-                  Complete all tasks before proceeding
-                </p>
-              )}
-            </div>
-          )}
+          {!isApprovalStep &&
+            !isReviewStep &&
+            !isFormStep &&
+            !isDocumentStep && (
+              <div className="flex items-center space-x-4">
+                <Button
+                  onClick={handleCompleteStep}
+                  disabled={isCompleting || !allTasksCompleted}
+                >
+                  {isCompleting ? "Processing..." : "Complete Step"}
+                </Button>
+                {!allTasksCompleted && (
+                  <p className="text-sm text-gray-500">
+                    Complete all tasks before proceeding
+                  </p>
+                )}
+              </div>
+            )}
         </div>
       )}
 
@@ -497,4 +554,3 @@ export function ActiveStepPanel({
     </Card>
   );
 }
-

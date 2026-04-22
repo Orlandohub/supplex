@@ -5,14 +5,14 @@
  * Updated: Story 2.2.14 - Uses formTemplateId instead of versionId
  */
 
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import { data as json, type LoaderFunctionArgs } from "react-router";
 import {
   useLoaderData,
   useNavigate,
   useRevalidator,
   isRouteErrorResponse,
   useRouteError,
-} from "@remix-run/react";
+} from "react-router";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -304,7 +304,7 @@ export default function FormExecutionPage() {
           </h1>
           <p className="text-muted-foreground mt-1">
             {isSupplierContext
-              ? "Submitted form data (read-only)"
+              ? "Submitted form json(read-only)"
               : isValidator
                 ? "Review the submission below, then approve or decline."
                 : mode === "view"

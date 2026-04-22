@@ -1,8 +1,8 @@
-import { Link, useRouteLoaderData } from "@remix-run/react";
+﻿import { Link, useRouteLoaderData } from "react-router";
 import type { AppLoaderData } from "~/routes/_app";
 
 export function EmptySupplierState() {
-  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const canCreateSuppliers = appData?.permissions?.canCreateSuppliers;
 
