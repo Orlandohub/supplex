@@ -1,7 +1,7 @@
 /**
  * Workflow Engine Process Detail Page
  * Story: 2.2.8 - Workflow Execution Engine
- * 
+ *
  * Displays workflow process instance with steps, tasks, and comments
  */
 
@@ -9,14 +9,14 @@ import type {
   LoaderFunctionArgs,
   MetaFunction,
   ShouldRevalidateFunctionArgs,
-} from "@remix-run/node";
-import { json } from "@remix-run/node";
+} from "react-router";
+import { data as json } from "react-router";
 import {
   useLoaderData,
   useSearchParams,
   isRouteErrorResponse,
   useRouteError,
-} from "@remix-run/react";
+} from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { WorkflowProcessDetailPage } from "~/components/workflow-engine/WorkflowProcessDetailPage";
@@ -44,7 +44,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 
 /**
  * Loader function to fetch workflow process details
- * 
+ *
  * Fetches:
  * - Process instance with all metadata
  * - Step instances ordered by step_order
@@ -73,9 +73,8 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch process details
-    const processResponse = await client.api.workflows.processes[
-      processInstanceId
-    ].get();
+    const processResponse =
+      await client.api.workflows.processes[processInstanceId].get();
 
     // Handle API errors
     if (processResponse.error) {
@@ -99,7 +98,10 @@ export async function loader(args: LoaderFunctionArgs) {
     if (!data?.success || !data.data) {
       // Check if the body itself carries an authorization error (belt-and-suspenders)
       const bodyError = (data as any)?.error;
-      if (typeof bodyError === "string" && bodyError.toLowerCase().includes("access denied")) {
+      if (
+        typeof bodyError === "string" &&
+        bodyError.toLowerCase().includes("access denied")
+      ) {
         throw new Response(bodyError, { status: 403 });
       }
       throw new Response("Invalid API response", { status: 500 });
@@ -133,7 +135,11 @@ export async function loader(args: LoaderFunctionArgs) {
       user: {
         id: supabaseUser.id,
         email: supabaseUser.email || "",
-        fullName: userRecord?.fullName || userRecord?.full_name || supabaseUser.email || "",
+        fullName:
+          userRecord?.fullName ||
+          userRecord?.full_name ||
+          supabaseUser.email ||
+          "",
         role: userRecord?.role || "",
       },
     });
@@ -176,7 +182,17 @@ export function shouldRevalidate({
  * Main component
  */
 export default function WorkflowProcessDetail() {
-  const { process, steps, tasks, comments, formSubmissions, documentProgress, validationSteps, token, user } = useLoaderData<typeof loader>();
+  const {
+    process,
+    steps,
+    tasks,
+    comments,
+    formSubmissions,
+    documentProgress,
+    validationSteps,
+    token,
+    user,
+  } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
 
@@ -248,4 +264,3 @@ export function ErrorBoundary() {
     </div>
   );
 }
-

@@ -9,15 +9,15 @@
  * - Contextual row actions
  */
 
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data as json } from "react-router";
 import {
   useLoaderData,
   useNavigation,
   Link,
   useRouteLoaderData,
   useSearchParams,
-} from "@remix-run/react";
+} from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { AppLoaderData } from "~/routes/_app";
@@ -25,12 +25,7 @@ import { Button } from "~/components/ui/button";
 import { DebouncedSearchInput } from "~/components/ui/debounced-search-input";
 import { PaginationControls } from "~/components/ui/pagination-controls";
 import { InitiateWorkflowDialog } from "~/components/workflows/InitiateWorkflowDialog";
-import {
-  Workflow,
-  Settings,
-  Plus,
-  Bell,
-} from "lucide-react";
+import { Workflow, Settings, Plus, Bell } from "lucide-react";
 
 /* ===== Types ===== */
 
@@ -73,7 +68,10 @@ interface Counts {
 
 export const meta: MetaFunction = () => [
   { title: "Workflows | Supplex" },
-  { name: "description", content: "Manage and act on workflow processes across your organization" },
+  {
+    name: "description",
+    content: "Manage and act on workflow processes across your organization",
+  },
 ];
 
 /* ===== Loader ===== */
@@ -85,7 +83,15 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const url = new URL(args.request.url);
   const queryParams: Record<string, string> = {};
-  for (const key of ["page", "pageSize", "search", "status", "view", "sortBy", "sortOrder"]) {
+  for (const key of [
+    "page",
+    "pageSize",
+    "search",
+    "status",
+    "view",
+    "sortBy",
+    "sortOrder",
+  ]) {
     const val = url.searchParams.get(key);
     if (val && val !== "all" && val !== "all_statuses") {
       queryParams[key] = val;
@@ -95,17 +101,23 @@ export async function loader(args: LoaderFunctionArgs) {
   const client = createEdenTreatyClient(token);
 
   try {
-    const response = await client.api.workflows.processes.get({ query: queryParams as any });
+    const response = await client.api.workflows.processes.get({
+      query: queryParams as any,
+    });
 
     if (response.error) {
       console.error("Processes API Error:", response.error);
-      throw new Response((response.error as any).message || "Failed to load processes", {
-        status: response.status || 500,
-      });
+      throw new Response(
+        (response.error as any).message || "Failed to load processes",
+        {
+          status: response.status || 500,
+        }
+      );
     }
 
     const data = response.data as any;
-    if (!data?.success || !data.data) throw new Response("Invalid API response", { status: 500 });
+    if (!data?.success || !data.data)
+      throw new Response("Invalid API response", { status: 500 });
 
     return json({
       processes: data.data.processes as ProcessInstance[],
@@ -154,16 +166,26 @@ function relativeTime(dateStr: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(dateStr).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function shortDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(dateStr).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function fullDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(undefined, {
-    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -171,25 +193,57 @@ function prettifyType(type: string): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function dueInfo(p: ProcessInstance): { text: string; meta: string; tone: "red" | "amber" | "muted" } | null {
+function dueInfo(
+  p: ProcessInstance
+): { text: string; meta: string; tone: "red" | "amber" | "muted" } | null {
   if (!p.earliestDueAt) return null;
-  const days = Math.ceil((new Date(p.earliestDueAt).getTime() - Date.now()) / 86_400_000);
-  if (days < 0) return { text: shortDate(p.earliestDueAt), meta: `${Math.abs(days)}d overdue`, tone: "red" };
-  if (days === 0) return { text: shortDate(p.earliestDueAt), meta: "Due today", tone: "amber" };
-  if (days === 1) return { text: shortDate(p.earliestDueAt), meta: "Due tomorrow", tone: "amber" };
-  if (days <= 7) return { text: shortDate(p.earliestDueAt), meta: `${days} days left`, tone: "amber" };
-  return { text: shortDate(p.earliestDueAt), meta: `${days} days left`, tone: "muted" };
+  const days = Math.ceil(
+    (new Date(p.earliestDueAt).getTime() - Date.now()) / 86_400_000
+  );
+  if (days < 0)
+    return {
+      text: shortDate(p.earliestDueAt),
+      meta: `${Math.abs(days)}d overdue`,
+      tone: "red",
+    };
+  if (days === 0)
+    return {
+      text: shortDate(p.earliestDueAt),
+      meta: "Due today",
+      tone: "amber",
+    };
+  if (days === 1)
+    return {
+      text: shortDate(p.earliestDueAt),
+      meta: "Due tomorrow",
+      tone: "amber",
+    };
+  if (days <= 7)
+    return {
+      text: shortDate(p.earliestDueAt),
+      meta: `${days} days left`,
+      tone: "amber",
+    };
+  return {
+    text: shortDate(p.earliestDueAt),
+    meta: `${days} days left`,
+    tone: "muted",
+  };
 }
 
 function rowTone(p: ProcessInstance): "red" | "amber" | "blue" | "gray" {
   if (p.overdueTaskCount > 0) return "red";
-  if (p.status === "pending_validation" || p.status === "declined_resubmit") return "amber";
+  if (p.status === "pending_validation" || p.status === "declined_resubmit")
+    return "amber";
   if (p.status === "complete" || p.status === "cancelled") return "gray";
   return "blue";
 }
 
 const TONE_BAR: Record<string, string> = {
-  red: "bg-red-500", amber: "bg-amber-500", blue: "bg-blue-500", gray: "bg-gray-400",
+  red: "bg-red-500",
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  gray: "bg-gray-400",
 };
 
 const TONE_PILL: Record<string, string> = {
@@ -201,15 +255,29 @@ const TONE_PILL: Record<string, string> = {
 
 function primaryAction(p: ProcessInstance): { label: string; href: string } {
   const base = `/workflows/processes/${p.id}`;
-  if (p.status === "complete" || p.status === "cancelled" || !p.isAssignedToMe || !p.currentStepType) {
+  if (
+    p.status === "complete" ||
+    p.status === "cancelled" ||
+    !p.isAssignedToMe ||
+    !p.currentStepType
+  ) {
     return { label: "Open Workflow", href: base };
   }
   const isVal = p.myTaskType === "validation";
   const stepBase = `${base}/steps/${p.currentStepInstanceId}`;
   switch (p.currentStepType) {
-    case "form": return { label: isVal ? "Review Form" : "Fill Form", href: `${stepBase}/form` };
-    case "document_upload": return { label: isVal ? "Review Docs" : "Upload Docs", href: `${stepBase}/documents` };
-    default: return { label: "Continue", href: base };
+    case "form":
+      return {
+        label: isVal ? "Review Form" : "Fill Form",
+        href: `${stepBase}/form`,
+      };
+    case "document_upload":
+      return {
+        label: isVal ? "Review Docs" : "Upload Docs",
+        href: `${stepBase}/documents`,
+      };
+    default:
+      return { label: "Continue", href: base };
   }
 }
 
@@ -232,12 +300,30 @@ const VIEW_TABS = [
 ] as const;
 
 const EMPTY_STATES: Record<string, { title: string; desc: string }> = {
-  all:               { title: "No Workflow Processes",               desc: "No workflow processes have been initiated yet. Start by initiating a new workflow." },
-  my_work:           { title: "No Tasks Assigned to You",            desc: "You have no workflows requiring your action right now." },
-  waiting_supplier:  { title: "No Workflows Waiting on Supplier",    desc: "No workflows are currently waiting for supplier action." },
-  waiting_internal:  { title: "No Workflows Waiting Internally",     desc: "No workflows are currently waiting for internal team action." },
-  overdue:           { title: "No Overdue Workflows",                desc: "All workflows are on track. No overdue tasks detected." },
-  completed:         { title: "No Completed Workflows",              desc: "No workflows have been completed yet." },
+  all: {
+    title: "No Workflow Processes",
+    desc: "No workflow processes have been initiated yet. Start by initiating a new workflow.",
+  },
+  my_work: {
+    title: "No Tasks Assigned to You",
+    desc: "You have no workflows requiring your action right now.",
+  },
+  waiting_supplier: {
+    title: "No Workflows Waiting on Supplier",
+    desc: "No workflows are currently waiting for supplier action.",
+  },
+  waiting_internal: {
+    title: "No Workflows Waiting Internally",
+    desc: "No workflows are currently waiting for internal team action.",
+  },
+  overdue: {
+    title: "No Overdue Workflows",
+    desc: "All workflows are on track. No overdue tasks detected.",
+  },
+  completed: {
+    title: "No Completed Workflows",
+    desc: "No workflows have been completed yet.",
+  },
 };
 
 const STATUS_OPTIONS = [
@@ -251,7 +337,8 @@ const STATUS_OPTIONS = [
 /* ===== Page Component ===== */
 
 export default function WorkflowsIndex() {
-  const { processes, total, page, pageSize, counts, token, user } = useLoaderData<typeof loader>();
+  const { processes, total, page, pageSize, counts, token, user } =
+    useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const [searchParams, setSearchParams] = useSearchParams();
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
@@ -265,7 +352,8 @@ export default function WorkflowsIndex() {
   function updateParams(updates: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams);
     for (const [key, value] of Object.entries(updates)) {
-      if (!value || value === "all" || value === "all_statuses") next.delete(key);
+      if (!value || value === "all" || value === "all_statuses")
+        next.delete(key);
       else next.set(key, value);
     }
     setSearchParams(next);
@@ -295,31 +383,47 @@ export default function WorkflowsIndex() {
 
   const summaryCards = [
     { label: "Active", count: counts.active, view: "all" },
-    { label: "Waiting on Supplier", count: counts.waitingOnSupplier, view: "waiting_supplier" },
-    { label: "Waiting on Internal", count: counts.waitingOnInternal, view: "waiting_internal" },
+    {
+      label: "Waiting on Supplier",
+      count: counts.waitingOnSupplier,
+      view: "waiting_supplier",
+    },
+    {
+      label: "Waiting on Internal",
+      count: counts.waitingOnInternal,
+      view: "waiting_internal",
+    },
     { label: "Overdue", count: counts.overdue, view: "overdue", warn: true },
-    { label: "Completed This Month", count: counts.completedThisMonth, view: "completed" },
+    {
+      label: "Completed This Month",
+      count: counts.completedThisMonth,
+      view: "completed",
+    },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-
         {/* ── Top Panel ─────────────────────────────────────── */}
         <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200 space-y-5">
-
           {/* Header row */}
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Workflows</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Workflows
+              </h1>
               <p className="mt-1 text-sm text-gray-500">
-                Track qualification, evaluation, and complaint processes in one operational view.
+                Track qualification, evaluation, and complaint processes in one
+                operational view.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
               {permissions?.isAdmin && (
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/settings/workflow-templates" className="inline-flex items-center">
+                  <Link
+                    to="/settings/workflow-templates"
+                    className="inline-flex items-center"
+                  >
                     <Settings className="mr-1.5 h-4 w-4" />
                     Manage Templates
                   </Link>
@@ -343,7 +447,12 @@ export default function WorkflowsIndex() {
               return (
                 <button
                   key={c.view}
-                  onClick={() => resetToPage1({ view: c.view === "all" ? null : c.view, status: null })}
+                  onClick={() =>
+                    resetToPage1({
+                      view: c.view === "all" ? null : c.view,
+                      status: null,
+                    })
+                  }
                   className={`rounded-lg border p-3 text-left transition-colors ${
                     active
                       ? "border-gray-400 bg-gray-50 ring-1 ring-gray-300"
@@ -353,9 +462,11 @@ export default function WorkflowsIndex() {
                   <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
                     {c.label}
                   </div>
-                  <div className={`mt-1 text-2xl font-semibold tabular-nums ${
-                    c.warn && c.count > 0 ? "text-red-600" : "text-gray-900"
-                  }`}>
+                  <div
+                    className={`mt-1 text-2xl font-semibold tabular-nums ${
+                      c.warn && c.count > 0 ? "text-red-600" : "text-gray-900"
+                    }`}
+                  >
                     {c.count}
                   </div>
                 </button>
@@ -371,18 +482,31 @@ export default function WorkflowsIndex() {
               return (
                 <button
                   key={tab.value}
-                  onClick={() => resetToPage1({ view: tab.value === "all" ? null : tab.value, status: null })}
+                  onClick={() =>
+                    resetToPage1({
+                      view: tab.value === "all" ? null : tab.value,
+                      status: null,
+                    })
+                  }
                   className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                    active ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    active
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   {tab.label}
                   {cnt != null && cnt > 0 && (
-                    <span className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${
-                      active
-                        ? tab.value === "overdue" ? "bg-red-500 text-white" : "bg-white/20 text-white"
-                        : tab.value === "overdue" ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-600"
-                    }`}>
+                    <span
+                      className={`inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold min-w-[18px] ${
+                        active
+                          ? tab.value === "overdue"
+                            ? "bg-red-500 text-white"
+                            : "bg-white/20 text-white"
+                          : tab.value === "overdue"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
                       {cnt}
                     </span>
                   )}
@@ -402,11 +526,18 @@ export default function WorkflowsIndex() {
             {currentView === "all" && (
               <select
                 value={currentStatus || "all_statuses"}
-                onChange={(e) => resetToPage1({ status: e.target.value === "all_statuses" ? null : e.target.value })}
+                onChange={(e) =>
+                  resetToPage1({
+                    status:
+                      e.target.value === "all_statuses" ? null : e.target.value,
+                  })
+                }
                 className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 sm:w-48"
               >
                 {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             )}
@@ -421,24 +552,30 @@ export default function WorkflowsIndex() {
               {currentSearch ? "No Results" : empty.title}
             </h2>
             <p className="text-sm text-gray-500 max-w-md mx-auto mb-5">
-              {currentSearch ? `No workflows found matching "${currentSearch}"` : empty.desc}
+              {currentSearch
+                ? `No workflows found matching "${currentSearch}"`
+                : empty.desc}
             </p>
-            {currentView === "all" && !currentSearch && permissions?.canCreateSuppliers && (
-              <InitiateWorkflowDialog token={token} user={user}>
-                <Button size="sm">
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Initiate Workflow
-                </Button>
-              </InitiateWorkflowDialog>
-            )}
+            {currentView === "all" &&
+              !currentSearch &&
+              permissions?.canCreateSuppliers && (
+                <InitiateWorkflowDialog token={token} user={user}>
+                  <Button size="sm">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Initiate Workflow
+                  </Button>
+                </InitiateWorkflowDialog>
+              )}
           </div>
         )}
 
         {/* ── Workflow List ──────────────────────────────────── */}
         {processes.length > 0 && (
-          <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden ${
-            isLoading ? "opacity-60 pointer-events-none" : ""
-          }`}>
+          <div
+            className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden ${
+              isLoading ? "opacity-60 pointer-events-none" : ""
+            }`}
+          >
             <div className="divide-y divide-gray-100">
               {processes.map((p) => (
                 <WorkflowRow
@@ -482,12 +619,14 @@ function WorkflowRow({
   const due = dueInfo(p);
   const action = primaryAction(p);
   const tasks = taskSummary(p);
-  const pct = p.totalStepCount > 0 ? Math.round((p.completedStepCount / p.totalStepCount) * 100) : 0;
+  const pct =
+    p.totalStepCount > 0
+      ? Math.round((p.completedStepCount / p.totalStepCount) * 100)
+      : 0;
   const isTerminal = p.status === "complete" || p.status === "cancelled";
 
   return (
     <div className="grid gap-x-6 gap-y-4 px-6 py-5 lg:grid-cols-3 lg:items-start">
-
       {/* ── Section 1: Identity ── */}
       <div className="space-y-2">
         <div>
@@ -495,7 +634,9 @@ function WorkflowRow({
             {p.workflowName || prettifyType(p.processType)}
           </div>
           <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${statusClasses(p.status)}`}>
+            <span
+              className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium leading-tight ${statusClasses(p.status)}`}
+            >
               {STATUS_DISPLAY[p.status] ?? p.status}
             </span>
             <span className="text-xs text-gray-400 capitalize">
@@ -514,7 +655,9 @@ function WorkflowRow({
       {/* ── Section 2: Current Step + Progress ── */}
       <div className="space-y-2">
         {isTerminal ? (
-          <div className="text-gray-400">{p.status === "complete" ? "Completed" : "Cancelled"}</div>
+          <div className="text-gray-400">
+            {p.status === "complete" ? "Completed" : "Cancelled"}
+          </div>
         ) : (
           <>
             <div>
@@ -552,7 +695,9 @@ function WorkflowRow({
           {!isTerminal && (
             <div>
               <div className="text-xs text-gray-500 mb-0.5">Assigned to</div>
-              <div className={`font-medium ${p.waitingOnLabel === "Unassigned" ? "text-gray-400" : "text-gray-900"}`}>
+              <div
+                className={`font-medium ${p.waitingOnLabel === "Unassigned" ? "text-gray-400" : "text-gray-900"}`}
+              >
                 {p.waitingOnLabel}
               </div>
               <div className="mt-1 flex items-center gap-2 flex-wrap">
@@ -561,13 +706,16 @@ function WorkflowRow({
                     Supplier
                   </span>
                 )}
-                {!p.waitingOnIsSupplier && p.waitingOnLabel !== "Unassigned" && (
-                  <span className="inline-flex rounded-full bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 font-medium">
-                    Internal
-                  </span>
-                )}
+                {!p.waitingOnIsSupplier &&
+                  p.waitingOnLabel !== "Unassigned" && (
+                    <span className="inline-flex rounded-full bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 font-medium">
+                      Internal
+                    </span>
+                  )}
                 {tasks && (
-                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight ${TONE_PILL[tone]}`}>
+                  <span
+                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight ${TONE_PILL[tone]}`}
+                  >
                     {tasks}
                   </span>
                 )}
@@ -581,9 +729,15 @@ function WorkflowRow({
               <span>
                 <span className="text-gray-500">Due </span>
                 <span className="font-medium text-gray-900">{due.text}</span>
-                <span className={`ml-1 ${
-                  due.tone === "red" ? "text-red-600 font-medium" : due.tone === "amber" ? "text-amber-600" : "text-gray-500"
-                }`}>
+                <span
+                  className={`ml-1 ${
+                    due.tone === "red"
+                      ? "text-red-600 font-medium"
+                      : due.tone === "amber"
+                        ? "text-amber-600"
+                        : "text-gray-500"
+                  }`}
+                >
                   ({due.meta})
                 </span>
               </span>
@@ -596,20 +750,30 @@ function WorkflowRow({
 
         {/* Actions - stacked vertically on the right */}
         <div className="flex flex-col gap-1.5 shrink-0 min-w-[140px]">
-          <Button asChild variant="outline" size="sm" className="w-full justify-center">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="w-full justify-center"
+          >
             <Link to={action.href}>{action.label}</Link>
           </Button>
           {(permissions?.isAdmin || permissions?.isProcurementManager) &&
             p.waitingOnIsSupplier &&
-            (p.status === "in_progress" || p.status === "pending_validation") && (
-            <Button variant="outline" size="sm" className="w-full justify-center" onClick={() => onSendReminder(p.id)}>
-              <Bell className="mr-1.5 h-3.5 w-3.5" />
-              Send Reminder
-            </Button>
-          )}
+            (p.status === "in_progress" ||
+              p.status === "pending_validation") && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center"
+                onClick={() => onSendReminder(p.id)}
+              >
+                <Bell className="mr-1.5 h-3.5 w-3.5" />
+                Send Reminder
+              </Button>
+            )}
         </div>
       </div>
     </div>
   );
 }
-

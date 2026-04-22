@@ -1,6 +1,9 @@
-import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
-import { getAuthenticatedUser, getAuthenticatedUserFast } from './session.server';
-import type { UserRole } from '@supplex/types';
+﻿import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
+import {
+  getAuthenticatedUser,
+  getAuthenticatedUserFast,
+} from "./session.server";
+import type { UserRole } from "@supplex/types";
 
 /**
  * Require authentication for a loader function (fast path).
@@ -32,7 +35,7 @@ export async function requireAuthAction(args: ActionFunctionArgs) {
  * Require specific user role for a route
  */
 export async function requireRole(
-  request: Request, 
+  request: Request,
   requiredRole: UserRole | UserRole[]
 ): Promise<{
   user: any;
@@ -41,14 +44,17 @@ export async function requireRole(
   supabase: any;
   response: Response;
 }> {
-  const { user, session, supabase, response, userRecord } = await getAuthenticatedUser(request);
-  
-  const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-  
+  const { user, session, supabase, response, userRecord } =
+    await getAuthenticatedUser(request);
+
+  const allowedRoles = Array.isArray(requiredRole)
+    ? requiredRole
+    : [requiredRole];
+
   if (!userRecord || !allowedRoles.includes(userRecord.role)) {
-    throw new Response('Forbidden: Insufficient permissions', { 
+    throw new Response("Forbidden: Insufficient permissions", {
       status: 403,
-      statusText: 'Forbidden'
+      statusText: "Forbidden",
     });
   }
 
@@ -59,24 +65,31 @@ export async function requireRole(
  * Require admin role
  */
 export async function requireAdmin(request: Request) {
-  return await requireRole(request, 'admin' as UserRole);
+  return await requireRole(request, "admin" as UserRole);
 }
 
 /**
  * Require management role (admin or manager)
  */
 export async function requireManager(request: Request) {
-  return await requireRole(request, ['admin', 'procurement_manager', 'quality_manager'] as UserRole[]);
+  return await requireRole(request, [
+    "admin",
+    "procurement_manager",
+    "quality_manager",
+  ] as UserRole[]);
 }
 
 /**
- * Get current user with optional auth requirement  
+ * Get current user with optional auth requirement
  */
-export async function getCurrentUser(request: Request, required: boolean = false) {
+export async function getCurrentUser(
+  request: Request,
+  required: boolean = false
+) {
   if (required) {
     return await getAuthenticatedUser(request);
   }
-  
+
   try {
     return await getAuthenticatedUser(request);
   } catch (error) {
@@ -88,7 +101,7 @@ export async function getCurrentUser(request: Request, required: boolean = false
  * Check if user has permission for tenant resource
  */
 export async function requireTenantAccess(
-  request: Request, 
+  request: Request,
   resourceTenantId?: string
 ): Promise<{
   user: any;
@@ -97,18 +110,19 @@ export async function requireTenantAccess(
   supabase: any;
   response: Response;
 }> {
-  const { user, session, userRecord, supabase, response } = await getAuthenticatedUser(request);
-  
+  const { user, session, userRecord, supabase, response } =
+    await getAuthenticatedUser(request);
+
   // If no specific tenant ID is provided, user can access their own tenant resources
   if (!resourceTenantId) {
     return { user, session, userRecord, supabase, response };
   }
-  
+
   // Check if user's tenant matches the resource tenant
   if (userRecord.tenantId !== resourceTenantId) {
-    throw new Response('Forbidden: Access denied to this tenant resource', { 
+    throw new Response("Forbidden: Access denied to this tenant resource", {
       status: 403,
-      statusText: 'Forbidden'
+      statusText: "Forbidden",
     });
   }
 

@@ -3,8 +3,8 @@
  * Allows admins to edit form templates, add sections and fields
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
@@ -19,7 +19,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Require authentication
   const { userRecord, session } = await requireAuth(args);
-  
+
   // Server-side permission check - Admin only
   if (userRecord.role !== UserRole.ADMIN) {
     return redirect("/");
@@ -86,7 +86,9 @@ export default function FormTemplateEditPage() {
 
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">{template.name}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {template.name}
+          </h1>
           <p className="mt-2 text-sm text-gray-700">
             Edit form template structure and configuration
           </p>
@@ -100,4 +102,3 @@ export default function FormTemplateEditPage() {
     </div>
   );
 }
-

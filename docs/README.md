@@ -35,7 +35,7 @@ Use the files linked here for implementation decisions. Historical delivery arti
 
 ### Building A New Route
 1. Read [Standards](./standards.md).
-2. Review the routing and Remix sections.
+2. Review the routing and React Router (Framework mode) sections.
 3. Compare against a current route like `apps/web/app/routes/_app.suppliers.$id.tsx`.
 
 ### Adding Or Updating API Endpoints

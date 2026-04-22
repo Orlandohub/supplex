@@ -1,12 +1,12 @@
-/**
+﻿/**
  * Workflow Process List Component
  * Story: 2.2.8 - Workflow Execution Engine
- * 
+ *
  * Displays list of workflow processes with filtering and sorting
  */
 
 import { useState } from "react";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -36,8 +36,8 @@ interface WorkflowProcessListProps {
 
 export function WorkflowProcessList({
   processes,
-  token,
-  user,
+  token: _token,
+  user: _user,
 }: WorkflowProcessListProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
@@ -45,8 +45,10 @@ export function WorkflowProcessList({
   const filteredProcesses = processes.filter((process) => {
     if (statusFilter === "all") return true;
     if (statusFilter === "in_progress") return process.status === "in_progress";
-    if (statusFilter === "pending_validation") return process.status === "pending_validation";
-    if (statusFilter === "declined") return process.status === "declined_resubmit";
+    if (statusFilter === "pending_validation")
+      return process.status === "pending_validation";
+    if (statusFilter === "declined")
+      return process.status === "declined_resubmit";
     if (statusFilter === "completed") return process.status === "complete";
     if (statusFilter === "cancelled") return process.status === "cancelled";
     return true;
@@ -55,9 +57,15 @@ export function WorkflowProcessList({
   // Sort processes
   const sortedProcesses = [...filteredProcesses].sort((a, b) => {
     if (sortBy === "recent") {
-      return new Date(b.initiatedDate).getTime() - new Date(a.initiatedDate).getTime();
+      return (
+        new Date(b.initiatedDate).getTime() -
+        new Date(a.initiatedDate).getTime()
+      );
     } else if (sortBy === "oldest") {
-      return new Date(a.initiatedDate).getTime() - new Date(b.initiatedDate).getTime();
+      return (
+        new Date(a.initiatedDate).getTime() -
+        new Date(b.initiatedDate).getTime()
+      );
     }
     return 0;
   });
@@ -90,6 +98,7 @@ export function WorkflowProcessList({
         <div className="flex flex-wrap items-center gap-4">
           {/* Status Filter */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- sibling select; see SUP-8 for proper htmlFor rewrite */}
             <label className="text-sm font-medium text-gray-700 mr-2">
               Status:
             </label>
@@ -109,6 +118,7 @@ export function WorkflowProcessList({
 
           {/* Sort By */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- sibling select; see SUP-8 for proper htmlFor rewrite */}
             <label className="text-sm font-medium text-gray-700 mr-2">
               Sort by:
             </label>
@@ -159,7 +169,10 @@ export function WorkflowProcessList({
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {sortedProcesses.map((process) => (
-            <Card key={process.id} className="p-6 hover:shadow-lg transition-shadow">
+            <Card
+              key={process.id}
+              className="p-6 hover:shadow-lg transition-shadow"
+            >
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
@@ -168,7 +181,7 @@ export function WorkflowProcessList({
                       .replace(/\b\w/g, (l) => l.toUpperCase())}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    {process.entityType} • {process.entityId}
+                    {process.entityType} â€¢ {process.entityId}
                   </p>
                 </div>
                 <Badge className={getStatusColor(process.status)}>
@@ -207,4 +220,3 @@ export function WorkflowProcessList({
     </div>
   );
 }
-

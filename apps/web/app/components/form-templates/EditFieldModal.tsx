@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Edit Field Modal Component
  * Modal form for editing an existing field
  */
 
 import { useState, useEffect } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import type { FormFieldWithDetails } from "@supplex/types";
 import {
   Dialog,
@@ -75,7 +75,8 @@ export function EditFieldModal({
       if (options.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Dropdown and multi-select fields must have at least one option",
+          description:
+            "Dropdown and multi-select fields must have at least one option",
           variant: "destructive",
         });
         return;
@@ -177,7 +178,9 @@ export function EditFieldModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="text">Text (single line)</SelectItem>
-                  <SelectItem value="textarea">Text Area (multi line)</SelectItem>
+                  <SelectItem value="textarea">
+                    Text Area (multi line)
+                  </SelectItem>
                   <SelectItem value="number">Number</SelectItem>
                   <SelectItem value="date">Date</SelectItem>
                   <SelectItem value="dropdown">Dropdown</SelectItem>
@@ -246,4 +249,3 @@ export function EditFieldModal({
     </Dialog>
   );
 }
-

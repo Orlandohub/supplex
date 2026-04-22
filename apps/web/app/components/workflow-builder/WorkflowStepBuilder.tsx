@@ -44,7 +44,16 @@ import {
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Checkbox } from "~/components/ui/checkbox";
-import { Plus, Pencil, Trash2, AlertCircle, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -87,43 +96,49 @@ interface Props {
 }
 
 // Validation schema for step creation/editing
-const stepSchema = z.object({
-  name: z.string().min(1, "Step name is required").max(255),
-  stepType: z.enum(["form", "approval", "document", "task"]),
-  taskTitle: z.string().max(300).optional(),
-  taskDescription: z.string().optional(),
-  dueDays: z.number().int().positive().optional().or(z.literal(0)),
-  assigneeRole: z.string().max(50).optional(),
-  formTemplateId: z.string().optional(),
-  documentTemplateId: z.string().optional(),
-  requiresValidation: z.boolean().default(false),
-  validationApproverRoles: z.array(z.string()).optional(),
-  validationDueDays: z.number().int().positive().optional(),
-}).superRefine((data, ctx) => {
-  if (data.requiresValidation) {
-    if (!data.validationApproverRoles || data.validationApproverRoles.length === 0) {
+const stepSchema = z
+  .object({
+    name: z.string().min(1, "Step name is required").max(255),
+    stepType: z.enum(["form", "approval", "document", "task"]),
+    taskTitle: z.string().max(300).optional(),
+    taskDescription: z.string().optional(),
+    dueDays: z.number().int().positive().optional().or(z.literal(0)),
+    assigneeRole: z.string().max(50).optional(),
+    formTemplateId: z.string().optional(),
+    documentTemplateId: z.string().optional(),
+    requiresValidation: z.boolean().default(false),
+    validationApproverRoles: z.array(z.string()).optional(),
+    validationDueDays: z.number().int().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.requiresValidation) {
+      if (
+        !data.validationApproverRoles ||
+        data.validationApproverRoles.length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "At least one approver role is required when validation is enabled",
+          path: ["validationApproverRoles"],
+        });
+      }
+    }
+    if (data.stepType === "form" && !data.formTemplateId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "At least one approver role is required when validation is enabled",
-        path: ["validationApproverRoles"],
+        message: "A form template is required for form steps",
+        path: ["formTemplateId"],
       });
     }
-  }
-  if (data.stepType === "form" && !data.formTemplateId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "A form template is required for form steps",
-      path: ["formTemplateId"],
-    });
-  }
-  if (data.stepType === "document" && !data.documentTemplateId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "A document template is required for document steps",
-      path: ["documentTemplateId"],
-    });
-  }
-});
+    if (data.stepType === "document" && !data.documentTemplateId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A document template is required for document steps",
+        path: ["documentTemplateId"],
+      });
+    }
+  });
 
 type StepFormData = z.infer<typeof stepSchema>;
 
@@ -135,7 +150,7 @@ interface TemplateOption {
 export function WorkflowStepBuilder({
   templateId,
   canEdit,
-  users,
+  users: _users,
   token,
 }: Props) {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
@@ -143,7 +158,9 @@ export function WorkflowStepBuilder({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
   const [formTemplates, setFormTemplates] = useState<TemplateOption[]>([]);
-  const [documentTemplates, setDocumentTemplates] = useState<TemplateOption[]>([]);
+  const [documentTemplates, setDocumentTemplates] = useState<TemplateOption[]>(
+    []
+  );
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
@@ -193,9 +210,12 @@ export function WorkflowStepBuilder({
       }
 
       // Fetch published document templates
-      const docResponse = await client.api["document-templates"].published.get();
+      const docResponse =
+        await client.api["document-templates"].published.get();
       if (docResponse.data?.success) {
-        setDocumentTemplates(docResponse.data.data.templates as TemplateOption[]);
+        setDocumentTemplates(
+          docResponse.data.data.templates as TemplateOption[]
+        );
       }
     } catch (error) {
       console.error("Error fetching published templates:", error);
@@ -214,7 +234,8 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][templateId].steps.get();
+      const response =
+        await client.api["workflow-templates"][templateId].steps.get();
 
       if (response.error) {
         throw new Error("Failed to fetch steps");
@@ -248,7 +269,8 @@ export function WorkflowStepBuilder({
         documentTemplateId: step.documentTemplateId || undefined,
         requiresValidation: step.requiresValidation || false,
         validationApproverRoles: step.validationConfig?.approverRoles || [],
-        validationDueDays: step.validationConfig?.validationDueDays || undefined,
+        validationDueDays:
+          step.validationConfig?.validationDueDays || undefined,
       });
     } else {
       setEditingStep(null);
@@ -275,8 +297,8 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     // Auto-set action modes based on step type
-    const formActionMode = data.formTemplateId ? 'fill_out' : null;
-    const documentActionMode = data.documentTemplateId ? 'upload' : null;
+    const formActionMode = data.formTemplateId ? "fill_out" : null;
+    const documentActionMode = data.documentTemplateId ? "upload" : null;
 
     // Force assigneeType to 'role' and assigneeUserId to null
     // Transform validationApproverRoles into validationConfig
@@ -286,12 +308,15 @@ export function WorkflowStepBuilder({
       assigneeUserId: null,
       formActionMode,
       documentActionMode,
-      validationConfig: data.requiresValidation && data.validationApproverRoles
-        ? {
-            approverRoles: data.validationApproverRoles,
-            ...(data.validationDueDays ? { validationDueDays: data.validationDueDays } : {}),
-          }
-        : undefined,
+      validationConfig:
+        data.requiresValidation && data.validationApproverRoles
+          ? {
+              approverRoles: data.validationApproverRoles,
+              ...(data.validationDueDays
+                ? { validationDueDays: data.validationDueDays }
+                : {}),
+            }
+          : undefined,
     };
 
     // Remove the temporary fields used for the form
@@ -301,7 +326,10 @@ export function WorkflowStepBuilder({
     try {
       if (editingStep) {
         // Update existing step
-        const response = await client.api["workflow-templates"][templateId].steps[editingStep.id].put(stepData);
+        const response =
+          await client.api["workflow-templates"][templateId].steps[
+            editingStep.id
+          ].put(stepData);
 
         if (response.error) {
           throw new Error("Failed to update step");
@@ -313,7 +341,10 @@ export function WorkflowStepBuilder({
         });
       } else {
         // Create new step
-        const response = await client.api["workflow-templates"][templateId].steps.post(stepData);
+        const response =
+          await client.api["workflow-templates"][templateId].steps.post(
+            stepData
+          );
 
         if (response.error) {
           throw new Error("Failed to create step");
@@ -346,7 +377,10 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][templateId].steps[stepId].delete();
+      const response =
+        await client.api["workflow-templates"][templateId].steps[
+          stepId
+        ].delete();
 
       if (response.error) {
         throw new Error("Failed to delete step");
@@ -370,7 +404,10 @@ export function WorkflowStepBuilder({
     }
   };
 
-  const handleReorderStep = async (stepId: string, direction: "up" | "down") => {
+  const handleReorderStep = async (
+    stepId: string,
+    direction: "up" | "down"
+  ) => {
     if (isReordering) return;
 
     if (!canEdit) {
@@ -406,7 +443,9 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][templateId].steps.reorder.put({
+      const response = await client.api["workflow-templates"][
+        templateId
+      ].steps.reorder.put({
         stepOrders: updates,
       });
 
@@ -444,7 +483,10 @@ export function WorkflowStepBuilder({
     });
   };
 
-  const getTemplateName = (templateId: string | null, templates: TemplateOption[]): string | null => {
+  const getTemplateName = (
+    templateId: string | null,
+    templates: TemplateOption[]
+  ): string | null => {
     if (!templateId) return null;
     return templates.find((t) => t.id === templateId)?.label || templateId;
   };
@@ -497,7 +539,8 @@ export function WorkflowStepBuilder({
               <div>
                 <p className="font-medium text-sm">Published Version</p>
                 <p className="text-sm text-muted-foreground">
-                  This version is immutable. Create a new draft version to make changes.
+                  This version is immutable. Create a new draft version to make
+                  changes.
                 </p>
               </div>
             </div>
@@ -515,7 +558,9 @@ export function WorkflowStepBuilder({
       ) : steps.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No steps configured yet</p>
+            <p className="text-muted-foreground mb-4">
+              No steps configured yet
+            </p>
             {canEdit && (
               <Button onClick={() => handleOpenDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -531,8 +576,14 @@ export function WorkflowStepBuilder({
             return (
               <Card
                 key={step.id}
-                className={!canEdit ? "cursor-pointer transition-colors hover:border-muted-foreground/50" : ""}
-                onClick={!canEdit ? () => toggleStepExpanded(step.id) : undefined}
+                className={
+                  !canEdit
+                    ? "cursor-pointer transition-colors hover:border-muted-foreground/50"
+                    : ""
+                }
+                onClick={
+                  !canEdit ? () => toggleStepExpanded(step.id) : undefined
+                }
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -568,7 +619,9 @@ export function WorkflowStepBuilder({
                             size="sm"
                             className="h-6 w-6 p-0"
                             onClick={() => handleReorderStep(step.id, "down")}
-                            disabled={index === steps.length - 1 || isReordering}
+                            disabled={
+                              index === steps.length - 1 || isReordering
+                            }
                           >
                             <ArrowDown className="h-4 w-4" />
                           </Button>
@@ -610,13 +663,16 @@ export function WorkflowStepBuilder({
                 <CardContent>
                   <div className="space-y-2 text-sm">
                     {canEdit && step.taskDescription && (
-                      <p className="text-muted-foreground">{step.taskDescription}</p>
+                      <p className="text-muted-foreground">
+                        {step.taskDescription}
+                      </p>
                     )}
                     {canEdit && (
                       <div className="flex flex-wrap gap-4">
                         {step.dueDays && (
                           <div>
-                            <span className="font-medium">Due:</span> {step.dueDays} days
+                            <span className="font-medium">Due:</span>{" "}
+                            {step.dueDays} days
                           </div>
                         )}
                         {step.assigneeRole && (
@@ -627,7 +683,8 @@ export function WorkflowStepBuilder({
                         )}
                         {step.formTemplateId && (
                           <div>
-                            <span className="font-medium">Form:</span> {step.formActionMode}
+                            <span className="font-medium">Form:</span>{" "}
+                            {step.formActionMode}
                           </div>
                         )}
                         {step.documentTemplateId && (
@@ -638,8 +695,11 @@ export function WorkflowStepBuilder({
                         )}
                         {step.requiresValidation && (
                           <div>
-                            <span className="font-medium">Auto-Validation:</span>{" "}
-                            {step.validationConfig?.approverRoles?.join(", ") || "configured"}
+                            <span className="font-medium">
+                              Auto-Validation:
+                            </span>{" "}
+                            {step.validationConfig?.approverRoles?.join(", ") ||
+                              "configured"}
                           </div>
                         )}
                       </div>
@@ -650,59 +710,95 @@ export function WorkflowStepBuilder({
                       <div className="space-y-3 pt-2 border-t">
                         {step.taskDescription && (
                           <div>
-                            <span className="font-medium text-muted-foreground">Description</span>
+                            <span className="font-medium text-muted-foreground">
+                              Description
+                            </span>
                             <p className="mt-1">{step.taskDescription}</p>
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-4">
                           {step.dueDays != null && (
                             <div>
-                              <span className="font-medium text-muted-foreground">Due Days</span>
+                              <span className="font-medium text-muted-foreground">
+                                Due Days
+                              </span>
                               <p className="mt-1">{step.dueDays} days</p>
                             </div>
                           )}
                           {step.assigneeRole && (
                             <div>
-                              <span className="font-medium text-muted-foreground">Assignee Role</span>
+                              <span className="font-medium text-muted-foreground">
+                                Assignee Role
+                              </span>
                               <p className="mt-1">{step.assigneeRole}</p>
                             </div>
                           )}
                           {step.formTemplateId && (
                             <div>
-                              <span className="font-medium text-muted-foreground">Form Template</span>
+                              <span className="font-medium text-muted-foreground">
+                                Form Template
+                              </span>
                               <p className="mt-1">
-                                {getTemplateName(step.formTemplateId, formTemplates) || "Loading..."}
+                                {getTemplateName(
+                                  step.formTemplateId,
+                                  formTemplates
+                                ) || "Loading..."}
                               </p>
                             </div>
                           )}
                           {step.formActionMode && (
                             <div>
-                              <span className="font-medium text-muted-foreground">Form Action</span>
-                              <p className="mt-1">{step.formActionMode === "fill_out" ? "Fill Out" : "Validate"}</p>
+                              <span className="font-medium text-muted-foreground">
+                                Form Action
+                              </span>
+                              <p className="mt-1">
+                                {step.formActionMode === "fill_out"
+                                  ? "Fill Out"
+                                  : "Validate"}
+                              </p>
                             </div>
                           )}
                           {step.documentTemplateId && (
                             <div>
-                              <span className="font-medium text-muted-foreground">Document Template</span>
+                              <span className="font-medium text-muted-foreground">
+                                Document Template
+                              </span>
                               <p className="mt-1">
-                                {getTemplateName(step.documentTemplateId, documentTemplates) || "Loading..."}
+                                {getTemplateName(
+                                  step.documentTemplateId,
+                                  documentTemplates
+                                ) || "Loading..."}
                               </p>
                             </div>
                           )}
                           {step.documentActionMode && (
                             <div>
-                              <span className="font-medium text-muted-foreground">Document Action</span>
-                              <p className="mt-1">{step.documentActionMode === "upload" ? "Upload" : "Validate"}</p>
+                              <span className="font-medium text-muted-foreground">
+                                Document Action
+                              </span>
+                              <p className="mt-1">
+                                {step.documentActionMode === "upload"
+                                  ? "Upload"
+                                  : "Validate"}
+                              </p>
                             </div>
                           )}
                         </div>
                         {step.requiresValidation && (
                           <div>
-                            <span className="font-medium text-muted-foreground">Auto-Validation</span>
+                            <span className="font-medium text-muted-foreground">
+                              Auto-Validation
+                            </span>
                             <p className="mt-1">
-                              Approver Roles: {step.validationConfig?.approverRoles?.join(", ") || "None configured"}
+                              Approver Roles:{" "}
+                              {step.validationConfig?.approverRoles?.join(
+                                ", "
+                              ) || "None configured"}
                               {step.validationConfig?.validationDueDays && (
-                                <span className="ml-2">({step.validationConfig.validationDueDays} days to review)</span>
+                                <span className="ml-2">
+                                  ({step.validationConfig.validationDueDays}{" "}
+                                  days to review)
+                                </span>
                               )}
                             </p>
                           </div>
@@ -750,7 +846,10 @@ export function WorkflowStepBuilder({
                   <FormItem>
                     <FormLabel>Step Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Review Supplier Profile" {...field} />
+                      <Input
+                        placeholder="e.g., Review Supplier Profile"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -764,7 +863,10 @@ export function WorkflowStepBuilder({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Step Type *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select step type" />
@@ -850,7 +952,10 @@ export function WorkflowStepBuilder({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Assignee Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select role" />
@@ -861,9 +966,13 @@ export function WorkflowStepBuilder({
                         <SelectItem value="procurement_manager">
                           Procurement Manager
                         </SelectItem>
-                        <SelectItem value="quality_manager">Quality Manager</SelectItem>
+                        <SelectItem value="quality_manager">
+                          Quality Manager
+                        </SelectItem>
                         <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="supplier_user">Supplier User</SelectItem>
+                        <SelectItem value="supplier_user">
+                          Supplier User
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
@@ -884,22 +993,24 @@ export function WorkflowStepBuilder({
                     name="formTemplateId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Form Template {watchStepType === "form" ? "*" : ""}</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <FormLabel>
+                          Form Template {watchStepType === "form" ? "*" : ""}
+                        </FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
                           value={field.value}
                           disabled={isLoadingTemplates}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue 
+                              <SelectValue
                                 placeholder={
-                                  isLoadingTemplates 
-                                    ? "Loading templates..." 
+                                  isLoadingTemplates
+                                    ? "Loading templates..."
                                     : formTemplates.length === 0
-                                    ? "No published templates available"
-                                    : "Select form template..."
-                                } 
+                                      ? "No published templates available"
+                                      : "Select form template..."
+                                }
                               />
                             </SelectTrigger>
                           </FormControl>
@@ -909,16 +1020,17 @@ export function WorkflowStepBuilder({
                                 {template.label}
                               </SelectItem>
                             ))}
-                            {formTemplates.length === 0 && !isLoadingTemplates && (
-                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                No published form templates available
-                              </div>
-                            )}
+                            {formTemplates.length === 0 &&
+                              !isLoadingTemplates && (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  No published form templates available
+                                </div>
+                              )}
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Select a published form template to attach to this step. 
-                          Forms will be completed by the assigned user.
+                          Select a published form template to attach to this
+                          step. Forms will be completed by the assigned user.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -936,21 +1048,21 @@ export function WorkflowStepBuilder({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Document Template *</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
+                        <Select
+                          onValueChange={field.onChange}
                           value={field.value}
                           disabled={isLoadingTemplates}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue 
+                              <SelectValue
                                 placeholder={
-                                  isLoadingTemplates 
-                                    ? "Loading templates..." 
+                                  isLoadingTemplates
+                                    ? "Loading templates..."
                                     : documentTemplates.length === 0
-                                    ? "No published templates available"
-                                    : "Select document template..."
-                                } 
+                                      ? "No published templates available"
+                                      : "Select document template..."
+                                }
                               />
                             </SelectTrigger>
                           </FormControl>
@@ -960,16 +1072,17 @@ export function WorkflowStepBuilder({
                                 {template.label}
                               </SelectItem>
                             ))}
-                            {documentTemplates.length === 0 && !isLoadingTemplates && (
-                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                No published document templates available
-                              </div>
-                            )}
+                            {documentTemplates.length === 0 &&
+                              !isLoadingTemplates && (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  No published document templates available
+                                </div>
+                              )}
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Select a published document template to attach to this step.
-                          Documents will be uploaded by the assigned user.
+                          Select a published document template to attach to this
+                          step. Documents will be uploaded by the assigned user.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -993,7 +1106,8 @@ export function WorkflowStepBuilder({
                     <div className="space-y-1 leading-none">
                       <FormLabel>Requires Validation?</FormLabel>
                       <FormDescription>
-                        When checked, validation tasks will be automatically created when this step completes
+                        When checked, validation tasks will be automatically
+                        created when this step completes
                       </FormDescription>
                     </div>
                   </FormItem>
@@ -1010,11 +1124,19 @@ export function WorkflowStepBuilder({
                       <FormItem>
                         <FormLabel>Validation Approver Roles *</FormLabel>
                         <FormDescription>
-                          Select which roles can approve this validation. All selected roles will receive a validation task.
+                          Select which roles can approve this validation. All
+                          selected roles will receive a validation task.
                         </FormDescription>
                         <div className="space-y-2">
-                          {["admin", "procurement_manager", "quality_manager"].map((role) => (
-                            <div key={role} className="flex items-center space-x-2">
+                          {[
+                            "admin",
+                            "procurement_manager",
+                            "quality_manager",
+                          ].map((role) => (
+                            <div
+                              key={role}
+                              className="flex items-center space-x-2"
+                            >
                               <Checkbox
                                 id={`validation-role-${role}`}
                                 checked={field.value?.includes(role)}
@@ -1023,14 +1145,21 @@ export function WorkflowStepBuilder({
                                   if (checked) {
                                     field.onChange([...current, role]);
                                   } else {
-                                    field.onChange(current.filter((r: string) => r !== role));
+                                    field.onChange(
+                                      current.filter((r: string) => r !== role)
+                                    );
                                   }
                                 }}
                               />
-                              <label htmlFor={`validation-role-${role}`} className="text-sm font-medium leading-none">
-                                {role === "admin" ? "Admin" :
-                                 role === "procurement_manager" ? "Procurement Manager" :
-                                 "Quality Manager"}
+                              <label
+                                htmlFor={`validation-role-${role}`}
+                                className="text-sm font-medium leading-none"
+                              >
+                                {role === "admin"
+                                  ? "Admin"
+                                  : role === "procurement_manager"
+                                    ? "Procurement Manager"
+                                    : "Quality Manager"}
                               </label>
                             </div>
                           ))}
@@ -1059,7 +1188,8 @@ export function WorkflowStepBuilder({
                           />
                         </FormControl>
                         <FormDescription>
-                          Number of days validators have to complete their review (optional)
+                          Number of days validators have to complete their
+                          review (optional)
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1069,7 +1199,11 @@ export function WorkflowStepBuilder({
               )}
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseDialog}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
@@ -1083,4 +1217,3 @@ export function WorkflowStepBuilder({
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modern Supabase Server-Side Authentication for Remix
  * Using @supabase/ssr instead of deprecated auth-helpers
  *
@@ -8,7 +8,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createCookieSessionStorage, redirect } from "@remix-run/node";
+import { createCookieSessionStorage, redirect } from "react-router";
 import { parse, serialize } from "cookie";
 import type { Database } from "@supplex/types";
 
@@ -145,7 +145,7 @@ export async function requireAuth(request: Request): Promise<{
  * Fast session check using getSession() (local JWT parse, no external HTTP call).
  *
  * SECURITY NOTE: This does NOT contact the Supabase Auth server to validate
- * the session — it only checks JWT format and expiry from the cookie. This is
+ * the session â€” it only checks JWT format and expiry from the cookie. This is
  * safe for child loaders because:
  *   1. The root layout (_app.tsx) already calls getUser() on initial page load.
  *   2. The Elysia API server validates the JWT signature on every request.
@@ -194,7 +194,7 @@ export async function requireAuthFast(request: Request): Promise<{
 }
 
 /**
- * Fast version of getAuthenticatedUser — uses local session check + cached
+ * Fast version of getAuthenticatedUser â€” uses local session check + cached
  * userRecord from the Remix cookie session. Avoids the ~200-500ms external
  * HTTP call to Supabase Auth that getUser() makes on every invocation.
  */
@@ -266,11 +266,11 @@ export async function getAuthenticatedUser(request: Request): Promise<{
   // Validate cache: check if it's for the same user and not too old
   const cacheTimestamp = remixSession.get("userRecordTimestamp");
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  const isCacheValid = 
-    cachedUserRecord && 
+  const isCacheValid =
+    cachedUserRecord &&
     cachedUserRecord.id === user.id &&
     cacheTimestamp &&
-    (Date.now() - cacheTimestamp) < CACHE_TTL;
+    Date.now() - cacheTimestamp < CACHE_TTL;
 
   if (isCacheValid) {
     // Return cached user record (saves ~50-150ms DB query)
@@ -292,7 +292,7 @@ export async function getAuthenticatedUser(request: Request): Promise<{
   // Update session cache
   remixSession.set("userRecord", userRecord);
   remixSession.set("userRecordTimestamp", Date.now());
-  
+
   // Add Set-Cookie header to persist updated session
   response.headers.append(
     "Set-Cookie",
@@ -310,7 +310,10 @@ export async function getSupplierInfoCached(
   request: Request,
   userId: string,
   token: string,
-  fetchSupplierFn: (userId: string, token: string) => Promise<{ id: string; name: string } | null>
+  fetchSupplierFn: (
+    userId: string,
+    token: string
+  ) => Promise<{ id: string; name: string } | null>
 ): Promise<{ id: string; name: string } | null> {
   // Try to get cached supplierInfo from session
   const remixSession = await sessionStorage.getSession(
@@ -321,11 +324,11 @@ export async function getSupplierInfoCached(
   // Validate cache: check if it's for the same user and not too old
   const cacheTimestamp = remixSession.get("supplierInfoTimestamp");
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  const isCacheValid = 
-    cachedSupplierInfo && 
+  const isCacheValid =
+    cachedSupplierInfo &&
     cachedSupplierInfo.userId === userId &&
     cacheTimestamp &&
-    (Date.now() - cacheTimestamp) < CACHE_TTL;
+    Date.now() - cacheTimestamp < CACHE_TTL;
 
   if (isCacheValid) {
     // Return cached supplier info (saves ~50-150ms API call)
@@ -339,7 +342,7 @@ export async function getSupplierInfoCached(
     // Update session cache
     remixSession.set("supplierInfo", { ...supplierInfo, userId });
     remixSession.set("supplierInfoTimestamp", Date.now());
-    
+
     // Note: We don't need to set headers here because the calling loader
     // will handle committing the session if needed
   }
@@ -351,7 +354,9 @@ export async function getSupplierInfoCached(
  * Invalidate supplier info cache in session
  * Call this when supplier data is updated
  */
-export async function invalidateSupplierInfoCache(request: Request): Promise<void> {
+export async function invalidateSupplierInfoCache(
+  request: Request
+): Promise<void> {
   const remixSession = await sessionStorage.getSession(
     request.headers.get("Cookie")
   );

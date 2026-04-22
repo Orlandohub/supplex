@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Add Section Modal Component
  * Modal form for adding a new section to a form template
  * Updated: Story 2.2.14 - Removed versionId
  */
 
 import { useState } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +53,9 @@ export function AddSectionModal({
     setIsSubmitting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"][templateId].sections.post({
+      const response = await client.api["form-templates"][
+        templateId
+      ].sections.post({
         title: title.trim(),
         description: description.trim() || undefined,
         sectionOrder: nextOrder,
@@ -153,4 +155,3 @@ export function AddSectionModal({
     </Dialog>
   );
 }
-

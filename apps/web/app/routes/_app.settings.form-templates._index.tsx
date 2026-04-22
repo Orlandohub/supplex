@@ -3,8 +3,8 @@
  * Allows admins to view and manage form templates
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -22,7 +22,7 @@ import { CreateTemplateModal } from "~/components/form-templates/CreateTemplateM
 export async function loader(args: LoaderFunctionArgs) {
   // Require authentication
   const { userRecord, session } = await requireAuth(args);
-  
+
   // Server-side permission check - Admin only
   if (userRecord.role !== UserRole.ADMIN) {
     return redirect("/");
@@ -40,7 +40,8 @@ export async function loader(args: LoaderFunctionArgs) {
     // Fetch all form templates
     const templatesResponse = await client.api["form-templates"].get();
 
-    const templates = (templatesResponse.data?.data?.templates || []) as FormTemplateListItem[];
+    const templates = (templatesResponse.data?.data?.templates ||
+      []) as FormTemplateListItem[];
 
     return json({
       templates,
@@ -59,16 +60,18 @@ export async function loader(args: LoaderFunctionArgs) {
 
 export default function FormTemplatesPage() {
   const { templates, token } = useLoaderData<typeof loader>();
-  const { user, session } = useAuth();
+  const { user: _user, session } = useAuth();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { toast } = useToast();
-  
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  
+
   // Filter state
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "archived">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "draft" | "published" | "archived"
+  >("all");
 
   // Filter templates by status
   const filteredTemplates = templates.filter((template) => {
@@ -110,7 +113,7 @@ export default function FormTemplatesPage() {
       });
 
       setIsCreateModalOpen(false);
-      
+
       // Navigate to edit page for new template
       const newTemplate = response.data?.data;
       if (newTemplate?.id) {
@@ -180,9 +183,12 @@ export default function FormTemplatesPage() {
       {/* Header */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Form Templates</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Form Templates
+          </h1>
           <p className="mt-2 text-sm text-gray-700">
-            Create and manage form templates for supplier qualification and evaluation
+            Create and manage form templates for supplier qualification and
+            evaluation
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -205,7 +211,9 @@ export default function FormTemplatesPage() {
           id="status-filter"
           value={statusFilter}
           onChange={(e) =>
-            setStatusFilter(e.target.value as "all" | "draft" | "published" | "archived")
+            setStatusFilter(
+              e.target.value as "all" | "draft" | "published" | "archived"
+            )
           }
           className="block rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
         >
@@ -238,4 +246,3 @@ export default function FormTemplatesPage() {
     </div>
   );
 }
-

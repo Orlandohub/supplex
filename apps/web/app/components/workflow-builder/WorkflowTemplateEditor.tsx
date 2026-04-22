@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Workflow Template Editor Component
  * Main component for editing workflow templates with tabs for metadata and steps
  * Updated: Story 2.2.14 - Removed versioning
  */
 
 import { useState } from "react";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -44,7 +44,12 @@ interface Props {
   token: string;
 }
 
-export function WorkflowTemplateEditor({ template, users, workflowTypes = [], token }: Props) {
+export function WorkflowTemplateEditor({
+  template,
+  users,
+  workflowTypes = [],
+  token,
+}: Props) {
   const [activeTab, setActiveTab] = useState("metadata");
   const [isPublishing, setIsPublishing] = useState(false);
   const revalidator = useRevalidator();
@@ -57,29 +62,40 @@ export function WorkflowTemplateEditor({ template, users, workflowTypes = [], to
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["workflow-templates"][template.id].publish.patch();
+      const response =
+        await client.api["workflow-templates"][template.id].publish.patch();
 
       if (response.error) {
-        const body = (response.error as { value?: { error?: { message?: string } } })?.value;
-        throw new Error(body?.error?.message || "Failed to toggle publish status");
+        const body = (
+          response.error as { value?: { error?: { message?: string } } }
+        )?.value;
+        throw new Error(
+          body?.error?.message || "Failed to toggle publish status"
+        );
       }
 
       const newStatus = template.status === "draft" ? "published" : "draft";
-      
+
       toast({
-        title: newStatus === "published" ? "Template Published" : "Template Unpublished",
-        description: newStatus === "published"
-          ? "Template is now published and ready for use" 
-          : "Template returned to draft status",
+        title:
+          newStatus === "published"
+            ? "Template Published"
+            : "Template Unpublished",
+        description:
+          newStatus === "published"
+            ? "Template is now published and ready for use"
+            : "Template returned to draft status",
       });
-      
+
       // Force page reload to ensure state is updated
       window.location.reload();
     } catch (error) {
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "Failed to update template status",
+          error instanceof Error
+            ? error.message
+            : "Failed to update template status",
         variant: "destructive",
       });
     } finally {
@@ -92,14 +108,16 @@ export function WorkflowTemplateEditor({ template, users, workflowTypes = [], to
       {/* Header with Status Badge and Action Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Badge variant={template.status === "published" ? "default" : "secondary"}>
+          <Badge
+            variant={template.status === "published" ? "default" : "secondary"}
+          >
             {template.status.charAt(0).toUpperCase() + template.status.slice(1)}
           </Badge>
           {template.status === "published" && !template.active && (
             <Badge variant="outline">Inactive</Badge>
           )}
         </div>
-        
+
         {/* Action Buttons - Always visible */}
         {template.status !== "archived" && (
           <Button
@@ -141,4 +159,3 @@ export function WorkflowTemplateEditor({ template, users, workflowTypes = [], to
     </div>
   );
 }
-

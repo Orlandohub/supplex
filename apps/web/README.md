@@ -1,6 +1,8 @@
 # Supplex Web
 
-Remix frontend for the Supplex supplier management platform.
+React Router v7 (Framework mode) frontend for the Supplex supplier management platform.
+
+> Historical note: this app was originally built on Remix 2. It was migrated to React Router v7 in Framework mode under [SUP-5](https://linear.app/supplex/issue/SUP-5/migrate-remix-to-latest-react-router). The runtime shape (SSR-first loaders/actions, file-system routing, Vite build) is preserved. See [`../../docs/adr/0007-react-router-v7.md`](../../docs/adr/0007-react-router-v7.md) for the rationale and scope.
 
 Use this README for frontend-specific setup and environment behavior. Use the shared docs for architecture, standards, UX guidance, deployment, and troubleshooting.
 
@@ -30,13 +32,14 @@ Default local URL: `http://localhost:5173`
 
 ### Available Scripts
 
-- `pnpm dev` - Start the Remix development server
-- `pnpm build` - Build the production bundle
-- `pnpm start` - Serve the production build
+- `pnpm dev` - Start the React Router dev server (Vite)
+- `pnpm build` - Build the production bundle (`react-router build`)
+- `pnpm start` - Serve the production build (`react-router-serve`)
 - `pnpm test` - Run tests once
 - `pnpm test:watch` - Run tests in watch mode
 - `pnpm lint` - Lint app files
-- `pnpm type-check` - Run TypeScript checks
+- `pnpm typegen` - Regenerate React Router route types (`.react-router/types/**`)
+- `pnpm type-check` - Run `typegen` then `tsc --noEmit`
 
 ## Environment Variables
 
@@ -61,7 +64,7 @@ The web app uses a three-source environment loading pattern to support SSR and b
 
 This pattern is used so the same configuration works in:
 
-- Remix server loaders
+- React Router server loaders / actions
 - browser-only code
 - build-time configuration
 

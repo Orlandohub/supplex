@@ -1,6 +1,11 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useNavigation, Link, useRouteLoaderData } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { data as json, redirect } from "react-router";
+import {
+  useLoaderData,
+  useNavigation,
+  Link,
+  useRouteLoaderData,
+} from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { AppLoaderData } from "~/routes/_app";
@@ -57,13 +62,13 @@ export async function loader(args: LoaderFunctionArgs) {
     if (!token) {
       throw new Response("Unauthorized", { status: 401 });
     }
-    
+
     const supplierInfo = await getSupplierForUser(user.id, token);
-    
+
     if (!supplierInfo) {
       throw new Error("Supplier user is not associated with a supplier");
     }
-    
+
     return redirect(`/suppliers/${supplierInfo.id}`);
   }
 
@@ -143,7 +148,7 @@ export async function loader(args: LoaderFunctionArgs) {
 export default function SuppliersIndex() {
   const { suppliers, total, page, limit, filters } = useLoaderData<
     typeof loader
-  >() as {
+  >() as unknown as {
     suppliers: SerializedSupplier[];
     total: number;
     page: number;
@@ -156,7 +161,7 @@ export default function SuppliersIndex() {
     };
   };
   const navigation = useNavigation();
-  
+
   // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;

@@ -3,9 +3,9 @@
  * Allows admins to view and filter email notification logs
  */
 
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSearchParams, useNavigate } from "@remix-run/react";
+import type { LoaderFunctionArgs } from "react-router";
+import { data as json, redirect } from "react-router";
+import { useLoaderData, useSearchParams, useNavigate } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { Card } from "~/components/ui/card";

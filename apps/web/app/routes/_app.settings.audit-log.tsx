@@ -6,8 +6,8 @@
  * Server-side paginated with filters for event type, date range, and actor search.
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useSearchParams, useNavigate } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useSearchParams, useNavigate } from "react-router";
 import { useState } from "react";
 import { Card } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -100,11 +100,18 @@ export async function loader(args: LoaderFunctionArgs) {
     if (dateTo) query.dateTo = dateTo;
     if (actor) query.actor = actor;
 
-    const response = await (client as any).api.workflows["audit-log"].get({ query });
+    const response = await (client as any).api.workflows["audit-log"].get({
+      query,
+    });
 
     const data = response.data;
     if (!data?.success || !data.data) {
-      return json({ events: [], total: 0, page, filters: { eventType, dateFrom, dateTo, actor } });
+      return json({
+        events: [],
+        total: 0,
+        page,
+        filters: { eventType, dateFrom, dateTo, actor },
+      });
     }
 
     return json({
@@ -115,7 +122,12 @@ export async function loader(args: LoaderFunctionArgs) {
     });
   } catch (error) {
     console.error("Audit log loader error:", error);
-    return json({ events: [], total: 0, page, filters: { eventType, dateFrom, dateTo, actor } });
+    return json({
+      events: [],
+      total: 0,
+      page,
+      filters: { eventType, dateFrom, dateTo, actor },
+    });
   }
 }
 
@@ -158,11 +170,7 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/settings")}
-        >
+        <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back
         </Button>
@@ -183,7 +191,10 @@ export default function AuditLogPage() {
             </SelectTrigger>
             <SelectContent>
               {EVENT_TYPE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value || "__all"} value={opt.value || "__all"}>
+                <SelectItem
+                  key={opt.value || "__all"}
+                  value={opt.value || "__all"}
+                >
                   {opt.label}
                 </SelectItem>
               ))}

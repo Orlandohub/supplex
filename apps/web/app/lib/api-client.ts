@@ -20,8 +20,8 @@ const API_URL = config.apiUrl;
  * and are exempt — they never go through this wrapper.
  */
 async function fetchWithAuthErrorHandler(
-  input: RequestInfo | URL,
-  init?: RequestInit
+  input: globalThis.RequestInfo | URL,
+  init?: globalThis.RequestInit
 ): Promise<Response> {
   const response = await fetch(input, init);
 
@@ -45,13 +45,15 @@ function handleUnauthorized(): void {
   if (window.location.pathname === "/login") return;
 
   // Clear Zustand auth state (dynamic import avoids circular deps at module init)
-  try {
-    const { useAuth } = require("~/hooks/useAuth");
-    useAuth.getState().clearAuth();
-  } catch {
-    // Fallback: wipe persisted auth directly
-    try { localStorage.removeItem("supplex-auth"); } catch { /* noop */ }
-  }
+  import("~/hooks/useAuth")
+    .then(({ useAuth }) => useAuth.getState().clearAuth())
+    .catch(() => {
+      try {
+        localStorage.removeItem("supplex-auth");
+      } catch {
+        /* noop */
+      }
+    });
 
   toast.error("Your session has expired. Redirecting to login…", {
     duration: 3000,

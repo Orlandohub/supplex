@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+﻿import { describe, it, expect, vi } from "vitest";
 
 /**
  * Test Suite for ApproveStageModal Component
@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from "vitest";
  */
 
 // Mock dependencies
-vi.mock("@remix-run/react", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 

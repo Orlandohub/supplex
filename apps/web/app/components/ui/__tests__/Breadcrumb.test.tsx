@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { Breadcrumb } from "../Breadcrumb";
 
 describe("Breadcrumb", () => {
@@ -129,13 +129,13 @@ describe("Breadcrumb", () => {
     );
 
     expect(screen.getByText("Home")).toBeInTheDocument();
-    
+
     const { container } = render(
       <MemoryRouter>
         <Breadcrumb items={items} />
       </MemoryRouter>
     );
-    
+
     // Should have no separators for single item
     const separators = container.querySelectorAll("svg");
     expect(separators.length).toBe(0);
@@ -250,4 +250,3 @@ describe("Breadcrumb", () => {
     expect(listItems.length).toBe(2);
   });
 });
-

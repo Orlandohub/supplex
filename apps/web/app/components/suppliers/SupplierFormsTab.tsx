@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Supplier Forms Tab Component
  * Story: 2.2.16 - Workflow Execution Bug Fixes & UX Enhancements
  *
  * Displays all form submissions linked to a supplier's workflow processes
  */
 
-import { useNavigate } from "@remix-run/react";
+import { useNavigate } from "react-router";
 import { Badge } from "~/components/ui/badge";
 import { FileText } from "lucide-react";
 
@@ -26,7 +26,11 @@ interface SupplierFormsTabProps {
   supplierId: string;
 }
 
-export function SupplierFormsTab({ submissions, supplierName, supplierId }: SupplierFormsTabProps) {
+export function SupplierFormsTab({
+  submissions,
+  supplierName,
+  supplierId,
+}: SupplierFormsTabProps) {
   const navigate = useNavigate();
 
   if (submissions.length === 0) {
@@ -70,7 +74,11 @@ export function SupplierFormsTab({ submissions, supplierName, supplierId }: Supp
             <tr
               key={sub.id}
               className="hover:bg-gray-50 cursor-pointer"
-              onClick={() => navigate(`/forms/${sub.id}?from=supplier&supplierId=${supplierId}&supplierName=${encodeURIComponent(supplierName)}`)}
+              onClick={() =>
+                navigate(
+                  `/forms/${sub.id}?from=supplier&supplierId=${supplierId}&supplierName=${encodeURIComponent(supplierName)}`
+                )
+              }
             >
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {sub.formTemplateName}

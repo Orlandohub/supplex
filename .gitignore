@@ -16,6 +16,7 @@ build/
 .next/
 out/
 .remix/
+.react-router/
 .vercel/
 .cache/
 
@@ -26,6 +27,7 @@ coverage/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~

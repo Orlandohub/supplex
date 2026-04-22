@@ -3,8 +3,8 @@
  * Allows admins to view and manage users in their tenant
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { useState } from "react";
 import {
   UserListTable,
@@ -29,7 +29,7 @@ import { hasPermission, PermissionAction } from "@supplex/types";
 export async function loader(args: LoaderFunctionArgs) {
   // Require authentication
   const { userRecord, session } = await requireAuth(args);
-  
+
   // Server-side permission check - redirect if not authorized
   if (!hasPermission(userRecord.role, PermissionAction.MANAGE_USERS)) {
     return redirect("/");
@@ -48,7 +48,8 @@ export async function loader(args: LoaderFunctionArgs) {
     const usersResponse = await client.api.users.get();
 
     // Fetch ALL pending invitations (not filtered by role)
-    const invitationsResponse = await client.api.users["pending-invitations"].get();
+    const invitationsResponse =
+      await client.api.users["pending-invitations"].get();
 
     // Fetch suppliers (max limit is 100 per API validation)
     const suppliersResponse = await client.api.suppliers.get({
@@ -66,20 +67,25 @@ export async function loader(args: LoaderFunctionArgs) {
       (s: any) => s.supplierUserId !== null
     );
 
-    const suppliersWithUsers = suppliersWithPlatformAccess.map((supplier: any) => {
-      const supplierUsers = allUsers.filter(
-        (user) => user.role === "supplier_user" && supplier.supplierUserId === user.id
-      );
-      return {
-        id: supplier.id,
-        name: supplier.name,
-        supplierUserId: supplier.supplierUserId,
-        users: supplierUsers,
-      };
-    });
+    const suppliersWithUsers = suppliersWithPlatformAccess.map(
+      (supplier: any) => {
+        const supplierUsers = allUsers.filter(
+          (user) =>
+            user.role === "supplier_user" && supplier.supplierUserId === user.id
+        );
+        return {
+          id: supplier.id,
+          name: supplier.name,
+          supplierUserId: supplier.supplierUserId,
+          users: supplierUsers,
+        };
+      }
+    );
 
     // Filter internal users (not supplier users)
-    const internalUsers = allUsers.filter((user) => user.role !== "supplier_user");
+    const internalUsers = allUsers.filter(
+      (user) => user.role !== "supplier_user"
+    );
 
     return json({
       internalUsers,
@@ -101,15 +107,19 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export default function UsersSettingsPage() {
-  const { internalUsers, allUsers, pendingInvitations, suppliersWithUsers } =
-    useLoaderData<typeof loader>();
+  const {
+    internalUsers,
+    allUsers: _allUsers,
+    pendingInvitations,
+    suppliersWithUsers,
+  } = useLoaderData<typeof loader>();
   const { user, session } = useAuth();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { toast } = useToast();
-  
+
   // Tab state - removed manual management, Tabs component handles it now
-  
+
   // Filter state
   const [filterStatus, setFilterStatus] = useState<
     "all" | "active" | "inactive"
@@ -120,7 +130,7 @@ export default function UsersSettingsPage() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
+
   // ✅ No client-side permission check needed - server redirects unauthorized users
 
   const filteredInternalUsers = internalUsers.filter((u) => {
@@ -330,15 +340,9 @@ export default function UsersSettingsPage() {
       <div className="mt-6">
         <Tabs defaultValue="internal" className="w-full">
           <TabsList className="grid w-full max-w-3xl grid-cols-3">
-            <TabsTrigger value="internal">
-              Internal Users
-            </TabsTrigger>
-            <TabsTrigger value="supplier">
-              Supplier Users
-            </TabsTrigger>
-            <TabsTrigger value="pending">
-              Pending Invitations
-            </TabsTrigger>
+            <TabsTrigger value="internal">Internal Users</TabsTrigger>
+            <TabsTrigger value="supplier">Supplier Users</TabsTrigger>
+            <TabsTrigger value="pending">Pending Invitations</TabsTrigger>
           </TabsList>
 
           {/* Internal Users Tab */}
@@ -356,7 +360,9 @@ export default function UsersSettingsPage() {
                   id="status-filter"
                   value={filterStatus}
                   onChange={(e) =>
-                    setFilterStatus(e.target.value as "all" | "active" | "inactive")
+                    setFilterStatus(
+                      e.target.value as "all" | "active" | "inactive"
+                    )
                   }
                   className="block rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
                 >
@@ -369,7 +375,7 @@ export default function UsersSettingsPage() {
                   {filteredInternalUsers.length === 1 ? "user" : "users"}
                 </div>
               </div>
-              
+
               {/* Invite User Button */}
               <button
                 type="button"

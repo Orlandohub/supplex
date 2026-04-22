@@ -1,8 +1,8 @@
-import { Button } from "~/components/ui/button";
+﻿import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Card } from "~/components/ui/card";
 import { FileCheck, Plus } from "lucide-react";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 
 interface ProcessInstance {
   id: string;
@@ -58,7 +58,8 @@ export function WorkflowsTab({
           No Workflow Processes
         </h3>
         <p className="text-gray-600 mb-6">
-          No workflow processes started yet. Click &apos;Start Process&apos; to begin.
+          No workflow processes started yet. Click &apos;Start Process&apos; to
+          begin.
         </p>
         {onStartProcess && (
           <Button onClick={onStartProcess} className="mx-auto">
@@ -138,20 +139,29 @@ export function WorkflowsTab({
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {(workflow as any).workflowName || workflow.processType || "Workflow"}
+                        {(workflow as any).workflowName ||
+                          workflow.processType ||
+                          "Workflow"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge variant={getStatusVariant(workflow.status)}>
-                          {getStatusLabel(workflow.status, workflow.activeStep?.stepName)}
+                          {getStatusLabel(
+                            workflow.status,
+                            workflow.activeStep?.stepName
+                          )}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {workflow.lastCompletedStep ? (
                           <div>
-                            <p className="text-gray-900">{workflow.lastCompletedStep.stepName}</p>
+                            <p className="text-gray-900">
+                              {workflow.lastCompletedStep.stepName}
+                            </p>
                             {workflow.lastCompletedStep.completedDate && (
                               <p className="text-xs text-gray-500">
-                                {formatDate(workflow.lastCompletedStep.completedDate)}
+                                {formatDate(
+                                  workflow.lastCompletedStep.completedDate
+                                )}
                               </p>
                             )}
                           </div>
@@ -186,10 +196,15 @@ export function WorkflowsTab({
               <div className="space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="font-medium text-gray-900">
-                    {(workflow as any).workflowName || workflow.processType || "Workflow"}
+                    {(workflow as any).workflowName ||
+                      workflow.processType ||
+                      "Workflow"}
                   </div>
                   <Badge variant={getStatusVariant(workflow.status)}>
-                    {getStatusLabel(workflow.status, workflow.activeStep?.stepName)}
+                    {getStatusLabel(
+                      workflow.status,
+                      workflow.activeStep?.stepName
+                    )}
                   </Badge>
                 </div>
                 <div className="text-sm text-gray-600 space-y-1">
@@ -198,7 +213,12 @@ export function WorkflowsTab({
                     <div>
                       Last Step: {workflow.lastCompletedStep.stepName}
                       {workflow.lastCompletedStep.completedDate && (
-                        <span className="text-gray-400"> ({formatDate(workflow.lastCompletedStep.completedDate)})</span>
+                        <span className="text-gray-400">
+                          {" "}
+                          (
+                          {formatDate(workflow.lastCompletedStep.completedDate)}
+                          )
+                        </span>
                       )}
                     </div>
                   )}

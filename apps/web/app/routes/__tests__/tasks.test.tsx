@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+﻿import { describe, it, expect, vi } from "vitest";
 
 /**
  * Test Suite for My Tasks Route
@@ -17,7 +17,7 @@ import { describe, it, expect, vi } from "vitest";
  */
 
 // Mock dependencies
-vi.mock("@remix-run/react", () => ({
+vi.mock("react-router", () => ({
   useLoaderData: () => ({
     tasks: [],
     token: "test-token",

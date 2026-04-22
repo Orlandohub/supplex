@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+﻿import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DuplicateWarningModal } from "../DuplicateWarningModal";
 import { SupplierCategory, SupplierStatus } from "@supplex/types";
 
 // Mock Remix Link and Form
-vi.mock("@remix-run/react", () => ({
+vi.mock("react-router", () => ({
   Link: ({ children, to, ...props }: any) => (
     <a href={to} {...props}>
       {children}

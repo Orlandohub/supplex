@@ -1,17 +1,18 @@
-/**
+﻿/**
  * Initiate Workflow Dialog (NEW WORKFLOW ENGINE)
  * Modal for starting a workflow process from a template
  * Updated: Story 2.2.14 - Uses workflowTemplateId instead of versionId
- * 
+ *
  * Supports two usage patterns:
  * 1. Trigger-based (for global workflows page): Pass children as trigger
  * 2. Controlled (for supplier detail page): Pass open/onOpenChange
- * 
+ *
  * Replaces legacy checklist-based workflow initiation
  * Uses new workflow template system
  */
 
-import { useState, useEffect, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import {
 import { Label } from "~/components/ui/label";
 import { Badge } from "~/components/ui/badge";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { useRevalidator } from "@remix-run/react";
+import { useRevalidator } from "react-router";
 import { useToast } from "~/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -79,18 +80,18 @@ type InitiateWorkflowDialogProps = TriggerBasedProps | ControlledProps;
 /**
  * Initiate Workflow Dialog (NEW WORKFLOW ENGINE)
  * Modal for starting a workflow process from a template
- * 
+ *
  * Supports two usage patterns:
  * 1. Trigger-based (for global workflows page): Pass children as trigger
  * 2. Controlled (for supplier detail page): Pass open/onOpenChange
- * 
+ *
  * Replaces legacy checklist-based workflow initiation
  * Uses new workflow template system
  */
 export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
   // Determine if this is trigger-based or controlled
-  const isTriggerBased = 'children' in props && props.children !== undefined;
-  
+  const isTriggerBased = "children" in props && props.children !== undefined;
+
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -104,9 +105,7 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
 
   // Get the actual open state and setter based on pattern
   const open = isTriggerBased ? internalOpen : props.open;
-  const setOpen = isTriggerBased 
-    ? setInternalOpen 
-    : props.onOpenChange;
+  const setOpen = isTriggerBased ? setInternalOpen : props.onOpenChange;
 
   // Get supplier from props (controlled) or selection (trigger-based)
   const preselectedSupplier = !isTriggerBased ? props.supplier : null;
@@ -216,8 +215,8 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
     }
 
     // Get supplier (either preselected or user-selected)
-    const targetSupplier = preselectedSupplier || 
-      suppliers.find((s) => s.id === selectedSupplierId);
+    const targetSupplier =
+      preselectedSupplier || suppliers.find((s) => s.id === selectedSupplierId);
 
     if (!targetSupplier) {
       toast({
@@ -233,7 +232,9 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
       const client = createClientEdenTreatyClient(token);
 
       // Find selected template
-      const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+      const selectedTemplate = templates.find(
+        (t) => t.id === selectedTemplateId
+      );
 
       if (!selectedTemplate) {
         throw new Error("Selected template not found");
@@ -328,8 +329,8 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
             </div>
           ) : templates.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
-              No active workflow templates available. Please create and publish a
-              template first.
+              No active workflow templates available. Please create and publish
+              a template first.
             </p>
           ) : (
             <Select
@@ -373,9 +374,9 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
         <Button
           onClick={handleSubmit}
           disabled={
-            !selectedTemplateId || 
+            !selectedTemplateId ||
             (isTriggerBased && !selectedSupplierId) ||
-            isSubmitting || 
+            isSubmitting ||
             templates.length === 0 ||
             (isTriggerBased && suppliers.length === 0)
           }
@@ -397,9 +398,7 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
   if (isTriggerBased) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          {props.children}
-        </DialogTrigger>
+        <DialogTrigger asChild>{props.children}</DialogTrigger>
         {dialogContent}
       </Dialog>
     );

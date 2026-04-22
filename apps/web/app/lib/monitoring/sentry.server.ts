@@ -5,14 +5,14 @@
  * Only initializes if SENTRY_DSN is provided.
  *
  * Installation:
- *   pnpm add @sentry/remix --filter @supplex/web
+ *   pnpm add @sentry/react-router --filter @supplex/web
  *
  * Usage:
  *   Import in app/entry.server.tsx
  */
 
-// NOTE: Uncomment when @sentry/remix is installed
-// import * as Sentry from "@sentry/remix";
+// NOTE: Uncomment when @sentry/react-router is installed
+// import * as Sentry from "@sentry/react-router";
 
 /**
  * Initialize Sentry for server-side error tracking
@@ -27,7 +27,7 @@ export function initSentryServer(dsn?: string, _environment?: string) {
     return;
   }
 
-  // NOTE: Uncomment when @sentry/remix is installed
+  // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.init({
     dsn,
@@ -40,7 +40,7 @@ export function initSentryServer(dsn?: string, _environment?: string) {
     initialScope: {
       tags: {
         service: "web-server",
-        framework: "remix",
+        framework: "react-router",
         runtime: "node",
       },
     },
@@ -68,7 +68,7 @@ export function initSentryServer(dsn?: string, _environment?: string) {
  * @param request - Request object
  */
 export function captureRemixError(error: Error, request?: Request) {
-  // NOTE: Uncomment when @sentry/remix is installed
+  // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.captureException(error, {
     extra: {

@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { SupplierDetailTabs } from "../SupplierDetailTabs";
 import { SupplierStatus, SupplierCategory } from "@supplex/types";
 import * as usePermissionsModule from "~/hooks/usePermissions";
 
 // Mock hooks
 vi.mock("~/hooks/usePermissions");
-vi.mock("@remix-run/react", async () => {
-  const actual = await vi.importActual("@remix-run/react");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   const React = await import("react");
-  const ReactRouterDOM = await import("react-router-dom");
+  const ReactRouterDOM = await import("react-router");
   const MockForm = React.forwardRef<HTMLFormElement, any>(
     ({ children, ...props }, ref) =>
       React.createElement("form", { ...props, ref }, children)

@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { SupplierTable } from "../SupplierTable";
 import { SupplierStatus, SupplierCategory } from "@supplex/types";
 import type { SerializedSupplier } from "@supplex/types";
 
 // Mock useNavigate
-vi.mock("@remix-run/react", async () => {
-  const actual = await vi.importActual("@remix-run/react");
-  const ReactRouterDOM = await import("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  const ReactRouterDOM = await import("react-router");
   return {
     ...actual,
     useNavigate: () => vi.fn(),

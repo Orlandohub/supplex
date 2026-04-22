@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Sidebar Component
  * Collapsible sidebar navigation with role-based menu filtering
- * 
+ *
  * Uses SSR permissions from parent loader to prevent flash of unauthorized content
  */
 
-import { Link, useLocation, useRouteLoaderData } from "@remix-run/react";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
 import { Fragment } from "react";
 import {
   Home,
@@ -90,7 +90,7 @@ export function Sidebar() {
   const location = useLocation();
   const { isSidebarCollapsed, toggleSidebar } = useNavigationStore();
 
-  // ✅ Get permissions from parent loader (SSR-safe, prevents flash)
+  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
   const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
   const permissions = appData?.permissions;
 
@@ -158,11 +158,11 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
         {visibleNavItems.map((item, index) => {
           const Icon = item.icon;
-          
+
           // Fix navigation highlighting - prevent parent routes from matching child routes
           // e.g., /workflows shouldn't match /workflows/templates
           let isActive = false;
-          
+
           if (item.href === "/") {
             // Home route - only match exactly
             isActive = location.pathname === "/";
@@ -173,7 +173,7 @@ export function Sidebar() {
                 otherItem.href !== item.href &&
                 otherItem.href.startsWith(item.href + "/")
             );
-            
+
             if (hasChildRoute) {
               // If this item has child routes, only match exactly
               isActive = location.pathname === item.href;

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+﻿import { describe, it, expect, vi } from "vitest";
 
 /**
  * Comprehensive Test Suite for SubmitWorkflowModal Component
@@ -17,7 +17,7 @@ import { describe, it, expect, vi } from "vitest";
  */
 
 // Mock dependencies
-vi.mock("@remix-run/react", () => ({
+vi.mock("react-router", () => ({
   useRevalidator: () => ({ revalidate: vi.fn() }),
 }));
 

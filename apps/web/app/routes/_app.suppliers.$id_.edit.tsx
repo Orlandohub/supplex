@@ -2,9 +2,9 @@ import type {
   LoaderFunctionArgs,
   ActionFunctionArgs,
   MetaFunction,
-} from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, useNavigation } from "@remix-run/react";
+} from "react-router";
+import { data as json, redirect } from "react-router";
+import { useLoaderData, useActionData, useNavigation } from "react-router";
 import { requireRole } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { UserRole } from "@supplex/types";
@@ -222,7 +222,7 @@ export async function action(args: ActionFunctionArgs) {
     );
     remixSession.unset("supplierInfo");
     remixSession.unset("supplierInfoTimestamp");
-    
+
     return redirect(`/suppliers/${id}?success=updated`, {
       headers: {
         "Set-Cookie": await sessionStorage.commitSession(remixSession),
@@ -242,7 +242,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function EditSupplier() {
-  const { supplier } = useLoaderData<typeof loader>() as {
+  const { supplier } = useLoaderData<typeof loader>() as unknown as {
     supplier: SerializedSupplier;
   };
   const actionData = useActionData<typeof action>();

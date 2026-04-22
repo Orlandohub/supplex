@@ -38,11 +38,14 @@ Use `docs/README.md` for the full documentation map. Keep detailed app setup and
 - Follow the `window.ENV` -> `import.meta.env` -> `process.env` pattern described in `apps/web/README.md`
 - Test client-side navigation, not just initial SSR page loads
 
-### Remix routes
+### React Router routes
 
 - Keep route data loading in loaders
 - Use sibling versus child route naming intentionally
 - Add `shouldRevalidate` when URL state should not trigger full route reloads
+- If you see `Cannot find module '@remix-run/react'` or `@remix-run/node`: the app was migrated to React Router v7 in Framework mode. Import from `react-router` (framework primitives) or `@react-router/node` (server adapters) instead. See [`docs/adr/0007-react-router-v7.md`](./adr/0007-react-router-v7.md).
+- If you see `Module '"react-router"' has no exported member 'json'`: the `json()` helper was removed in v7. Return plain objects from loaders, or use `data(value, init)` from `react-router` for status/header control, or `Response.json(...)` when a raw `Response` is required.
+- If you see `Error: Route config file not found at "app/routes.ts"`: the React Router dev pipeline requires a root route config. It lives at `apps/web/app/routes.ts` and uses `@react-router/fs-routes`' `flatRoutes({ ignoredRouteFiles })` to preserve the Remix-style file-system routing.
 
 ### Elysia route structure
 

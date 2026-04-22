@@ -21,7 +21,7 @@ The broader product scope still includes performance evaluation, complaints/CAPA
 ```text
 supplex/
 ├── apps/
-│   ├── web/       Remix frontend
+│   ├── web/       React Router v7 (Framework mode) frontend
 │   └── api/       ElysiaJS backend
 ├── packages/
 │   ├── db/        Drizzle schema and migrations
@@ -35,7 +35,8 @@ supplex/
 
 ### Web app
 
-- Remix handles route rendering, loaders, actions, and SSR
+- React Router v7 in Framework mode handles route rendering, loaders, actions, and SSR
+- file-system routing lives under `apps/web/app/routes/` and is wired in `apps/web/app/routes.ts` via `@react-router/fs-routes`
 - user-facing pages use server-side loading and URL-driven navigation patterns
 - some user-facing data access uses Supabase client capabilities where that aligns with current app behavior
 
@@ -68,14 +69,14 @@ The source of truth for all of these is `packages/db/src/schema/`, not secondary
 ## Key Architectural Characteristics
 
 - Multi-tenant design with tenant isolation as a hard requirement
-- Remix + Elysia split between user experience and backend business logic
+- React Router (Framework mode) + Elysia split between user experience and backend business logic
 - Shared schema and types through the monorepo
 - Mobile-first, data-dense UI informed by Midday and shadcn/ui patterns
 - Auditability, RBAC, and document traceability as core product constraints
 
 ## API And Data-Flow Highlights
 
-- The system uses a practical backend-for-frontend shape: Remix handles page delivery and user-facing route composition, while the API owns cross-cutting business logic and deeper workflow behavior.
+- The system uses a practical backend-for-frontend shape: React Router (Framework mode) handles page delivery and user-facing route composition, while the API owns cross-cutting business logic and deeper workflow behavior.
 - Tenant isolation is preserved through a mix of database-level and application-level controls, depending on the execution path.
 - Workflow execution is centered on runtime process and step instances rather than legacy qualification-only tables.
 - Shared types and schema-backed contracts are intended to reduce drift between web and API behavior.
@@ -115,11 +116,12 @@ ADRs belong under `docs/adr/`.
 Current accepted ADRs:
 
 - [`0001-monorepo-and-application-boundaries.md`](./adr/0001-monorepo-and-application-boundaries.md)
-- [`0002-remix-plus-elysia-application-split.md`](./adr/0002-remix-plus-elysia-application-split.md)
+- [`0002-remix-plus-elysia-application-split.md`](./adr/0002-remix-plus-elysia-application-split.md) (framework portion superseded by ADR 0007)
 - [`0003-tenant-isolation-and-data-access-strategy.md`](./adr/0003-tenant-isolation-and-data-access-strategy.md)
 - [`0004-workflow-engine-runtime-model.md`](./adr/0004-workflow-engine-runtime-model.md)
 - [`0005-deployment-topology.md`](./adr/0005-deployment-topology.md)
 - [`0006-documentation-architecture.md`](./adr/0006-documentation-architecture.md)
+- [`0007-react-router-v7.md`](./adr/0007-react-router-v7.md)
 
 Supporting ADR docs:
 

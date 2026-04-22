@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { CommentThreadView } from "../CommentThreadView";
 
 /**
@@ -62,9 +62,7 @@ describe("CommentThreadView", () => {
   it("should render all comments", () => {
     renderWithRouter(<CommentThreadView {...defaultProps} />);
 
-    expect(
-      screen.getByText(/This form needs revision/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/This form needs revision/i)).toBeInTheDocument();
     expect(screen.getByText(/I've updated the form/i)).toBeInTheDocument();
   });
 
@@ -160,9 +158,7 @@ describe("CommentThreadView", () => {
     renderWithRouter(<CommentThreadView {...defaultProps} />);
 
     // Both parent and child comments should be visible
-    expect(
-      screen.getByText(/This form needs revision/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/This form needs revision/i)).toBeInTheDocument();
     expect(screen.getByText(/I've updated the form/i)).toBeInTheDocument();
   });
 
@@ -197,7 +193,7 @@ describe("CommentThreadView", () => {
   it("should disable submit when comment is empty", () => {
     renderWithRouter(<CommentThreadView {...defaultProps} />);
 
-    const submitButton = screen.getByRole("button", { name: /add comment/i });
+    const _submitButton = screen.getByRole("button", { name: /add comment/i });
     const textarea = screen.getByPlaceholderText(
       /Write your comment/i
     ) as HTMLTextAreaElement;
@@ -275,4 +271,3 @@ describe("CommentThreadView", () => {
     expect(screen.getByText(longCommentText)).toBeInTheDocument();
   });
 });
-

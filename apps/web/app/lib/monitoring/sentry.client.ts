@@ -1,20 +1,20 @@
 /**
  * Sentry Client-Side Configuration
  *
- * Configures Sentry for client-side error tracking in the Remix app.
+ * Configures Sentry for client-side error tracking in the React Router v7 app.
  * Only initializes if SENTRY_DSN is provided.
  *
  * Installation:
- *   pnpm add @sentry/remix --filter @supplex/web
+ *   pnpm add @sentry/react-router --filter @supplex/web
  *
  * Usage:
  *   Import in app/entry.client.tsx
  */
 
-// NOTE: Uncomment when @sentry/remix is installed
-// import * as Sentry from "@sentry/remix";
+// NOTE: Uncomment when @sentry/react-router is installed
+// import * as Sentry from "@sentry/react-router";
 // import { useEffect } from "react";
-// import { useLocation, useMatches } from "@remix-run/react";
+// import { useLocation, useMatches } from "react-router";
 
 /**
  * Initialize Sentry for client-side error tracking
@@ -29,7 +29,7 @@ export function initSentryClient(dsn?: string, _environment?: string) {
     return;
   }
 
-  // NOTE: Uncomment when @sentry/remix is installed
+  // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.init({
     dsn,
@@ -42,7 +42,7 @@ export function initSentryClient(dsn?: string, _environment?: string) {
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     
-    // Remix-specific integrations
+    // React Router-specific integrations
     integrations: [
       Sentry.browserTracingIntegration({
         useEffect,
@@ -66,7 +66,7 @@ export function initSentryClient(dsn?: string, _environment?: string) {
     initialScope: {
       tags: {
         service: "web",
-        framework: "remix",
+        framework: "react-router",
       },
     },
   });
@@ -82,7 +82,7 @@ export function initSentryClient(dsn?: string, _environment?: string) {
  * @param context - Additional context
  */
 export function captureException(error: Error, context?: Record<string, any>) {
-  // NOTE: Uncomment when @sentry/remix is installed
+  // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.captureException(error, {
     extra: context,
@@ -103,7 +103,7 @@ export function setUserContext(user: {
   role?: string;
   tenantId?: string;
 }) {
-  // NOTE: Uncomment when @sentry/remix is installed
+  // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.setUser({
     id: user.id,
@@ -122,7 +122,7 @@ export function setUserContext(user: {
  * Clear user context on logout
  */
 export function clearUserContext() {
-  // NOTE: Uncomment when @sentry/remix is installed
+  // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.setUser(null);
   */

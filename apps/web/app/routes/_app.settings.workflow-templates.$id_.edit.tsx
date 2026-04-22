@@ -3,8 +3,8 @@
  * Allows admins to edit workflow templates, manage versions and steps
  */
 
-import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { data as json, redirect, type LoaderFunctionArgs } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
@@ -35,7 +35,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Require authentication
   const { userRecord, session } = await requireAuth(args);
-  
+
   // Server-side permission check - Admin only
   if (userRecord.role !== UserRole.ADMIN) {
     return redirect("/");
@@ -99,7 +99,8 @@ export function shouldRevalidate() {
 }
 
 export default function WorkflowTemplateEditPage() {
-  const { template, users, workflowTypes, token } = useLoaderData<typeof loader>();
+  const { template, users, workflowTypes, token } =
+    useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
   return (
@@ -118,7 +119,9 @@ export default function WorkflowTemplateEditPage() {
                 Back
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{template.name}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {template.name}
+                </h1>
                 <p className="mt-1 text-sm text-gray-500">
                   Configure workflow steps, approvers, and forms
                 </p>
@@ -141,5 +144,3 @@ export default function WorkflowTemplateEditPage() {
     </div>
   );
 }
-
-
