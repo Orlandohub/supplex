@@ -32,6 +32,7 @@ export function DocumentTypeSelect({
     [DocumentType.CONTRACT]: "Contract",
     [DocumentType.INSURANCE]: "Insurance",
     [DocumentType.AUDIT_REPORT]: "Audit Report",
+    [DocumentType.WORKFLOW_DOCUMENT]: "Workflow Document",
     [DocumentType.OTHER]: "Other",
   };
 

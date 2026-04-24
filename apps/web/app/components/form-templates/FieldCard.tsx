@@ -98,10 +98,11 @@ export function FieldCard({
 
       // Create new order array by swapping
       const newOrder = [...allFields];
-      [newOrder[currentIndex], newOrder[targetIndex]] = [
-        newOrder[targetIndex],
-        newOrder[currentIndex],
-      ];
+      const a = newOrder[currentIndex];
+      const b = newOrder[targetIndex];
+      if (!a || !b) return;
+      newOrder[currentIndex] = b;
+      newOrder[targetIndex] = a;
 
       const fieldIds = newOrder.map((f) => f.id);
 

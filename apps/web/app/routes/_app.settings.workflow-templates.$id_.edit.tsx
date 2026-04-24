@@ -135,8 +135,8 @@ export default function WorkflowTemplateEditPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Workflow Template Editor */}
         <WorkflowTemplateEditor
-          template={template}
-          users={users}
+          template={template as any}
+          users={users as any}
           workflowTypes={workflowTypes}
           token={token}
         />

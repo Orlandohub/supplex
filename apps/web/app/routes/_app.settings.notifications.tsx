@@ -24,8 +24,8 @@ interface NotificationPreferences {
   workflowApproved: boolean;
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const { session } = await requireAuth({ request });
+export async function loader(args: LoaderFunctionArgs) {
+  const { session } = await requireAuth(args);
 
   try {
     const token = session?.access_token;
@@ -65,8 +65,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-  const { session } = await requireAuth({ request });
+export async function action(args: ActionFunctionArgs) {
+  const { session } = await requireAuth(args);
+  const { request } = args;
 
   try {
     const formData = await request.formData();
@@ -80,7 +81,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const client = createEdenTreatyClient(token);
     const response = await client.api.users.me["notification-preferences"].put({
-      eventType,
+      eventType: eventType as any,
       emailEnabled,
     });
 

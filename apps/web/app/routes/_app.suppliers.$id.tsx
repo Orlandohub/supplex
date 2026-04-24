@@ -17,7 +17,8 @@ import {
 import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import type { Supplier, Document, QualificationWorkflow } from "@supplex/types";
+import type { Supplier, Document } from "@supplex/types";
+type QualificationWorkflow = any;
 import { UserRole } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
@@ -385,7 +386,7 @@ export default function SupplierDetail() {
     formSubmissions,
     supplierStatuses,
     token,
-  } = useLoaderData<typeof loader>() as {
+  } = useLoaderData<typeof loader>() as unknown as {
     supplier: SerializedSupplier;
     supplierUser: {
       id: string;

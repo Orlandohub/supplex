@@ -213,8 +213,33 @@ export async function action(args: ActionFunctionArgs) {
   }
 }
 
+type SupplierCreateActionData =
+  | {
+      error?: string;
+      message?: string;
+      duplicates?: unknown[];
+      formData?: Record<string, unknown>;
+      errors?: unknown[];
+      success?: undefined;
+      supplierId?: undefined;
+      invitationToken?: undefined;
+      supplierUser?: undefined;
+    }
+  | {
+      success: boolean;
+      supplierId: string;
+      invitationToken: string;
+      supplierUser: { id: string; email: string; fullName: string } | undefined;
+      error?: undefined;
+      message?: undefined;
+      duplicates?: undefined;
+      formData?: undefined;
+      errors?: undefined;
+    }
+  | undefined;
+
 export default function CreateSupplier() {
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<typeof action>() as SupplierCreateActionData;
   const navigation = useNavigation();
   const navigate = useNavigate();
   const [showDuplicateModal, setShowDuplicateModal] = useState(
@@ -275,8 +300,8 @@ export default function CreateSupplier() {
         <DuplicateWarningModal
           isOpen={showDuplicateModal}
           onClose={() => setShowDuplicateModal(false)}
-          duplicates={actionData.duplicates || []}
-          formData={actionData.formData}
+          duplicates={(actionData.duplicates as any[]) || []}
+          formData={actionData.formData as any}
           onSaveAnyway={() => {
             // The form will be resubmitted with forceSave=true
             setShowDuplicateModal(false);

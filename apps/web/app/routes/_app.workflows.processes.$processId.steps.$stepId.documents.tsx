@@ -642,7 +642,9 @@ export default function WorkflowStepDocumentsPage() {
                           setDecisions((prev) => ({
                             ...prev,
                             [doc.requiredDocumentName]: {
-                              ...prev[doc.requiredDocumentName],
+                              ...(prev[doc.requiredDocumentName] ?? {
+                                action: "decline" as const,
+                              }),
                               comment: e.target.value,
                             },
                           }))

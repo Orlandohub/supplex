@@ -10,9 +10,11 @@ import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { UserRole } from "@supplex/types";
-import type { FormTemplateWithDetails } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
-import { FormTemplateBuilder } from "~/components/form-templates/FormTemplateBuilder";
+import {
+  FormTemplateBuilder,
+  type FormTemplateBuilderTemplate,
+} from "~/components/form-templates/FormTemplateBuilder";
 
 export async function loader(args: LoaderFunctionArgs) {
   const { params } = args;
@@ -54,7 +56,8 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to load template", { status });
     }
 
-    const template = templateResponse.data?.data as FormTemplateWithDetails;
+    const template = templateResponse.data
+      ?.data as unknown as FormTemplateBuilderTemplate;
 
     return json({
       template,

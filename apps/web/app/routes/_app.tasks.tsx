@@ -262,7 +262,10 @@ export default function MyTasksPage() {
     return null;
   }
 
-  const empty = EMPTY_STATES[currentView] ?? EMPTY_STATES.all;
+  const empty = (EMPTY_STATES[currentView] ?? EMPTY_STATES.all) as {
+    title: string;
+    desc: string;
+  };
 
   const summaryCards = [
     { label: "Pending", count: counts.pending, view: "pending" },

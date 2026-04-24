@@ -35,8 +35,9 @@ interface Pagination {
   hasMore: boolean;
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const { session, userRecord } = await requireAuth({ request });
+export async function loader(args: LoaderFunctionArgs) {
+  const { request } = args;
+  const { session, userRecord } = await requireAuth(args);
 
   // Check if user is admin
   if (userRecord?.role !== "admin") {

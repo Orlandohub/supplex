@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { useRevalidator } from "react-router";
-import type { FormTemplateWithDetails } from "@supplex/types";
+import type { FormSectionWithFieldsUI } from "@supplex/types";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -17,17 +17,19 @@ import { SectionCard } from "./SectionCard";
 import { AddSectionModal } from "./AddSectionModal";
 import { CopyFormTemplateDialog } from "./CopyTemplateDialog";
 
+// Self-contained loader shape for the form-template edit page.
+// The serialized payload here does not fit any single canonical domain type
+// (drift between @supplex/types and the API projection), so we define the
+// observed shape inline. See SUP-7 cluster A for context.
+export interface FormTemplateBuilderTemplate {
+  id: string;
+  name: string;
+  status: "draft" | "published" | "archived";
+  sections: FormSectionWithFieldsUI[];
+}
+
 interface FormTemplateBuilderProps {
-  template: FormTemplateWithDetails & {
-    status: "draft" | "published" | "archived";
-    sections: Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      sectionOrder: number;
-      fields: Array<any>;
-    }>;
-  };
+  template: FormTemplateBuilderTemplate;
   token: string;
 }
 

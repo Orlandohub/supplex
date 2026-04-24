@@ -100,9 +100,9 @@ export function UserMenu({ className = "" }: UserMenuProps) {
               <p className="text-xs text-gray-500 capitalize mt-0.5">
                 {userRecord?.role || "User"}
               </p>
-              {userRecord?.tenant?.name && (
+              {(userRecord as any)?.tenant?.name && (
                 <p className="text-xs text-gray-400 mt-1">
-                  {userRecord.tenant.name}
+                  {(userRecord as any).tenant.name}
                 </p>
               )}
             </div>

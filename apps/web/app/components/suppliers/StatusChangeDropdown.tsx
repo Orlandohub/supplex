@@ -59,7 +59,7 @@ export function StatusChangeDropdown({
         }));
 
   // Non-admin users only see a read-only badge
-  if (!permissions?.canEditSupplier) {
+  if (!permissions?.canEditSuppliers) {
     const label =
       statusOptions.find((o) => o.value === currentStatus)?.label ||
       currentStatus;

@@ -20,7 +20,7 @@ export async function loader(args: LoaderFunctionArgs) {
   const { request } = args;
 
   // Require authentication
-  const { userRecord, session } = await requireAuth(args);
+  const { userRecord: _userRecord, session } = await requireAuth(args);
 
   // Get form template ID from query params
   const url = new URL(request.url);
@@ -70,13 +70,11 @@ export async function loader(args: LoaderFunctionArgs) {
     const formVersion: FormTemplateWithStructureUI = {
       id: formTemplateId,
       formTemplateId: formTemplateId,
-      tenantId: userRecord.tenantId,
       version: 1,
       status: "published",
       isPublished: true,
       createdAt: new Date(),
       updatedAt: new Date(),
-      deletedAt: null,
       sections: [],
     };
 

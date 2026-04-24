@@ -140,7 +140,8 @@ const stepSchema = z
     }
   });
 
-type StepFormData = z.infer<typeof stepSchema>;
+type StepFormData = z.output<typeof stepSchema>;
+type StepFormInput = z.input<typeof stepSchema>;
 
 interface TemplateOption {
   id: string;
@@ -168,7 +169,7 @@ export function WorkflowStepBuilder({
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const form = useForm<StepFormData>({
+  const form = useForm<StepFormInput, unknown, StepFormData>({
     resolver: zodResolver(stepSchema),
     defaultValues: {
       name: "",
@@ -432,6 +433,10 @@ export function WorkflowStepBuilder({
     // Create reordered array
     const reordered = Array.from(steps);
     const [movedStep] = reordered.splice(currentIndex, 1);
+    if (!movedStep) {
+      setIsReordering(false);
+      return;
+    }
     reordered.splice(newIndex, 0, movedStep);
 
     // Create update payload with new step orders

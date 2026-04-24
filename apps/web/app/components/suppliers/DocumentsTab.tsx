@@ -62,6 +62,9 @@ export function DocumentsTab({
       bValue = bValue ? new Date(bValue).getTime() : 0;
     }
 
+    if (aValue == null) return sortOrder === "asc" ? -1 : 1;
+    if (bValue == null) return sortOrder === "asc" ? 1 : -1;
+
     if (sortOrder === "asc") {
       return aValue > bValue ? 1 : -1;
     } else {
@@ -198,7 +201,7 @@ export function DocumentsTab({
         <p className="text-gray-600 mb-6">
           Upload your first document to get started
         </p>
-        {permissions?.canUploadDocument && (
+        {permissions?.canUploadDocuments && (
           <Button onClick={() => setIsUploadModalOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
@@ -222,7 +225,7 @@ export function DocumentsTab({
         <h3 className="text-lg font-semibold">
           Documents ({documents.length})
         </h3>
-        {permissions?.canUploadDocument && (
+        {permissions?.canUploadDocuments && (
           <Button onClick={() => setIsUploadModalOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
@@ -317,7 +320,7 @@ export function DocumentsTab({
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      {permissions?.canDeleteDocument && (
+                      {permissions?.canDeleteDocuments && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -382,7 +385,7 @@ export function DocumentsTab({
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
-                {permissions?.canDeleteDocument && (
+                {permissions?.canDeleteDocuments && (
                   <Button
                     variant="destructive"
                     size="sm"
