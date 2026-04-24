@@ -70,7 +70,7 @@ export async function action(args: ActionFunctionArgs) {
       name,
       description: description || undefined,
       processType,
-    });
+    } as any);
 
     if (response.error) {
       return json(

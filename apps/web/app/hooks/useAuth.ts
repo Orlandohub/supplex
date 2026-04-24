@@ -86,11 +86,11 @@ export const useAuth = create<AuthState>()(
 
           if (data.user && data.session) {
             // Fetch user record from database
-            const { data: userRecord, error: userError } = await supabase
+            const { data: userRecord, error: userError } = (await supabase
               .from("users")
               .select("*")
               .eq("id", data.user.id)
-              .single();
+              .single()) as { data: any; error: any };
 
             if (userError) {
               console.error("Error fetching user record:", userError);
@@ -98,19 +98,21 @@ export const useAuth = create<AuthState>()(
 
             // Check if user is deactivated
             if (userRecord && !userRecord.is_active) {
-              console.log("[AUTH] User is deactivated, fetching admin contact info");
-              
+              console.log(
+                "[AUTH] User is deactivated, fetching admin contact info"
+              );
+
               // Fetch admin contact info
-              const { data: adminUsers } = await supabase
+              const { data: adminUsers } = (await supabase
                 .from("users")
                 .select("full_name, email")
                 .eq("tenant_id", userRecord.tenant_id)
                 .eq("role", "admin")
                 .eq("is_active", true)
-                .limit(1);
+                .limit(1)) as { data: any[] | null };
 
               const adminUser = adminUsers?.[0];
-              const adminInfo = adminUser 
+              const adminInfo = adminUser
                 ? `${adminUser.full_name}\n${adminUser.email}`
                 : "your company's admin";
 

@@ -80,7 +80,8 @@ const supplierFormSchema = z
     }
   );
 
-type SupplierFormData = z.infer<typeof supplierFormSchema>;
+type SupplierFormData = z.output<typeof supplierFormSchema>;
+type SupplierFormInput = z.input<typeof supplierFormSchema>;
 
 interface SupplierFormProps {
   mode: "create" | "edit";
@@ -89,6 +90,8 @@ interface SupplierFormProps {
   actionData?: {
     error?: string;
     duplicate?: { id: string; name: string };
+    message?: string;
+    success?: boolean;
   };
 }
 
@@ -106,7 +109,7 @@ export function SupplierForm({
   const storageKey = `supplier-form-draft-${mode}-${supplier?.id || "new"}`;
 
   // Initialize React Hook Form
-  const form = useForm<SupplierFormData>({
+  const form = useForm<SupplierFormInput, unknown, SupplierFormData>({
     resolver: zodResolver(supplierFormSchema),
     mode: "onBlur", // Validate on blur for better UX
     defaultValues: supplier
@@ -118,8 +121,8 @@ export function SupplierForm({
           contactEmail: supplier.contactEmail,
           contactPhone: supplier.contactPhone || "",
           address: supplier.address,
-          website: supplier.metadata?.website || "",
-          notes: supplier.metadata?.notes || "",
+          website: (supplier.metadata?.website as string | undefined) || "",
+          notes: (supplier.metadata?.notes as string | undefined) || "",
         }
       : {
           name: "",
@@ -176,13 +179,11 @@ export function SupplierForm({
   }, [formValues, isDirty, mode, storageKey]);
 
   // Warn before unload if form is dirty
-  useBeforeUnload(
-    isDirty
-      ? (event) => {
-          event.preventDefault();
-        }
-      : undefined
-  );
+  useBeforeUnload((event) => {
+    if (isDirty) {
+      event.preventDefault();
+    }
+  });
 
   // Handle cancel
   const handleCancel = () => {

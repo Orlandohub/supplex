@@ -5,7 +5,14 @@
  */
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -32,9 +39,13 @@ export function DocumentTemplateDialog({
   initialData,
 }: DocumentTemplateDialogProps) {
   const [templateName, setTemplateName] = useState("");
-  const [status, setStatus] = useState<"draft" | "published" | "archived">("published");
+  const [status, setStatus] = useState<"draft" | "published" | "archived">(
+    "published"
+  );
   const [isDefault, setIsDefault] = useState(false);
-  const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocumentItem[]>([]);
+  const [requiredDocuments, setRequiredDocuments] = useState<
+    RequiredDocumentItem[]
+  >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -45,7 +56,11 @@ export function DocumentTemplateDialog({
         setTemplateName(initialData.templateName);
         setStatus(initialData.status as "draft" | "published" | "archived");
         setIsDefault(initialData.isDefault);
-        setRequiredDocuments(Array.isArray(initialData.requiredDocuments) ? initialData.requiredDocuments : []);
+        setRequiredDocuments(
+          Array.isArray(initialData.requiredDocuments)
+            ? initialData.requiredDocuments
+            : []
+        );
       } else {
         setTemplateName("");
         setStatus("published");
@@ -68,6 +83,7 @@ export function DocumentTemplateDialog({
     // Validate required documents
     for (let i = 0; i < requiredDocuments.length; i++) {
       const doc = requiredDocuments[i];
+      if (!doc) continue;
       if (!doc.name.trim()) {
         return `Document ${i + 1}: Name is required`;
       }
@@ -84,7 +100,7 @@ export function DocumentTemplateDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const error = validateForm();
     if (error) {
       setValidationError(error);
@@ -106,14 +122,17 @@ export function DocumentTemplateDialog({
     }
   };
 
-  const showPublishedWarning = mode === "edit" && initialData?.status === "published";
+  const showPublishedWarning =
+    mode === "edit" && initialData?.status === "published";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {mode === "create" ? "Create Document Template" : "Edit Document Template"}
+            {mode === "create"
+              ? "Create Document Template"
+              : "Edit Document Template"}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
@@ -127,7 +146,8 @@ export function DocumentTemplateDialog({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                This template is published. Changes may affect existing workflows using this template.
+                This template is published. Changes may affect existing
+                workflows using this template.
               </AlertDescription>
             </Alert>
           )}
@@ -155,22 +175,34 @@ export function DocumentTemplateDialog({
 
           <div className="space-y-2">
             <Label>Status *</Label>
-            <RadioGroup value={status} onValueChange={(value: any) => setStatus(value)}>
+            <RadioGroup
+              value={status}
+              onValueChange={(value: any) => setStatus(value)}
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="draft" id="status-draft" />
-                <Label htmlFor="status-draft" className="cursor-pointer font-normal">
+                <Label
+                  htmlFor="status-draft"
+                  className="cursor-pointer font-normal"
+                >
                   Draft - Template is being created/edited
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="published" id="status-published" />
-                <Label htmlFor="status-published" className="cursor-pointer font-normal">
+                <Label
+                  htmlFor="status-published"
+                  className="cursor-pointer font-normal"
+                >
                   Published - Template is available for use in workflows
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="archived" id="status-archived" />
-                <Label htmlFor="status-archived" className="cursor-pointer font-normal">
+                <Label
+                  htmlFor="status-archived"
+                  className="cursor-pointer font-normal"
+                >
                   Archived - Template is deprecated but preserved
                 </Label>
               </div>
@@ -194,11 +226,20 @@ export function DocumentTemplateDialog({
           />
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "create" ? "Create Template" : "Save Changes"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                  ? "Create Template"
+                  : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>
@@ -206,4 +247,3 @@ export function DocumentTemplateDialog({
     </Dialog>
   );
 }
-

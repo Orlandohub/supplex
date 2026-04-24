@@ -159,7 +159,7 @@ export default function UsersSettingsPage() {
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api.users.invite.post(data);
+      const response = await client.api.users.invite.post(data as any);
 
       if (response.error || !response.data?.success) {
         throw new Error(
@@ -204,7 +204,7 @@ export default function UsersSettingsPage() {
     try {
       const client = createClientEdenTreatyClient(token);
       const response = await client.api.users({ id: userId }).role.patch({
-        role: newRole,
+        role: newRole as any,
       });
 
       if (response.error || !response.data?.success) {

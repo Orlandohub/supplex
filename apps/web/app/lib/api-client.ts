@@ -73,7 +73,7 @@ export function createEdenTreatyClient(token: string) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    fetch: fetchWithAuthErrorHandler,
+    fetch: fetchWithAuthErrorHandler as any,
   });
 }
 
@@ -86,6 +86,6 @@ export function createClientEdenTreatyClient(token: string) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    fetch: fetchWithAuthErrorHandler,
+    fetch: fetchWithAuthErrorHandler as any,
   });
 }

@@ -41,7 +41,7 @@ export async function loader(args: LoaderFunctionArgs) {
     const templatesResponse = await client.api["form-templates"].get();
 
     const templates = (templatesResponse.data?.data?.templates ||
-      []) as FormTemplateListItem[];
+      []) as unknown as FormTemplateListItem[];
 
     return json({
       templates,

@@ -103,10 +103,11 @@ export function SectionCard({
 
       // Create new order array by swapping
       const newOrder = [...allSections];
-      [newOrder[currentIndex], newOrder[targetIndex]] = [
-        newOrder[targetIndex],
-        newOrder[currentIndex],
-      ];
+      const a = newOrder[currentIndex];
+      const b = newOrder[targetIndex];
+      if (!a || !b) return;
+      newOrder[currentIndex] = b;
+      newOrder[targetIndex] = a;
 
       const sectionIds = newOrder.map((s) => s.id);
 

@@ -117,7 +117,7 @@ export async function loader(args: LoaderFunctionArgs) {
       ]);
 
     const templates = (templatesResponse.data?.data ||
-      []) as WorkflowTemplateListItem[];
+      []) as unknown as WorkflowTemplateListItem[];
     const workflowTypes = ((typesResponse.data as any)?.data ||
       []) as WorkflowTypeItem[];
     const supplierStatuses = ((supplierStatusesResponse.data as any)?.data ||

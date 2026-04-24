@@ -43,9 +43,14 @@ export async function loader(args: LoaderFunctionArgs) {
     if (response.error) {
       const status = response.status || 500;
       console.error("Processes API Error:", response.error);
-      throw new Response(response.error.message || "Failed to load processes", {
-        status,
-      });
+      throw new Response(
+        (response.error as any)?.message ||
+          (response.error as any)?.value?.message ||
+          "Failed to load processes",
+        {
+          status,
+        }
+      );
     }
 
     const data = response.data;
@@ -91,7 +96,11 @@ export default function WorkflowProcessesIndex() {
       </div>
 
       {/* Process List */}
-      <WorkflowProcessList processes={processes} token={token} user={user} />
+      <WorkflowProcessList
+        processes={processes as any}
+        token={token}
+        user={user}
+      />
     </div>
   );
 }

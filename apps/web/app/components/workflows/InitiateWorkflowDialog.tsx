@@ -105,7 +105,9 @@ export function InitiateWorkflowDialog(props: InitiateWorkflowDialogProps) {
 
   // Get the actual open state and setter based on pattern
   const open = isTriggerBased ? internalOpen : props.open;
-  const setOpen = isTriggerBased ? setInternalOpen : props.onOpenChange;
+  const setOpen = isTriggerBased
+    ? setInternalOpen
+    : (props.onOpenChange ?? setInternalOpen);
 
   // Get supplier from props (controlled) or selection (trigger-based)
   const preselectedSupplier = !isTriggerBased ? props.supplier : null;

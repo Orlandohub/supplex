@@ -370,7 +370,10 @@ export default function WorkflowsIndex() {
     return null;
   }
 
-  const empty = EMPTY_STATES[currentView] ?? EMPTY_STATES.all;
+  const empty = (EMPTY_STATES[currentView] ?? EMPTY_STATES.all) as {
+    title: string;
+    desc: string;
+  };
 
   async function handleSendReminder(pid: string) {
     try {

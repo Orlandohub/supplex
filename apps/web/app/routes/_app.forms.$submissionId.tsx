@@ -295,7 +295,7 @@ export default function FormExecutionPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isSupplierContext
-              ? `${supplierContext!.supplierName} — ${formVersion.name || "Form"}`
+              ? `${supplierContext!.supplierName} — ${(formVersion as any).name || "Form"}`
               : isValidator
                 ? "Review Form Submission"
                 : mode === "view"

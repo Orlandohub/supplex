@@ -29,7 +29,11 @@ interface SupplierOverviewProps {
       expiryDate: string;
       documentId?: string;
     }>;
-    metadata: Record<string, unknown>;
+    metadata: {
+      website?: string;
+      notes?: string;
+      [key: string]: unknown;
+    };
     riskScore: number | null;
     createdAt: string;
     updatedAt: string;
@@ -81,7 +85,11 @@ function formatDate(dateString: string): string {
  * - Metadata and notes
  * - Audit information (created by, dates)
  */
-export function SupplierOverview({ supplier, supplierUser, token }: SupplierOverviewProps) {
+export function SupplierOverview({
+  supplier,
+  supplierUser,
+  token,
+}: SupplierOverviewProps) {
   const address = supplier.address;
 
   const _getStatusBadgeColor = (status: string) => {
@@ -194,7 +202,6 @@ export function SupplierOverview({ supplier, supplierUser, token }: SupplierOver
             </div>
           </div>
 
-
           {/* Address */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -303,7 +310,11 @@ export function SupplierOverview({ supplier, supplierUser, token }: SupplierOver
       </Card>
 
       {/* Platform Access Card */}
-      <SupplierContactCard supplierUser={supplierUser} supplierId={supplier.id} token={token} />
+      <SupplierContactCard
+        supplierUser={supplierUser ?? null}
+        supplierId={supplier.id}
+        token={token}
+      />
 
       {/* Metadata Card */}
       <Card>

@@ -119,7 +119,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function AcceptInvitation() {
   const loaderData = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<typeof action>() as
+    | {
+        success: boolean;
+        error?: string;
+        message?: string;
+        errors?: {
+          password?: string[];
+          confirmPassword?: string[];
+        };
+      }
+    | undefined;
   const navigation = useNavigation();
   const [showPassword, setShowPassword] = useState(false);
 
