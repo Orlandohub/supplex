@@ -106,6 +106,9 @@ export const publishWorkflowTemplateRoute = new Elysia()
           .where(eq(workflowTemplate.id, templateId))
           .returning();
 
+        if (!updatedTemplate)
+          throw new Error("Failed to update workflow template status");
+
         logWorkflowEvent({
           tenantId,
           eventType: WorkflowEventType.TEMPLATE_PUBLISHED,

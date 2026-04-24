@@ -150,6 +150,9 @@ export const sendReminderRoute = new Elysia()
           })
           .returning();
 
+        if (!notification)
+          throw new Error("Failed to create reminder notification");
+
         await queueEmailJob({
           notificationId: notification.id,
           recipientEmail,

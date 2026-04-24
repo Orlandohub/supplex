@@ -20,7 +20,7 @@ import { ApiError, Errors } from "../../lib/errors";
  */
 export const devLoginRoute = new Elysia({ prefix: "/auth" }).post(
   "/dev/login",
-  async ({ body, requestLogger }) => {
+  async ({ body, requestLogger }: any) => {
     if (config.nodeEnv !== "development") {
       throw Errors.notFound("Not found");
     }

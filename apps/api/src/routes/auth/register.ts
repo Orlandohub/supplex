@@ -71,7 +71,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
   .use(authRateLimit)
   .post(
     "/register",
-    async ({ body, set, requestLogger }) => {
+    async ({ body, set, requestLogger }: any) => {
       try {
         const { email, password, fullName, tenantName } = body;
 
@@ -218,7 +218,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
   )
   .get(
     "/register/check-tenant-slug/:slug",
-    async ({ params, requestLogger }) => {
+    async ({ params, requestLogger }: any) => {
       try {
         const { slug } = params;
 

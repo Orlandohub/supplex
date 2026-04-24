@@ -32,7 +32,7 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
-        const userId = user.id as string;
+        const _userId = user.id as string;
 
         // Validate UUID format
         const uuidRegex =
@@ -79,8 +79,7 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           .set({
             ...updateData,
             updatedAt: new Date(),
-            updatedBy: userId,
-          })
+          } as any)
           .where(eq(suppliers.id, id))
           .returning();
 

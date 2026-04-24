@@ -12,6 +12,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
 import { verifyProcessAccess } from "../../lib/rbac/entity-authorization";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
+import type { FieldDefinition } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -34,7 +35,8 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
     try {
       const tenantId = user.tenantId as string;
       const userId = user.id as string;
-      const { formTemplateId, processInstanceId, stepInstanceId, answers } = body;
+      const { formTemplateId, processInstanceId, stepInstanceId, answers } =
+        body;
 
       // Verify form_template exists and belongs to tenant (tenant isolation)
       const templateRecord = await db.query.formTemplate.findFirst({
@@ -54,7 +56,10 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
 
       if (processInstanceId) {
         const [process] = await db
-          .select({ entityType: processInstance.entityType, entityId: processInstance.entityId })
+          .select({
+            entityType: processInstance.entityType,
+            entityId: processInstance.entityId,
+          })
           .from(processInstance)
           .where(
             and(
@@ -87,10 +92,7 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
           field: formField,
         })
         .from(formField)
-        .innerJoin(
-          formSection,
-          eq(formField.formSectionId, formSection.id)
-        )
+        .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
         .where(
           and(
             eq(formSection.formTemplateId, formTemplateId),
@@ -118,7 +120,7 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
         // Validate answer format based on field_type
         const validationError = validateAnswerFormat(
           answer.answerValue,
-          field
+          field as unknown as FieldDefinition
         );
         if (validationError) {
           throw Errors.badRequest(
@@ -151,7 +153,7 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
 
       const [existingDraft] = await existingDraftQuery;
 
-      let submission;
+      let submission: typeof formSubmission.$inferSelect | undefined;
 
       if (existingDraft) {
         // Update existing draft - update timestamp
@@ -163,6 +165,8 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
           .where(eq(formSubmission.id, existingDraft.id))
           .returning();
 
+        if (!updatedSubmission)
+          throw Errors.internal("Failed to update draft submission");
         submission = updatedSubmission;
 
         // Upsert answers using ON CONFLICT
@@ -202,13 +206,15 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
           })
           .returning();
 
+        if (!newSubmission)
+          throw Errors.internal("Failed to create draft submission");
         submission = newSubmission;
 
         // Insert answers
         if (answers.length > 0) {
           await db.insert(formAnswer).values(
             answers.map((answer: any) => ({
-              formSubmissionId: submission.id,
+              formSubmissionId: newSubmission.id,
               formFieldId: answer.formFieldId,
               tenantId,
               answerValue: answer.answerValue,
@@ -218,6 +224,9 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
           );
         }
       }
+
+      if (!submission)
+        throw Errors.internal("Failed to create or update submission");
 
       // Fetch full submission with answers
       const submissionAnswers = await db
@@ -264,4 +273,3 @@ export const createDraftRoute = new Elysia().use(authenticate).post(
     }),
   }
 );
-

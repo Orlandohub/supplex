@@ -41,7 +41,7 @@ export const deleteDocumentTemplateRoute = new Elysia()
         }
 
         // Check if template is referenced by any workflow steps
-        const [usageCount] = await db
+        const usageResult = await db
           .select({ count: sql<number>`COUNT(*)::int` })
           .from(workflowStepTemplate)
           .where(
@@ -50,12 +50,13 @@ export const deleteDocumentTemplateRoute = new Elysia()
               isNull(workflowStepTemplate.deletedAt)
             )
           );
+        const usageCount = usageResult[0]?.count ?? 0;
 
-        if (usageCount.count > 0) {
+        if (usageCount > 0) {
           throw new ApiError(
             400,
             "TEMPLATE_IN_USE",
-            `Cannot delete document template in use by ${usageCount.count} workflow step(s)`
+            `Cannot delete document template in use by ${usageCount} workflow step(s)`
           );
         }
 

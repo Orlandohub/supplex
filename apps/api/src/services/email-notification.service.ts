@@ -41,7 +41,10 @@ async function shouldSendEmail(
     });
 
     if (!tenant) {
-      emailLogger.warn({ tenantId }, "Tenant not found when checking notification preferences");
+      emailLogger.warn(
+        { tenantId },
+        "Tenant not found when checking notification preferences"
+      );
       return false;
     }
 
@@ -62,7 +65,10 @@ async function shouldSendEmail(
     const tenantEnabled = emailSettings?.[settingKey] ?? true; // Default to enabled
 
     if (!tenantEnabled) {
-      emailLogger.debug({ tenantId, eventType }, "Notification disabled by tenant settings");
+      emailLogger.debug(
+        { tenantId, eventType },
+        "Notification disabled by tenant settings"
+      );
       return false;
     }
 
@@ -77,13 +83,19 @@ async function shouldSendEmail(
     const userEnabled = userPref?.emailEnabled ?? true; // Default to enabled
 
     if (!userEnabled) {
-      emailLogger.debug({ userId, eventType }, "Notification disabled by user preference");
+      emailLogger.debug(
+        { userId, eventType },
+        "Notification disabled by user preference"
+      );
       return false;
     }
 
     return true;
   } catch (error) {
-    emailLogger.error({ err: error, userId, tenantId, eventType }, "Error checking notification preferences");
+    emailLogger.error(
+      { err: error, userId, tenantId, eventType },
+      "Error checking notification preferences"
+    );
     // Default to allowing email on error
     return true;
   }
@@ -139,7 +151,10 @@ export async function sendWorkflowSubmittedEmail(
     );
 
     if (!shouldSend) {
-      emailLogger.debug({ eventType, workflowId: data.workflowId }, "Skipping workflow submitted email — disabled by preferences");
+      emailLogger.debug(
+        { eventType, workflowId: data.workflowId },
+        "Skipping workflow submitted email — disabled by preferences"
+      );
       return;
     }
 
@@ -147,7 +162,10 @@ export async function sendWorkflowSubmittedEmail(
     const withinLimit = await checkEmailRateLimit(data.reviewerId);
 
     if (!withinLimit) {
-      emailLogger.warn({ userId: data.reviewerId, eventType }, "Rate limit exceeded — skipping email");
+      emailLogger.warn(
+        { userId: data.reviewerId, eventType },
+        "Rate limit exceeded — skipping email"
+      );
       return;
     }
 
@@ -171,6 +189,9 @@ export async function sendWorkflowSubmittedEmail(
         attemptCount: 0,
       })
       .returning();
+
+    if (!notification)
+      throw new Error("Failed to create email notification record");
 
     // 5. Generate unsubscribe token
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -198,9 +219,15 @@ export async function sendWorkflowSubmittedEmail(
       },
     });
 
-    emailLogger.info({ notificationId: notification.id, eventType }, "Queued workflow submitted email");
+    emailLogger.info(
+      { notificationId: notification.id, eventType },
+      "Queued workflow submitted email"
+    );
   } catch (error) {
-    emailLogger.error({ err: error, eventType, workflowId: data.workflowId }, "Error queuing workflow submitted email");
+    emailLogger.error(
+      { err: error, eventType, workflowId: data.workflowId },
+      "Error queuing workflow submitted email"
+    );
     throw error;
   }
 }
@@ -238,7 +265,10 @@ export async function sendStageApprovedEmail(
     );
 
     if (!shouldSend) {
-      emailLogger.debug({ eventType, workflowId: data.workflowId }, "Skipping stage approved email — disabled by preferences");
+      emailLogger.debug(
+        { eventType, workflowId: data.workflowId },
+        "Skipping stage approved email — disabled by preferences"
+      );
       return;
     }
 
@@ -246,7 +276,10 @@ export async function sendStageApprovedEmail(
     const withinLimit = await checkEmailRateLimit(data.initiatorId);
 
     if (!withinLimit) {
-      emailLogger.warn({ userId: data.initiatorId, eventType }, "Rate limit exceeded — skipping email");
+      emailLogger.warn(
+        { userId: data.initiatorId, eventType },
+        "Rate limit exceeded — skipping email"
+      );
       return;
     }
 
@@ -264,6 +297,9 @@ export async function sendStageApprovedEmail(
         attemptCount: 0,
       })
       .returning();
+
+    if (!notification)
+      throw new Error("Failed to create email notification record");
 
     // 4. Generate unsubscribe token and link
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -292,9 +328,15 @@ export async function sendStageApprovedEmail(
       },
     });
 
-    emailLogger.info({ notificationId: notification.id, eventType }, "Queued stage approved email");
+    emailLogger.info(
+      { notificationId: notification.id, eventType },
+      "Queued stage approved email"
+    );
   } catch (error) {
-    emailLogger.error({ err: error, eventType, workflowId: data.workflowId }, "Error queuing stage approved email");
+    emailLogger.error(
+      { err: error, eventType, workflowId: data.workflowId },
+      "Error queuing stage approved email"
+    );
     throw error;
   }
 }
@@ -332,7 +374,10 @@ export async function sendStageRejectedEmail(
     );
 
     if (!shouldSend) {
-      emailLogger.debug({ eventType, workflowId: data.workflowId }, "Skipping stage rejected email — disabled by preferences");
+      emailLogger.debug(
+        { eventType, workflowId: data.workflowId },
+        "Skipping stage rejected email — disabled by preferences"
+      );
       return;
     }
 
@@ -340,7 +385,10 @@ export async function sendStageRejectedEmail(
     const withinLimit = await checkEmailRateLimit(data.initiatorId);
 
     if (!withinLimit) {
-      emailLogger.warn({ userId: data.initiatorId, eventType }, "Rate limit exceeded — skipping email");
+      emailLogger.warn(
+        { userId: data.initiatorId, eventType },
+        "Rate limit exceeded — skipping email"
+      );
       return;
     }
 
@@ -358,6 +406,9 @@ export async function sendStageRejectedEmail(
         attemptCount: 0,
       })
       .returning();
+
+    if (!notification)
+      throw new Error("Failed to create email notification record");
 
     // 4. Generate unsubscribe token and link
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -386,9 +437,15 @@ export async function sendStageRejectedEmail(
       },
     });
 
-    emailLogger.info({ notificationId: notification.id, eventType }, "Queued stage rejected email");
+    emailLogger.info(
+      { notificationId: notification.id, eventType },
+      "Queued stage rejected email"
+    );
   } catch (error) {
-    emailLogger.error({ err: error, eventType, workflowId: data.workflowId }, "Error queuing stage rejected email");
+    emailLogger.error(
+      { err: error, eventType, workflowId: data.workflowId },
+      "Error queuing stage rejected email"
+    );
     throw error;
   }
 }
@@ -425,7 +482,10 @@ export async function sendSupplierApprovalCongratulations(
     });
 
     if (!tenant) {
-      emailLogger.warn({ tenantId: data.tenantId }, "Tenant not found for supplier approval email");
+      emailLogger.warn(
+        { tenantId: data.tenantId },
+        "Tenant not found for supplier approval email"
+      );
       return;
     }
 
@@ -436,7 +496,10 @@ export async function sendSupplierApprovalCongratulations(
     const tenantEnabled = emailSettings?.workflowApproved ?? true;
 
     if (!tenantEnabled) {
-      emailLogger.debug({ tenantId: data.tenantId, eventType }, "Tenant has disabled workflow approved notifications");
+      emailLogger.debug(
+        { tenantId: data.tenantId, eventType },
+        "Tenant has disabled workflow approved notifications"
+      );
       return;
     }
 
@@ -454,6 +517,9 @@ export async function sendSupplierApprovalCongratulations(
         attemptCount: 0,
       })
       .returning();
+
+    if (!notification)
+      throw new Error("Failed to create email notification record");
 
     // 3. No unsubscribe link for supplier emails (external contact)
     const recipientName = data.supplierContactName || data.supplierName;
@@ -474,9 +540,19 @@ export async function sendSupplierApprovalCongratulations(
       },
     });
 
-    emailLogger.info({ notificationId: notification.id, eventType, supplierId: data.supplierId }, "Queued supplier approval congratulations email");
+    emailLogger.info(
+      {
+        notificationId: notification.id,
+        eventType,
+        supplierId: data.supplierId,
+      },
+      "Queued supplier approval congratulations email"
+    );
   } catch (error) {
-    emailLogger.error({ err: error, eventType, supplierId: data.supplierId }, "Error queuing supplier approval congratulations email");
+    emailLogger.error(
+      { err: error, eventType, supplierId: data.supplierId },
+      "Error queuing supplier approval congratulations email"
+    );
     throw error;
   }
 }

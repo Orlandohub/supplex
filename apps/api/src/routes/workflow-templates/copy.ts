@@ -61,6 +61,9 @@ export const copyWorkflowTemplate = new Elysia().use(requireAdmin).post(
         })
         .returning();
 
+      if (!newTemplate)
+        throw new Error("Failed to create workflow template copy");
+
       // 2. Fetch all steps from original template
       const steps = await tx
         .select()
@@ -104,6 +107,8 @@ export const copyWorkflowTemplate = new Elysia().use(requireAdmin).post(
 
       return newTemplate;
     });
+
+    if (!result) throw new Error("Failed to copy workflow template");
 
     logWorkflowEvent({
       tenantId: user.tenantId,

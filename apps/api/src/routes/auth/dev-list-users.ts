@@ -15,7 +15,7 @@ import { Errors } from "../../lib/errors";
  */
 export const devListUsersRoute = new Elysia({ prefix: "/auth" }).get(
   "/dev/users",
-  async ({ requestLogger }) => {
+  async ({ requestLogger }: any) => {
     // CRITICAL: Environment check FIRST - reject in production
     if (config.nodeEnv !== "development") {
       throw Errors.notFound("Not found");

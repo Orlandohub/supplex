@@ -19,6 +19,7 @@ const rateLimitLogger = logger.child({ module: "email-rate-limiter" });
  * @returns True if rate limit NOT exceeded (email can be sent), false if exceeded
  */
 export async function checkEmailRateLimit(userId: string): Promise<boolean> {
+  if (!redisConnection) return true;
   try {
     // Get current hour in ISO format (e.g., "2025-10-25T14")
     const hour = new Date().toISOString().slice(0, 13);
@@ -34,14 +35,23 @@ export async function checkEmailRateLimit(userId: string): Promise<boolean> {
 
     // Check if limit exceeded
     if (count > 10) {
-      rateLimitLogger.warn({ userId, count, hour }, "User exceeded email rate limit");
+      rateLimitLogger.warn(
+        { userId, count, hour },
+        "User exceeded email rate limit"
+      );
       return false;
     }
 
-    rateLimitLogger.debug({ userId, count, hour }, "Email rate limit check passed");
+    rateLimitLogger.debug(
+      { userId, count, hour },
+      "Email rate limit check passed"
+    );
     return true; // Allow email
   } catch (error) {
-    rateLimitLogger.error({ err: error, userId }, "Error checking email rate limit");
+    rateLimitLogger.error(
+      { err: error, userId },
+      "Error checking email rate limit"
+    );
     // On Redis error, allow email to prevent blocking legitimate emails
     return true;
   }
@@ -54,6 +64,7 @@ export async function checkEmailRateLimit(userId: string): Promise<boolean> {
  * @returns Current email count
  */
 export async function getEmailCount(userId: string): Promise<number> {
+  if (!redisConnection) return 0;
   try {
     const hour = new Date().toISOString().slice(0, 13);
     const key = `email_rate_limit:${userId}:${hour}`;
@@ -71,12 +82,16 @@ export async function getEmailCount(userId: string): Promise<number> {
  * @param userId - User ID to reset
  */
 export async function resetEmailRateLimit(userId: string): Promise<void> {
+  if (!redisConnection) return;
   try {
     const hour = new Date().toISOString().slice(0, 13);
     const key = `email_rate_limit:${userId}:${hour}`;
     await redisConnection.del(key);
     rateLimitLogger.info({ userId }, "Email rate limit reset");
   } catch (error) {
-    rateLimitLogger.error({ err: error, userId }, "Error resetting email rate limit");
+    rateLimitLogger.error(
+      { err: error, userId },
+      "Error resetting email rate limit"
+    );
   }
 }

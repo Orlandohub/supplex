@@ -40,6 +40,8 @@ export const createWorkflowTemplateRoute = new Elysia().use(requireAdmin).post(
         })
         .returning();
 
+      if (!newTemplate) throw new Error("Failed to create workflow template");
+
       logWorkflowEvent({
         tenantId,
         eventType: WorkflowEventType.TEMPLATE_CREATED,

@@ -81,10 +81,11 @@ export const emailLogsRoute = new Elysia().get(
         .offset(offset);
 
       // Count total for pagination
-      const [{ count }] = await db
+      const countResult = await db
         .select({ count: emailNotifications.id })
         .from(emailNotifications)
         .where(and(...conditions));
+      const count = countResult[0]?.count;
 
       const totalCount = typeof count === "number" ? count : logs.length;
       const totalPages = Math.ceil(totalCount / limitNum);

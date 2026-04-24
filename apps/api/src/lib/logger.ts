@@ -25,7 +25,10 @@ export function createChildLogger(context: Record<string, unknown>) {
  */
 export function getClientIp(request: Request): string | null {
   const xff = request.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+  if (xff) {
+    const first = xff.split(",")[0];
+    if (first) return first.trim();
+  }
   return request.headers.get("x-real-ip");
 }
 

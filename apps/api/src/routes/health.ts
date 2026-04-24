@@ -18,7 +18,7 @@ export const healthRoutes = new Elysia({ prefix: "/api" }).get(
   "/health",
   async ({ set }) => {
     const healthCheck = {
-      status: "ok" as const,
+      status: "ok" as "ok" | "error",
       timestamp: new Date().toISOString(),
       version: "1.0.0",
       service: "api",
