@@ -20,6 +20,8 @@ const mockSuppliers: SerializedSupplier[] = [
   {
     id: "supplier-1",
     tenantId: "tenant-123",
+    supplierStatusId: null,
+    supplierUserId: null,
     name: "Acme Corp",
     taxId: "TAX-001",
     category: SupplierCategory.RAW_MATERIALS,
@@ -46,6 +48,8 @@ const mockSuppliers: SerializedSupplier[] = [
   {
     id: "supplier-2",
     tenantId: "tenant-123",
+    supplierStatusId: null,
+    supplierUserId: null,
     name: "Beta Supplies",
     taxId: "TAX-002",
     category: SupplierCategory.COMPONENTS,

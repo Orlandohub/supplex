@@ -63,20 +63,28 @@ describe("SupplierDetailTabs", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: true,
       isViewer: false,
+      isSupplierUser: false,
     });
   });
 
   it("renders all three tabs", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -88,7 +96,13 @@ describe("SupplierDetailTabs", () => {
   it("renders Overview tab content by default", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -100,7 +114,13 @@ describe("SupplierDetailTabs", () => {
   it("shows Edit button when user has edit permissions", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -115,18 +135,26 @@ describe("SupplierDetailTabs", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: true,
+      isSupplierUser: false,
     });
 
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -136,7 +164,13 @@ describe("SupplierDetailTabs", () => {
   it("shows Delete button for Admin users", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -151,18 +185,26 @@ describe("SupplierDetailTabs", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: false,
+      isSupplierUser: false,
     });
 
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -172,7 +214,13 @@ describe("SupplierDetailTabs", () => {
   it("displays status change dropdown", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -182,7 +230,13 @@ describe("SupplierDetailTabs", () => {
   it("shows Documents tab button", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -194,7 +248,13 @@ describe("SupplierDetailTabs", () => {
   it("shows History tab button", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -206,7 +266,13 @@ describe("SupplierDetailTabs", () => {
   it("opens delete modal when Delete button clicked", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -222,7 +288,13 @@ describe("SupplierDetailTabs", () => {
   it("has proper tab navigation structure", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -239,7 +311,13 @@ describe("SupplierDetailTabs", () => {
   it("Edit button links to correct route", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -253,7 +331,13 @@ describe("SupplierDetailTabs", () => {
   it("displays action buttons in mobile-responsive layout", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 
@@ -268,7 +352,13 @@ describe("SupplierDetailTabs", () => {
   it("passes correct props to StatusChangeDropdown", () => {
     render(
       <MemoryRouter>
-        <SupplierDetailTabs supplier={mockSupplier} />
+        <SupplierDetailTabs
+          supplier={mockSupplier}
+          documents={[]}
+          workflows={[]}
+          formSubmissions={[]}
+          token="test-token"
+        />
       </MemoryRouter>
     );
 

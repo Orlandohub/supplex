@@ -168,12 +168,12 @@ describe("CommentThreadView", () => {
   it("should distinguish between form and document comments", () => {
     const mixedEntityComments = [
       {
-        ...mockComments[0],
+        ...mockComments[0]!,
         entityType: "form",
         commentText: "Form comment",
       },
       {
-        ...mockComments[1],
+        ...mockComments[1]!,
         entityType: "document",
         commentText: "Document comment",
       },
@@ -259,7 +259,7 @@ describe("CommentThreadView", () => {
     const longCommentText = "A".repeat(1000);
     const commentsWithLongText = [
       {
-        ...mockComments[0],
+        ...mockComments[0]!,
         commentText: longCommentText,
       },
     ];

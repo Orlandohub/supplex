@@ -58,37 +58,37 @@ describe("WorkflowTable Component", () => {
     });
 
     it("should display supplier name", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.supplierName).toBe("Acme Corp");
     });
 
     it("should display status badge", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.status).toBe("Stage1");
     });
 
     it("should display current stage", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.currentStage).toBe(1);
     });
 
     it("should display initiated by user", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.initiatedBy).toBe("John Doe");
     });
 
     it("should display initiated date", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.initiatedDate).toBeInstanceOf(Date);
     });
 
     it("should display days in progress", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.daysInProgress).toBe(11);
     });
 
     it("should display risk score", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       expect(workflow.riskScore).toBe(4.5);
     });
   });
@@ -180,7 +180,8 @@ describe("WorkflowTable Component", () => {
     });
 
     it("should display Unknown for null risk score", () => {
-      const riskScore = null;
+      const getRiskScore = (): number | null => null;
+      const riskScore = getRiskScore();
       const display = riskScore === null ? "Unknown" : riskScore.toFixed(2);
 
       expect(display).toBe("Unknown");
@@ -223,7 +224,7 @@ describe("WorkflowTable Component", () => {
     });
 
     it("should display plural days for multiple days", () => {
-      const days = 11;
+      const days: number = 11;
       const text = `${days} ${days === 1 ? "day" : "days"}`;
 
       expect(text).toBe("11 days");
@@ -247,8 +248,8 @@ describe("WorkflowTable Component", () => {
     });
 
     it("should show ArrowUpDown icon when column not sorted", () => {
-      const sortBy = "initiated_date";
-      const currentColumn = "risk_score";
+      const sortBy: string = "initiated_date";
+      const currentColumn: string = "risk_score";
       const icon =
         sortBy === currentColumn ? "ArrowUp or ArrowDown" : "ArrowUpDown";
 
@@ -257,7 +258,7 @@ describe("WorkflowTable Component", () => {
 
     it("should show ArrowUp icon when sorted ascending", () => {
       const _sortBy = "risk_score";
-      const sortOrder = "asc";
+      const sortOrder: "asc" | "desc" = "asc";
       const icon = sortOrder === "asc" ? "ArrowUp" : "ArrowDown";
 
       expect(icon).toBe("ArrowUp");
@@ -265,7 +266,8 @@ describe("WorkflowTable Component", () => {
 
     it("should show ArrowDown icon when sorted descending", () => {
       const _sortBy = "risk_score";
-      const sortOrder = "desc";
+      const getSortOrder = (): "asc" | "desc" => "desc";
+      const sortOrder = getSortOrder();
       const icon = sortOrder === "asc" ? "ArrowUp" : "ArrowDown";
 
       expect(icon).toBe("ArrowDown");
@@ -284,7 +286,8 @@ describe("WorkflowTable Component", () => {
     it("should toggle sort order when clicking same column", () => {
       const _column = "risk_score";
       const _currentSortBy = "risk_score";
-      const currentSortOrder = "desc";
+      const getCurrentSortOrder = (): "asc" | "desc" => "desc";
+      const currentSortOrder = getCurrentSortOrder();
       const newSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
 
       expect(newSortOrder).toBe("asc");
@@ -304,7 +307,7 @@ describe("WorkflowTable Component", () => {
    */
   describe("Row click navigation (AC 8)", () => {
     it("should call onRowClick when row is clicked", () => {
-      const workflowId = mockWorkflows[0].id;
+      const workflowId = mockWorkflows[0]!.id;
 
       mockOnRowClick(workflowId);
 

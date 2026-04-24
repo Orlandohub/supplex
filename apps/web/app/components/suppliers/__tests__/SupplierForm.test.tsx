@@ -43,7 +43,11 @@ describe("SupplierForm", () => {
   describe("Create Mode", () => {
     it("renders all required form fields", () => {
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       // Company Information
@@ -83,7 +87,11 @@ describe("SupplierForm", () => {
 
     it("disables save button initially when form is invalid", () => {
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       const submitButton = screen.getByRole("button", {
@@ -95,7 +103,11 @@ describe("SupplierForm", () => {
     it("displays validation error for required company name", async () => {
       const user = userEvent.setup();
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       const nameInput = screen.getByLabelText(/Company Name/i);
@@ -112,7 +124,11 @@ describe("SupplierForm", () => {
     it("displays validation error for invalid email", async () => {
       const user = userEvent.setup();
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       const emailInput = screen.getByLabelText(/Email/i, {
@@ -129,7 +145,11 @@ describe("SupplierForm", () => {
     it("displays validation error for invalid URL", async () => {
       const user = userEvent.setup();
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       const websiteInput = screen.getByLabelText(/Website/i);
@@ -144,7 +164,11 @@ describe("SupplierForm", () => {
     it("enables save button when all required fields are valid", async () => {
       const user = userEvent.setup();
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       // Fill in all required fields
@@ -175,7 +199,11 @@ describe("SupplierForm", () => {
     it("shows Cancel button and navigates back on click when form is not dirty", async () => {
       const user = userEvent.setup();
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       const cancelButton = screen.getByRole("button", { name: /Cancel/i });
@@ -188,7 +216,11 @@ describe("SupplierForm", () => {
     it("shows unsaved changes modal when canceling with dirty form", async () => {
       const user = userEvent.setup();
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       // Make form dirty
@@ -207,7 +239,11 @@ describe("SupplierForm", () => {
 
     it("disables all inputs when isSubmitting is true", () => {
       render(
-        <SupplierForm mode="create" isSubmitting={true} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={true}
+          actionData={undefined}
+        />
       );
 
       const submitButton = screen.getByRole("button", { name: /Creating/i });
@@ -222,6 +258,8 @@ describe("SupplierForm", () => {
     const mockSupplier: SerializedSupplier = {
       id: "123",
       tenantId: "tenant-1",
+      supplierStatusId: null,
+      supplierUserId: null,
       name: "Existing Corp",
       taxId: "98-7654321",
       category: SupplierCategory.COMPONENTS,
@@ -255,7 +293,7 @@ describe("SupplierForm", () => {
           mode="edit"
           supplier={mockSupplier}
           isSubmitting={false}
-          actionData={null}
+          actionData={undefined}
         />
       );
 
@@ -287,7 +325,7 @@ describe("SupplierForm", () => {
           mode="edit"
           supplier={mockSupplier}
           isSubmitting={false}
-          actionData={null}
+          actionData={undefined}
         />
       );
 
@@ -303,7 +341,7 @@ describe("SupplierForm", () => {
           mode="edit"
           supplier={mockSupplier}
           isSubmitting={false}
-          actionData={null}
+          actionData={undefined}
         />
       );
 
@@ -319,7 +357,7 @@ describe("SupplierForm", () => {
           mode="edit"
           supplier={mockSupplier}
           isSubmitting={false}
-          actionData={null}
+          actionData={undefined}
         />
       );
 
@@ -337,7 +375,11 @@ describe("SupplierForm", () => {
       const user = userEvent.setup({ delay: null });
 
       render(
-        <SupplierForm mode="create" isSubmitting={false} actionData={null} />
+        <SupplierForm
+          mode="create"
+          isSubmitting={false}
+          actionData={undefined}
+        />
       );
 
       await user.type(screen.getByLabelText(/Company Name/i), "Test Company");
