@@ -25,7 +25,7 @@ describe("Comment Thread Schema", () => {
   let processA: { id: string };
   let processB: { id: string };
   let stepA: { id: string };
-  let stepB: { id: string };
+  let _stepB: { id: string };
 
   beforeAll(async () => {
     // Create two test tenants
@@ -111,7 +111,7 @@ describe("Comment Thread Schema", () => {
       })
       .returning();
 
-    [stepB] = await db
+    [_stepB] = await db
       .insert(stepInstance)
       .values({
         tenantId: tenantB.id,
@@ -322,7 +322,7 @@ describe("Comment Thread Schema", () => {
       .returning();
 
     // Create multiple replies
-    const [reply1] = await db
+    const [_reply1] = await db
       .insert(commentThread)
       .values({
         tenantId: tenantA.id,
@@ -335,7 +335,7 @@ describe("Comment Thread Schema", () => {
       })
       .returning();
 
-    const [reply2] = await db
+    const [_reply2] = await db
       .insert(commentThread)
       .values({
         tenantId: tenantA.id,
@@ -519,9 +519,9 @@ describe("Comment Thread Schema", () => {
     const beforeUpdate = new Date();
     const [updated] = await db
       .update(commentThread)
-      .set({ 
+      .set({
         commentText: "Updated text",
-        updatedAt: new Date() // Explicitly set updatedAt since we don't have a DB trigger
+        updatedAt: new Date(), // Explicitly set updatedAt since we don't have a DB trigger
       })
       .where(eq(commentThread.id, comment.id))
       .returning();
@@ -537,4 +537,3 @@ describe("Comment Thread Schema", () => {
     await db.delete(commentThread).where(eq(commentThread.id, comment.id));
   });
 });
-

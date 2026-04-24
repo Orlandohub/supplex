@@ -17,7 +17,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .get(
     "/:id",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
@@ -26,7 +26,11 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
+          throw new ApiError(
+            400,
+            "INVALID_ID",
+            "Invalid supplier ID format. Must be a valid UUID."
+          );
         }
 
         // Fetch supplier with user information (created_by)
@@ -51,7 +55,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!result || result.length === 0) {
-          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
+          throw Errors.notFound(
+            "Supplier not found or you don't have access to this supplier."
+          );
         }
 
         const { supplier, createdByUser } = result[0];
@@ -59,7 +65,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         // Entity-level authorization: supplier_user can only view their own supplier
         if (user.role === UserRole.SUPPLIER_USER) {
           if (supplier.supplierUserId !== user.id) {
-            throw Errors.forbidden("Access denied: you can only view your own supplier");
+            throw Errors.forbidden(
+              "Access denied: you can only view your own supplier"
+            );
           }
         }
 
@@ -113,7 +121,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
   .patch(
     "/:id/status",
-    async ({ params, body, user, set, requestLogger }: any) => {
+    async ({ params, body, user, requestLogger }: any) => {
       try {
         const { id } = params;
         const { status } = body;
@@ -123,13 +131,21 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
+          throw new ApiError(
+            400,
+            "INVALID_ID",
+            "Invalid supplier ID format. Must be a valid UUID."
+          );
         }
 
         // Validate status enum
         const validStatuses = Object.values(SupplierStatus);
         if (!validStatuses.includes(status)) {
-          throw new ApiError(400, "INVALID_STATUS", `Invalid status value. Must be one of: ${validStatuses.join(", ")}`);
+          throw new ApiError(
+            400,
+            "INVALID_STATUS",
+            `Invalid status value. Must be one of: ${validStatuses.join(", ")}`
+          );
         }
 
         // Check if supplier exists and belongs to tenant
@@ -146,7 +162,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!existingSupplier || existingSupplier.length === 0) {
-          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
+          throw Errors.notFound(
+            "Supplier not found or you don't have access to this supplier."
+          );
         }
 
         // Update supplier status
@@ -194,7 +212,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN]))
   .delete(
     "/:id",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       try {
         const { id } = params;
         const tenantId = user.tenantId as string;
@@ -203,7 +221,11 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
+          throw new ApiError(
+            400,
+            "INVALID_ID",
+            "Invalid supplier ID format. Must be a valid UUID."
+          );
         }
 
         // Check if supplier exists and belongs to tenant
@@ -220,7 +242,9 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!existingSupplier || existingSupplier.length === 0) {
-          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
+          throw Errors.notFound(
+            "Supplier not found or you don't have access to this supplier."
+          );
         }
 
         // Soft delete: Set deleted_at timestamp

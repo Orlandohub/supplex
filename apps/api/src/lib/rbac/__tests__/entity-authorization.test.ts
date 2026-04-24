@@ -7,7 +7,6 @@ import {
   processInstance,
   stepInstance,
   taskInstance,
-  documents,
   workflowTemplate,
 } from "@supplex/db";
 import { eq } from "drizzle-orm";
@@ -71,7 +70,13 @@ describe("Entity-Level Authorization Helpers", () => {
         contactName: "A",
         contactEmail: "a@test.com",
         contactPhone: "123",
-        address: { street: "1", city: "C", state: "S", postalCode: "0", country: "US" },
+        address: {
+          street: "1",
+          city: "C",
+          state: "S",
+          postalCode: "0",
+          country: "US",
+        },
         certifications: [],
         metadata: {},
         createdBy: adminUserId,
@@ -91,7 +96,13 @@ describe("Entity-Level Authorization Helpers", () => {
         contactName: "B",
         contactEmail: "b@test.com",
         contactPhone: "456",
-        address: { street: "2", city: "D", state: "T", postalCode: "1", country: "US" },
+        address: {
+          street: "2",
+          city: "D",
+          state: "T",
+          postalCode: "1",
+          country: "US",
+        },
         certifications: [],
         metadata: {},
         createdBy: adminUserId,
@@ -101,7 +112,13 @@ describe("Entity-Level Authorization Helpers", () => {
 
     const [template] = await db
       .insert(workflowTemplate)
-      .values({ tenantId, name: "Auth WF", status: "published", active: true, createdBy: adminUserId })
+      .values({
+        tenantId,
+        name: "Auth WF",
+        status: "published",
+        active: true,
+        createdBy: adminUserId,
+      })
       .returning();
     templateId = template.id;
   });
@@ -124,7 +141,11 @@ describe("Entity-Level Authorization Helpers", () => {
     });
 
     test("returns null for non-existent user", async () => {
-      const result = await getSupplierForUser(crypto.randomUUID(), tenantId, db);
+      const result = await getSupplierForUser(
+        crypto.randomUUID(),
+        tenantId,
+        db
+      );
       expect(result).toBeNull();
     });
   });
@@ -133,7 +154,11 @@ describe("Entity-Level Authorization Helpers", () => {
   describe("verifyProcessAccess", () => {
     test("admin can access any process", async () => {
       const adminUser: AuthContext["user"] = {
-        id: adminUserId, email: "a@t.com", role: UserRole.ADMIN, tenantId, fullName: "A",
+        id: adminUserId,
+        email: "a@t.com",
+        role: UserRole.ADMIN,
+        tenantId,
+        fullName: "A",
       };
       const result = await verifyProcessAccess(
         adminUser,
@@ -145,7 +170,11 @@ describe("Entity-Level Authorization Helpers", () => {
 
     test("supplier_user can access own supplier process", async () => {
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
       const result = await verifyProcessAccess(
         su,
@@ -157,7 +186,11 @@ describe("Entity-Level Authorization Helpers", () => {
 
     test("supplier_user cannot access another supplier's process", async () => {
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
       const result = await verifyProcessAccess(
         su,
@@ -172,15 +205,27 @@ describe("Entity-Level Authorization Helpers", () => {
   describe("verifyDocumentAccess", () => {
     test("admin can access any document", async () => {
       const adminUser: AuthContext["user"] = {
-        id: adminUserId, email: "a@t.com", role: UserRole.ADMIN, tenantId, fullName: "A",
+        id: adminUserId,
+        email: "a@t.com",
+        role: UserRole.ADMIN,
+        tenantId,
+        fullName: "A",
       };
-      const result = await verifyDocumentAccess(adminUser, { supplierId: otherSupplierId }, db);
+      const result = await verifyDocumentAccess(
+        adminUser,
+        { supplierId: otherSupplierId },
+        db
+      );
       expect(result.allowed).toBe(true);
     });
 
     test("supplier_user can access own document", async () => {
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
       const result = await verifyDocumentAccess(su, { supplierId }, db);
       expect(result.allowed).toBe(true);
@@ -188,9 +233,17 @@ describe("Entity-Level Authorization Helpers", () => {
 
     test("supplier_user cannot access other supplier's document", async () => {
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
-      const result = await verifyDocumentAccess(su, { supplierId: otherSupplierId }, db);
+      const result = await verifyDocumentAccess(
+        su,
+        { supplierId: otherSupplierId },
+        db
+      );
       expect(result.allowed).toBe(false);
     });
   });
@@ -198,50 +251,74 @@ describe("Entity-Level Authorization Helpers", () => {
   // ----- verifyTaskAssignment -----
   describe("verifyTaskAssignment", () => {
     test("user with matching pending task is allowed", async () => {
-      const [process] = await db.insert(processInstance).values({
-        tenantId,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: supplierId,
-        status: "in_progress",
-        initiatedBy: adminUserId,
-        initiatedDate: new Date(),
-        workflowTemplateId: templateId,
-      }).returning();
+      const [process] = await db
+        .insert(processInstance)
+        .values({
+          tenantId,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: supplierId,
+          status: "in_progress",
+          initiatedBy: adminUserId,
+          initiatedDate: new Date(),
+          workflowTemplateId: templateId,
+        })
+        .returning();
 
-      const [step] = await db.insert(stepInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepOrder: 1,
-        stepName: "Submit",
-        stepType: "form",
-        status: "active",
-      }).returning();
+      const [step] = await db
+        .insert(stepInstance)
+        .values({
+          tenantId,
+          processInstanceId: process.id,
+          stepOrder: 1,
+          stepName: "Submit",
+          stepType: "form",
+          status: "active",
+        })
+        .returning();
 
-      const [task] = await db.insert(taskInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepInstanceId: step.id,
-        title: "Fill form",
-        assigneeType: "user",
-        assigneeUserId: supplierUserId,
-        status: "pending",
-        taskType: "action",
-      }).returning();
+      const [task] = await db
+        .insert(taskInstance)
+        .values({
+          tenantId,
+          processInstanceId: process.id,
+          stepInstanceId: step.id,
+          title: "Fill form",
+          assigneeType: "user",
+          assigneeUserId: supplierUserId,
+          status: "pending",
+          taskType: "action",
+        })
+        .returning();
 
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
-      const result = await verifyTaskAssignment(su, step.id, ["action", "resubmission"], db);
+      const result = await verifyTaskAssignment(
+        su,
+        step.id,
+        ["action", "resubmission"],
+        db
+      );
       expect(result.allowed).toBe(true);
       expect(result.taskId).toBe(task.id);
 
-      await db.delete(processInstance).where(eq(processInstance.id, process.id));
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, process.id));
     });
 
     test("user without matching task is denied", async () => {
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
       const fakeStepId = crypto.randomUUID();
       const result = await verifyTaskAssignment(su, fakeStepId, ["action"], db);
@@ -249,25 +326,31 @@ describe("Entity-Level Authorization Helpers", () => {
     });
 
     test("role-based assignment works for validation tasks", async () => {
-      const [process] = await db.insert(processInstance).values({
-        tenantId,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: supplierId,
-        status: "in_progress",
-        initiatedBy: adminUserId,
-        initiatedDate: new Date(),
-        workflowTemplateId: templateId,
-      }).returning();
+      const [process] = await db
+        .insert(processInstance)
+        .values({
+          tenantId,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: supplierId,
+          status: "in_progress",
+          initiatedBy: adminUserId,
+          initiatedDate: new Date(),
+          workflowTemplateId: templateId,
+        })
+        .returning();
 
-      const [step] = await db.insert(stepInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepOrder: 1,
-        stepName: "Validate",
-        stepType: "approval",
-        status: "awaiting_validation",
-      }).returning();
+      const [step] = await db
+        .insert(stepInstance)
+        .values({
+          tenantId,
+          processInstanceId: process.id,
+          stepOrder: 1,
+          stepName: "Validate",
+          stepType: "approval",
+          status: "awaiting_validation",
+        })
+        .returning();
 
       await db.insert(taskInstance).values({
         tenantId,
@@ -281,75 +364,110 @@ describe("Entity-Level Authorization Helpers", () => {
       });
 
       const adminUser: AuthContext["user"] = {
-        id: adminUserId, email: "a@t.com", role: UserRole.ADMIN, tenantId, fullName: "A",
+        id: adminUserId,
+        email: "a@t.com",
+        role: UserRole.ADMIN,
+        tenantId,
+        fullName: "A",
       };
-      const result = await verifyTaskAssignment(adminUser, step.id, ["validation"], db);
+      const result = await verifyTaskAssignment(
+        adminUser,
+        step.id,
+        ["validation"],
+        db
+      );
       expect(result.allowed).toBe(true);
 
-      await db.delete(processInstance).where(eq(processInstance.id, process.id));
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, process.id));
     });
   });
 
   // ----- verifyStepProcessAccess -----
   describe("verifyStepProcessAccess", () => {
     test("supplier_user can access step of own process", async () => {
-      const [process] = await db.insert(processInstance).values({
-        tenantId,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: supplierId,
-        status: "in_progress",
-        initiatedBy: adminUserId,
-        initiatedDate: new Date(),
-        workflowTemplateId: templateId,
-      }).returning();
+      const [process] = await db
+        .insert(processInstance)
+        .values({
+          tenantId,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: supplierId,
+          status: "in_progress",
+          initiatedBy: adminUserId,
+          initiatedDate: new Date(),
+          workflowTemplateId: templateId,
+        })
+        .returning();
 
-      const [step] = await db.insert(stepInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepOrder: 1,
-        stepName: "Step 1",
-        stepType: "form",
-        status: "active",
-      }).returning();
+      const [step] = await db
+        .insert(stepInstance)
+        .values({
+          tenantId,
+          processInstanceId: process.id,
+          stepOrder: 1,
+          stepName: "Step 1",
+          stepType: "form",
+          status: "active",
+        })
+        .returning();
 
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
       const result = await verifyStepProcessAccess(su, step.id, db);
       expect(result.allowed).toBe(true);
 
-      await db.delete(processInstance).where(eq(processInstance.id, process.id));
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, process.id));
     });
 
     test("supplier_user denied for step of other supplier's process", async () => {
-      const [process] = await db.insert(processInstance).values({
-        tenantId,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: otherSupplierId,
-        status: "in_progress",
-        initiatedBy: adminUserId,
-        initiatedDate: new Date(),
-        workflowTemplateId: templateId,
-      }).returning();
+      const [process] = await db
+        .insert(processInstance)
+        .values({
+          tenantId,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: otherSupplierId,
+          status: "in_progress",
+          initiatedBy: adminUserId,
+          initiatedDate: new Date(),
+          workflowTemplateId: templateId,
+        })
+        .returning();
 
-      const [step] = await db.insert(stepInstance).values({
-        tenantId,
-        processInstanceId: process.id,
-        stepOrder: 1,
-        stepName: "Other Step",
-        stepType: "form",
-        status: "active",
-      }).returning();
+      const [step] = await db
+        .insert(stepInstance)
+        .values({
+          tenantId,
+          processInstanceId: process.id,
+          stepOrder: 1,
+          stepName: "Other Step",
+          stepType: "form",
+          status: "active",
+        })
+        .returning();
 
       const su: AuthContext["user"] = {
-        id: supplierUserId, email: "s@t.com", role: UserRole.SUPPLIER_USER, tenantId, fullName: "S",
+        id: supplierUserId,
+        email: "s@t.com",
+        role: UserRole.SUPPLIER_USER,
+        tenantId,
+        fullName: "S",
       };
       const result = await verifyStepProcessAccess(su, step.id, db);
       expect(result.allowed).toBe(false);
 
-      await db.delete(processInstance).where(eq(processInstance.id, process.id));
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, process.id));
     });
   });
 });

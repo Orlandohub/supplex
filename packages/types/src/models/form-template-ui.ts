@@ -7,7 +7,7 @@
  * Updated: Story 2.2.23 — Removed legacy "version" naming
  */
 
-import { FormTemplateStatus, FieldType } from "./form-template";
+import type { FormTemplateStatus, FieldType } from "./form-template";
 
 /**
  * Form Template List Item
@@ -47,10 +47,11 @@ export interface FormFieldWithDetails {
 }
 
 /**
- * Form Section with Fields
- * Extended section interface with nested fields
+ * Form Section with Fields (UI)
+ * Serialized-tolerant section shape for loader/component consumption.
+ * For the canonical domain type, see `FormSectionWithFields` in `./form-template`.
  */
-export interface FormSectionWithFields {
+export interface FormSectionWithFieldsUI {
   id: string;
   formTemplateId: string;
   title: string;
@@ -63,10 +64,11 @@ export interface FormSectionWithFields {
 }
 
 /**
- * Form Template with Structure
- * Extended template interface with nested sections and fields
+ * Form Template with Structure (UI)
+ * Serialized-tolerant template shape for loader/component consumption.
+ * For the canonical domain type, see `FormTemplateWithStructure` in `./form-template`.
  */
-export interface FormTemplateWithStructure {
+export interface FormTemplateWithStructureUI {
   id: string;
   formTemplateId: string;
   version: number;
@@ -74,7 +76,7 @@ export interface FormTemplateWithStructure {
   isPublished: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
-  sections: FormSectionWithFields[];
+  sections: FormSectionWithFieldsUI[];
 }
 
 /**
@@ -88,7 +90,7 @@ export interface FormTemplateWithDetails {
   status: FormTemplateStatus;
   createdAt: Date | string;
   updatedAt: Date | string;
-  templates: FormTemplateWithStructure[];
+  templates: FormTemplateWithStructureUI[];
 }
 
 /**
@@ -167,5 +169,5 @@ export interface ReorderRequest {
 
 /* ---------- Deprecated aliases (Story 2.2.23) ---------- */
 
-/** @deprecated Use FormTemplateWithStructure */
-export type FormTemplateVersionWithStructure = FormTemplateWithStructure;
+/** @deprecated Use FormTemplateWithStructureUI */
+export type FormTemplateVersionWithStructure = FormTemplateWithStructureUI;

@@ -51,9 +51,7 @@ export const formSection = pgTable(
   },
   (table) => ({
     // Composite index on (tenant_id, form_template_id, section_order) for ordered retrieval
-    tenantTemplateOrderIdx: index(
-      "idx_form_section_tenant_template_order"
-    )
+    tenantTemplateOrderIdx: index("idx_form_section_tenant_template_order")
       .on(table.tenantId, table.formTemplateId, table.sectionOrder)
       .where(sql`${table.deletedAt} IS NULL`),
   })
@@ -74,7 +72,7 @@ export const formTemplateRelationsUpdate = relations(
  * Form Section Relations
  * Defines relationships with other tables for type-safe joins
  */
-export const formSectionRelations = relations(formSection, ({ one, many }) => ({
+export const formSectionRelations = relations(formSection, ({ one }) => ({
   formTemplate: one(formTemplate, {
     fields: [formSection.formTemplateId],
     references: [formTemplate.id],
@@ -89,4 +87,3 @@ export const formSectionRelations = relations(formSection, ({ one, many }) => ({
 // Type for inserting/selecting form sections
 export type InsertFormSection = typeof formSection.$inferInsert;
 export type SelectFormSection = typeof formSection.$inferSelect;
-

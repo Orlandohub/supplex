@@ -15,7 +15,7 @@ export const listDocuments = new Elysia({ prefix: "/api" })
   .use(authenticate)
   .get(
     "/suppliers/:id/documents",
-    async ({ params, user, set }) => {
+    async ({ params, user }) => {
       const { id: supplierId } = params;
 
       // Fetch documents for supplier, filtered by tenant and non-deleted

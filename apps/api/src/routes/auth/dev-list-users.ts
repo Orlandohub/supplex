@@ -7,14 +7,15 @@ import { Errors } from "../../lib/errors";
 
 /**
  * Development Quick Login - List Users Endpoint
- * 
+ *
  * DEVELOPMENT ONLY - Returns all users organized by tenant for quick login testing.
  * This endpoint is disabled in production (returns 404).
- * 
+ *
  * Security: Environment check ensures this route is never accessible in production.
  */
-export const devListUsersRoute = new Elysia({ prefix: "/auth" })
-  .get("/dev/users", async ({ set, requestLogger }) => {
+export const devListUsersRoute = new Elysia({ prefix: "/auth" }).get(
+  "/dev/users",
+  async ({ requestLogger }) => {
     // CRITICAL: Environment check FIRST - reject in production
     if (config.nodeEnv !== "development") {
       throw Errors.notFound("Not found");
@@ -44,10 +45,7 @@ export const devListUsersRoute = new Elysia({ prefix: "/auth" })
             })
             .from(users)
             .where(
-              and(
-                eq(users.tenantId, tenant.id),
-                eq(users.isActive, true)
-              )
+              and(eq(users.tenantId, tenant.id), eq(users.isActive, true))
             );
 
           // Query supplier users (users associated with suppliers for this tenant)
@@ -96,12 +94,17 @@ export const devListUsersRoute = new Elysia({ prefix: "/auth" })
       };
     } catch (error) {
       requestLogger.error({ err: error }, "Dev list users error");
-      throw Errors.internal("Failed to fetch users for development quick login");
+      throw Errors.internal(
+        "Failed to fetch users for development quick login"
+      );
     }
-  }, {
+  },
+  {
     detail: {
       summary: "List users for dev quick login (Development Only)",
-      description: "Returns all active users grouped by tenant for development quick login. Returns 404 in production.",
+      description:
+        "Returns all active users grouped by tenant for development quick login. Returns 404 in production.",
       tags: ["Authentication", "Development"],
     },
-  });
+  }
+);

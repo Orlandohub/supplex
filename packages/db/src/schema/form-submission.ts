@@ -93,9 +93,9 @@ export const formSubmission = pgTable(
   (table) => ({
     // UNIQUE constraint: Prevent duplicate submissions for same workflow step
     // NULLS NOT DISTINCT ensures standalone forms (NULL step_instance_id) can have multiple instances
-    formSubmissionTemplateStepUnique: unique(
-      "uq_form_submission_template_step"
-    ).on(table.formTemplateId, table.stepInstanceId).nullsNotDistinct(),
+    formSubmissionTemplateStepUnique: unique("uq_form_submission_template_step")
+      .on(table.formTemplateId, table.stepInstanceId)
+      .nullsNotDistinct(),
     // Composite index on (tenant_id, status, deleted_at) for filtering by status
     tenantStatusIdx: index("idx_form_submission_tenant_status")
       .on(table.tenantId, table.status, table.deletedAt)
@@ -131,34 +131,30 @@ export const formSubmission = pgTable(
  * Form Submission Relations
  * Defines relationships with other tables for type-safe joins
  */
-export const formSubmissionRelations = relations(
-  formSubmission,
-  ({ one, many }) => ({
-    tenant: one(tenants, {
-      fields: [formSubmission.tenantId],
-      references: [tenants.id],
-    }),
-    formTemplate: one(formTemplate, {
-      fields: [formSubmission.formTemplateId],
-      references: [formTemplate.id],
-    }),
-    submittedByUser: one(users, {
-      fields: [formSubmission.submittedBy],
-      references: [users.id],
-    }),
-    processInstance: one(processInstance, {
-      fields: [formSubmission.processInstanceId],
-      references: [processInstance.id],
-    }),
-    stepInstance: one(stepInstance, {
-      fields: [formSubmission.stepInstanceId],
-      references: [stepInstance.id],
-    }),
-    // answers relationship will be imported from form-answer.ts
-  })
-);
+export const formSubmissionRelations = relations(formSubmission, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [formSubmission.tenantId],
+    references: [tenants.id],
+  }),
+  formTemplate: one(formTemplate, {
+    fields: [formSubmission.formTemplateId],
+    references: [formTemplate.id],
+  }),
+  submittedByUser: one(users, {
+    fields: [formSubmission.submittedBy],
+    references: [users.id],
+  }),
+  processInstance: one(processInstance, {
+    fields: [formSubmission.processInstanceId],
+    references: [processInstance.id],
+  }),
+  stepInstance: one(stepInstance, {
+    fields: [formSubmission.stepInstanceId],
+    references: [stepInstance.id],
+  }),
+  // answers relationship will be imported from form-answer.ts
+}));
 
 // Type for inserting/selecting form submissions
 export type InsertFormSubmission = typeof formSubmission.$inferInsert;
 export type SelectFormSubmission = typeof formSubmission.$inferSelect;
-

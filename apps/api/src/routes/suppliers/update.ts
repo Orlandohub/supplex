@@ -17,13 +17,7 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .put(
     "/:id",
-    async ({
-      params,
-      body,
-      user,
-      set,
-      requestLogger,
-    }: any) => {
+    async ({ params, body, user, requestLogger }: any) => {
       // Check role permission
       if (
         !user?.role ||
@@ -31,7 +25,9 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           user.role as UserRole
         )
       ) {
-        throw Errors.forbidden("Access denied. Required role: Admin or Procurement Manager");
+        throw Errors.forbidden(
+          "Access denied. Required role: Admin or Procurement Manager"
+        );
       }
       try {
         const { id } = params;
@@ -42,7 +38,11 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) {
-          throw new ApiError(400, "INVALID_ID", "Invalid supplier ID format. Must be a valid UUID.");
+          throw new ApiError(
+            400,
+            "INVALID_ID",
+            "Invalid supplier ID format. Must be a valid UUID."
+          );
         }
 
         // Validate request body with Zod schema
@@ -68,7 +68,9 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           .limit(1);
 
         if (!existingSupplier || existingSupplier.length === 0) {
-          throw Errors.notFound("Supplier not found or you don't have access to this supplier.");
+          throw Errors.notFound(
+            "Supplier not found or you don't have access to this supplier."
+          );
         }
 
         // Update supplier with provided fields only
@@ -101,7 +103,11 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           dbError.code === "23505" &&
           dbError.constraint === "suppliers_tenant_tax_id_unique"
         ) {
-          throw new ApiError(409, "DUPLICATE_TAX_ID", "A supplier with this Tax ID already exists in your organization");
+          throw new ApiError(
+            409,
+            "DUPLICATE_TAX_ID",
+            "A supplier with this Tax ID already exists in your organization"
+          );
         }
 
         throw Errors.internal("Failed to update supplier");

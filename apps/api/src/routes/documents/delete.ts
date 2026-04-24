@@ -18,7 +18,7 @@ export const deleteDocument = new Elysia({ prefix: "/api" })
   .use(requirePermission(PermissionAction.DELETE_DOCUMENTS))
   .delete(
     "/documents/:id",
-    async ({ params, user, set }) => {
+    async ({ params, user }) => {
       const { id } = params;
 
       // Fetch document and verify tenant ownership

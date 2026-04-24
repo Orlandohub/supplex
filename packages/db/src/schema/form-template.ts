@@ -87,7 +87,7 @@ export const formTemplate = pgTable(
  * Form Template Relations
  * Defines relationships for form_template
  */
-export const formTemplateRelations = relations(formTemplate, ({ one, many }) => ({
+export const formTemplateRelations = relations(formTemplate, ({ one }) => ({
   tenant: one(tenants, {
     fields: [formTemplate.tenantId],
     references: [tenants.id],
@@ -98,4 +98,3 @@ export const formTemplateRelations = relations(formTemplate, ({ one, many }) => 
 // Type for inserting/selecting form templates
 export type InsertFormTemplate = typeof formTemplate.$inferInsert;
 export type SelectFormTemplate = typeof formTemplate.$inferSelect;
-

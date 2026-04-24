@@ -18,7 +18,7 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
   .use(requireAdmin)
   .patch(
     "/:templateId/toggle-active",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { templateId } = params;
@@ -37,7 +37,10 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
         }
 
         if (existing.status !== "published") {
-          throw Errors.badRequest("Active/inactive is only available for published templates. Publish the template first.", "INVALID_STATE");
+          throw Errors.badRequest(
+            "Active/inactive is only available for published templates. Publish the template first.",
+            "INVALID_STATE"
+          );
         }
 
         // Toggle active status
@@ -56,8 +59,13 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
         };
       } catch (error: any) {
         if (error instanceof ApiError) throw error;
-        requestLogger.error({ err: error }, "Workflow template active toggle failed");
-        throw Errors.internal("Failed to toggle workflow template active status");
+        requestLogger.error(
+          { err: error },
+          "Workflow template active toggle failed"
+        );
+        throw Errors.internal(
+          "Failed to toggle workflow template active status"
+        );
       }
     },
     {
@@ -66,4 +74,3 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
       }),
     }
   );
-

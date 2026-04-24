@@ -7,11 +7,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { db } from "../../lib/db";
 import { documentTemplate, workflowStepTemplate, tenants } from "../index";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 
 describe("Document Template Schema Tests", () => {
   let testTenantId: string;
-  let testTemplateId: string;
+  let _testTemplateId: string;
 
   beforeAll(async () => {
     // Create test tenant
@@ -62,7 +62,7 @@ describe("Document Template Schema Tests", () => {
     expect(template.updatedAt).toBeDefined();
     expect(template.deletedAt).toBeNull();
 
-    testTemplateId = template.id;
+    _testTemplateId = template.id;
   });
 
   it("should support required_documents JSONB structure", async () => {
@@ -278,4 +278,3 @@ describe("Document Template Schema Tests", () => {
     expect(workflowStepTemplate.documentTemplateId).toBeDefined();
   });
 });
-

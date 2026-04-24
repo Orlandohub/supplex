@@ -9,7 +9,7 @@ import {
   workflowStepTemplate,
   taskInstance,
 } from "@supplex/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { transitionToNextStep } from "../transition-to-next-step";
 import { returnToPreviousStep } from "../return-to-previous-step";
 import { completeStep } from "../complete-step";
@@ -28,9 +28,9 @@ describe("Step Transition Helpers", () => {
   let step1Id: string;
   let step2Id: string;
   let step3Id: string;
-  let stepTemplate1Id: string;
-  let stepTemplate2Id: string;
-  let stepTemplate3Id: string;
+  let _stepTemplate1Id: string;
+  let _stepTemplate2Id: string;
+  let _stepTemplate3Id: string;
 
   beforeAll(async () => {
     const [tenant] = await db
@@ -65,7 +65,7 @@ describe("Step Transition Helpers", () => {
       .returning();
     templateId = template.id;
 
-    [{ id: stepTemplate1Id }] = await db
+    [{ id: _stepTemplate1Id }] = await db
       .insert(workflowStepTemplate)
       .values({
         tenantId,
@@ -79,7 +79,7 @@ describe("Step Transition Helpers", () => {
       })
       .returning();
 
-    [{ id: stepTemplate2Id }] = await db
+    [{ id: _stepTemplate2Id }] = await db
       .insert(workflowStepTemplate)
       .values({
         tenantId,
@@ -94,7 +94,7 @@ describe("Step Transition Helpers", () => {
       })
       .returning();
 
-    [{ id: stepTemplate3Id }] = await db
+    [{ id: _stepTemplate3Id }] = await db
       .insert(workflowStepTemplate)
       .values({
         tenantId,
@@ -387,7 +387,13 @@ describe("Step Transition Helpers", () => {
       })
       .returning();
 
-    const result = await returnToPreviousStep(db, newStep1.id, 2, newProcess.id, tenantId);
+    const result = await returnToPreviousStep(
+      db,
+      newStep1.id,
+      2,
+      newProcess.id,
+      tenantId
+    );
 
     expect(result.currentStepDeclined).toBe(false);
     expect(result.targetStepActivated).toBe(false);

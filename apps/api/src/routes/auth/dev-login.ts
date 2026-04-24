@@ -18,8 +18,9 @@ import { ApiError, Errors } from "../../lib/errors";
  *
  * Security: Environment check ensures this route is never accessible in production.
  */
-export const devLoginRoute = new Elysia({ prefix: "/auth" })
-  .post("/dev/login", async ({ body, set, requestLogger }) => {
+export const devLoginRoute = new Elysia({ prefix: "/auth" }).post(
+  "/dev/login",
+  async ({ body, requestLogger }) => {
     if (config.nodeEnv !== "development") {
       throw Errors.notFound("Not found");
     }
@@ -50,10 +51,9 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
 
       // Set a temporary random password via Admin API
       const tempPassword = `dev-${randomBytes(16).toString("hex")}`;
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        { password: tempPassword }
-      );
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        password: tempPassword,
+      });
 
       if (error) {
         requestLogger.error({ err: error }, "Supabase updateUser error");
@@ -82,7 +82,8 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
       requestLogger.error({ err: error }, "Dev login error");
       throw Errors.internal("Internal server error during dev login");
     }
-  }, {
+  },
+  {
     body: t.Object({
       userId: t.String({
         format: "uuid",
@@ -91,7 +92,9 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
     }),
     detail: {
       summary: "Dev quick login (Development Only)",
-      description: "Logs in a user without password for development testing. Returns 404 in production.",
+      description:
+        "Logs in a user without password for development testing. Returns 404 in production.",
       tags: ["Authentication", "Development"],
     },
-  });
+  }
+);

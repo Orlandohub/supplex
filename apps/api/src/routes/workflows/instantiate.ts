@@ -3,9 +3,9 @@
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: 2.2.14 - Remove Template Versioning
  * Updated: 2.2.19 - Delegate to library function (remove duplicate code)
- * 
+ *
  * POST /api/workflows/instantiate
- * 
+ *
  * Creates a new workflow process instance from a published workflow template
  */
 
@@ -13,9 +13,12 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate, requirePermission } from "../../lib/rbac/middleware";
+import { requirePermission } from "../../lib/rbac/middleware";
 import { PermissionAction } from "@supplex/types";
-import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
+import {
+  logWorkflowEvent,
+  WorkflowEventType,
+} from "../../services/workflow-event-logger";
 import { instantiateWorkflow } from "../../lib/workflow-engine/instantiate-workflow";
 import { WorkflowProcessStatus } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
@@ -73,7 +76,10 @@ export const instantiateRoute = new Elysia()
           actorUserId: user.id,
           actorName: user.fullName,
           actorRole: user.role,
-          metadata: { workflowTemplateName: template?.name, totalSteps: steps.length },
+          metadata: {
+            workflowTemplateName: template?.name,
+            totalSteps: steps.length,
+          },
           correlationId: corrId,
         });
 

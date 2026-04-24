@@ -6,15 +6,15 @@ import { withApiErrorHandler } from "../../../lib/test-utils";
 
 /**
  * Backend Unit Tests for Supplier Contact Update Endpoint
- * 
+ *
  * These are basic validation and structure tests.
  * Full integration tests would require database and Supabase mocking.
- * 
+ *
  * Test Coverage:
  * - Request validation (TypeBox schemas)
  * - Response structure
  * - Authorization logic (simplified)
- * 
+ *
  * Note: The actual route implementation is tested via integration/E2E tests
  * where database and Supabase are available.
  */
@@ -38,47 +38,55 @@ const validSupplierId = "550e8400-e29b-41d4-a716-446655440000";
 
 // Create a simplified test route that mimics the authorization logic
 function createTestRoute(user: AuthContext["user"]) {
-  return withApiErrorHandler(new Elysia({ prefix: "/suppliers" })
-    .derive(() => ({ user, headers: {} as Record<string, string | undefined> }))
-    .patch(
-      "/:id/contact",
-      async ({ params, body, user, set }: any) => {
-        // Authorization check (same as real route)
-        if (
-          !user?.role ||
-          ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role as UserRole)
-        ) {
-          set.status = 403;
+  return withApiErrorHandler(
+    new Elysia({ prefix: "/suppliers" })
+      .derive(() => ({
+        user,
+        headers: {} as Record<string, string | undefined>,
+      }))
+      .patch(
+        "/:id/contact",
+        async ({ params: _params, body: _body, user, set }: any) => {
+          // Authorization check (same as real route)
+          if (
+            !user?.role ||
+            ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
+              user.role as UserRole
+            )
+          ) {
+            set.status = 403;
+            return {
+              success: false,
+              error: {
+                code: "FORBIDDEN",
+                message:
+                  "Access denied. Required role: Admin or Procurement Manager",
+              },
+            };
+          }
+
+          // Would normally check database, but we don't have it in tests
+          set.status = 404;
           return {
             success: false,
             error: {
-              code: "FORBIDDEN",
-              message: "Access denied. Required role: Admin or Procurement Manager",
+              code: "NOT_FOUND",
+              message: "Supplier contact user not found",
             },
           };
+        },
+        {
+          params: t.Object({
+            id: t.String(),
+          }),
+          body: t.Object({
+            fullName: t.Optional(t.String({ maxLength: 200 })),
+            email: t.Optional(t.String({ format: "email", maxLength: 255 })),
+            isActive: t.Optional(t.Boolean()),
+          }),
         }
-        
-        // Would normally check database, but we don't have it in tests
-        set.status = 404;
-        return {
-          success: false,
-          error: {
-            code: "NOT_FOUND",
-            message: "Supplier contact user not found",
-          },
-        };
-      },
-      {
-        params: t.Object({
-          id: t.String(),
-        }),
-        body: t.Object({
-          fullName: t.Optional(t.String({ maxLength: 200 })),
-          email: t.Optional(t.String({ format: "email", maxLength: 255 })),
-          isActive: t.Optional(t.Boolean()),
-        }),
-      }
-    ));
+      )
+  );
 }
 
 describe("Supplier Contact Update API", () => {
@@ -281,9 +289,9 @@ describe("Supplier Contact Update API", () => {
 
 /**
  * Integration Test Requirements (Not Implemented Here):
- * 
+ *
  * For full coverage, integration tests should verify:
- * 
+ *
  * 1. Database Operations:
  *    ✅ Update user name successfully
  *    ✅ Update user email successfully
@@ -291,23 +299,23 @@ describe("Supplier Contact Update API", () => {
  *    ✅ Update both isActive=true AND status="active" together
  *    ✅ Email uniqueness within tenant (409 error)
  *    ✅ Cross-tenant isolation (cannot update users from other tenants)
- * 
+ *
  * 2. Supabase Integration:
  *    ✅ Email changes sync to Supabase Auth
  *    ✅ Handle Supabase errors gracefully
  *    ✅ Transaction safety (Supabase succeeds before DB update)
- * 
+ *
  * 3. Cache Invalidation:
  *    ✅ authCache.invalidate() called when isActive changes
  *    ✅ authCache.invalidate() NOT called when only name/email changes
  *    ✅ Deactivated users cannot authenticate after cache clear
- * 
+ *
  * 4. Audit Logging:
  *    ✅ AuditAction.SUPPLIER_CONTACT_UPDATED created
  *    ✅ Before/after values logged correctly
  *    ✅ TenantId, userId, targetUserId populated
  *    ✅ IP address and user agent captured
- * 
+ *
  * 5. End-to-End Flows:
  *    ✅ Update contact name → verify in database
  *    ✅ Update email → verify in DB and Supabase → login with new email works

@@ -7,10 +7,9 @@ import {
   stepInstance,
   workflowTemplate,
   workflowStepTemplate,
-  taskInstance,
   commentThread,
 } from "@supplex/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { completeStep } from "../../../../lib/workflow-engine/complete-step";
 
 /**
@@ -120,10 +119,14 @@ describe("Step Completion", () => {
       .where(eq(stepInstance.id, step.id));
 
     // Status is completed or awaiting_validation or validated depending on template config
-    expect(["completed", "awaiting_validation", "validated"]).toContain(updatedStep.status);
+    expect(["completed", "awaiting_validation", "validated"]).toContain(
+      updatedStep.status
+    );
 
     await db.delete(processInstance).where(eq(processInstance.id, process.id));
-    await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, stepTemplate.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.id, stepTemplate.id));
   });
 
   test("atomic CAS rejects step not in active state (blocked)", async () => {

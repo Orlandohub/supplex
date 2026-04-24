@@ -23,7 +23,7 @@ import {
 } from "~/lib/api-client";
 import type {
   FormSubmission,
-  FormTemplateWithStructure,
+  FormTemplateWithStructureUI,
   FormAnswer,
 } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
@@ -78,7 +78,7 @@ export async function loader(args: LoaderFunctionArgs) {
     const isReadOnly = data.isReadOnly ?? false;
     const canValidate = data.canValidate ?? false;
 
-    const formVersion: FormTemplateWithStructure = {
+    const formVersion: FormTemplateWithStructureUI = {
       ...formTemplate,
       sections: formStructure.sections,
     };

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { useRevalidator } from "react-router";
-import type { FormSectionWithFields } from "@supplex/types";
+import type { FormSectionWithFieldsUI } from "@supplex/types";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import { createClientEdenTreatyClient } from "~/lib/api-client";
 interface EditSectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  section: FormSectionWithFields;
+  section: FormSectionWithFieldsUI;
   token: string;
 }
 

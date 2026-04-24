@@ -103,7 +103,7 @@ export const formField = pgTable(
  */
 export const formSectionRelationsUpdate = relations(
   formSection,
-  ({ one, many }) => ({
+  ({ many }) => ({
     fields: many(formField),
   })
 );
@@ -126,4 +126,3 @@ export const formFieldRelations = relations(formField, ({ one }) => ({
 // Type for inserting/selecting form fields
 export type InsertFormField = typeof formField.$inferInsert;
 export type SelectFormField = typeof formField.$inferSelect;
-

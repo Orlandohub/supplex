@@ -33,7 +33,7 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
   .use(authenticate)
   .get(
     "/",
-    async ({ query, user, set, requestLogger }: any) => {
+    async ({ query, user, requestLogger }: any) => {
       requestLogger.debug({}, "Supplier list handler invoked");
       requestLogger.debug({ user }, "Supplier list user context");
       try {

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
-import type { FormTemplateWithStructure, FormAnswer } from "@supplex/types";
+import type { FormTemplateWithStructureUI, FormAnswer } from "@supplex/types";
 import { validateFieldValue as sharedValidateFieldValue } from "@supplex/types";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -15,7 +15,7 @@ import { CheckboxField } from "./fields/CheckboxField";
 import { MultiSelectField } from "./fields/MultiSelectField";
 
 export interface FormRendererProps {
-  formVersion: FormTemplateWithStructure;
+  formVersion: FormTemplateWithStructureUI;
   initialAnswers: FormAnswer[];
   mode: "edit" | "view";
   onSave?: (answers: Map<string, string>) => Promise<void>;

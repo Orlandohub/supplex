@@ -1,28 +1,28 @@
 /**
  * Authentication Cache Layer
- * 
+ *
  * Two-tier caching strategy for user authentication data:
  * 1. In-memory LRU cache (L1) - ~0.1ms lookup
  * 2. Redis cache (L2) - ~2-5ms lookup
- * 
+ *
  * This is the industry-standard pattern used by:
  * - Auth0 (5-15 min cache)
  * - Stripe (5 min cache)
  * - GitHub (5 min cache)
  * - Shopify (10 min cache)
- * 
+ *
  * Performance Impact:
  * - 99% of requests hit L1 cache (~0.1ms)
  * - 0.9% of requests hit L2 cache (~5ms)
  * - 0.1% of requests miss cache (~100ms, once per 5 min per user)
- * 
+ *
  * Security Trade-off:
  * - User deactivation takes up to 5 minutes to propagate
  * - Can be invalidated immediately via authCache.invalidate(userId)
  */
 
 import { redisConnection, isRedisEnabled } from "../queue/redis-connection";
-import { UserRole } from "@supplex/types";
+import type { UserRole } from "@supplex/types";
 import { logger } from "./logger";
 
 const cacheLogger = logger.child({ module: "auth-cache" });
@@ -123,12 +123,12 @@ function getCacheKey(userId: string): string {
 export const authCache = {
   /**
    * Get cached user auth data
-   * 
+   *
    * Lookup order:
    * 1. In-memory cache (L1) - ~0.1ms
    * 2. Redis cache (L2) - ~2-5ms
    * 3. Return null (cache miss)
-   * 
+   *
    * @param userId - User ID
    * @returns Cached user auth data or null if not found/expired
    */
@@ -147,14 +147,17 @@ export const authCache = {
         const redisValue = await redisConnection.get(key);
         if (redisValue) {
           const cached = JSON.parse(redisValue) as CachedUserAuth;
-          
+
           // Populate L1 cache for next request
           memoryCache.set(key, cached, CACHE_TTL_SECONDS);
-          
+
           return cached;
         }
       } catch (error) {
-        cacheLogger.error({ err: error, key: userId }, "Redis auth cache get error");
+        cacheLogger.error(
+          { err: error, key: userId },
+          "Redis auth cache get error"
+        );
         // Fall through - don't fail request if Redis is down
       }
     }
@@ -165,9 +168,9 @@ export const authCache = {
 
   /**
    * Set user auth data in cache
-   * 
+   *
    * Stores in both L1 (memory) and L2 (Redis) caches
-   * 
+   *
    * @param userId - User ID
    * @param data - User auth data to cache
    */
@@ -186,7 +189,10 @@ export const authCache = {
           JSON.stringify(data)
         );
       } catch (error) {
-        cacheLogger.error({ err: error, key: userId }, "Redis auth cache set error");
+        cacheLogger.error(
+          { err: error, key: userId },
+          "Redis auth cache set error"
+        );
         // Don't fail request if Redis is down - L1 cache still works
       }
     }
@@ -194,15 +200,15 @@ export const authCache = {
 
   /**
    * Invalidate user auth cache
-   * 
+   *
    * Use when:
    * - User is deactivated
    * - User role changes
    * - User tenant changes
-   * 
+   *
    * This ensures the change takes effect immediately (within 5 seconds)
    * instead of waiting for cache TTL expiration (5 minutes).
-   * 
+   *
    * @param userId - User ID to invalidate
    */
   async invalidate(userId: string): Promise<void> {
@@ -216,19 +222,22 @@ export const authCache = {
       try {
         await redisConnection.del(key);
       } catch (error) {
-        cacheLogger.error({ err: error, key: userId }, "Redis auth cache delete error");
+        cacheLogger.error(
+          { err: error, key: userId },
+          "Redis auth cache delete error"
+        );
       }
     }
   },
 
   /**
    * Clear all cached user auth data
-   * 
+   *
    * Use when:
    * - Bulk user updates
    * - System maintenance
    * - Testing
-   * 
+   *
    * WARNING: This will cause all requests to hit the database
    * until caches are repopulated. Use sparingly.
    */
@@ -252,9 +261,9 @@ export const authCache = {
 
   /**
    * Get cache statistics
-   * 
+   *
    * Useful for monitoring and optimization
-   * 
+   *
    * @returns Cache size and Redis status
    */
   stats(): { memoryCacheSize: number; redisEnabled: boolean } {
@@ -269,12 +278,20 @@ export const authCache = {
  * Periodic cleanup of expired in-memory cache entries
  * Runs every 5 minutes to prevent memory leaks
  */
-setInterval(() => {
-  // The LRU cache automatically removes expired entries on get()
-  // This is just for monitoring
-  const stats = authCache.stats();
-  if (stats.memoryCacheSize > 0) {
-    cacheLogger.debug({ memorySize: stats.memoryCacheSize, redisAvailable: stats.redisEnabled }, "Auth cache stats");
-  }
-}, 5 * 60 * 1000);
-
+setInterval(
+  () => {
+    // The LRU cache automatically removes expired entries on get()
+    // This is just for monitoring
+    const stats = authCache.stats();
+    if (stats.memoryCacheSize > 0) {
+      cacheLogger.debug(
+        {
+          memorySize: stats.memoryCacheSize,
+          redisAvailable: stats.redisEnabled,
+        },
+        "Auth cache stats"
+      );
+    }
+  },
+  5 * 60 * 1000
+);

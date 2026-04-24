@@ -6,7 +6,7 @@ import {
   index,
   unique,
 } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { formSubmission } from "./form-submission";
 import { formField } from "./form-field";
@@ -92,7 +92,7 @@ export const formAnswerRelations = relations(formAnswer, ({ one }) => ({
 // This is done by importing and extending the relations
 export const formSubmissionRelationsUpdate = relations(
   formSubmission,
-  ({ one, many }) => ({
+  ({ many }) => ({
     answers: many(formAnswer),
   })
 );
@@ -100,4 +100,3 @@ export const formSubmissionRelationsUpdate = relations(
 // Type for inserting/selecting form answers
 export type InsertFormAnswer = typeof formAnswer.$inferInsert;
 export type SelectFormAnswer = typeof formAnswer.$inferSelect;
-

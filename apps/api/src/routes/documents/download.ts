@@ -17,7 +17,7 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
   .use(authenticate)
   .get(
     "/documents/:id/download",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       const { id } = params;
 
       // Fetch document and verify tenant ownership
@@ -34,7 +34,9 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
         .limit(1);
 
       if (!document) {
-        throw Errors.notFound("Document not found or does not belong to your tenant");
+        throw Errors.notFound(
+          "Document not found or does not belong to your tenant"
+        );
       }
 
       // Entity-level authorization: supplier_user can only download their own documents
@@ -51,7 +53,10 @@ export const downloadDocument = new Elysia({ prefix: "/api" })
             .createSignedUrl(document.storagePath, 300);
 
         if (signedUrlError || !signedUrlData) {
-          requestLogger.error({ err: signedUrlError }, "signed URL generation error");
+          requestLogger.error(
+            { err: signedUrlError },
+            "signed URL generation error"
+          );
           throw Errors.internal(
             `Failed to generate download URL: ${signedUrlError?.message || "Unknown error"}`
           );

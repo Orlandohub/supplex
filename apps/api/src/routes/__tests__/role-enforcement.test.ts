@@ -1,11 +1,13 @@
-import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
-import { db } from "../../lib/db";
 import {
-  tenants,
-  users,
-  formTemplate,
-  FormTemplateStatus,
-} from "@supplex/db";
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  setDefaultTimeout,
+} from "bun:test";
+import { db } from "../../lib/db";
+import { tenants, users, formTemplate, FormTemplateStatus } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { UserRole } from "@supplex/types";
 
@@ -29,7 +31,7 @@ setDefaultTimeout(30000);
  */
 describe("SEC-005: Role Enforcement", () => {
   let tenantId: string;
-  let adminUserId: string;
+  let _adminUserId: string;
   let draftTemplateId: string;
   let publishedTemplateId: string;
   let archivedTemplateId: string;
@@ -52,29 +54,49 @@ describe("SEC-005: Role Enforcement", () => {
         role: "admin",
       })
       .returning();
-    adminUserId = admin.id;
+    _adminUserId = admin.id;
 
     const [draft] = await db
       .insert(formTemplate)
-      .values({ tenantId, name: "Draft Template", status: FormTemplateStatus.DRAFT, isActive: true })
+      .values({
+        tenantId,
+        name: "Draft Template",
+        status: FormTemplateStatus.DRAFT,
+        isActive: true,
+      })
       .returning();
     draftTemplateId = draft.id;
 
     const [published] = await db
       .insert(formTemplate)
-      .values({ tenantId, name: "Published Template", status: FormTemplateStatus.PUBLISHED, isActive: true })
+      .values({
+        tenantId,
+        name: "Published Template",
+        status: FormTemplateStatus.PUBLISHED,
+        isActive: true,
+      })
       .returning();
     publishedTemplateId = published.id;
 
     const [archived] = await db
       .insert(formTemplate)
-      .values({ tenantId, name: "Archived Template", status: FormTemplateStatus.ARCHIVED, isActive: false })
+      .values({
+        tenantId,
+        name: "Archived Template",
+        status: FormTemplateStatus.ARCHIVED,
+        isActive: false,
+      })
       .returning();
     archivedTemplateId = archived.id;
 
     const [inactivePub] = await db
       .insert(formTemplate)
-      .values({ tenantId, name: "Inactive Published", status: FormTemplateStatus.PUBLISHED, isActive: false })
+      .values({
+        tenantId,
+        name: "Inactive Published",
+        status: FormTemplateStatus.PUBLISHED,
+        isActive: false,
+      })
       .returning();
     inactivePublishedTemplateId = inactivePub.id;
   });
@@ -86,7 +108,11 @@ describe("SEC-005: Role Enforcement", () => {
   // ─── by-supplier: requireRole enforcement ──────────────────────
 
   describe("A7: form-submissions/by-supplier — requireRole middleware", () => {
-    const allowedRoles = [UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER, UserRole.QUALITY_MANAGER];
+    const allowedRoles = [
+      UserRole.ADMIN,
+      UserRole.PROCUREMENT_MANAGER,
+      UserRole.QUALITY_MANAGER,
+    ];
     const deniedRoles = [UserRole.VIEWER, UserRole.SUPPLIER_USER];
 
     test("allowed roles include admin, procurement_manager, quality_manager", () => {
@@ -175,7 +201,7 @@ describe("SEC-005: Role Enforcement", () => {
     });
 
     test("admin query returns all templates (including drafts)", async () => {
-      const isAdmin = true;
+      const _isAdmin = true;
       const conditions = [
         eq(formTemplate.tenantId, tenantId),
         isNull(formTemplate.deletedAt),
@@ -211,7 +237,8 @@ describe("SEC-005: Role Enforcement", () => {
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.SUPPLIER_USER;
-      const shouldHide = userRole !== UserRole.ADMIN && templateRecord.status !== "published";
+      const shouldHide =
+        userRole !== UserRole.ADMIN && templateRecord.status !== "published";
       expect(shouldHide).toBe(true);
     });
 
@@ -229,7 +256,8 @@ describe("SEC-005: Role Enforcement", () => {
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.VIEWER;
-      const shouldHide = userRole !== UserRole.ADMIN && templateRecord.status !== "published";
+      const shouldHide =
+        userRole !== UserRole.ADMIN && templateRecord.status !== "published";
       expect(shouldHide).toBe(false);
     });
 
@@ -247,7 +275,8 @@ describe("SEC-005: Role Enforcement", () => {
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.ADMIN;
-      const shouldHide = userRole !== UserRole.ADMIN && templateRecord.status !== "published";
+      const shouldHide =
+        userRole !== UserRole.ADMIN && templateRecord.status !== "published";
       expect(shouldHide).toBe(false);
     });
 
@@ -265,7 +294,8 @@ describe("SEC-005: Role Enforcement", () => {
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.PROCUREMENT_MANAGER;
-      const shouldHide = userRole !== UserRole.ADMIN && templateRecord.status !== "published";
+      const shouldHide =
+        userRole !== UserRole.ADMIN && templateRecord.status !== "published";
       expect(shouldHide).toBe(true);
     });
   });
