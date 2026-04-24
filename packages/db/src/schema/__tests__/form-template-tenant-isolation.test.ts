@@ -136,7 +136,7 @@ describe("Form Template Tenant Isolation", () => {
       .returning();
 
     // Create form field
-    const [field] = await db
+    const [_field] = await db
       .insert(formField)
       .values({
         formSectionId: section.id,
@@ -347,8 +347,14 @@ describe("Form Template Tenant Isolation", () => {
         options: {
           choices: [
             { value: "iso9001", label: "ISO 9001 - Quality Management" },
-            { value: "iso14001", label: "ISO 14001 - Environmental Management" },
-            { value: "iso45001", label: "ISO 45001 - Occupational Health & Safety" },
+            {
+              value: "iso14001",
+              label: "ISO 14001 - Environmental Management",
+            },
+            {
+              value: "iso45001",
+              label: "ISO 45001 - Occupational Health & Safety",
+            },
           ],
         },
       })
@@ -387,7 +393,10 @@ describe("Form Template Tenant Isolation", () => {
       choices: [
         { value: "iso9001", label: "ISO 9001 - Quality Management" },
         { value: "iso14001", label: "ISO 14001 - Environmental Management" },
-        { value: "iso45001", label: "ISO 45001 - Occupational Health & Safety" },
+        {
+          value: "iso45001",
+          label: "ISO 45001 - Occupational Health & Safety",
+        },
       ],
     });
 
@@ -437,4 +446,3 @@ describe("Form Template Tenant Isolation", () => {
     expect(true).toBe(true);
   });
 });
-

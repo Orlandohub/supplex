@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, beforeEach, afterAll } from "bun:test";
+import { describe, test, expect, beforeAll, beforeEach } from "bun:test";
 import { mock } from "bun:test";
 import * as jose from "jose";
 
@@ -73,14 +73,22 @@ async function signHS256(
 }
 
 function makeUnsupportedAlgToken(): string {
-  const header = jose.base64url.encode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = jose.base64url.encode(JSON.stringify({ sub: "user1", iss: ISSUER, aud: AUDIENCE }));
+  const header = jose.base64url.encode(
+    JSON.stringify({ alg: "RS256", typ: "JWT" })
+  );
+  const payload = jose.base64url.encode(
+    JSON.stringify({ sub: "user1", iss: ISSUER, aud: AUDIENCE })
+  );
   return `${header}.${payload}.fakesig`;
 }
 
 function makeNoneAlgToken(): string {
-  const header = jose.base64url.encode(JSON.stringify({ alg: "none", typ: "JWT" }));
-  const payload = jose.base64url.encode(JSON.stringify({ sub: "user1", iss: ISSUER, aud: AUDIENCE }));
+  const header = jose.base64url.encode(
+    JSON.stringify({ alg: "none", typ: "JWT" })
+  );
+  const payload = jose.base64url.encode(
+    JSON.stringify({ sub: "user1", iss: ISSUER, aud: AUDIENCE })
+  );
   return `${header}.${payload}.`;
 }
 
@@ -99,10 +107,12 @@ mock.module("../../config", () => ({
 
 // We need to mock the JWKS fetcher so it uses our local key instead of HTTP
 // We do this by importing after mock.module and resetting the JWKS singleton
-const { verifyJWT, JWTVerificationError, _resetJWKS } = await import("../jwt-verifier");
+const { verifyJWT, JWTVerificationError, _resetJWKS } = await import(
+  "../jwt-verifier"
+);
 
 // Patch the getJWKS to use a local JWK set with our test key
-const exportedPublicJWK = async () => {
+const _exportedPublicJWK = async () => {
   const jwk = await jose.exportJWK(es256PublicKey);
   jwk.kid = "test-kid";
   jwk.alg = "ES256";
@@ -112,6 +122,7 @@ const exportedPublicJWK = async () => {
 
 // We mock the jose.createRemoteJWKSet so it returns a local key set
 mock.module("jose", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const actualJose = require("jose");
   return {
     ...actualJose,
@@ -146,11 +157,9 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
     });
 
     test("rejects expired ES256 token with TOKEN_EXPIRED", async () => {
-      const token = await signES256(
-        { sub: "user-exp" },
-        es256PrivateKey,
-        { exp: Math.floor(Date.now() / 1000) - 60 }
-      );
+      const token = await signES256({ sub: "user-exp" }, es256PrivateKey, {
+        exp: Math.floor(Date.now() / 1000) - 60,
+      });
       try {
         await verifyJWT(token);
         expect(true).toBe(false); // should not reach
@@ -161,7 +170,10 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
     });
 
     test("rejects ES256 token with invalid signature — HMAC NOT attempted", async () => {
-      const token = await signES256({ sub: "user-bad-sig" }, es256KeyPair2Private);
+      const token = await signES256(
+        { sub: "user-bad-sig" },
+        es256KeyPair2Private
+      );
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
@@ -215,11 +227,9 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
 
     test("rejects expired HS256 token with TOKEN_EXPIRED", async () => {
       mockJwtSecret = HMAC_SECRET;
-      const token = await signHS256(
-        { sub: "user-exp-hs" },
-        HMAC_SECRET,
-        { exp: Math.floor(Date.now() / 1000) - 60 }
-      );
+      const token = await signHS256({ sub: "user-exp-hs" }, HMAC_SECRET, {
+        exp: Math.floor(Date.now() / 1000) - 60,
+      });
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
@@ -286,7 +296,9 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       const mode = cfg.jwt?.secret
         ? "JWT verification: JWKS (primary) + HMAC fallback (transition mode)"
         : "JWT verification: JWKS only";
-      expect(mode).toBe("JWT verification: JWKS (primary) + HMAC fallback (transition mode)");
+      expect(mode).toBe(
+        "JWT verification: JWKS (primary) + HMAC fallback (transition mode)"
+      );
     });
 
     test("without jwt.secret → JWKS only mode detected", () => {

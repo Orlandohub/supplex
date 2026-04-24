@@ -18,7 +18,7 @@ export const deleteDocumentTemplateRoute = new Elysia()
   .use(requireAdmin)
   .delete(
     "/:id",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const templateId = params.id;
@@ -52,7 +52,11 @@ export const deleteDocumentTemplateRoute = new Elysia()
           );
 
         if (usageCount.count > 0) {
-          throw new ApiError(400, "TEMPLATE_IN_USE", `Cannot delete document template in use by ${usageCount.count} workflow step(s)`);
+          throw new ApiError(
+            400,
+            "TEMPLATE_IN_USE",
+            `Cannot delete document template in use by ${usageCount.count} workflow step(s)`
+          );
         }
 
         // Soft delete template
@@ -67,7 +71,10 @@ export const deleteDocumentTemplateRoute = new Elysia()
         };
       } catch (error: any) {
         if (error instanceof ApiError) throw error;
-        requestLogger.error({ err: error }, "Document template deletion failed");
+        requestLogger.error(
+          { err: error },
+          "Document template deletion failed"
+        );
         throw Errors.internal("Failed to delete document template");
       }
     },
@@ -77,9 +84,9 @@ export const deleteDocumentTemplateRoute = new Elysia()
       }),
       detail: {
         summary: "Delete document template",
-        description: "Soft delete a document template (admin only, fails if in use)",
+        description:
+          "Soft delete a document template (admin only, fails if in use)",
         tags: ["Document Templates"],
       },
     }
   );
-

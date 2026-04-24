@@ -21,7 +21,10 @@ import {
   documentTemplate,
 } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
-import { WorkflowProcessStatus, type RequiredDocumentItem } from "@supplex/types";
+import {
+  WorkflowProcessStatus,
+  type RequiredDocumentItem,
+} from "@supplex/types";
 import { transitionToNextStep } from "./transition-to-next-step";
 import { createValidationTasks } from "./create-validation-tasks";
 import type { Logger } from "pino";
@@ -54,19 +57,34 @@ export async function completeStep(
   log?: Logger
 ): Promise<CompleteStepResult> {
   const { tenantId, stepInstanceId, completedBy, outcome, comments } = params;
-  const stepLog = (log || defaultLogger).child({ action: "completeStep", tenantId, stepId: stepInstanceId });
+  const stepLog = (log || defaultLogger).child({
+    action: "completeStep",
+    tenantId,
+    stepId: stepInstanceId,
+  });
 
   // Pre-mutation snapshot: capture completedDate before CAS to detect resubmission
   const [preStep] = await tx
-    .select({ completedDate: stepInstance.completedDate, status: stepInstance.status })
+    .select({
+      completedDate: stepInstance.completedDate,
+      status: stepInstance.status,
+    })
     .from(stepInstance)
-    .where(and(eq(stepInstance.id, stepInstanceId), eq(stepInstance.tenantId, tenantId)));
+    .where(
+      and(
+        eq(stepInstance.id, stepInstanceId),
+        eq(stepInstance.tenantId, tenantId)
+      )
+    );
   const wasResubmission = preStep?.completedDate !== null;
 
-  stepLog.info({
-    preStepStatus: preStep?.status,
-    wasResubmission,
-  }, "completeStep pre-CAS snapshot");
+  stepLog.info(
+    {
+      preStepStatus: preStep?.status,
+      wasResubmission,
+    },
+    "completeStep pre-CAS snapshot"
+  );
 
   // Gate CAS: only succeed if step is currently 'active'
   const [step] = await tx
@@ -95,10 +113,13 @@ export async function completeStep(
 
   // ═══ POINT OF NO RETURN — errors throw from here ═══
 
-  stepLog.info({
-    stepType: step.stepType,
-    processInstanceId: step.processInstanceId,
-  }, "CAS succeeded — step set to completed");
+  stepLog.info(
+    {
+      stepType: step.stepType,
+      processInstanceId: step.processInstanceId,
+    },
+    "CAS succeeded — step set to completed"
+  );
 
   // For document steps, verify all required documents are uploaded
   if (step.stepType === "document" || step.stepType === "document_upload") {
@@ -114,7 +135,7 @@ export async function completeStep(
       );
 
     if (docs.length > 0) {
-      let requiredDocNames = new Set<string>();
+      const requiredDocNames = new Set<string>();
       const [proc] = await tx
         .select({ workflowTemplateId: processInstance.workflowTemplateId })
         .from(processInstance)
@@ -160,7 +181,9 @@ export async function completeStep(
           d.status !== "approved"
       );
       if (notReady.length > 0) {
-        throw new Error(`${notReady.length} required document(s) still need to be uploaded`);
+        throw new Error(
+          `${notReady.length} required document(s) still need to be uploaded`
+        );
       }
     }
   }
@@ -247,23 +270,34 @@ export async function completeStep(
 
   const workflowTemplateId = process.workflowTemplateId;
 
-  stepLog.info({ workflowTemplateId, stepOrder: step.stepOrder }, "step completion started");
+  stepLog.info(
+    { workflowTemplateId, stepOrder: step.stepOrder },
+    "step completion started"
+  );
 
   const stepTemplate = workflowTemplateId
-    ? (await tx
-        .select()
-        .from(workflowStepTemplate)
-        .where(
-          and(
-            eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
-            eq(workflowStepTemplate.tenantId, tenantId),
-            eq(workflowStepTemplate.stepOrder, step.stepOrder),
-            isNull(workflowStepTemplate.deletedAt)
+    ? (
+        await tx
+          .select()
+          .from(workflowStepTemplate)
+          .where(
+            and(
+              eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
+              eq(workflowStepTemplate.tenantId, tenantId),
+              eq(workflowStepTemplate.stepOrder, step.stepOrder),
+              isNull(workflowStepTemplate.deletedAt)
+            )
           )
-        ))[0]
+      )[0]
     : undefined;
 
-  stepLog.info({ stepTemplateFound: !!stepTemplate, requiresValidation: stepTemplate?.requiresValidation }, "step template lookup");
+  stepLog.info(
+    {
+      stepTemplateFound: !!stepTemplate,
+      requiresValidation: stepTemplate?.requiresValidation,
+    },
+    "step template lookup"
+  );
 
   if (stepTemplate?.requiresValidation) {
     const [updatedStep] = await tx
@@ -294,7 +328,10 @@ export async function completeStep(
       })
       .where(eq(processInstance.id, process.id));
 
-    stepLog.info({ validationRound: newRound, processId: process.id }, "step requires validation, tasks created — status: awaiting_validation");
+    stepLog.info(
+      { validationRound: newRound, processId: process.id },
+      "step requires validation, tasks created — status: awaiting_validation"
+    );
 
     return {
       success: true as const,

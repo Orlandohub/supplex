@@ -16,7 +16,7 @@ export const getPublishedDocumentTemplatesRoute = new Elysia()
   .use(authenticate)
   .get(
     "/published",
-    async ({ user, set, requestLogger }: any) => {
+    async ({ user, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
 
@@ -50,16 +50,19 @@ export const getPublishedDocumentTemplatesRoute = new Elysia()
         };
       } catch (error: any) {
         if (error instanceof ApiError) throw error;
-        requestLogger.error({ err: error }, "Published document templates fetch failed");
+        requestLogger.error(
+          { err: error },
+          "Published document templates fetch failed"
+        );
         throw Errors.internal("Failed to fetch published document templates");
       }
     },
     {
       detail: {
         summary: "Get published document templates",
-        description: "Get published document templates for workflow builder dropdown",
+        description:
+          "Get published document templates for workflow builder dropdown",
         tags: ["Document Templates"],
       },
     }
   );
-

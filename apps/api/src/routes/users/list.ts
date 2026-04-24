@@ -18,7 +18,7 @@ export const listUsersRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .get(
     "/",
-    async ({ query, user, set, requestLogger }: any) => {
+    async ({ query, user, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
 

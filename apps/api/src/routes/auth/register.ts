@@ -91,9 +91,13 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
           if (authError) {
             requestLogger.error({ err: authError }, "Supabase auth error");
           } else {
-            requestLogger.error("Supabase auth user missing from createUser response");
+            requestLogger.error(
+              "Supabase auth user missing from createUser response"
+            );
           }
-          throw Errors.badRequest(authError?.message || "Failed to create user account");
+          throw Errors.badRequest(
+            authError?.message || "Failed to create user account"
+          );
         }
 
         const userId = authUser.user.id;
@@ -151,7 +155,10 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
             });
 
           if (updateError) {
-            requestLogger.error({ err: updateError }, "Failed to update user metadata");
+            requestLogger.error(
+              { err: updateError },
+              "Failed to update user metadata"
+            );
             // Non-fatal error, continue with registration
           }
 
@@ -175,13 +182,19 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
             },
           };
         } catch (dbError: any) {
-          requestLogger.error({ err: dbError }, "Database error during registration");
+          requestLogger.error(
+            { err: dbError },
+            "Database error during registration"
+          );
 
           // Rollback: Delete the Supabase auth user
           try {
             await supabaseAdmin.auth.admin.deleteUser(userId);
           } catch (rollbackError) {
-            requestLogger.error({ err: rollbackError }, "Failed to rollback auth user");
+            requestLogger.error(
+              { err: rollbackError },
+              "Failed to rollback auth user"
+            );
           }
 
           if (dbError instanceof ApiError) throw dbError;
@@ -205,7 +218,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
   )
   .get(
     "/register/check-tenant-slug/:slug",
-    async ({ params, set, requestLogger }) => {
+    async ({ params, requestLogger }) => {
       try {
         const { slug } = params;
 

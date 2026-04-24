@@ -8,7 +8,7 @@ import {
   index,
   unique,
 } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { users } from "./users";
 import { supplierStatus } from "./supplier-status";
@@ -16,7 +16,7 @@ import { supplierStatus } from "./supplier-status";
 /**
  * Suppliers Table
  * Core supplier/vendor master data entity
- * 
+ *
  * Indexes:
  * - (tenant_id, status) WHERE deleted_at IS NULL - for status filtering
  * - (tenant_id, name) WHERE deleted_at IS NULL - for name search
@@ -62,25 +62,21 @@ export const suppliers = pgTable(
   },
   (table) => ({
     // Composite index on (tenant_id, status) for active suppliers
-    tenantStatusIdx: index("idx_suppliers_tenant_status").on(
-      table.tenantId,
-      table.status
-    ).where(sql`${table.deletedAt} IS NULL`),
+    tenantStatusIdx: index("idx_suppliers_tenant_status")
+      .on(table.tenantId, table.status)
+      .where(sql`${table.deletedAt} IS NULL`),
     // Composite index on (tenant_id, name) for search queries
-    tenantNameIdx: index("idx_suppliers_tenant_name").on(
-      table.tenantId,
-      table.name
-    ).where(sql`${table.deletedAt} IS NULL`),
+    tenantNameIdx: index("idx_suppliers_tenant_name")
+      .on(table.tenantId, table.name)
+      .where(sql`${table.deletedAt} IS NULL`),
     // Composite index on (tenant_id, category) for category filtering
-    tenantCategoryIdx: index("idx_suppliers_tenant_category").on(
-      table.tenantId,
-      table.category
-    ).where(sql`${table.deletedAt} IS NULL`),
+    tenantCategoryIdx: index("idx_suppliers_tenant_category")
+      .on(table.tenantId, table.category)
+      .where(sql`${table.deletedAt} IS NULL`),
     // Composite index on (tenant_id, updated_at DESC) for sorting
-    tenantUpdatedAtIdx: index("idx_suppliers_tenant_updated_at").on(
-      table.tenantId,
-      table.updatedAt
-    ).where(sql`${table.deletedAt} IS NULL`),
+    tenantUpdatedAtIdx: index("idx_suppliers_tenant_updated_at")
+      .on(table.tenantId, table.updatedAt)
+      .where(sql`${table.deletedAt} IS NULL`),
     // Unique constraint on (tenant_id, tax_id)
     tenantTaxIdUnique: unique("suppliers_tenant_tax_id_unique").on(
       table.tenantId,
@@ -96,4 +92,3 @@ export const suppliers = pgTable(
 // Type for inserting/selecting suppliers
 export type InsertSupplier = typeof suppliers.$inferInsert;
 export type SelectSupplier = typeof suppliers.$inferSelect;
-

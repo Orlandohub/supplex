@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { useRevalidator } from "react-router";
-import type { FormSectionWithFields } from "@supplex/types";
+import type { FormSectionWithFieldsUI } from "@supplex/types";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import {
@@ -27,13 +27,13 @@ import { EditSectionModal } from "./EditSectionModal";
 import { AddFieldModal } from "./AddFieldModal";
 
 interface SectionCardProps {
-  section: FormSectionWithFields;
+  section: FormSectionWithFieldsUI;
   templateId: string;
   token: string;
   canEdit: boolean;
   isFirst: boolean;
   isLast: boolean;
-  allSections: FormSectionWithFields[];
+  allSections: FormSectionWithFieldsUI[];
 }
 
 export function SectionCard({

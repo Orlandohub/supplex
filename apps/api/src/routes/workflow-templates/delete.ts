@@ -20,7 +20,7 @@ export const deleteWorkflowTemplateRoute = new Elysia()
   .use(requireAdmin)
   .delete(
     "/:workflowId",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { workflowId } = params;
@@ -73,7 +73,3 @@ export const deleteWorkflowTemplateRoute = new Elysia()
       }),
     }
   );
-
-
-
-

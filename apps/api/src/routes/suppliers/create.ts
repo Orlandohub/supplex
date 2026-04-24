@@ -3,7 +3,12 @@ import { db } from "../../lib/db";
 import { suppliers, users, userInvitations } from "@supplex/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { authenticate } from "../../lib/rbac/middleware";
-import { UserRole, InsertSupplierSchema, createUserAuthMetadata, createUserProfileMetadata } from "@supplex/types";
+import {
+  UserRole,
+  InsertSupplierSchema,
+  createUserAuthMetadata,
+  createUserProfileMetadata,
+} from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { randomBytes } from "crypto";
 import { ApiError, Errors } from "../../lib/errors";
@@ -25,7 +30,9 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
         !user?.role ||
         ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
       ) {
-        throw Errors.forbidden("Access denied. Required role: Admin or Procurement Manager");
+        throw Errors.forbidden(
+          "Access denied. Required role: Admin or Procurement Manager"
+        );
       }
       try {
         const tenantId = user.tenantId as string;
@@ -45,12 +52,16 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
         const finalSupplierData = {
           ...supplierData,
           status: supplierData.status || "prospect",
-          performanceScore: supplierData.performanceScore !== undefined && supplierData.performanceScore !== null
-            ? String(supplierData.performanceScore)
-            : null,
-          riskScore: supplierData.riskScore !== undefined && supplierData.riskScore !== null
-            ? String(supplierData.riskScore)
-            : null,
+          performanceScore:
+            supplierData.performanceScore !== undefined &&
+            supplierData.performanceScore !== null
+              ? String(supplierData.performanceScore)
+              : null,
+          riskScore:
+            supplierData.riskScore !== undefined &&
+            supplierData.riskScore !== null
+              ? String(supplierData.riskScore)
+              : null,
         };
 
         // Step 1: Create supplier user if supplierContact provided
@@ -59,7 +70,7 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
         let createdAuthUserId: string | null = null; // Track for cleanup
 
         if (body.supplierContact) {
-          const { name, email, phone } = body.supplierContact;
+          const { name, email, phone: _phone } = body.supplierContact;
 
           // Check if email already exists in users table (tenant-scoped)
           const existingUser = await db.query.users.findFirst({
@@ -67,7 +78,11 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
           });
 
           if (existingUser) {
-            throw new ApiError(409, "USER_EMAIL_EXISTS", "A user with this email already exists in your organization");
+            throw new ApiError(
+              409,
+              "USER_EMAIL_EXISTS",
+              "A user with this email already exists in your organization"
+            );
           }
 
           try {
@@ -79,7 +94,10 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
               await supabaseAdmin.auth.admin.createUser({
                 email,
                 email_confirm: true,
-                app_metadata: createUserAuthMetadata(UserRole.SUPPLIER_USER, tenantId),
+                app_metadata: createUserAuthMetadata(
+                  UserRole.SUPPLIER_USER,
+                  tenantId
+                ),
                 user_metadata: createUserProfileMetadata(name),
               });
 
@@ -130,7 +148,10 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
 
             invitationToken = token;
           } catch (userError: any) {
-            requestLogger.error({ err: userError }, "Error creating supplier user");
+            requestLogger.error(
+              { err: userError },
+              "Error creating supplier user"
+            );
 
             // Cleanup: Delete Supabase auth user if it was created
             if (createdAuthUserId) {
@@ -166,7 +187,11 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
             .limit(5);
 
           if (duplicateCheck.length > 0) {
-            throw new ApiError(409, "DUPLICATE_SUPPLIER", "A supplier with a similar name already exists");
+            throw new ApiError(
+              409,
+              "DUPLICATE_SUPPLIER",
+              "A supplier with a similar name already exists"
+            );
           }
         }
 
@@ -185,14 +210,20 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
             })
             .returning();
         } catch (supplierError: any) {
-          requestLogger.error({ err: supplierError }, "Error creating supplier record");
+          requestLogger.error(
+            { err: supplierError },
+            "Error creating supplier record"
+          );
 
           // Cleanup: Delete Supabase auth user if it was created
           if (createdAuthUserId) {
             try {
               await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
             } catch (cleanupError) {
-              requestLogger.error({ err: cleanupError }, "Failed to cleanup Supabase user");
+              requestLogger.error(
+                { err: cleanupError },
+                "Failed to cleanup Supabase user"
+              );
             }
           }
 
@@ -231,7 +262,11 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
           error.code === "23505" &&
           error.constraint === "suppliers_tenant_tax_id_unique"
         ) {
-          throw new ApiError(409, "DUPLICATE_TAX_ID", "A supplier with this Tax ID already exists in your organization");
+          throw new ApiError(
+            409,
+            "DUPLICATE_TAX_ID",
+            "A supplier with this Tax ID already exists in your organization"
+          );
         }
 
         throw Errors.internal("Failed to create supplier");
@@ -255,7 +290,9 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
         }),
         website: t.Optional(t.Union([t.String(), t.Null()])),
         certifications: t.Optional(t.Union([t.Array(t.Any()), t.Null()])),
-        metadata: t.Optional(t.Union([t.Record(t.String(), t.Any()), t.Null()])),
+        metadata: t.Optional(
+          t.Union([t.Record(t.String(), t.Any()), t.Null()])
+        ),
         riskScore: t.Optional(t.Union([t.Number(), t.Null()])),
         notes: t.Optional(t.Union([t.String(), t.Null()])),
         forceSave: t.Optional(t.Union([t.Boolean(), t.Null()])),

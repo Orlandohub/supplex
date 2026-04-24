@@ -14,61 +14,59 @@ import { ApiError, Errors } from "../../lib/errors";
  * Query: status (optional) - Filter by status: all, draft, published, archived
  * Returns: List of templates with status and isActive flags
  */
-export const listFormTemplatesRoute = new Elysia()
-  .use(authenticate)
-  .get(
-    "/",
-    async ({ query, user, set, requestLogger }: any) => {
-      try {
-        const tenantId = user.tenantId as string;
-        const statusFilter = query.status || "all";
-        const isAdmin = user.role === UserRole.ADMIN;
+export const listFormTemplatesRoute = new Elysia().use(authenticate).get(
+  "/",
+  async ({ query, user, requestLogger }: any) => {
+    try {
+      const tenantId = user.tenantId as string;
+      const statusFilter = query.status || "all";
+      const isAdmin = user.role === UserRole.ADMIN;
 
-        const conditions = [
-          eq(formTemplate.tenantId, tenantId),
-          isNull(formTemplate.deletedAt),
-        ];
+      const conditions = [
+        eq(formTemplate.tenantId, tenantId),
+        isNull(formTemplate.deletedAt),
+      ];
 
-        if (!isAdmin) {
-          conditions.push(eq(formTemplate.status, "published"));
-          conditions.push(eq(formTemplate.isActive, true));
-        } else if (statusFilter !== "all") {
-          conditions.push(eq(formTemplate.status, statusFilter));
-        }
-
-        const templates = await db
-          .select()
-          .from(formTemplate)
-          .where(and(...conditions))
-          .orderBy(desc(formTemplate.updatedAt));
-
-        return {
-          success: true,
-          data: {
-            templates,
-          },
-        };
-      } catch (error: any) {
-        if (error instanceof ApiError) throw error;
-        requestLogger.error({ err: error }, "Error fetching form templates");
-        throw Errors.internal("Failed to fetch form templates");
+      if (!isAdmin) {
+        conditions.push(eq(formTemplate.status, "published"));
+        conditions.push(eq(formTemplate.isActive, true));
+      } else if (statusFilter !== "all") {
+        conditions.push(eq(formTemplate.status, statusFilter));
       }
-    },
-    {
-      query: t.Object({
-        status: t.Optional(
-          t.Union([
-            t.Literal("all"),
-            t.Literal("draft"),
-            t.Literal("published"),
-            t.Literal("archived"),
-          ])
-        ),
-      }),
-      detail: {
-        summary: "List form templates",
-        description: "Get all form templates for authenticated user's tenant",
-        tags: ["Form Templates"],
-      },
+
+      const templates = await db
+        .select()
+        .from(formTemplate)
+        .where(and(...conditions))
+        .orderBy(desc(formTemplate.updatedAt));
+
+      return {
+        success: true,
+        data: {
+          templates,
+        },
+      };
+    } catch (error: any) {
+      if (error instanceof ApiError) throw error;
+      requestLogger.error({ err: error }, "Error fetching form templates");
+      throw Errors.internal("Failed to fetch form templates");
     }
-  );
+  },
+  {
+    query: t.Object({
+      status: t.Optional(
+        t.Union([
+          t.Literal("all"),
+          t.Literal("draft"),
+          t.Literal("published"),
+          t.Literal("archived"),
+        ])
+      ),
+    }),
+    detail: {
+      summary: "List form templates",
+      description: "Get all form templates for authenticated user's tenant",
+      tags: ["Form Templates"],
+    },
+  }
+);

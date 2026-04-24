@@ -52,7 +52,12 @@ const app = new Elysia()
     if (error instanceof ApiError) {
       set.status = error.statusCode;
       logger.warn(
-        { err: error, code: error.code, statusCode: error.statusCode, correlationId: corrId },
+        {
+          err: error,
+          code: error.code,
+          statusCode: error.statusCode,
+          correlationId: corrId,
+        },
         error.message
       );
       return {
@@ -77,7 +82,10 @@ const app = new Elysia()
         set.status = 404;
         return {
           success: false,
-          error: { code: "NOT_FOUND", message: "The requested resource was not found" },
+          error: {
+            code: "NOT_FOUND",
+            message: "The requested resource was not found",
+          },
         };
       case "PARSE":
         set.status = 400;
@@ -98,7 +106,10 @@ const app = new Elysia()
   })
   .onRequest(({ request }) => {
     if (config.nodeEnv === "development") {
-      logger.debug({ method: request.method, url: request.url }, "incoming request");
+      logger.debug(
+        { method: request.method, url: request.url },
+        "incoming request"
+      );
     }
   })
   // Root endpoint
@@ -114,12 +125,12 @@ const app = new Elysia()
   .group("/api", (app) => {
     // Always register standard auth routes
     app = app.use(registerRoute).use(acceptInvitationRoute);
-    
+
     if (config.nodeEnv === "development") {
       logger.info("development quick login enabled");
       app = app.use(devListUsersRoute).use(devLoginRoute);
     }
-    
+
     return app;
   })
   // Other API routes (each has its own /api prefix)
@@ -139,19 +150,25 @@ const app = new Elysia()
  * Start the server only when running directly (not during tests)
  */
 if (config.jwt?.secret) {
-  logger.info("JWT verification: JWKS (primary) + HMAC fallback (transition mode)");
+  logger.info(
+    "JWT verification: JWKS (primary) + HMAC fallback (transition mode)"
+  );
 } else {
   logger.info("JWT verification: JWKS only");
 }
 
 if (import.meta.main) {
   const server = app.listen(config.port, () => {
-    const emailStatus = isRedisEnabled
+    const _emailStatus = isRedisEnabled
       ? "📧 Email Worker: Running (concurrency: 5)                   "
       : "📧 Email Worker: Disabled (REDIS_URL not configured)        ";
 
     logger.info(
-      { environment: config.nodeEnv, port: config.port, emailStatus: isRedisEnabled ? "running" : "disabled" },
+      {
+        environment: config.nodeEnv,
+        port: config.port,
+        emailStatus: isRedisEnabled ? "running" : "disabled",
+      },
       `Supplex API Server started on http://localhost:${config.port}`
     );
   });
@@ -190,7 +207,10 @@ if (import.meta.main) {
   });
 
   process.on("unhandledRejection", (reason, promise) => {
-    logger.fatal({ err: reason, promise: String(promise) }, "unhandled rejection");
+    logger.fatal(
+      { err: reason, promise: String(promise) },
+      "unhandled rejection"
+    );
     gracefulShutdown("unhandledRejection");
   });
 }

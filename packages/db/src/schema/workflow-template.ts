@@ -7,7 +7,7 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { users } from "./users";
 import { formTemplateStatusEnum } from "./form-template";
@@ -73,4 +73,3 @@ export const workflowTemplate = pgTable(
 // Type for inserting/selecting workflow templates
 export type InsertWorkflowTemplate = typeof workflowTemplate.$inferInsert;
 export type SelectWorkflowTemplate = typeof workflowTemplate.$inferSelect;
-

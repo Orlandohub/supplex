@@ -16,7 +16,7 @@ export const getNotificationPreferencesRoute = new Elysia({ prefix: "/users" })
   .use(authenticate)
   .get(
     "/me/notification-preferences",
-    async ({ user, set, requestLogger }: any) => {
+    async ({ user, requestLogger }: any) => {
       try {
         const userId = user.id as string;
         const tenantId = user.tenantId as string;
@@ -87,7 +87,7 @@ export const updateNotificationPreferencesRoute = new Elysia({
   .use(authenticate)
   .put(
     "/me/notification-preferences",
-    async ({ body, user, set, requestLogger }: any) => {
+    async ({ body, user, requestLogger }: any) => {
       try {
         const userId = user.id as string;
         const tenantId = user.tenantId as string;

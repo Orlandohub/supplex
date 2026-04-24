@@ -19,7 +19,7 @@ export const auditLogRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .get(
     "/:id/audit",
-    async ({ params, query, user, set, requestLogger }: any) => {
+    async ({ params, query, user, requestLogger }: any) => {
       try {
         const { id: targetUserId } = params;
         const tenantId = user.tenantId as string;

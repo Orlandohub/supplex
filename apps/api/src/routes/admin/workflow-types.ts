@@ -4,30 +4,30 @@ import { workflowType, workflowTemplate, supplierStatus } from "@supplex/db";
 import { eq, and, count } from "drizzle-orm";
 import { Errors } from "../../lib/errors";
 export const workflowTypeRoutes = new Elysia()
-  .get(
-    "/workflow-types",
-    async ({ user, set }: any) => {
-      const rows = await db
-        .select({
-          id: workflowType.id,
-          tenantId: workflowType.tenantId,
-          name: workflowType.name,
-          supplierStatusId: workflowType.supplierStatusId,
-          supplierStatusName: supplierStatus.name,
-          createdAt: workflowType.createdAt,
-          updatedAt: workflowType.updatedAt,
-        })
-        .from(workflowType)
-        .leftJoin(supplierStatus, eq(workflowType.supplierStatusId, supplierStatus.id))
-        .where(eq(workflowType.tenantId, user.tenantId))
-        .orderBy(workflowType.name);
+  .get("/workflow-types", async ({ user }: any) => {
+    const rows = await db
+      .select({
+        id: workflowType.id,
+        tenantId: workflowType.tenantId,
+        name: workflowType.name,
+        supplierStatusId: workflowType.supplierStatusId,
+        supplierStatusName: supplierStatus.name,
+        createdAt: workflowType.createdAt,
+        updatedAt: workflowType.updatedAt,
+      })
+      .from(workflowType)
+      .leftJoin(
+        supplierStatus,
+        eq(workflowType.supplierStatusId, supplierStatus.id)
+      )
+      .where(eq(workflowType.tenantId, user.tenantId))
+      .orderBy(workflowType.name);
 
-      return { success: true, data: rows };
-    }
-  )
+    return { success: true, data: rows };
+  })
   .post(
     "/workflow-types",
-    async ({ body, user, set }: any) => {
+    async ({ body, user }: any) => {
       const { name, supplierStatusId } = body;
 
       const [created] = await db
@@ -50,7 +50,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .patch(
     "/workflow-types/:id",
-    async ({ params, body, user, set }: any) => {
+    async ({ params, body, user }: any) => {
       const [existing] = await db
         .select()
         .from(workflowType)
@@ -69,7 +69,9 @@ export const workflowTypeRoutes = new Elysia()
         .update(workflowType)
         .set({
           ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.supplierStatusId !== undefined ? { supplierStatusId: body.supplierStatusId } : {}),
+          ...(body.supplierStatusId !== undefined
+            ? { supplierStatusId: body.supplierStatusId }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(workflowType.id, params.id))
@@ -87,7 +89,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .delete(
     "/workflow-types/:id",
-    async ({ params, user, set }: any) => {
+    async ({ params, user }: any) => {
       const [existing] = await db
         .select()
         .from(workflowType)
@@ -113,9 +115,7 @@ export const workflowTypeRoutes = new Elysia()
         );
       }
 
-      await db
-        .delete(workflowType)
-        .where(eq(workflowType.id, params.id));
+      await db.delete(workflowType).where(eq(workflowType.id, params.id));
 
       return { success: true };
     },

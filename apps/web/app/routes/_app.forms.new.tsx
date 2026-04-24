@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Create New Form Submission Page
  * Start a new form submission
  * Story: 2.2.4 - Form Runtime Execution with Save Draft
@@ -11,7 +11,7 @@ import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import type { FormTemplateWithStructure } from "@supplex/types";
+import type { FormTemplateWithStructureUI } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
 import { FormRenderer } from "~/components/form-runtime/FormRenderer";
 import { useFormSubmission } from "~/hooks/useFormSubmission";
@@ -67,7 +67,7 @@ export async function loader(args: LoaderFunctionArgs) {
     // Fetch form template structure
     // TODO: Add endpoint GET /api/form-templates/:id with sections/fields
     // For MVP, we'll return minimal structure
-    const formVersion: FormTemplateWithStructure = {
+    const formVersion: FormTemplateWithStructureUI = {
       id: formTemplateId,
       formTemplateId: formTemplateId,
       tenantId: userRecord.tenantId,

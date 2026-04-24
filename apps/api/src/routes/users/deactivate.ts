@@ -25,7 +25,7 @@ export const deactivateUserRoute = new Elysia({ prefix: "/users" })
   .use(requireAdmin)
   .patch(
     "/:id/status",
-    async ({ params, body, user, set, headers, requestLogger }: any) => {
+    async ({ params, body, user, headers, requestLogger }: any) => {
       try {
         const { id: targetUserId } = params;
         const { isActive } = body;

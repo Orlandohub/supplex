@@ -128,10 +128,9 @@ export const workflowStepTemplate = pgTable(
     }),
 
     // Form integration
-    formTemplateId: uuid("form_template_id").references(
-      () => formTemplate.id,
-      { onDelete: "restrict" }
-    ),
+    formTemplateId: uuid("form_template_id").references(() => formTemplate.id, {
+      onDelete: "restrict",
+    }),
     formActionMode: formActionModeEnum("form_action_mode"),
 
     // Document integration
@@ -196,7 +195,7 @@ export const workflowStepTemplate = pgTable(
  */
 export const workflowStepTemplateRelations = relations(
   workflowStepTemplate,
-  ({ one, many }) => ({
+  ({ one }) => ({
     workflowTemplate: one(workflowTemplate, {
       fields: [workflowStepTemplate.workflowTemplateId],
       references: [workflowTemplate.id],
@@ -249,4 +248,3 @@ export type InsertWorkflowStepTemplate =
   typeof workflowStepTemplate.$inferInsert;
 export type SelectWorkflowStepTemplate =
   typeof workflowStepTemplate.$inferSelect;
-

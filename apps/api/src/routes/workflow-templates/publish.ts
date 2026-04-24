@@ -3,7 +3,10 @@ import { db } from "../../lib/db";
 import { workflowTemplate, workflowStepTemplate } from "@supplex/db";
 import { eq, and, isNull, ne, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
-import { logWorkflowEvent, WorkflowEventType } from "../../services/workflow-event-logger";
+import {
+  logWorkflowEvent,
+  WorkflowEventType,
+} from "../../services/workflow-event-logger";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -14,7 +17,7 @@ import { ApiError, Errors } from "../../lib/errors";
  * Tenant: Enforces tenant isolation
  * Validation:
  * - Template must have at least one step to publish
- * 
+ *
  * Behavior: Toggles between draft ↔ published status
  * Returns: Updated template
  */
@@ -22,7 +25,7 @@ export const publishWorkflowTemplateRoute = new Elysia()
   .use(requireAdmin)
   .patch(
     "/:templateId/publish",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       try {
         const tenantId = user.tenantId as string;
         const { templateId } = params;
@@ -41,7 +44,10 @@ export const publishWorkflowTemplateRoute = new Elysia()
           .limit(1);
 
         if (!template) {
-          throw Errors.notFound("Workflow template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
+          throw Errors.notFound(
+            "Workflow template not found or you don't have access to it",
+            "TEMPLATE_NOT_FOUND"
+          );
         }
 
         // If publishing (draft → published), validate structure
@@ -59,7 +65,10 @@ export const publishWorkflowTemplateRoute = new Elysia()
             );
 
           if (!stepCount || stepCount.count === 0) {
-            throw Errors.badRequest("Cannot publish template without steps. Please add at least one step.", "VALIDATION_ERROR");
+            throw Errors.badRequest(
+              "Cannot publish template without steps. Please add at least one step.",
+              "VALIDATION_ERROR"
+            );
           }
 
           // Duplicate name: only one published template per tenant with a given name
@@ -78,7 +87,10 @@ export const publishWorkflowTemplateRoute = new Elysia()
             .limit(1);
 
           if (nameConflict) {
-            throw Errors.conflict("A published workflow template with this name already exists. Rename this template before publishing.", "DUPLICATE_TEMPLATE_NAME");
+            throw Errors.conflict(
+              "A published workflow template with this name already exists. Rename this template before publishing.",
+              "DUPLICATE_TEMPLATE_NAME"
+            );
           }
         }
 
@@ -113,7 +125,10 @@ export const publishWorkflowTemplateRoute = new Elysia()
         };
       } catch (error: any) {
         if (error instanceof ApiError) throw error;
-        requestLogger.error({ err: error }, "Workflow template publish toggle failed");
+        requestLogger.error(
+          { err: error },
+          "Workflow template publish toggle failed"
+        );
         throw Errors.internal("Failed to toggle publish status");
       }
     },

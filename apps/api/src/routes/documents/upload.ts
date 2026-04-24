@@ -1,8 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate, requirePermission } from "../../lib/rbac/middleware";
-import { UserRole, PermissionAction } from "@supplex/types";
+import { requirePermission } from "../../lib/rbac/middleware";
+import { PermissionAction } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { validateFileMagicBytes } from "../../lib/file-validation";
 import { randomUUID } from "crypto";
@@ -64,7 +64,7 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
   .use(requirePermission(PermissionAction.UPLOAD_DOCUMENTS))
   .post(
     "/suppliers/:id/documents",
-    async ({ params, body, user, set, requestLogger }: any) => {
+    async ({ params, body, user, requestLogger }: any) => {
       const { id: supplierId } = params;
       const { file, documentType, description, expiryDate } = body;
 
@@ -83,7 +83,9 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
         .limit(1);
 
       if (supplier.length === 0) {
-        throw Errors.notFound("Supplier not found or does not belong to your tenant");
+        throw Errors.notFound(
+          "Supplier not found or does not belong to your tenant"
+        );
       }
 
       // Validate file (header-based)
@@ -120,15 +122,24 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
           });
 
         if (uploadError) {
-          requestLogger.error({ err: uploadError }, "Supabase Storage upload error");
+          requestLogger.error(
+            { err: uploadError },
+            "Supabase Storage upload error"
+          );
 
           // Handle specific storage errors
           if (uploadError.message.includes("Bucket not found")) {
-            throw Errors.internal("Storage bucket not configured. Please contact support.");
+            throw Errors.internal(
+              "Storage bucket not configured. Please contact support."
+            );
           }
 
           if (uploadError.message.includes("quota")) {
-            throw new ApiError(507, "STORAGE_QUOTA_EXCEEDED", "Storage quota exceeded. Please contact support.");
+            throw new ApiError(
+              507,
+              "STORAGE_QUOTA_EXCEEDED",
+              "Storage quota exceeded. Please contact support."
+            );
           }
 
           throw Errors.internal(`File upload failed: ${uploadError.message}`);
@@ -164,7 +175,10 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
             .from("supplier-documents")
             .remove([storagePath]);
         } catch (cleanupError) {
-          requestLogger.error({ err: cleanupError }, "failed to clean up file after error");
+          requestLogger.error(
+            { err: cleanupError },
+            "failed to clean up file after error"
+          );
         }
 
         throw error;

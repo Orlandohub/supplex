@@ -15,7 +15,7 @@ export const viewDocumentRoute = new Elysia({ prefix: "/api" })
   .use(authenticate)
   .get(
     "/documents/:id/view",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, requestLogger }: any) => {
       if (!user?.id || !user?.tenantId) {
         throw Errors.unauthorized("Unauthorized");
       }
