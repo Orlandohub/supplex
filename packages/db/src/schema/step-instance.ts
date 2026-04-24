@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { processInstance } from "./process-instance";
 import { tenants } from "./tenants";
@@ -82,12 +83,16 @@ export const stepInstance = pgTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     processInstanceId: uuid("process_instance_id")
       .notNull()
-      .references(() => processInstance.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => processInstance.id, {
+        onDelete: "cascade",
+      }),
     stepOrder: integer("step_order").notNull(),
     stepName: varchar("step_name", { length: 200 }).notNull(),
     stepType: varchar("step_type", { length: 50 }).notNull(),
-    workflowStepTemplateId: uuid("workflow_step_template_id")
-      .references(() => workflowStepTemplate.id, { onDelete: "set null" }),
+    workflowStepTemplateId: uuid("workflow_step_template_id").references(
+      () => workflowStepTemplate.id,
+      { onDelete: "set null" }
+    ),
     status: stepInstanceStatusEnum("status")
       .notNull()
       .default(StepStatus.PENDING),
@@ -159,4 +164,3 @@ export const stepInstanceRelations = relations(stepInstance, ({ one }) => ({
 // Type for inserting/selecting step instances
 export type InsertStepInstance = typeof stepInstance.$inferInsert;
 export type SelectStepInstance = typeof stepInstance.$inferSelect;
-

@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { users } from "./users";
@@ -75,10 +76,14 @@ export const processInstance = pgTable(
     status: workflowProcessStatusEnum("status")
       .notNull()
       .default("in_progress"),
-    currentStepInstanceId: uuid("current_step_instance_id")
-      .references(() => stepInstance.id, { onDelete: "set null" }),
-    workflowTemplateId: uuid("workflow_template_id")
-      .references(() => workflowTemplate.id, { onDelete: "set null" }),
+    currentStepInstanceId: uuid("current_step_instance_id").references(
+      (): AnyPgColumn => stepInstance.id,
+      { onDelete: "set null" }
+    ),
+    workflowTemplateId: uuid("workflow_template_id").references(
+      () => workflowTemplate.id,
+      { onDelete: "set null" }
+    ),
     workflowName: varchar("workflow_name", { length: 255 }),
     initiatedBy: uuid("initiated_by")
       .notNull()
@@ -156,4 +161,3 @@ export const processInstanceRelations = relations(
 // Type for inserting/selecting process instances
 export type InsertProcessInstance = typeof processInstance.$inferInsert;
 export type SelectProcessInstance = typeof processInstance.$inferSelect;
-
