@@ -9,7 +9,10 @@ import { ApiError } from "./errors";
 function handleTestError({ error, set }: { error: Error; set: any }) {
   if (error instanceof ApiError) {
     set.status = error.statusCode;
-    return { success: false, error: { code: error.code, message: error.message } };
+    return {
+      success: false,
+      error: { code: error.code, message: error.message },
+    };
   }
   if (error && typeof error === "object" && "statusCode" in error) {
     const e = error as any;
@@ -26,12 +29,12 @@ function handleTestError({ error, set }: { error: Error; set: any }) {
  * Use instead of `new Elysia()` in tests.
  */
 export function createTestApp() {
-  return new Elysia().onError(handleTestError);
+  return new Elysia().onError(handleTestError as any);
 }
 
 /**
  * Adds the standard ApiError handler to an existing Elysia instance.
  */
 export function withApiErrorHandler<T extends Elysia>(app: T): T {
-  return app.onError(handleTestError) as T;
+  return app.onError(handleTestError as any) as T;
 }

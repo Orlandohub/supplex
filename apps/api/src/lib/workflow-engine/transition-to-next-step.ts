@@ -2,7 +2,7 @@
  * Step Transition Helper: Transition to Next Step
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: Story 2.2.19 - Transaction threading (tx required)
- * 
+ *
  * Handles transitioning from current step to next step in workflow
  */
 
@@ -90,11 +90,9 @@ export async function transitionToNextStep(
     }
 
     const workflowTemplateId = process.workflowTemplateId;
-    
+
     if (!workflowTemplateId) {
-      throw new Error(
-        `workflowTemplateId not found for process ${processId}`
-      );
+      throw new Error(`workflowTemplateId not found for process ${processId}`);
     }
 
     const stepTemplates = await tx
@@ -110,6 +108,8 @@ export async function transitionToNextStep(
 
     if (stepTemplates.length > 0) {
       const nextStepTemplate = stepTemplates[0];
+      if (!nextStepTemplate)
+        throw new Error("Failed to find next step template");
       await createTasksForStep(
         tx,
         nextStep.id,
@@ -118,7 +118,10 @@ export async function transitionToNextStep(
         tenantId
       );
 
-      if (nextStepTemplate.stepType === "document" && nextStepTemplate.documentTemplateId) {
+      if (
+        nextStepTemplate.stepType === "document" &&
+        nextStepTemplate.documentTemplateId
+      ) {
         await seedStepDocuments(
           tx,
           nextStep.id,
@@ -128,8 +131,15 @@ export async function transitionToNextStep(
         );
       }
     } else {
-      const transLog = (log || defaultLogger).child({ action: "transitionToNextStep", tenantId, processId });
-      transLog.warn({ stepOrder: nextStep.stepOrder, workflowTemplateId }, "no workflow step template found for step order");
+      const transLog = (log || defaultLogger).child({
+        action: "transitionToNextStep",
+        tenantId,
+        processId,
+      });
+      transLog.warn(
+        { stepOrder: nextStep.stepOrder, workflowTemplateId },
+        "no workflow step template found for step order"
+      );
     }
 
     return {
@@ -156,9 +166,18 @@ export async function transitionToNextStep(
         entityId: processInstance.entityId,
       })
       .from(processInstance)
-      .innerJoin(workflowTemplate, eq(workflowTemplate.id, processInstance.workflowTemplateId))
-      .innerJoin(workflowType, eq(workflowType.id, workflowTemplate.workflowTypeId))
-      .innerJoin(supplierStatus, eq(supplierStatus.id, workflowType.supplierStatusId))
+      .innerJoin(
+        workflowTemplate,
+        eq(workflowTemplate.id, processInstance.workflowTemplateId)
+      )
+      .innerJoin(
+        workflowType,
+        eq(workflowType.id, workflowTemplate.workflowTypeId)
+      )
+      .innerJoin(
+        supplierStatus,
+        eq(supplierStatus.id, workflowType.supplierStatusId)
+      )
       .where(
         and(
           eq(processInstance.id, processId),

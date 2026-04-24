@@ -114,6 +114,9 @@ export const updateNotificationPreferencesRoute = new Elysia({
             .where(eq(userNotificationPreferences.id, existingPref.id))
             .returning();
 
+          if (!updated)
+            throw new Error("Failed to update notification preference");
+
           return {
             success: true,
             data: {
@@ -134,6 +137,9 @@ export const updateNotificationPreferencesRoute = new Elysia({
               unsubscribedAt: emailEnabled ? null : new Date(),
             })
             .returning();
+
+          if (!created)
+            throw new Error("Failed to create notification preference");
 
           return {
             success: true,

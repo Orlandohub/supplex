@@ -3,7 +3,7 @@
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: 2.2.14 - Remove Template Versioning
  * Updated: 2.2.19 - Transaction wrapping, batch inserts
- * 
+ *
  * Creates a new workflow process instance from a published workflow template
  */
 
@@ -36,7 +36,7 @@ interface InstantiateWorkflowResult {
   success: boolean;
   data?: {
     processInstance: typeof processInstance.$inferSelect;
-    steps: typeof stepInstance.$inferSelect[];
+    steps: (typeof stepInstance.$inferSelect)[];
   };
   error?: string;
 }
@@ -108,6 +108,8 @@ export async function instantiateWorkflow(
         })
         .returning();
 
+      if (!process) throw new Error("Failed to create process instance");
+
       const stepTemplates = await tx
         .select()
         .from(workflowStepTemplate)
@@ -135,7 +137,8 @@ export async function instantiateWorkflow(
             stepName: st.name,
             stepType: st.stepType,
             workflowStepTemplateId: st.id,
-            status: st.stepOrder === 1 ? "active" : "blocked",
+            status:
+              st.stepOrder === 1 ? ("active" as const) : ("blocked" as const),
             metadata: {},
           }))
         )
@@ -153,7 +156,10 @@ export async function instantiateWorkflow(
           tenantId
         );
 
-        if (firstStepTemplate.stepType === "document" && firstStepTemplate.documentTemplateId) {
+        if (
+          firstStepTemplate.stepType === "document" &&
+          firstStepTemplate.documentTemplateId
+        ) {
           await seedStepDocuments(
             tx,
             firstStep.id,
@@ -175,6 +181,8 @@ export async function instantiateWorkflow(
         .where(eq(processInstance.id, process.id))
         .returning();
 
+      if (!updatedProcess) throw new Error("Failed to update process instance");
+
       return {
         success: true,
         data: {
@@ -184,9 +192,13 @@ export async function instantiateWorkflow(
       };
     });
   } catch (error) {
-    const instLog = (log || defaultLogger).child({ action: "instantiateWorkflow", tenantId: params.tenantId });
+    const instLog = (log || defaultLogger).child({
+      action: "instantiateWorkflow",
+      tenantId: params.tenantId,
+    });
     instLog.error({ err: error }, "error instantiating workflow");
-    const message = error instanceof Error ? error.message : "Failed to instantiate workflow";
+    const message =
+      error instanceof Error ? error.message : "Failed to instantiate workflow";
     return {
       success: false,
       error: message,

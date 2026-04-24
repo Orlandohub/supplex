@@ -52,6 +52,9 @@ export const copyFormTemplate = new Elysia().use(requireAdmin).post(
           })
           .returning();
 
+        if (!newTemplate)
+          throw new Error("Failed to create form template copy");
+
         const sections = await tx
           .select()
           .from(formSection)
@@ -76,6 +79,9 @@ export const copyFormTemplate = new Elysia().use(requireAdmin).post(
               metadata: section.metadata,
             })
             .returning();
+
+          if (!newSection)
+            throw new Error("Failed to create form section copy");
 
           const fields = await tx
             .select()

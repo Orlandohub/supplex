@@ -14,7 +14,7 @@ import { ApiError, Errors } from "../../lib/errors";
  */
 export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
   "/accept-invitation",
-  async ({ body, set, requestLogger }) => {
+  async ({ body, set, requestLogger }: any) => {
     try {
       const { token, password } = body;
 
@@ -34,12 +34,19 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
 
       // Step 3: Check if invitation is not expired (expiresAt > NOW())
       if (new Date(invitation.expiresAt) < new Date()) {
-        throw new ApiError(410, "INVITATION_EXPIRED", "Invitation link has expired");
+        throw new ApiError(
+          410,
+          "INVITATION_EXPIRED",
+          "Invitation link has expired"
+        );
       }
 
       // Step 4: Validate password
       if (!password || password.length < 8) {
-        throw Errors.badRequest("Password must be at least 8 characters long", "WEAK_PASSWORD");
+        throw Errors.badRequest(
+          "Password must be at least 8 characters long",
+          "WEAK_PASSWORD"
+        );
       }
 
       // Basic password complexity check
@@ -65,15 +72,16 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
       }
 
       // Step 5: Update Supabase Auth user password
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        {
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
           password,
-        }
-      );
+        });
 
       if (updateError) {
-        requestLogger.error({ err: updateError }, "Error updating user password");
+        requestLogger.error(
+          { err: updateError },
+          "Error updating user password"
+        );
         throw Errors.internal("Failed to set password");
       }
 
@@ -125,4 +133,3 @@ export const acceptInvitationRoute = new Elysia({ prefix: "/auth" }).post(
     },
   }
 );
-

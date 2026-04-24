@@ -280,6 +280,7 @@ export const getProcessRoute = new Elysia().use(authenticate).get(
           };
         }
         const p = documentProgressByStep[doc.stepInstanceId];
+        if (!p) continue;
         p.total++;
         if (doc.status === "uploaded") p.uploaded++;
         else if (doc.status === "approved") p.approved++;

@@ -2,12 +2,17 @@
  * Step Transition Helper: Return to Previous Step
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: Story 2.2.19 - Transaction threading (tx required)
- * 
+ *
  * Handles returning to a previous step when current step is declined
  */
 
 import type { DbOrTx } from "@supplex/db";
-import { stepInstance, StepStatus, processInstance, workflowStepTemplate } from "@supplex/db";
+import {
+  stepInstance,
+  StepStatus,
+  processInstance,
+  workflowStepTemplate,
+} from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { createTasksForStep } from "./create-tasks-for-step";
 
@@ -100,7 +105,9 @@ export async function returnToPreviousStep(
 
   if (stepTemplates.length > 0) {
     const targetStepTemplate = stepTemplates[0];
-    
+    if (!targetStepTemplate)
+      throw new Error("Failed to find target step template");
+
     await createTasksForStep(
       tx,
       targetStep.id,

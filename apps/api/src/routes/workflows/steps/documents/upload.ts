@@ -157,6 +157,8 @@ export const uploadStepDocumentRoute = new Elysia().use(authenticate).post(
         })
         .returning();
 
+      if (!newDoc) throw new Error("Failed to create document record");
+
       const expiryDate = (body as any).expiryDate
         ? new Date((body as any).expiryDate)
         : null;

@@ -63,7 +63,9 @@ function getJWKS(): ReturnType<typeof jose.createRemoteJWKSet> {
     const base = config.supabase.url.endsWith("/")
       ? config.supabase.url
       : `${config.supabase.url}/`;
-    jwks = jose.createRemoteJWKSet(new URL(`${base}auth/v1/.well-known/jwks.json`));
+    jwks = jose.createRemoteJWKSet(
+      new URL(`${base}auth/v1/.well-known/jwks.json`)
+    );
   }
   return jwks;
 }
@@ -119,7 +121,9 @@ export async function verifyJWT(token: string): Promise<SupabaseJWTPayload> {
         ...verifyOptions,
         algorithms: ["HS256"],
       }));
-      logger.warn("JWT verified via HMAC fallback — legacy HS256 token detected");
+      logger.warn(
+        "JWT verified via HMAC fallback — legacy HS256 token detected"
+      );
     } else if (alg === "ES256") {
       ({ payload } = await jose.jwtVerify(token, getJWKS(), verifyOptions));
     } else {
@@ -133,10 +137,16 @@ export async function verifyJWT(token: string): Promise<SupabaseJWTPayload> {
       throw new JWTVerificationError("JWT token has expired", "TOKEN_EXPIRED");
     }
     if (error instanceof jose.errors.JWTInvalid) {
-      throw new JWTVerificationError("JWT token is invalid or malformed", "INVALID_TOKEN");
+      throw new JWTVerificationError(
+        "JWT token is invalid or malformed",
+        "INVALID_TOKEN"
+      );
     }
     if (error instanceof jose.errors.JWTClaimValidationFailed) {
-      throw new JWTVerificationError(`JWT claim validation failed: ${error.message}`, "INVALID_TOKEN");
+      throw new JWTVerificationError(
+        `JWT claim validation failed: ${error.message}`,
+        "INVALID_TOKEN"
+      );
     }
     if (error instanceof JWTVerificationError) {
       throw error;
@@ -149,10 +159,13 @@ export async function verifyJWT(token: string): Promise<SupabaseJWTPayload> {
 
   // Step 3: Validate required claims
   if (!payload.sub) {
-    throw new JWTVerificationError("Missing user ID (sub claim)", "MISSING_CLAIMS");
+    throw new JWTVerificationError(
+      "Missing user ID (sub claim)",
+      "MISSING_CLAIMS"
+    );
   }
 
-  return payload as SupabaseJWTPayload;
+  return payload as unknown as SupabaseJWTPayload;
 }
 
 // ---------------------------------------------------------------------------

@@ -56,12 +56,12 @@ export async function sendEmail(
   try {
     emailLogger.debug({ recipient: to, subject }, "Sending email via Resend");
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = (await resend.emails.send({
       from: emailFrom,
       to,
       subject,
       html,
-    });
+    })) as any;
 
     if (error) {
       emailLogger.error({ err: error, recipient: to }, "Resend API error");
@@ -72,21 +72,30 @@ export async function sendEmail(
     }
 
     if (!data?.id) {
-      emailLogger.error({ recipient: to }, "No message ID returned from Resend");
+      emailLogger.error(
+        { recipient: to },
+        "No message ID returned from Resend"
+      );
       return {
         success: false,
         error: "No message ID returned from Resend",
       };
     }
 
-    emailLogger.info({ messageId: data.id, recipient: to }, "Email sent successfully");
+    emailLogger.info(
+      { messageId: data.id, recipient: to },
+      "Email sent successfully"
+    );
     return {
       success: true,
       messageId: data.id,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    emailLogger.error({ err: error, recipient: to }, "Unexpected error sending email");
+    emailLogger.error(
+      { err: error, recipient: to },
+      "Unexpected error sending email"
+    );
 
     // Handle specific error types
     if (errorMessage.includes("rate limit")) {

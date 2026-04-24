@@ -60,7 +60,12 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
           );
         }
 
-        const { supplier, createdByUser } = result[0];
+        const firstRow = result[0];
+        if (!firstRow)
+          throw Errors.notFound(
+            "Supplier not found or you don't have access to this supplier."
+          );
+        const { supplier, createdByUser } = firstRow;
 
         // Entity-level authorization: supplier_user can only view their own supplier
         if (user.role === UserRole.SUPPLIER_USER) {

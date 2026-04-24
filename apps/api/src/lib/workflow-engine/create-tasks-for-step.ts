@@ -3,12 +3,18 @@
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: Story 2.2.10 - Supplier User Auto-Assignment
  * Updated: Story 2.2.19 - Transaction threading, idempotency guards
- * 
+ *
  * Creates task instances when a workflow step becomes active
  */
 
 import type { DbOrTx } from "@supplex/db";
-import { taskInstance, workflowStepTemplate, processInstance, users, suppliers } from "@supplex/db";
+import {
+  taskInstance,
+  workflowStepTemplate,
+  processInstance,
+  users,
+  suppliers,
+} from "@supplex/db";
 import { eq, and, isNull, sql, aliasedTable } from "drizzle-orm";
 import type { Logger } from "pino";
 import defaultLogger from "../logger";
@@ -65,16 +71,25 @@ async function resolveSupplierUser(
   }
 
   if (result.entityType === "supplier" && result.supplierUserId) {
-    taskLog.info({ assignee: result.supplierUserId }, "assigned to supplier user");
+    taskLog.info(
+      { assignee: result.supplierUserId },
+      "assigned to supplier user"
+    );
     return result.supplierUserId;
   }
 
   if (result.pmId) {
-    taskLog.info({ assignee: result.pmId }, "assigned to procurement manager (fallback)");
+    taskLog.info(
+      { assignee: result.pmId },
+      "assigned to procurement manager (fallback)"
+    );
     return result.pmId;
   }
 
-  taskLog.warn({ tenantId }, "no procurement manager found, using process initiator as last resort");
+  taskLog.warn(
+    { tenantId },
+    "no procurement manager found, using process initiator as last resort"
+  );
   return result.initiatedBy;
 }
 
@@ -86,8 +101,12 @@ export async function createTasksForStep(
   tenantId: string,
   options?: { isResubmission?: boolean },
   log?: Logger
-): Promise<typeof taskInstance.$inferSelect[]> {
-  const taskLog = (log || defaultLogger).child({ action: "createTasksForStep", tenantId, stepId: stepInstanceId });
+): Promise<(typeof taskInstance.$inferSelect)[]> {
+  const taskLog = (log || defaultLogger).child({
+    action: "createTasksForStep",
+    tenantId,
+    stepId: stepInstanceId,
+  });
   const [stepTemplate] = await tx
     .select()
     .from(workflowStepTemplate)
@@ -119,7 +138,10 @@ export async function createTasksForStep(
     );
 
   if (existingTasks.length > 0) {
-    taskLog.warn({ existingCount: existingTasks.length, taskType }, "idempotency: existing pending tasks found, skipping insert");
+    taskLog.warn(
+      { existingCount: existingTasks.length, taskType },
+      "idempotency: existing pending tasks found, skipping insert"
+    );
     return existingTasks;
   }
 
@@ -132,7 +154,12 @@ export async function createTasksForStep(
   let assigneeRole = stepTemplate.assigneeRole || undefined;
 
   if (stepTemplate.assigneeRole === "supplier_user") {
-    const resolvedUserId = await resolveSupplierUser(tx, processInstanceId, tenantId, taskLog);
+    const resolvedUserId = await resolveSupplierUser(
+      tx,
+      processInstanceId,
+      tenantId,
+      taskLog
+    );
     if (resolvedUserId) {
       assigneeUserId = resolvedUserId;
       assigneeType = "user";
@@ -154,8 +181,8 @@ export async function createTasksForStep(
       completionTimeDays: stepTemplate.dueDays || undefined,
       dueAt: dueAt,
       taskType,
-      status: "pending",
-    })
+      status: "pending" as const,
+    } as any)
     .onConflictDoNothing()
     .returning();
 
@@ -177,4 +204,3 @@ export async function createTasksForStep(
 
   return [task];
 }
-

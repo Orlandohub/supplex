@@ -58,7 +58,9 @@ export const instantiateRoute = new Elysia()
         });
 
         if (!result.success) {
-          throw Errors.badRequest(result.error);
+          throw Errors.badRequest(
+            result.error ?? "Failed to instantiate workflow"
+          );
         }
 
         const { processInstance: process, steps } = result.data!;

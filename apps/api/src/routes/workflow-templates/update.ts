@@ -67,6 +67,8 @@ export const updateWorkflowTemplateRoute = new Elysia().use(requireAdmin).put(
         .where(eq(workflowTemplate.id, workflowId))
         .returning();
 
+      if (!updated) throw new Error("Failed to update workflow template");
+
       logWorkflowEvent({
         tenantId,
         eventType: WorkflowEventType.TEMPLATE_UPDATED,

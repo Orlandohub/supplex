@@ -29,7 +29,7 @@ import { ApiError, Errors } from "../../lib/errors";
  */
 export const updateContactRoute = new Elysia().use(authenticate).patch(
   "/suppliers/:id/contact",
-  async ({ params, body, user, headers, requestLogger }) => {
+  async ({ params, body, user, headers, requestLogger }: any) => {
     // Check role: Admin or Procurement Manager
     if (
       !user?.role ||
@@ -122,6 +122,8 @@ export const updateContactRoute = new Elysia().use(authenticate).patch(
         .set(updateData)
         .where(eq(users.id, userId))
         .returning();
+
+      if (!updatedUser) throw new Error("Failed to update supplier contact");
 
       // Step 6: Invalidate auth cache (CRITICAL for security)
       if (isActive !== undefined && isActive !== currentUser.isActive) {
