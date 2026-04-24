@@ -100,7 +100,9 @@ export function EditSupplierContactModal({
       const client = createEdenTreatyClient(token);
 
       // Submit update request
-      const response = await client.api.suppliers[supplierId].contact.patch({
+      const response = await (client.api.suppliers as any)[
+        supplierId
+      ].contact.patch({
         fullName: data.fullName,
         email: data.email,
         isActive: data.isActive,

@@ -144,7 +144,9 @@ export default function FormTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
-      const response = await client.api["form-templates"][templateId].delete();
+      const response = await (client.api["form-templates"] as any)[
+        templateId
+      ].delete();
 
       if (response.error) {
         toast({

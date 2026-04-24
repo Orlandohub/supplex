@@ -96,7 +96,7 @@ export function AddFieldModal({
           ? { choices: options }
           : {};
 
-      const response = await client.api["form-templates"].sections[
+      const response = await (client.api["form-templates"].sections as any)[
         sectionId
       ].fields.post({
         label: label.trim(),

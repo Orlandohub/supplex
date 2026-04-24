@@ -40,26 +40,29 @@ interface Props {
   canEdit: boolean;
 }
 
-export function WorkflowMetadataEditor({ 
-  template, 
+export function WorkflowMetadataEditor({
+  template,
   workflowTypes = [],
-  token, 
-  onUpdate, 
-  canEdit 
+  token,
+  onUpdate,
+  canEdit,
 }: Props) {
   const [name, setName] = useState(template.name);
   const [description, setDescription] = useState(template.description || "");
-  const [workflowTypeId, setWorkflowTypeId] = useState<string | null>(template.workflowTypeId || null);
+  const [workflowTypeId, setWorkflowTypeId] = useState<string | null>(
+    template.workflowTypeId || null
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!canEdit) {
       toast({
         title: "Cannot Edit",
-        description: "Published templates cannot be edited. Please copy the template to make changes.",
+        description:
+          "Published templates cannot be edited. Please copy the template to make changes.",
         variant: "destructive",
       });
       return;
@@ -69,7 +72,9 @@ export function WorkflowMetadataEditor({
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["workflow-templates"][template.id].put({
+      const response = await (client.api["workflow-templates"] as any)[
+        template.id
+      ].put({
         name,
         description: description || undefined,
         workflowTypeId: workflowTypeId,
@@ -124,13 +129,17 @@ export function WorkflowMetadataEditor({
           </div>
           <div className="space-y-2">
             <Label>Process Type</Label>
-            <div className="text-sm text-muted-foreground">{template.processType}</div>
+            <div className="text-sm text-muted-foreground">
+              {template.processType}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="workflowTypeId">Workflow Type (Optional)</Label>
             <Select
               value={workflowTypeId || "__none__"}
-              onValueChange={(v) => setWorkflowTypeId(v === "__none__" ? null : v)}
+              onValueChange={(v) =>
+                setWorkflowTypeId(v === "__none__" ? null : v)
+              }
               disabled={!canEdit}
             >
               <SelectTrigger>
@@ -146,7 +155,9 @@ export function WorkflowMetadataEditor({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Workflow type determines behavior on completion (e.g., auto-updating supplier status). Configure types in the Workflow Types tab.
+              Workflow type determines behavior on completion (e.g.,
+              auto-updating supplier status). Configure types in the Workflow
+              Types tab.
             </p>
           </div>
           <Button type="submit" disabled={isSubmitting || !canEdit}>
@@ -154,7 +165,8 @@ export function WorkflowMetadataEditor({
           </Button>
           {!canEdit && (
             <p className="text-sm text-muted-foreground">
-              Published templates are read-only. Copy this template to make changes.
+              Published templates are read-only. Copy this template to make
+              changes.
             </p>
           )}
         </form>
@@ -162,7 +174,3 @@ export function WorkflowMetadataEditor({
     </Card>
   );
 }
-
-
-
-

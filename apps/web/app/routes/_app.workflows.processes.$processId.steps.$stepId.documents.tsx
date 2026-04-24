@@ -65,7 +65,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const client = createEdenTreatyClient(token);
 
-  const docsResponse = await client.api.workflows.steps[stepId].documents.get();
+  const docsResponse = await (client.api.workflows.steps as any)[
+    stepId
+  ].documents.get();
 
   if (docsResponse.error) {
     const status = docsResponse.status || 500;
@@ -79,7 +81,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const docsData = (docsResponse.data as any)?.data;
 
-  const processResponse = await client.api.workflows.processes[processId].get();
+  const processResponse = await (client.api.workflows.processes as any)[
+    processId
+  ].get();
   if (processResponse.error) {
     const status = processResponse.status || 500;
     if (status === 403) {
@@ -243,7 +247,7 @@ export default function WorkflowStepDocumentsPage() {
 
   const handleViewDocument = async (documentId: string) => {
     try {
-      const res = await client.api.documents[documentId].view.get();
+      const res = await (client.api.documents as any)[documentId].view.get();
       const data = (res.data as any)?.data;
       if (data?.url) {
         setViewerUrl(data.url);
@@ -260,7 +264,9 @@ export default function WorkflowStepDocumentsPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await client.api.workflows.steps[stepId].complete.post({
+      const res = await (client.api.workflows.steps as any)[
+        stepId
+      ].complete.post({
         action: "submit",
       });
 

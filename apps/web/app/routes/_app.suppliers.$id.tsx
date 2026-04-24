@@ -121,9 +121,9 @@ export async function loader(args: LoaderFunctionArgs) {
       workflowsResponse,
       supplierStatusesResponse,
     ] = await Promise.all([
-      client.api.suppliers[id].get(),
-      client.api.suppliers[id].documents.get(),
-      client.api.workflows.supplier[id].processes.get(),
+      (client.api.suppliers as any)[id].get(),
+      (client.api.suppliers as any)[id].documents.get(),
+      (client.api.workflows.supplier as any)[id].processes.get(),
       client.api.admin["supplier-statuses"].get(),
     ]);
 
@@ -196,8 +196,9 @@ export async function loader(args: LoaderFunctionArgs) {
     // Fetch supplier form submissions (non-fatal)
     let formSubmissions: any[] = [];
     try {
-      const formsResponse =
-        await client.api["form-submissions"]["by-supplier"][id].get();
+      const formsResponse = await (
+        client.api["form-submissions"]["by-supplier"] as any
+      )[id].get();
       if (!formsResponse.error && formsResponse.data) {
         const formsData = formsResponse.data as any;
         formSubmissions = formsData?.data?.submissions || [];
@@ -294,7 +295,7 @@ export async function action(args: ActionFunctionArgs) {
       const status = formData.get("status") as string;
       const note = formData.get("note") as string | undefined;
 
-      const response = await client.api.suppliers[id].status.patch({
+      const response = await (client.api.suppliers as any)[id].status.patch({
         status,
         note,
       });
@@ -314,7 +315,7 @@ export async function action(args: ActionFunctionArgs) {
 
     if (intent === "delete") {
       // Handle delete
-      const response = await client.api.suppliers[id].delete();
+      const response = await (client.api.suppliers as any)[id].delete();
 
       if (response.error) {
         return json(
@@ -334,7 +335,7 @@ export async function action(args: ActionFunctionArgs) {
       const phone = formData.get("phone") as string;
 
       try {
-        const response = await client.api.suppliers[id].contact.post({
+        const response = await (client.api.suppliers as any)[id].contact.post({
           name,
           email,
           phone: phone || undefined,

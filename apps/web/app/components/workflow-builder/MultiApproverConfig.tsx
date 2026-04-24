@@ -97,14 +97,18 @@ export function MultiApproverConfig({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][templateId].steps[stepId].approvers.get();
+      const response = await (client.api["workflow-templates"] as any)[
+        templateId
+      ].steps[stepId].approvers.get();
 
       if (response.error) {
         throw new Error("Failed to fetch approvers");
       }
 
       const approversData = (response.data?.data || []) as StepApprover[];
-      setApprovers(approversData.sort((a, b) => a.approverOrder - b.approverOrder));
+      setApprovers(
+        approversData.sort((a, b) => a.approverOrder - b.approverOrder)
+      );
     } catch (error) {
       console.error("Error fetching approvers:", error);
       toast({
@@ -133,7 +137,9 @@ export function MultiApproverConfig({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][templateId].steps[stepId].approvers.post({
+      const response = await (client.api["workflow-templates"] as any)[
+        templateId
+      ].steps[stepId].approvers.post({
         approverType: "role",
         approverRole: data.approverRole,
         approverUserId: null,
@@ -168,7 +174,9 @@ export function MultiApproverConfig({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][templateId].steps[stepId].approvers[approverId].delete();
+      const response = await (client.api["workflow-templates"] as any)[
+        templateId
+      ].steps[stepId].approvers[approverId].delete();
 
       if (response.error) {
         throw new Error("Failed to delete approver");
@@ -206,7 +214,9 @@ export function MultiApproverConfig({
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-muted-foreground" />
           <div>
-            <h4 className="text-sm font-semibold">Multiple Roles Configuration</h4>
+            <h4 className="text-sm font-semibold">
+              Multiple Roles Configuration
+            </h4>
             <p className="text-xs text-muted-foreground">
               Requires {approverCount} out of {approvers.length} approvals
             </p>
@@ -225,7 +235,8 @@ export function MultiApproverConfig({
           <div>
             <p className="text-sm font-medium">Incomplete Configuration</p>
             <p className="text-xs text-muted-foreground">
-              You need at least {approverCount} role(s). Currently have {approvers.length}.
+              You need at least {approverCount} role(s). Currently have{" "}
+              {approvers.length}.
             </p>
           </div>
         </div>
@@ -238,7 +249,9 @@ export function MultiApproverConfig({
         </p>
       ) : approvers.length === 0 ? (
         <div className="text-center py-6 border rounded-md border-dashed">
-          <p className="text-sm text-muted-foreground mb-2">No roles configured</p>
+          <p className="text-sm text-muted-foreground mb-2">
+            No roles configured
+          </p>
           <Button onClick={handleOpenDialog} size="sm" variant="outline">
             <Plus className="h-4 w-4 mr-2" />
             Add First Role
@@ -296,7 +309,10 @@ export function MultiApproverConfig({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Select Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select role" />
@@ -311,7 +327,9 @@ export function MultiApproverConfig({
                           Quality Manager
                         </SelectItem>
                         <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="supplier_user">Supplier User</SelectItem>
+                        <SelectItem value="supplier_user">
+                          Supplier User
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
@@ -323,10 +341,16 @@ export function MultiApproverConfig({
               />
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseDialog}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>Add Role</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  Add Role
+                </Button>
               </DialogFooter>
             </form>
           </Form>
@@ -335,4 +359,3 @@ export function MultiApproverConfig({
     </div>
   );
 }
-

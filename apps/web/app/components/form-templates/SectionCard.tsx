@@ -61,8 +61,9 @@ export function SectionCard({
     setIsDeleting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response =
-        await client.api["form-templates"].sections[section.id].delete();
+      const response = await (client.api["form-templates"].sections as any)[
+        section.id
+      ].delete();
 
       if (response.error) {
         toast({
@@ -112,7 +113,7 @@ export function SectionCard({
       const sectionIds = newOrder.map((s) => s.id);
 
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"][
+      const response = await (client.api["form-templates"] as any)[
         templateId
       ].sections.reorder.post({
         sectionIds,

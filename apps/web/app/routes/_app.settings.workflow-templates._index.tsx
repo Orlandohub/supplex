@@ -391,10 +391,9 @@ export default function WorkflowTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response =
-        await client.api["workflow-templates"][templateId][
-          "toggle-active"
-        ].patch();
+      const response = await (client.api["workflow-templates"] as any)[
+        templateId
+      ]["toggle-active"].patch();
 
       if (response.error) {
         throw new Error("Failed to toggle template status");
@@ -429,8 +428,9 @@ export default function WorkflowTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response =
-        await client.api["workflow-templates"][deleteTemplateId].delete();
+      const response = await (client.api["workflow-templates"] as any)[
+        deleteTemplateId
+      ].delete();
 
       if (response.error) {
         throw new Error("Failed to delete template");

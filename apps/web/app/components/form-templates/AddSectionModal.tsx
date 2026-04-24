@@ -53,7 +53,7 @@ export function AddSectionModal({
     setIsSubmitting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"][
+      const response = await (client.api["form-templates"] as any)[
         templateId
       ].sections.post({
         title: title.trim(),
