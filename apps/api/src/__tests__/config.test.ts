@@ -38,7 +38,9 @@ describe("JWT Config (SEC-006: jwt.secret optional)", () => {
       NODE_ENV: "production",
       SUPABASE_JWT_SECRET: "a-real-production-secret-that-is-long-enough",
     });
-    expect(cfg.jwt?.secret).toBe("a-real-production-secret-that-is-long-enough");
+    expect(cfg.jwt?.secret).toBe(
+      "a-real-production-secret-that-is-long-enough"
+    );
   });
 
   test("jwt.secret populated when JWT_SECRET is set", () => {

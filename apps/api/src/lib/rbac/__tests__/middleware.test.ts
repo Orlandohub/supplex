@@ -159,7 +159,7 @@ describe("RBAC Middleware", () => {
       );
 
       expect(response.status).toBe(401);
-      
+
       // Note: This test requires proper Supabase mocking to verify the error response structure
       // Expected response body should contain:
       // {
@@ -181,7 +181,7 @@ describe("RBAC Middleware", () => {
       const response = await app.handle(new Request("http://localhost/test"));
 
       expect(response.status).toBe(401);
-      
+
       // Note: This test requires proper error response parsing
       // Expected response body should contain:
       // {
@@ -207,7 +207,7 @@ describe("RBAC Middleware", () => {
       );
 
       expect(response.status).toBe(401);
-      
+
       // Note: This test requires proper Supabase mocking
       // Expected response body should contain:
       // {
@@ -266,6 +266,7 @@ describe("RBAC Middleware", () => {
         email: "admin@test.com",
         role: UserRole.ADMIN,
         tenantId: "tenant-123",
+        fullName: "Test User",
       };
 
       const result = hasPermission(adminUser, PermissionAction.MANAGE_USERS);
@@ -278,6 +279,7 @@ describe("RBAC Middleware", () => {
         email: "viewer@test.com",
         role: UserRole.VIEWER,
         tenantId: "tenant-123",
+        fullName: "Test User",
       };
 
       const result = hasPermission(viewerUser, PermissionAction.MANAGE_USERS);
@@ -293,6 +295,7 @@ describe("Role-based access matrix", () => {
       email: "admin@test.com",
       role: UserRole.ADMIN,
       tenantId: "tenant-1",
+      fullName: "Test User",
     };
 
     expect(hasPermission(adminUser, PermissionAction.MANAGE_USERS)).toBe(true);
@@ -310,6 +313,7 @@ describe("Role-based access matrix", () => {
       email: "viewer@test.com",
       role: UserRole.VIEWER,
       tenantId: "tenant-1",
+      fullName: "Test User",
     };
 
     expect(hasPermission(viewerUser, PermissionAction.VIEW_SUPPLIERS)).toBe(
@@ -329,6 +333,7 @@ describe("Role-based access matrix", () => {
       email: "procurement@test.com",
       role: UserRole.PROCUREMENT_MANAGER,
       tenantId: "tenant-1",
+      fullName: "Test User",
     };
 
     expect(
@@ -348,6 +353,7 @@ describe("Role-based access matrix", () => {
       email: "quality@test.com",
       role: UserRole.QUALITY_MANAGER,
       tenantId: "tenant-1",
+      fullName: "Test User",
     };
 
     expect(

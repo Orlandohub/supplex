@@ -27,13 +27,15 @@ describe("Document Template Integration Tests", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Integration Test Tenant",
-        slug: `integration-test-${Date.now()}`,
-      })
-      .returning();
+    const tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Integration Test Tenant",
+          slug: `integration-test-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
     testTenantId = tenant.id;
 
     // Create admin user
@@ -66,35 +68,43 @@ describe("Document Template Integration Tests", () => {
     adminToken = signInData.session?.access_token || "";
 
     // Create document template
-    const [template] = await db
-      .insert(documentTemplate)
-      .values({
-        tenantId: testTenantId,
-        templateName: "Integration Test Template",
-        requiredDocuments: [
-          {
-            name: "Test Document",
-            description: "Test description",
-            required: true,
-            type: "other",
-          },
-        ],
-        isDefault: false,
-        status: "published",
-      })
-      .returning();
+    const template = (
+      await db
+        .insert(documentTemplate)
+        .values({
+          tenantId: testTenantId,
+          templateName: "Integration Test Template",
+          requiredDocuments: [
+            {
+              name: "Test Document",
+              description: "Test description",
+              required: true,
+              type: "other",
+            },
+          ],
+          isDefault: false,
+          status: "published",
+        })
+        .returning()
+    )[0]!;
     testTemplateId = template.id;
   });
 
   afterAll(async () => {
     // Cleanup in correct order (children first, parents last)
     if (workflowStepId) {
-      await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, workflowStepId));
+      await db
+        .delete(workflowStepTemplate)
+        .where(eq(workflowStepTemplate.id, workflowStepId));
     }
     if (workflowTemplateId) {
-      await db.delete(workflowTemplate).where(eq(workflowTemplate.id, workflowTemplateId));
+      await db
+        .delete(workflowTemplate)
+        .where(eq(workflowTemplate.id, workflowTemplateId));
     }
-    await db.delete(documentTemplate).where(eq(documentTemplate.tenantId, testTenantId));
+    await db
+      .delete(documentTemplate)
+      .where(eq(documentTemplate.tenantId, testTenantId));
     await db.delete(users).where(eq(users.id, adminUserId));
     await db.delete(tenants).where(eq(tenants.id, testTenantId));
     await supabaseAdmin.auth.admin.deleteUser(adminUserId);
@@ -102,34 +112,38 @@ describe("Document Template Integration Tests", () => {
 
   it("should create workflow step with document_template_id", async () => {
     // Create workflow template
-    const [wfTemplate] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId: testTenantId,
-        name: "Test Workflow",
-        description: "Test workflow with document step",
-        active: true,
-        createdBy: adminUserId,
-      })
-      .returning();
+    const wfTemplate = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId: testTenantId,
+          name: "Test Workflow",
+          description: "Test workflow with document step",
+          active: true,
+          createdBy: adminUserId,
+        })
+        .returning()
+    )[0]!;
     workflowTemplateId = wfTemplate.id;
 
     // Create workflow step with document template
-    const [step] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId,
-        tenantId: testTenantId,
-        stepOrder: 1,
-        name: "Document Upload Step",
-        stepType: "document",
-        documentTemplateId: testTemplateId,
-        documentActionMode: "upload",
-        taskTitle: "Upload Required Documents",
-        assigneeType: "role",
-        assigneeRole: "procurement_manager",
-      })
-      .returning();
+    const step = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId,
+          tenantId: testTenantId,
+          stepOrder: 1,
+          name: "Document Upload Step",
+          stepType: "document",
+          documentTemplateId: testTemplateId,
+          documentActionMode: "upload",
+          taskTitle: "Upload Required Documents",
+          assigneeType: "role",
+          assigneeRole: "procurement_manager",
+        })
+        .returning()
+    )[0]!;
 
     workflowStepId = step.id;
 
@@ -175,7 +189,7 @@ describe("Document Template Integration Tests", () => {
     );
 
     expect(response.status).toBe(400);
-    const data = await response.json();
+    const data: any = await response.json();
     expect(data.success).toBe(false);
     expect(data.error.code).toBe("TEMPLATE_IN_USE");
   });
@@ -191,10 +205,10 @@ describe("Document Template Integration Tests", () => {
     );
 
     expect(response.status).toBe(200);
-    const data = await response.json();
+    const data: any = await response.json();
     expect(data.success).toBe(true);
     expect(Array.isArray(data.data.templates)).toBe(true);
-    
+
     // Should include our published template
     const foundTemplate = data.data.templates.find(
       (t: any) => t.id === testTemplateId
@@ -205,25 +219,29 @@ describe("Document Template Integration Tests", () => {
 
   it("should enforce tenant isolation in workflow-template integration", async () => {
     // Create another tenant
-    const [otherTenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Other Tenant",
-        slug: `other-tenant-integration-${Date.now()}`,
-      })
-      .returning();
+    const otherTenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Other Tenant",
+          slug: `other-tenant-integration-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
 
     // Create document template for other tenant
-    const [otherTemplate] = await db
-      .insert(documentTemplate)
-      .values({
-        tenantId: otherTenant.id,
-        templateName: "Other Tenant Template",
-        requiredDocuments: [],
-        isDefault: false,
-        status: "published",
-      })
-      .returning();
+    const otherTemplate = (
+      await db
+        .insert(documentTemplate)
+        .values({
+          tenantId: otherTenant.id,
+          templateName: "Other Tenant Template",
+          requiredDocuments: [],
+          isDefault: false,
+          status: "published",
+        })
+        .returning()
+    )[0]!;
 
     // Try to create workflow step using other tenant's template (should fail)
     let _errorOccurred = false;
@@ -253,7 +271,9 @@ describe("Document Template Integration Tests", () => {
     // This test documents that behavior
 
     // Cleanup
-    await db.delete(documentTemplate).where(eq(documentTemplate.id, otherTemplate.id));
+    await db
+      .delete(documentTemplate)
+      .where(eq(documentTemplate.id, otherTemplate.id));
     await db.delete(tenants).where(eq(tenants.id, otherTenant.id));
   });
 });

@@ -1,0 +1,43 @@
+fix(api): zero TS errors in apps/api test files (SUP-7 sub-task 7)
+
+Closes the long-standing root `pnpm type-check` failure caused by the 1083
+pre-existing TypeScript errors that lived in apps/api test files since
+before PR #7. Type Check on `main` will now go green for the first time.
+
+Categories of fix:
+- Drizzle `.returning()` destructure narrowing — `[x] = await ...` rewritten
+  to `x = (await ...)[0]!` to satisfy `noUncheckedIndexedAccess`.
+- Bun `await response.json()` typed as `any` so route response shapes can
+  be inspected without `unknown` propagating.
+- Eden Treaty dynamic indexing (`client.api.x[id]`) wrapped with `as any`
+  on the base segment to silence `TS7053`.
+- Vitest/Bun mock chain methods (`mockResolvedValue`, `mockReturnValueOnce`,
+  …) cast through `as any` where the underlying function reference was
+  typed too narrowly.
+- Local stub definitions for symbols no longer exported by `@supplex/db`
+  (`WorkflowStatus`, `WorkflowEventType`, `ChecklistItemStatus`,
+  `RiskLevel`, `calculateRiskScore`, `TimelineEvent`).
+- Mock fixture shape drift fixes: missing `fullName` on AuthContext users,
+  schema drift on `tenants` (no `domain`) and `users` (missing `id`).
+- Tenant-id literal narrowing fixed via `: string` annotations; UserRole
+  literal narrowing fixed via `as UserRole` widening.
+- Non-null asserts for array/object access where it was clearly safe in
+  test context.
+- Loosened `withApiErrorHandler` generic in `lib/test-utils.ts` so
+  `.derive(...)`-enriched Elysia apps still satisfy the constraint.
+- Deleted 5 orphaned test files whose SUTs had been removed
+  (checklists/{create,delete,list,update}.test.ts and
+  document-templates/get-published-by-tenant.test.ts).
+
+Verification:
+- `pnpm --filter @supplex/api type-check` -> 0 errors
+- `pnpm type-check` (root, recursive)     -> 0 errors
+- `pnpm lint`                              -> 0 errors (warnings unchanged)
+
+Out of scope:
+- Test Backend job failures on `main` (JWKS/HMAC, logger, email-worker
+  mock setup) are pre-existing runtime issues unrelated to TypeScript;
+  they will be addressed in a follow-up sub-task.
+- The `as any` debt accumulated here is intentionally pragmatic to unblock
+  CI; a follow-up PR will replace these with discriminated unions and a
+  typed Treaty wrapper.

@@ -1,5 +1,14 @@
 import { describe, it, expect } from "bun:test";
-import { ChecklistItemStatus } from "@supplex/db";
+
+// Local stub: the original `ChecklistItemStatus` enum used to live in
+// `@supplex/db` but was removed. The test only exercises the values, not the
+// type, so a local string-literal map is sufficient.
+const ChecklistItemStatus = {
+  PENDING: "pending",
+  UPLOADED: "uploaded",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+} as const;
 
 /**
  * Test Suite for GET /api/workflows/:workflowId/documents
@@ -84,10 +93,10 @@ describe("GET /api/workflows/:workflowId/documents", () => {
 
     expect(response.success).toBe(true);
     expect(response.data.workflowDocuments).toHaveLength(3);
-    expect(response.data.workflowDocuments[0].document?.uploadedByName).toBe(
+    expect(response.data.workflowDocuments[0]!.document?.uploadedByName).toBe(
       "Jane Smith"
     );
-    expect(response.data.workflowDocuments[1].document).toBeNull();
+    expect(response.data.workflowDocuments[1]!.document).toBeNull();
   });
 
   /**
@@ -105,10 +114,10 @@ describe("GET /api/workflows/:workflowId/documents", () => {
     );
 
     expect(Object.keys(groupedByChecklistItem)).toHaveLength(3);
-    expect(groupedByChecklistItem["item-1"].status).toBe(
+    expect(groupedByChecklistItem["item-1"]!.status).toBe(
       ChecklistItemStatus.UPLOADED
     );
-    expect(groupedByChecklistItem["item-2"].status).toBe(
+    expect(groupedByChecklistItem["item-2"]!.status).toBe(
       ChecklistItemStatus.PENDING
     );
   });
@@ -133,8 +142,8 @@ describe("GET /api/workflows/:workflowId/documents", () => {
    * Test: Cannot access documents from another tenant's workflow
    */
   it("should enforce tenant isolation", () => {
-    const userTenantId = "tenant-123";
-    const workflowTenantId = "tenant-456";
+    const userTenantId: string = "tenant-123";
+    const workflowTenantId: string = "tenant-456";
 
     const canAccess = userTenantId === workflowTenantId;
 

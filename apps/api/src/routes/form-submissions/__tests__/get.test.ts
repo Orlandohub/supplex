@@ -66,24 +66,28 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
   let stepTemplate: { id: string };
 
   beforeAll(async () => {
-    [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Get Submission Test Tenant",
-        slug: `getsub-${Date.now()}`,
-      })
-      .returning();
+    tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Get Submission Test Tenant",
+          slug: `getsub-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
 
-    const [u1] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `getsub-pm-${Date.now()}@test.com`,
-        fullName: "Procurement Manager",
-        role: "procurement_manager",
-      })
-      .returning();
+    const u1 = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenant.id,
+          email: `getsub-pm-${Date.now()}@test.com`,
+          fullName: "Procurement Manager",
+          role: "procurement_manager",
+        })
+        .returning()
+    )[0]!;
 
     submitterUser = {
       id: u1.id,
@@ -93,16 +97,18 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
       fullName: u1.fullName,
     };
 
-    const [u2] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `getsub-qm-${Date.now()}@test.com`,
-        fullName: "Quality Manager",
-        role: "quality_manager",
-      })
-      .returning();
+    const u2 = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenant.id,
+          email: `getsub-qm-${Date.now()}@test.com`,
+          fullName: "Quality Manager",
+          role: "quality_manager",
+        })
+        .returning()
+    )[0]!;
 
     validatorUser = {
       id: u2.id,
@@ -112,61 +118,71 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
       fullName: u2.fullName,
     };
 
-    [fmTemplate] = await db
-      .insert(formTemplate)
-      .values({
-        tenantId: tenant.id,
-        name: "Get Submission Form",
-        status: "published",
-      })
-      .returning();
+    fmTemplate = (
+      await db
+        .insert(formTemplate)
+        .values({
+          tenantId: tenant.id,
+          name: "Get Submission Form",
+          status: "published",
+        })
+        .returning()
+    )[0]!;
 
-    [section] = await db
-      .insert(formSection)
-      .values({
-        formTemplateId: fmTemplate.id,
-        tenantId: tenant.id,
-        sectionOrder: 1,
-        title: "Section 1",
-      })
-      .returning();
+    section = (
+      await db
+        .insert(formSection)
+        .values({
+          formTemplateId: fmTemplate.id,
+          tenantId: tenant.id,
+          sectionOrder: 1,
+          title: "Section 1",
+        })
+        .returning()
+    )[0]!;
 
-    [_field] = await db
-      .insert(formField)
-      .values({
-        formSectionId: section.id,
-        tenantId: tenant.id,
-        fieldOrder: 1,
-        fieldType: "text",
-        label: "Company Name",
-        required: true,
-      })
-      .returning();
+    _field = (
+      await db
+        .insert(formField)
+        .values({
+          formSectionId: section.id,
+          tenantId: tenant.id,
+          fieldOrder: 1,
+          fieldType: "text",
+          label: "Company Name",
+          required: true,
+        })
+        .returning()
+    )[0]!;
 
-    [wfTemplate] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId: tenant.id,
-        name: "Get Submission Workflow",
-        status: "published",
-        createdBy: submitterUser.id,
-      })
-      .returning();
+    wfTemplate = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId: tenant.id,
+          name: "Get Submission Workflow",
+          status: "published",
+          createdBy: submitterUser.id,
+        })
+        .returning()
+    )[0]!;
 
-    [stepTemplate] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: wfTemplate.id,
-        tenantId: tenant.id,
-        stepOrder: 1,
-        name: "Submit Form",
-        stepType: "form",
-        requiresValidation: true,
-        taskTitle: "Fill form",
-        assigneeType: "role",
-        assigneeRole: "procurement_manager",
-      })
-      .returning();
+    stepTemplate = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId: wfTemplate.id,
+          tenantId: tenant.id,
+          stepOrder: 1,
+          name: "Submit Form",
+          stepType: "form",
+          requiresValidation: true,
+          taskTitle: "Fill form",
+          assigneeType: "role",
+          assigneeRole: "procurement_manager",
+        })
+        .returning()
+    )[0]!;
   });
 
   afterAll(async () => {
@@ -182,48 +198,54 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     let procId: string | null = null;
 
     if (params.withStep !== false) {
-      const [proc] = await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: wfTemplate.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: submitterUser.id,
-          initiatedDate: new Date(),
-        })
-        .returning();
+      const proc = (
+        await db
+          .insert(processInstance)
+          .values({
+            tenantId: tenant.id,
+            workflowTemplateId: wfTemplate.id,
+            processType: "workflow_execution",
+            entityType: "supplier",
+            entityId: crypto.randomUUID(),
+            status: "in_progress",
+            initiatedBy: submitterUser.id,
+            initiatedDate: new Date(),
+          })
+          .returning()
+      )[0]!;
       procId = proc.id;
 
-      const [step] = await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: stepTemplate.id,
-          stepOrder: 1,
-          stepName: "Submit Form",
-          stepType: "form",
-          status: "awaiting_validation",
-        })
-        .returning();
+      const step = (
+        await db
+          .insert(stepInstance)
+          .values({
+            tenantId: tenant.id,
+            processInstanceId: proc.id,
+            workflowStepTemplateId: stepTemplate.id,
+            stepOrder: 1,
+            stepName: "Submit Form",
+            stepType: "form",
+            status: "awaiting_validation",
+          })
+          .returning()
+      )[0]!;
       stepId = step.id;
     }
 
-    const [submission] = await db
-      .insert(formSubmission)
-      .values({
-        tenantId: tenant.id,
-        formTemplateId: fmTemplate.id,
-        processInstanceId: procId,
-        stepInstanceId: stepId,
-        submittedBy: params.submittedBy,
-        status: params.status ?? "submitted",
-        submittedAt: params.status === "draft" ? null : new Date(),
-      })
-      .returning();
+    const submission = (
+      await db
+        .insert(formSubmission)
+        .values({
+          tenantId: tenant.id,
+          formTemplateId: fmTemplate.id,
+          processInstanceId: procId,
+          stepInstanceId: stepId,
+          submittedBy: params.submittedBy,
+          status: params.status ?? "submitted",
+          submittedAt: params.status === "draft" ? null : new Date(),
+        })
+        .returning()
+    )[0]!;
 
     return { submission, stepId, procId };
   }
@@ -240,7 +262,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.canValidate).toBe(false);
     expect(body.data.isReadOnly).toBe(false);
@@ -272,7 +294,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.canValidate).toBe(true);
     expect(body.data.isReadOnly).toBe(true);
@@ -305,7 +327,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.canValidate).toBe(false);
     expect(body.data.isReadOnly).toBe(false);
@@ -335,7 +357,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body.success).toBe(true);
     expect(body.data.canValidate).toBe(true);
     expect(body.data.isReadOnly).toBe(true);

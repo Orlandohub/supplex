@@ -11,6 +11,7 @@ const mockAdminUser: AuthContext["user"] = {
   email: "admin@example.com",
   role: UserRole.ADMIN,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockProcurementUser: AuthContext["user"] = {
@@ -18,6 +19,7 @@ const mockProcurementUser: AuthContext["user"] = {
   email: "procurement@example.com",
   role: UserRole.PROCUREMENT_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockViewerUser: AuthContext["user"] = {
@@ -25,6 +27,7 @@ const mockViewerUser: AuthContext["user"] = {
   email: "viewer@example.com",
   role: UserRole.VIEWER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockSupplier = {
@@ -71,9 +74,11 @@ const mockSupplier = {
 describe("Supplier Detail API", () => {
   describe("GET /api/suppliers/:id", () => {
     it("should return supplier details for valid ID", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
@@ -87,9 +92,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 400 for invalid UUID format", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers/invalid-uuid")
@@ -104,9 +111,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for non-existent supplier ID", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(
@@ -123,9 +132,11 @@ describe("Supplier Detail API", () => {
 
     it("should return 404 for soft-deleted supplier", async () => {
       // Test that soft-deleted suppliers are not accessible
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       // In a real test, we'd mock a soft-deleted supplier
       // For now, we're testing the structure handles this case
@@ -146,11 +157,14 @@ describe("Supplier Detail API", () => {
         email: "other@example.com",
         role: UserRole.ADMIN,
         tenantId: "650e8400-e29b-41d4-a716-446655440099",
+        fullName: "Test User",
       };
 
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: differentTenantUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: differentTenantUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
@@ -165,9 +179,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should include created_by user information", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
@@ -183,9 +199,11 @@ describe("Supplier Detail API", () => {
 
     it("should allow any authenticated user to view supplier details", async () => {
       // Test that Viewer role can also access supplier details
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockViewerUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockViewerUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
@@ -206,9 +224,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should handle database errors gracefully", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
@@ -219,9 +239,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should respond in less than 500ms (performance requirement)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const startTime = performance.now();
 
@@ -242,9 +264,11 @@ describe("Supplier Detail API", () => {
 
   describe("PATCH /api/suppliers/:id/status", () => {
     it("should allow Admin to update supplier status", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
@@ -259,9 +283,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should allow Procurement Manager to update supplier status", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
@@ -276,9 +302,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 403 for Viewer role", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockViewerUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockViewerUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
@@ -294,9 +322,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 400 for invalid status value", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
@@ -312,9 +342,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 400 for invalid UUID format", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers/invalid-uuid/status", {
@@ -330,9 +362,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for non-existent supplier", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(
@@ -351,9 +385,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should accept optional note parameter", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
@@ -371,9 +407,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should validate all status enum values", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const validStatuses = [
         "prospect",
@@ -414,9 +452,11 @@ describe("Supplier Detail API", () => {
 
   describe("DELETE /api/suppliers/:id", () => {
     it("should allow Admin to delete supplier", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
@@ -429,9 +469,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 403 for Procurement Manager role", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
@@ -445,9 +487,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 403 for Viewer role", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockViewerUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockViewerUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
@@ -461,9 +505,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 400 for invalid UUID format", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers/invalid-uuid", {
@@ -477,9 +523,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for non-existent supplier", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(
@@ -498,9 +546,11 @@ describe("Supplier Detail API", () => {
     it("should perform soft delete (not physical delete)", async () => {
       // This test verifies that the delete operation sets deleted_at
       // In a real test with database access, we'd verify deleted_at is set
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
@@ -513,9 +563,11 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return success message on successful delete", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
@@ -548,11 +600,14 @@ describe("Supplier Detail API", () => {
         email: "other@example.com",
         role: UserRole.ADMIN,
         tenantId: "650e8400-e29b-41d4-a716-446655440099",
+        fullName: "Test User",
       };
 
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: differentTenantUser }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: differentTenantUser }))
+          .use(supplierDetailRoutes)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
@@ -573,11 +628,14 @@ describe("Supplier Detail API", () => {
         email: "user2@example.com",
         role: UserRole.ADMIN,
         tenantId: "650e8400-e29b-41d4-a716-446655440022",
+        fullName: "Test User",
       };
 
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: tenant2User }))
-        .use(supplierDetailRoutes));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: tenant2User }))
+          .use(supplierDetailRoutes)
+      );
 
       // Supplier belongs to mockSupplier.tenantId, user is from different tenant
       const response = await app.handle(

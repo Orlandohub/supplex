@@ -31,71 +31,87 @@ describe("Workflow Health-Check Queries", () => {
 
   beforeAll(async () => {
     // Tenant A
-    const [tenantA] = await db
-      .insert(tenants)
-      .values({
-        name: "Health Check Tenant A",
-        slug: `health-a-${Date.now()}`,
-      })
-      .returning();
+    const tenantA = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Health Check Tenant A",
+          slug: `health-a-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
     tenantAId = tenantA.id;
 
-    [{ id: userAId }] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenantAId,
-        email: `health-a-${Date.now()}@test.com`,
-        fullName: "Tenant A Admin",
-        role: "admin",
-      })
-      .returning();
+    ({ id: userAId } = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenantAId,
+          email: `health-a-${Date.now()}@test.com`,
+          fullName: "Tenant A Admin",
+          role: "admin",
+        })
+        .returning()
+    )[0]!);
 
     // Tenant B
-    const [tenantB] = await db
-      .insert(tenants)
-      .values({
-        name: "Health Check Tenant B",
-        slug: `health-b-${Date.now()}`,
-      })
-      .returning();
+    const tenantB = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Health Check Tenant B",
+          slug: `health-b-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
     tenantBId = tenantB.id;
 
-    [{ id: userBId }] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenantBId,
-        email: `health-b-${Date.now()}@test.com`,
-        fullName: "Tenant B Admin",
-        role: "admin",
-      })
-      .returning();
+    ({ id: userBId } = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenantBId,
+          email: `health-b-${Date.now()}@test.com`,
+          fullName: "Tenant B Admin",
+          role: "admin",
+        })
+        .returning()
+    )[0]!);
   });
 
   afterAll(async () => {
     const bothTenants = [tenantAId, tenantBId];
-    await db.delete(taskInstance).where(inArray(taskInstance.tenantId, bothTenants));
-    await db.delete(stepInstance).where(inArray(stepInstance.tenantId, bothTenants));
-    await db.delete(processInstance).where(inArray(processInstance.tenantId, bothTenants));
+    await db
+      .delete(taskInstance)
+      .where(inArray(taskInstance.tenantId, bothTenants));
+    await db
+      .delete(stepInstance)
+      .where(inArray(stepInstance.tenantId, bothTenants));
+    await db
+      .delete(processInstance)
+      .where(inArray(processInstance.tenantId, bothTenants));
     await db.delete(users).where(inArray(users.tenantId, bothTenants));
     await db.delete(tenants).where(inArray(tenants.id, bothTenants));
   });
 
   test("detects stuck processes (in_progress with no current step)", async () => {
-    const [proc] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantAId,
-        processType: "health_test",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        currentStepInstanceId: null,
-        initiatedBy: userAId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const proc = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantAId,
+          processType: "health_test",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          currentStepInstanceId: null,
+          initiatedBy: userAId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(proc.id);
 
     const stuckProcesses = await db
@@ -108,46 +124,52 @@ describe("Workflow Health-Check Queries", () => {
   });
 
   test("detects orphaned tasks (pending but step is completed)", async () => {
-    const [proc] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantAId,
-        processType: "health_test_orphan",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: userAId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const proc = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantAId,
+          processType: "health_test_orphan",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: userAId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(proc.id);
 
-    const [step] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenantAId,
-        processInstanceId: proc.id,
-        stepOrder: 1,
-        stepName: "Completed Step",
-        stepType: "form",
-        status: "completed",
-      })
-      .returning();
+    const step = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenantAId,
+          processInstanceId: proc.id,
+          stepOrder: 1,
+          stepName: "Completed Step",
+          stepType: "form",
+          status: "completed",
+        })
+        .returning()
+    )[0]!;
     createdStepIds.push(step.id);
 
-    const [task] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenantAId,
-        processInstanceId: proc.id,
-        stepInstanceId: step.id,
-        title: "Orphaned Task",
-        assigneeType: "role",
-        assigneeRole: "admin",
-        taskType: "action",
-        status: "pending",
-      })
-      .returning();
+    const task = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenantAId,
+          processInstanceId: proc.id,
+          stepInstanceId: step.id,
+          title: "Orphaned Task",
+          assigneeType: "role",
+          assigneeRole: "admin",
+          taskType: "action",
+          status: "pending",
+        })
+        .returning()
+    )[0]!;
     createdTaskIds.push(task.id);
 
     const orphaned = await db
@@ -157,42 +179,46 @@ describe("Workflow Health-Check Queries", () => {
       .where(eq(taskInstance.id, task.id));
 
     expect(orphaned.length).toBe(1);
-    expect(orphaned[0].stepStatus).toBe("completed");
+    expect(orphaned[0]!.stepStatus).toBe("completed");
   });
 
   // ─── SEC-002: Tenant Isolation Tests ───────────────────────────────
 
   test("Q1 (stuck processes): tenant-scoped query returns only own tenant's data", async () => {
     // Seed a stuck process in Tenant A
-    const [procA] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantAId,
-        processType: "iso_stuck_a",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        currentStepInstanceId: null,
-        initiatedBy: userAId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const procA = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantAId,
+          processType: "iso_stuck_a",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          currentStepInstanceId: null,
+          initiatedBy: userAId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(procA.id);
 
     // Seed a stuck process in Tenant B
-    const [procB] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantBId,
-        processType: "iso_stuck_b",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        currentStepInstanceId: null,
-        initiatedBy: userBId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const procB = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantBId,
+          processType: "iso_stuck_b",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          currentStepInstanceId: null,
+          initiatedBy: userBId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(procB.id);
 
     // Query scoped to Tenant A (replicates handler query)
@@ -215,89 +241,101 @@ describe("Workflow Health-Check Queries", () => {
 
   test("Q2 (orphaned tasks): tenant-scoped query returns only own tenant's data", async () => {
     // Tenant A: orphaned task
-    const [procA] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantAId,
-        processType: "iso_orphan_a",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: userAId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const procA = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantAId,
+          processType: "iso_orphan_a",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: userAId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(procA.id);
 
-    const [stepA] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenantAId,
-        processInstanceId: procA.id,
-        stepOrder: 1,
-        stepName: "Done Step A",
-        stepType: "form",
-        status: "completed",
-      })
-      .returning();
+    const stepA = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenantAId,
+          processInstanceId: procA.id,
+          stepOrder: 1,
+          stepName: "Done Step A",
+          stepType: "form",
+          status: "completed",
+        })
+        .returning()
+    )[0]!;
     createdStepIds.push(stepA.id);
 
-    const [taskA] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenantAId,
-        processInstanceId: procA.id,
-        stepInstanceId: stepA.id,
-        title: "Orphan A",
-        assigneeType: "role",
-        assigneeRole: "admin",
-        taskType: "action",
-        status: "pending",
-      })
-      .returning();
+    const taskA = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenantAId,
+          processInstanceId: procA.id,
+          stepInstanceId: stepA.id,
+          title: "Orphan A",
+          assigneeType: "role",
+          assigneeRole: "admin",
+          taskType: "action",
+          status: "pending",
+        })
+        .returning()
+    )[0]!;
     createdTaskIds.push(taskA.id);
 
     // Tenant B: orphaned task
-    const [procB] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantBId,
-        processType: "iso_orphan_b",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: userBId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const procB = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantBId,
+          processType: "iso_orphan_b",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: userBId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(procB.id);
 
-    const [stepB] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenantBId,
-        processInstanceId: procB.id,
-        stepOrder: 1,
-        stepName: "Done Step B",
-        stepType: "form",
-        status: "completed",
-      })
-      .returning();
+    const stepB = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenantBId,
+          processInstanceId: procB.id,
+          stepOrder: 1,
+          stepName: "Done Step B",
+          stepType: "form",
+          status: "completed",
+        })
+        .returning()
+    )[0]!;
     createdStepIds.push(stepB.id);
 
-    const [taskB] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenantBId,
-        processInstanceId: procB.id,
-        stepInstanceId: stepB.id,
-        title: "Orphan B",
-        assigneeType: "role",
-        assigneeRole: "admin",
-        taskType: "action",
-        status: "pending",
-      })
-      .returning();
+    const taskB = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenantBId,
+          processInstanceId: procB.id,
+          stepInstanceId: stepB.id,
+          title: "Orphan B",
+          assigneeType: "role",
+          assigneeRole: "admin",
+          taskType: "action",
+          status: "pending",
+        })
+        .returning()
+    )[0]!;
     createdTaskIds.push(taskB.id);
 
     // Query scoped to Tenant A
@@ -321,33 +359,37 @@ describe("Workflow Health-Check Queries", () => {
 
   test("Q3 (state mismatches): tenant-scoped query returns only own tenant's data", async () => {
     // Tenant A: mismatch (in_progress, no active steps)
-    const [procA] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantAId,
-        processType: "iso_mismatch_a",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: userAId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const procA = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantAId,
+          processType: "iso_mismatch_a",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: userAId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(procA.id);
 
     // Tenant B: mismatch
-    const [procB] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenantBId,
-        processType: "iso_mismatch_b",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: userBId,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const procB = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenantBId,
+          processType: "iso_mismatch_b",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: userBId,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
     createdProcessIds.push(procB.id);
 
     // Query scoped to Tenant A

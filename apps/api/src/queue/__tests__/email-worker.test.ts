@@ -2,11 +2,11 @@ import { describe, it, expect, mock, beforeEach } from "bun:test";
 import type { EmailJobData } from "../email-queue";
 
 // Mock dependencies
-const mockSendEmail = mock(() =>
+const mockSendEmail: any = mock(() =>
   Promise.resolve({ success: true, messageId: "msg-123" })
 );
 const mockRenderEmailTemplate = mock(() => "<html>Test Email</html>");
-const mockDbQuery = mock(() =>
+const mockDbQuery: any = mock(() =>
   Promise.resolve({
     id: "notif-123",
     status: "pending",

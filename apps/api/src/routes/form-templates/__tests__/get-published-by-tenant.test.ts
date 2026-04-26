@@ -8,7 +8,7 @@ import { UserRole } from "@supplex/types";
 /**
  * Unit Tests: GET /api/form-templates/published
  * Story 2.2.7.2 - Add Tenant-Scoped Dropdowns for Form and Document Templates
- * 
+ *
  * Test Cases:
  * - Returns published form templates for authenticated user's tenant
  * - Formats response for dropdown selection (id, label)
@@ -25,6 +25,7 @@ const mockAdminUser: AuthContext["user"] = {
   email: "admin@example.com",
   role: UserRole.ADMIN,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockProcurementUser: AuthContext["user"] = {
@@ -32,6 +33,7 @@ const mockProcurementUser: AuthContext["user"] = {
   email: "procurement@example.com",
   role: UserRole.PROCUREMENT_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockQualityUser: AuthContext["user"] = {
@@ -39,21 +41,25 @@ const mockQualityUser: AuthContext["user"] = {
   email: "quality@example.com",
   role: UserRole.QUALITY_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockOtherTenantUser: AuthContext["user"] = {
   id: "550e8400-e29b-41d4-a716-446655440004",
   email: "other@example.com",
   role: UserRole.ADMIN,
-  tenantId: "750e8400-e29b-41d4-a716-446655440000", // Different tenant
+  tenantId: "750e8400-e29b-41d4-a716-446655440000", // Different tenant,
+  fullName: "Test User",
 };
 
 describe("GET /api/form-templates/published", () => {
   describe("Authentication and Authorization", () => {
     it("should return 200 for authenticated Admin user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -66,9 +72,11 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should allow Procurement Manager to access published templates", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -81,9 +89,11 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should allow Quality Manager to access published templates", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockQualityUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockQualityUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -96,9 +106,11 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should return 401 for unauthenticated requests", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: null }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: null }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -112,9 +124,11 @@ describe("GET /api/form-templates/published", () => {
 
   describe("Response Format", () => {
     it("should return success response with templates array", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -131,9 +145,11 @@ describe("GET /api/form-templates/published", () => {
     });
 
     it("should format templates as dropdown options with id and label", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -152,7 +168,7 @@ describe("GET /api/form-templates/published", () => {
             expect(template.label).toBeDefined();
             expect(typeof template.id).toBe("string");
             expect(typeof template.label).toBe("string");
-            
+
             // Label should be in format "Template Name vX"
             expect(template.label).toMatch(/v\d+$/);
           });
@@ -165,13 +181,17 @@ describe("GET /api/form-templates/published", () => {
     it("should only return templates from user's tenant", async () => {
       // This test would require actual database setup to verify
       // For now, we test that the endpoint accepts the request
-      const app1 = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app1 = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
-      const app2 = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockOtherTenantUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app2 = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockOtherTenantUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response1 = await app1.handle(
         new Request("http://localhost/published", {
@@ -193,9 +213,11 @@ describe("GET /api/form-templates/published", () => {
 
   describe("Status Filtering", () => {
     it("should only return published templates (not draft or archived)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -218,9 +240,11 @@ describe("GET /api/form-templates/published", () => {
     it("should return 500 on database error", async () => {
       // This would be tested with a mocked DB failure
       // For now, we just verify the response structure
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -239,9 +263,11 @@ describe("GET /api/form-templates/published", () => {
 
   describe("Alphabetical Sorting", () => {
     it("should return templates sorted alphabetically by name", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getPublishedFormTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getPublishedFormTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/published", {
@@ -256,7 +282,7 @@ describe("GET /api/form-templates/published", () => {
         if (templates.length > 1) {
           // Verify alphabetical order
           for (let i = 0; i < templates.length - 1; i++) {
-            const currentName = templates[i].label.split(" v")[0];
+            const currentName = templates[i]!.label.split(" v")[0];
             const nextName = templates[i + 1].label.split(" v")[0];
             expect(currentName.localeCompare(nextName)).toBeLessThanOrEqual(0);
           }
@@ -265,4 +291,3 @@ describe("GET /api/form-templates/published", () => {
     });
   });
 });
-

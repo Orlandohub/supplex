@@ -17,7 +17,7 @@ describe("Correlation ID Middleware", () => {
 
     expect(header).toBeTruthy();
     expect(body.correlationId).toBeTruthy();
-    expect(body.correlationId).toBe(header);
+    expect(body.correlationId).toBe(header!);
     expect(body.correlationId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
@@ -56,7 +56,11 @@ describe("Correlation ID Middleware", () => {
       }));
 
     const res = await app.handle(new Request("http://localhost/test-logger"));
-    const body = (await res.json()) as { hasLogger: boolean; hasInfo: boolean; hasError: boolean };
+    const body = (await res.json()) as {
+      hasLogger: boolean;
+      hasInfo: boolean;
+      hasError: boolean;
+    };
 
     expect(body.hasLogger).toBe(true);
     expect(body.hasInfo).toBe(true);

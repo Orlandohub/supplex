@@ -1,4 +1,11 @@
-import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  setDefaultTimeout,
+} from "bun:test";
 
 setDefaultTimeout(30_000);
 import { db } from "../../../lib/db";
@@ -30,45 +37,53 @@ describe("Document Review Roundtrip", () => {
   let template: { id: string };
 
   beforeAll(async () => {
-    [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Roundtrip Test Tenant",
-        slug: `roundtrip-tenant-${Date.now()}`,
-      })
-      .returning();
+    tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Roundtrip Test Tenant",
+          slug: `roundtrip-tenant-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
 
-    [user1] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `roundtrip-u1-${Date.now()}@test.com`,
-        fullName: "Admin User",
-        role: "admin",
-      })
-      .returning();
+    user1 = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenant.id,
+          email: `roundtrip-u1-${Date.now()}@test.com`,
+          fullName: "Admin User",
+          role: "admin",
+        })
+        .returning()
+    )[0]!;
 
-    [user2] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `roundtrip-u2-${Date.now()}@test.com`,
-        fullName: "Quality Manager",
-        role: "quality_manager",
-      })
-      .returning();
+    user2 = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenant.id,
+          email: `roundtrip-u2-${Date.now()}@test.com`,
+          fullName: "Quality Manager",
+          role: "quality_manager",
+        })
+        .returning()
+    )[0]!;
 
-    [template] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId: tenant.id,
-        name: "Roundtrip Test Template",
-        status: "published",
-        createdBy: user1.id,
-      })
-      .returning();
+    template = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId: tenant.id,
+          name: "Roundtrip Test Template",
+          status: "published",
+          createdBy: user1.id,
+        })
+        .returning()
+    )[0]!;
   });
 
   afterAll(async () => {
@@ -76,62 +91,70 @@ describe("Document Review Roundtrip", () => {
   });
 
   test("POST /review multi-approver roundtrip: partial then final response shapes", async () => {
-    const [stepTmpl] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        stepOrder: 1,
-        name: "Multi-Approver Roundtrip",
-        stepType: "document",
-        requiresValidation: true,
-        taskTitle: "Upload docs",
-        assigneeType: "role",
-        assigneeRole: "admin",
-      })
-      .returning();
+    const stepTmpl = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId: template.id,
+          tenantId: tenant.id,
+          stepOrder: 1,
+          name: "Multi-Approver Roundtrip",
+          stepType: "document",
+          requiresValidation: true,
+          taskTitle: "Upload docs",
+          assigneeType: "role",
+          assigneeRole: "admin",
+        })
+        .returning()
+    )[0]!;
 
-    const [step2Tmpl] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        stepOrder: 2,
-        name: "Next Step",
-        stepType: "form",
-        taskTitle: "Form",
-        assigneeType: "role",
-        assigneeRole: "admin",
-      })
-      .returning();
+    const step2Tmpl = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId: template.id,
+          tenantId: tenant.id,
+          stepOrder: 2,
+          name: "Next Step",
+          stepType: "form",
+          taskTitle: "Form",
+          assigneeType: "role",
+          assigneeRole: "admin",
+        })
+        .returning()
+    )[0]!;
 
-    const [proc] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenant.id,
-        workflowTemplateId: template.id,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: user1.id,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const proc = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenant.id,
+          workflowTemplateId: template.id,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: user1.id,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
 
-    const [stepInst] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        workflowStepTemplateId: stepTmpl.id,
-        stepOrder: 1,
-        stepName: "Multi-Approver Roundtrip",
-        stepType: "document",
-        status: "awaiting_validation",
-        validationRound: 1,
-      })
-      .returning();
+    const stepInst = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          workflowStepTemplateId: stepTmpl.id,
+          stepOrder: 1,
+          stepName: "Multi-Approver Roundtrip",
+          stepType: "document",
+          status: "awaiting_validation",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
     await db.insert(stepInstance).values({
       tenantId: tenant.id,
@@ -151,35 +174,39 @@ describe("Document Review Roundtrip", () => {
       status: "uploaded",
     });
 
-    const [task1] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        assigneeType: "role",
-        assigneeRole: "quality_manager",
-        title: "Validate",
-        taskType: "validation",
-        status: "pending",
-        validationRound: 1,
-      })
-      .returning();
+    const task1 = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          assigneeType: "role",
+          assigneeRole: "quality_manager",
+          title: "Validate",
+          taskType: "validation",
+          status: "pending",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
-    const [task2] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        assigneeType: "role",
-        assigneeRole: "admin",
-        title: "Validate",
-        taskType: "validation",
-        status: "pending",
-        validationRound: 1,
-      })
-      .returning();
+    const task2 = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          assigneeType: "role",
+          assigneeRole: "admin",
+          title: "Validate",
+          taskType: "validation",
+          status: "pending",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
     // Partial approval response shape
     const partial = await db.transaction(async (tx) => {
@@ -188,7 +215,9 @@ describe("Document Review Roundtrip", () => {
         stepInstanceId: stepInst.id,
         reviewedBy: user2.id,
         taskId: task1.id,
-        decisions: [{ requiredDocumentName: "Tax Certificate", action: "approve" }],
+        decisions: [
+          { requiredDocumentName: "Tax Certificate", action: "approve" },
+        ],
       });
     });
 
@@ -208,7 +237,9 @@ describe("Document Review Roundtrip", () => {
         stepInstanceId: stepInst.id,
         reviewedBy: user1.id,
         taskId: task2.id,
-        decisions: [{ requiredDocumentName: "Tax Certificate", action: "approve" }],
+        decisions: [
+          { requiredDocumentName: "Tax Certificate", action: "approve" },
+        ],
       });
     });
 
@@ -221,79 +252,93 @@ describe("Document Review Roundtrip", () => {
     expect(final.nextStepName).toBe("Next Step");
     expect(final.processCompleted).toBe(false);
 
-    await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, stepTmpl.id));
-    await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, step2Tmpl.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.id, stepTmpl.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.id, step2Tmpl.id));
   });
 
   test("GET /documents returns current-round-only reviewerDecisions and validationRound", async () => {
-    const [stepTmpl] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        stepOrder: 10,
-        name: "List Test Step",
-        stepType: "document",
-        requiresValidation: true,
-        taskTitle: "Upload docs",
-        assigneeType: "role",
-        assigneeRole: "admin",
-      })
-      .returning();
+    const stepTmpl = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId: template.id,
+          tenantId: tenant.id,
+          stepOrder: 10,
+          name: "List Test Step",
+          stepType: "document",
+          requiresValidation: true,
+          taskTitle: "Upload docs",
+          assigneeType: "role",
+          assigneeRole: "admin",
+        })
+        .returning()
+    )[0]!;
 
-    const [proc] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenant.id,
-        workflowTemplateId: template.id,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: user1.id,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const proc = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenant.id,
+          workflowTemplateId: template.id,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: user1.id,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
 
-    const [stepInst] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        workflowStepTemplateId: stepTmpl.id,
-        stepOrder: 10,
-        stepName: "List Test Step",
-        stepType: "document",
-        status: "awaiting_validation",
-        validationRound: 1,
-      })
-      .returning();
+    const stepInst = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          workflowStepTemplateId: stepTmpl.id,
+          stepOrder: 10,
+          stepName: "List Test Step",
+          stepType: "document",
+          status: "awaiting_validation",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
-    const [wsd] = await db
-      .insert(workflowStepDocument)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        requiredDocumentName: "Certificate",
-        status: "uploaded",
-      })
-      .returning();
+    const wsd = (
+      await db
+        .insert(workflowStepDocument)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          requiredDocumentName: "Certificate",
+          status: "uploaded",
+        })
+        .returning()
+    )[0]!;
 
-    const [task] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        assigneeType: "role",
-        assigneeRole: "admin",
-        title: "Validate",
-        taskType: "validation",
-        status: "pending",
-        validationRound: 1,
-      })
-      .returning();
+    const task = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          assigneeType: "role",
+          assigneeRole: "admin",
+          title: "Validate",
+          taskType: "validation",
+          status: "pending",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
     // Insert a decision for round 1
     await db.insert(documentReviewDecision).values({
@@ -318,90 +363,104 @@ describe("Document Review Roundtrip", () => {
       );
 
     expect(round1Decisions.length).toBe(1);
-    expect(round1Decisions[0].decision).toBe("approved");
-    expect(round1Decisions[0].reviewerUserId).toBe(user1.id);
-    expect(round1Decisions[0].validationRound).toBe(1);
+    expect(round1Decisions[0]!.decision).toBe("approved");
+    expect(round1Decisions[0]!.reviewerUserId).toBe(user1.id);
+    expect(round1Decisions[0]!.validationRound).toBe(1);
 
     // Verify validationRound from step
-    const [stepCheck] = await db
-      .select({ validationRound: stepInstance.validationRound })
-      .from(stepInstance)
-      .where(eq(stepInstance.id, stepInst.id));
+    const stepCheck = (
+      await db
+        .select({ validationRound: stepInstance.validationRound })
+        .from(stepInstance)
+        .where(eq(stepInstance.id, stepInst.id))
+    )[0]!;
     expect(stepCheck.validationRound).toBe(1);
 
-    await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, stepTmpl.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.id, stepTmpl.id));
   });
 
   test("round isolation: after resubmission, list shows only new round decisions", async () => {
-    const [stepTmpl] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        stepOrder: 20,
-        name: "Round Isolation List Test",
-        stepType: "document",
-        requiresValidation: true,
-        taskTitle: "Upload docs",
-        assigneeType: "role",
-        assigneeRole: "admin",
-      })
-      .returning();
+    const stepTmpl = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId: template.id,
+          tenantId: tenant.id,
+          stepOrder: 20,
+          name: "Round Isolation List Test",
+          stepType: "document",
+          requiresValidation: true,
+          taskTitle: "Upload docs",
+          assigneeType: "role",
+          assigneeRole: "admin",
+        })
+        .returning()
+    )[0]!;
 
-    const [proc] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenant.id,
-        workflowTemplateId: template.id,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: user1.id,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const proc = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenant.id,
+          workflowTemplateId: template.id,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: user1.id,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
 
-    const [stepInst] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        workflowStepTemplateId: stepTmpl.id,
-        stepOrder: 20,
-        stepName: "Round Isolation List Test",
-        stepType: "document",
-        status: "awaiting_validation",
-        validationRound: 1,
-      })
-      .returning();
+    const stepInst = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          workflowStepTemplateId: stepTmpl.id,
+          stepOrder: 20,
+          stepName: "Round Isolation List Test",
+          stepType: "document",
+          status: "awaiting_validation",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
-    const [wsd] = await db
-      .insert(workflowStepDocument)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        requiredDocumentName: "Certificate",
-        status: "uploaded",
-      })
-      .returning();
+    const wsd = (
+      await db
+        .insert(workflowStepDocument)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          requiredDocumentName: "Certificate",
+          status: "uploaded",
+        })
+        .returning()
+    )[0]!;
 
     // Round 1 task + decision (decline)
-    const [round1Task] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        assigneeType: "role",
-        assigneeRole: "admin",
-        title: "Validate R1",
-        taskType: "validation",
-        status: "completed",
-        validationRound: 1,
-      })
-      .returning();
+    const round1Task = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          assigneeType: "role",
+          assigneeRole: "admin",
+          title: "Validate R1",
+          taskType: "validation",
+          status: "completed",
+          validationRound: 1,
+        })
+        .returning()
+    )[0]!;
 
     await db.insert(documentReviewDecision).values({
       tenantId: tenant.id,
@@ -445,23 +504,25 @@ describe("Document Review Roundtrip", () => {
       );
 
     expect(round1Decisions.length).toBe(1);
-    expect(round1Decisions[0].decision).toBe("declined");
+    expect(round1Decisions[0]!.decision).toBe("declined");
 
     // Now add a round 2 task and decision
-    const [round2Task] = await db
-      .insert(taskInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        stepInstanceId: stepInst.id,
-        assigneeType: "role",
-        assigneeRole: "admin",
-        title: "Validate R2",
-        taskType: "validation",
-        status: "pending",
-        validationRound: 2,
-      })
-      .returning();
+    const round2Task = (
+      await db
+        .insert(taskInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          stepInstanceId: stepInst.id,
+          assigneeType: "role",
+          assigneeRole: "admin",
+          title: "Validate R2",
+          taskType: "validation",
+          status: "pending",
+          validationRound: 2,
+        })
+        .returning()
+    )[0]!;
 
     await db.insert(documentReviewDecision).values({
       tenantId: tenant.id,
@@ -485,8 +546,8 @@ describe("Document Review Roundtrip", () => {
       );
 
     expect(round2DecisionsAfter.length).toBe(1);
-    expect(round2DecisionsAfter[0].decision).toBe("approved");
-    expect(round2DecisionsAfter[0].validationRound).toBe(2);
+    expect(round2DecisionsAfter[0]!.decision).toBe("approved");
+    expect(round2DecisionsAfter[0]!.validationRound).toBe(2);
 
     // Total decisions = 2 (one per round, for audit)
     const allDecisions = await db
@@ -495,6 +556,8 @@ describe("Document Review Roundtrip", () => {
       .where(eq(documentReviewDecision.stepInstanceId, stepInst.id));
     expect(allDecisions.length).toBe(2);
 
-    await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, stepTmpl.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.id, stepTmpl.id));
   });
 });

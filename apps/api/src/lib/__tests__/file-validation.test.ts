@@ -12,7 +12,9 @@ function makeFile(bytes: Uint8Array, name: string, type: string): File {
 
 // Real magic bytes for common formats
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // %PDF-
-const PNG_MAGIC = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_MAGIC = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
 const JPEG_MAGIC = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 const ZIP_MAGIC = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // PK.. (also used by docx/xlsx)
 const EXE_MAGIC = new Uint8Array([0x4d, 0x5a]); // MZ header
@@ -25,7 +27,11 @@ function padBytes(magic: Uint8Array, totalSize: number): Uint8Array {
 
 describe("validateFileMagicBytes", () => {
   test("accepts valid PDF file", async () => {
-    const file = makeFile(padBytes(PDF_MAGIC, 1024), "report.pdf", "application/pdf");
+    const file = makeFile(
+      padBytes(PDF_MAGIC, 1024),
+      "report.pdf",
+      "application/pdf"
+    );
     const result = await validateFileMagicBytes(file);
     expect(result.valid).toBe(true);
     expect(result.detectedType).toBe("application/pdf");
@@ -39,7 +45,11 @@ describe("validateFileMagicBytes", () => {
   });
 
   test("accepts valid JPEG file", async () => {
-    const file = makeFile(padBytes(JPEG_MAGIC, 1024), "photo.jpg", "image/jpeg");
+    const file = makeFile(
+      padBytes(JPEG_MAGIC, 1024),
+      "photo.jpg",
+      "image/jpeg"
+    );
     const result = await validateFileMagicBytes(file);
     expect(result.valid).toBe(true);
     expect(result.detectedType).toBe("image/jpeg");
@@ -66,14 +76,20 @@ describe("validateFileMagicBytes", () => {
   });
 
   test("rejects EXE disguised as PDF", async () => {
-    const file = makeFile(padBytes(EXE_MAGIC, 1024), "malware.pdf", "application/pdf");
+    const file = makeFile(
+      padBytes(EXE_MAGIC, 1024),
+      "malware.pdf",
+      "application/pdf"
+    );
     const result = await validateFileMagicBytes(file);
     expect(result.valid).toBe(false);
     expect(result.error).toContain("does not match");
   });
 
   test("rejects unknown content (plain text)", async () => {
-    const textBytes = new TextEncoder().encode("just some text content without magic bytes");
+    const textBytes = new TextEncoder().encode(
+      "just some text content without magic bytes"
+    );
     const file = makeFile(textBytes, "readme.pdf", "application/pdf");
     const result = await validateFileMagicBytes(file);
     expect(result.valid).toBe(false);

@@ -18,7 +18,10 @@ describe("Logger Module", () => {
   });
 
   test("createChildLogger helper works", () => {
-    const child = createChildLogger({ correlationId: "test-123", tenantId: "t1" });
+    const child = createChildLogger({
+      correlationId: "test-123",
+      tenantId: "t1",
+    });
     expect(child).toBeDefined();
     expect(typeof child.info).toBe("function");
   });

@@ -440,8 +440,10 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/approve", () => {
     });
 
     it("should allow optional comments in body", async () => {
-      const bodyWithComments = { comments: "Approved with notes" };
-      const bodyWithoutComments = {};
+      const bodyWithComments: { comments?: string } = {
+        comments: "Approved with notes",
+      };
+      const bodyWithoutComments: { comments?: string } = {};
 
       expect(bodyWithComments.comments).toBeDefined();
       expect(bodyWithoutComments.comments).toBeUndefined();
@@ -634,7 +636,7 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/approve", () => {
 
       const emailData = {
         supplierName: stage3.workflow.supplier.name,
-        supplierEmail: stage3.workflow.supplier.contactEmail,
+        supplierEmail: (stage3.workflow.supplier as any).contactEmail,
         workflowId: stage3.workflowId,
       };
 
