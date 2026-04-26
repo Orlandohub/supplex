@@ -43,7 +43,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch template with all versions, sections, and fields
-    const templateResponse = await client.api["form-templates"][id].get();
+    const templateResponse = await (client.api["form-templates"] as any)[
+      id
+    ].get();
 
     if (templateResponse.error) {
       const status = templateResponse.status || 500;

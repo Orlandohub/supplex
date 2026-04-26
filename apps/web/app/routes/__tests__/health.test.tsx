@@ -3,8 +3,7 @@ import { loader } from "../health";
 
 describe("Frontend Health Check", () => {
   it("should return 200 OK with health status", async () => {
-    const request = new Request("http://localhost:5173/health");
-    const response = await loader({ request, params: {}, context: {} });
+    const response = await loader();
 
     const data = await response.json();
 
@@ -19,8 +18,7 @@ describe("Frontend Health Check", () => {
   });
 
   it("should include no-cache headers", async () => {
-    const request = new Request("http://localhost:5173/health");
-    const response = await loader({ request, params: {}, context: {} });
+    const response = await loader();
 
     const cacheControl = response.headers.get("Cache-Control");
     expect(cacheControl).toContain("no-cache");
@@ -28,8 +26,7 @@ describe("Frontend Health Check", () => {
   });
 
   it("should include environment information", async () => {
-    const request = new Request("http://localhost:5173/health");
-    const response = await loader({ request, params: {}, context: {} });
+    const response = await loader();
 
     const data = await response.json();
     expect(data.environment).toBeDefined();

@@ -22,13 +22,15 @@ describe("StatusChangeDropdown", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: false,
+      isSupplierUser: false,
     });
 
     render(
@@ -49,13 +51,15 @@ describe("StatusChangeDropdown", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: true,
+      isSupplierUser: false,
     });
 
     const { container } = render(
@@ -76,13 +80,15 @@ describe("StatusChangeDropdown", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: false,
+      isSupplierUser: false,
     });
 
     render(
@@ -103,13 +109,15 @@ describe("StatusChangeDropdown", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: false,
+      isSupplierUser: false,
     });
 
     render(
@@ -136,13 +144,15 @@ describe("StatusChangeDropdown", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: false,
+      isSupplierUser: false,
     });
 
     render(
@@ -167,13 +177,15 @@ describe("StatusChangeDropdown", () => {
       canManageUsers: false,
       canViewSuppliers: true,
       canCreateSuppliers: false,
-      canUploadDocuments: false,
+      canUploadDocument: false,
+      canDeleteDocument: false,
       canCreateEvaluations: false,
       canManageCapa: false,
       canViewAnalytics: false,
       canAccessSettings: false,
       isAdmin: false,
       isViewer: false,
+      isSupplierUser: false,
     });
 
     const statuses = [
@@ -198,4 +210,3 @@ describe("StatusChangeDropdown", () => {
     });
   });
 });
-

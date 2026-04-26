@@ -73,8 +73,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch process details
-    const processResponse =
-      await client.api.workflows.processes[processInstanceId].get();
+    const processResponse = await (client.api.workflows.processes as any)[
+      processInstanceId
+    ].get();
 
     // Handle API errors
     if (processResponse.error) {

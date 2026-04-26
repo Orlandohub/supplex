@@ -69,25 +69,25 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should display supplier name", () => {
-      const supplierName = mockTasks[0].supplierName;
+      const supplierName = mockTasks[0]!.supplierName;
 
       expect(supplierName).toBe("ABC Supplier");
     });
 
     it("should display submitted by (initiator)", () => {
-      const initiatedBy = mockTasks[0].initiatedBy;
+      const initiatedBy = mockTasks[0]!.initiatedBy;
 
       expect(initiatedBy).toBe("John Doe");
     });
 
     it("should display submitted date", () => {
-      const initiatedDate = mockTasks[0].initiatedDate;
+      const initiatedDate = mockTasks[0]!.initiatedDate;
 
       expect(initiatedDate).toBeInstanceOf(Date);
     });
 
     it("should display risk score with badge", () => {
-      const riskScore = mockTasks[0].riskScore;
+      const riskScore = mockTasks[0]!.riskScore;
       const variant =
         riskScore >= 7
           ? "destructive"
@@ -100,14 +100,14 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should display days pending", () => {
-      const daysPending = mockTasks[0].daysPending;
+      const daysPending = mockTasks[0]!.daysPending;
 
       expect(daysPending).toBe(7);
       expect(typeof daysPending).toBe("number");
     });
 
     it("should warn for overdue tasks (> 7 days)", () => {
-      const daysPending = mockTasks[0].daysPending;
+      const daysPending = mockTasks[0]!.daysPending;
       const isOverdue = daysPending > 7;
 
       expect(daysPending).toBeGreaterThan(7);
@@ -159,7 +159,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
         : mockTasks;
 
       expect(filteredTasks).toHaveLength(1);
-      expect(filteredTasks[0].supplierName).toBe("ABC Supplier");
+      expect(filteredTasks[0]!.supplierName).toBe("ABC Supplier");
     });
 
     it("should show all tasks when filter disabled", () => {
@@ -188,7 +188,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
    */
   describe("Navigation to review page (AC 3)", () => {
     it("should link to workflow review page", () => {
-      const workflowId = mockTasks[0].workflowId;
+      const workflowId = mockTasks[0]!.workflowId;
       const reviewUrl = `/workflows/${workflowId}/review`;
 
       expect(reviewUrl).toBe("/workflows/workflow-1/review");
@@ -341,7 +341,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should display all task info in mobile cards", () => {
-      const task = mockTasks[0];
+      const task = mockTasks[0]!;
 
       // Card should include all fields
       expect(task.supplierName).toBeDefined();
@@ -361,8 +361,8 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
         (a, b) => b.daysPending - a.daysPending
       );
 
-      expect(sorted[0].daysPending).toBe(7); // Oldest first
-      expect(sorted[1].daysPending).toBe(2); // Newest last
+      expect(sorted[0]!.daysPending).toBe(7); // Oldest first
+      expect(sorted[1]!.daysPending).toBe(2); // Newest last
     });
   });
 

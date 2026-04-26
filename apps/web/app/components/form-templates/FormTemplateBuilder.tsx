@@ -87,8 +87,9 @@ export function FormTemplateBuilder({
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response =
-        await client.api["form-templates"][template.id].publish.patch();
+      const response = await (client.api["form-templates"] as any)[
+        template.id
+      ].publish.patch();
 
       if (response.error) {
         const errorData = response.error as any;

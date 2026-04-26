@@ -235,8 +235,9 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response =
-        await client.api["workflow-templates"][templateId].steps.get();
+      const response = await (client.api["workflow-templates"] as any)[
+        templateId
+      ].steps.get();
 
       if (response.error) {
         throw new Error("Failed to fetch steps");
@@ -327,10 +328,9 @@ export function WorkflowStepBuilder({
     try {
       if (editingStep) {
         // Update existing step
-        const response =
-          await client.api["workflow-templates"][templateId].steps[
-            editingStep.id
-          ].put(stepData);
+        const response = await (client.api["workflow-templates"] as any)[
+          templateId
+        ].steps[editingStep.id].put(stepData);
 
         if (response.error) {
           throw new Error("Failed to update step");
@@ -342,10 +342,9 @@ export function WorkflowStepBuilder({
         });
       } else {
         // Create new step
-        const response =
-          await client.api["workflow-templates"][templateId].steps.post(
-            stepData
-          );
+        const response = await (client.api["workflow-templates"] as any)[
+          templateId
+        ].steps.post(stepData);
 
         if (response.error) {
           throw new Error("Failed to create step");
@@ -378,10 +377,9 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response =
-        await client.api["workflow-templates"][templateId].steps[
-          stepId
-        ].delete();
+      const response = await (client.api["workflow-templates"] as any)[
+        templateId
+      ].steps[stepId].delete();
 
       if (response.error) {
         throw new Error("Failed to delete step");
@@ -448,7 +446,7 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await client.api["workflow-templates"][
+      const response = await (client.api["workflow-templates"] as any)[
         templateId
       ].steps.reorder.put({
         stepOrders: updates,

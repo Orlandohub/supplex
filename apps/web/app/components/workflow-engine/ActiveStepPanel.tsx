@@ -119,7 +119,9 @@ export function ActiveStepPanel({
           ? "submit"
           : "approve";
 
-      const response = await client.api.workflows.steps[step.id].complete.post({
+      const response = await (client.api.workflows.steps as any)[
+        step.id
+      ].complete.post({
         action,
       });
 
@@ -148,7 +150,9 @@ export function ActiveStepPanel({
       setIsCompleting(true);
       setError(null);
 
-      const response = await client.api.workflows.steps[step.id].complete.post({
+      const response = await (client.api.workflows.steps as any)[
+        step.id
+      ].complete.post({
         action: "decline",
         comment: declineComment.trim(),
       });

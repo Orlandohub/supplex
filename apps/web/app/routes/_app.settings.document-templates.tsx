@@ -152,8 +152,9 @@ export default function DocumentTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
-      const response =
-        await client.api["document-templates"][selectedTemplate.id].put(data);
+      const response = await (client.api["document-templates"] as any)[
+        selectedTemplate.id
+      ].put(data);
 
       if (response.error) {
         toast({
@@ -195,8 +196,9 @@ export default function DocumentTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
-      const response =
-        await client.api["document-templates"][selectedTemplate.id].delete();
+      const response = await (client.api["document-templates"] as any)[
+        selectedTemplate.id
+      ].delete();
 
       if (response.error) {
         const errorData = response.error as any;

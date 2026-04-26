@@ -100,13 +100,19 @@ export function useFormSubmission({
    */
   const submitForm = async (
     submissionId: string
-  ): Promise<{ success: boolean; processInstanceId?: string | null; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    processInstanceId?: string | null;
+    error?: string;
+  }> => {
     setIsSubmitting(true);
 
     try {
       const client = createClientEdenTreatyClient(token);
 
-      const response = await client.api["form-submissions"][submissionId].submit.post();
+      const response = await (client.api["form-submissions"] as any)[
+        submissionId
+      ].submit.post();
 
       if (response.error) {
         const errorData = response.error.value as any;
@@ -166,4 +172,3 @@ export function useFormSubmission({
     isSubmitting,
   };
 }
-

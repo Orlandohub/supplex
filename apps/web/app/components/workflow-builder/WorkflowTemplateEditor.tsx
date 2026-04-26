@@ -62,8 +62,9 @@ export function WorkflowTemplateEditor({
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response =
-        await client.api["workflow-templates"][template.id].publish.patch();
+      const response = await (client.api["workflow-templates"] as any)[
+        template.id
+      ].publish.patch();
 
       if (response.error) {
         const body = (

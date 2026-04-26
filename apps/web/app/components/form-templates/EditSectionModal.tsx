@@ -57,7 +57,7 @@ export function EditSectionModal({
     setIsSubmitting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api["form-templates"].sections[
+      const response = await (client.api["form-templates"].sections as any)[
         section.id
       ].patch({
         title: title.trim(),

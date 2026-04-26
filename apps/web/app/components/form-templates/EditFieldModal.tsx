@@ -106,7 +106,7 @@ export function EditFieldModal({
           ? { choices: options }
           : {};
 
-      const response = await client.api["form-templates"].fields[
+      const response = await (client.api["form-templates"].fields as any)[
         field.id
       ].patch({
         label: label.trim(),

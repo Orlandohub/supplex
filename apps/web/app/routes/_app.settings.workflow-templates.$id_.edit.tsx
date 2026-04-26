@@ -57,7 +57,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch template with versions
-    const templateResponse = await client.api["workflow-templates"][id].get();
+    const templateResponse = await (client.api["workflow-templates"] as any)[
+      id
+    ].get();
 
     if (templateResponse.error) {
       const status = templateResponse.status || 500;
