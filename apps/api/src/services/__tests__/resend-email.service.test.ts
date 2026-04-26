@@ -2,7 +2,7 @@ import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { sendEmail, isResendConfigured } from "../resend-email.service";
 
 // Mock Resend
-const mockResendSend = mock(() =>
+const mockResendSend: any = mock(() =>
   Promise.resolve({ data: { id: "test-message-id" }, error: null })
 );
 

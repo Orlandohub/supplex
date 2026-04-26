@@ -9,7 +9,7 @@ import { db } from "../../lib/db";
 import { suppliers, users, tenants } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import type { App } from "../../index";
-import { app } from "../../index";
+import app from "../../index";
 import { UserRole } from "@supplex/types";
 
 // Create treaty client
@@ -29,134 +29,152 @@ let otherTenantUserId: string;
 describe("GET /api/suppliers/by-user/:userId", () => {
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Test Tenant - By User Endpoint",
-        slug: "test-tenant-by-user",
-        domain: "test-by-user.supplex.test",
-      })
-      .returning();
+    const tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Test Tenant - By User Endpoint",
+          slug: "test-tenant-by-user",
+        })
+        .returning()
+    )[0]!;
     testTenantId = tenant.id;
 
     // Create another tenant for tenant isolation test
-    const [otherTenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Other Tenant - By User",
-        slug: "other-tenant-by-user",
-        domain: "other-by-user.supplex.test",
-      })
-      .returning();
+    const otherTenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Other Tenant - By User",
+          slug: "other-tenant-by-user",
+        })
+        .returning()
+    )[0]!;
     otherTenantId = otherTenant.id;
 
     // Create test admin user
-    const [adminUser] = await db
-      .insert(users)
-      .values({
-        tenantId: testTenantId,
-        email: "admin@test-by-user.com",
-        fullName: "Test Admin",
-        role: UserRole.ADMIN,
-        isActive: true,
-        status: "active",
-      })
-      .returning();
+    const adminUser = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: testTenantId,
+          email: "admin@test-by-user.com",
+          fullName: "Test Admin",
+          role: UserRole.ADMIN,
+          isActive: true,
+          status: "active",
+        })
+        .returning()
+    )[0]!;
     testUserId = adminUser.id;
 
     // Create supplier_user
-    const [supplierUser] = await db
-      .insert(users)
-      .values({
-        tenantId: testTenantId,
-        email: "supplier@test-by-user.com",
-        fullName: "Test Supplier User",
-        role: UserRole.SUPPLIER_USER,
-        isActive: true,
-        status: "active",
-      })
-      .returning();
+    const supplierUser = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: testTenantId,
+          email: "supplier@test-by-user.com",
+          fullName: "Test Supplier User",
+          role: UserRole.SUPPLIER_USER,
+          isActive: true,
+          status: "active",
+        })
+        .returning()
+    )[0]!;
     testSupplierUserId = supplierUser.id;
 
     // Create unassociated user
-    const [unassociatedUser] = await db
-      .insert(users)
-      .values({
-        tenantId: testTenantId,
-        email: "unassociated@test-by-user.com",
-        fullName: "Unassociated User",
-        role: UserRole.VIEWER,
-        isActive: true,
-        status: "active",
-      })
-      .returning();
+    const unassociatedUser = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: testTenantId,
+          email: "unassociated@test-by-user.com",
+          fullName: "Unassociated User",
+          role: UserRole.VIEWER,
+          isActive: true,
+          status: "active",
+        })
+        .returning()
+    )[0]!;
     testUnassociatedUserId = unassociatedUser.id;
 
     // Create supplier associated with supplier_user
-    const [supplier] = await db
-      .insert(suppliers)
-      .values({
-        tenantId: testTenantId,
-        name: "Test Supplier with User",
-        taxId: "TEST-TAX-BY-USER",
-        category: "manufacturer",
-        status: "approved",
-        contactName: "Test Contact",
-        contactEmail: "contact@test-supplier.com",
-        contactPhone: "+1234567890",
-        address: {
-          street: "123 Test St",
-          city: "Test City",
-          state: "TS",
-          postalCode: "12345",
-          country: "Test Country",
-        },
-        certifications: [],
-        metadata: {},
-        supplierUserId: testSupplierUserId, // Link to supplier user
-        createdBy: testUserId,
-      })
-      .returning();
+    const supplier = (
+      await db
+        .insert(suppliers)
+        .values({
+          tenantId: testTenantId,
+          name: "Test Supplier with User",
+          taxId: "TEST-TAX-BY-USER",
+          category: "manufacturer",
+          status: "approved",
+          contactName: "Test Contact",
+          contactEmail: "contact@test-supplier.com",
+          contactPhone: "+1234567890",
+          address: {
+            street: "123 Test St",
+            city: "Test City",
+            state: "TS",
+            postalCode: "12345",
+            country: "Test Country",
+          },
+          certifications: [],
+          metadata: {},
+          supplierUserId: testSupplierUserId, // Link to supplier user
+          createdBy: testUserId,
+        })
+        .returning()
+    )[0]!;
     testSupplierId = supplier.id;
 
     // Create supplier in other tenant
-    const [otherTenantUser] = await db
-      .insert(users)
-      .values({
-        tenantId: otherTenantId,
-        email: "user@other-tenant.com",
-        fullName: "Other Tenant User",
-        role: UserRole.SUPPLIER_USER,
-        isActive: true,
-        status: "active",
-      })
-      .returning();
+    const otherTenantUser = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: otherTenantId,
+          email: "user@other-tenant.com",
+          fullName: "Other Tenant User",
+          role: UserRole.SUPPLIER_USER,
+          isActive: true,
+          status: "active",
+        })
+        .returning()
+    )[0]!;
     otherTenantUserId = otherTenantUser.id;
 
-    const [otherSupplier] = await db
-      .insert(suppliers)
-      .values({
-        tenantId: otherTenantId,
-        name: "Other Tenant Supplier",
-        taxId: "OTHER-TAX",
-        category: "distributor",
-        status: "approved",
-        contactName: "Other Contact",
-        contactEmail: "contact@other.com",
-        contactPhone: "+9876543210",
-        address: {
-          street: "456 Other St",
-          city: "Other City",
-          state: "OS",
-          postalCode: "54321",
-          country: "Other Country",
-        },
-        certifications: [],
-        metadata: {},
-        supplierUserId: otherTenantUserId,
-        createdBy: otherTenantUserId,
-      })
-      .returning();
+    const otherSupplier = (
+      await db
+        .insert(suppliers)
+        .values({
+          tenantId: otherTenantId,
+          name: "Other Tenant Supplier",
+          taxId: "OTHER-TAX",
+          category: "distributor",
+          status: "approved",
+          contactName: "Other Contact",
+          contactEmail: "contact@other.com",
+          contactPhone: "+9876543210",
+          address: {
+            street: "456 Other St",
+            city: "Other City",
+            state: "OS",
+            postalCode: "54321",
+            country: "Other Country",
+          },
+          certifications: [],
+          metadata: {},
+          supplierUserId: otherTenantUserId,
+          createdBy: otherTenantUserId,
+        })
+        .returning()
+    )[0]!;
     otherTenantSupplierId = otherSupplier.id;
 
     // Mock auth token (in real tests, you'd get this from Supabase)
@@ -176,7 +194,7 @@ describe("GET /api/suppliers/by-user/:userId", () => {
   });
 
   it("should return supplier for valid supplier_user", async () => {
-    const response = await client.api.suppliers["by-user"][
+    const response = await (client.api.suppliers["by-user"] as any)[
       testSupplierUserId
     ].get({
       headers: {
@@ -197,7 +215,7 @@ describe("GET /api/suppliers/by-user/:userId", () => {
   });
 
   it("should return 404 for user with no associated supplier", async () => {
-    const response = await client.api.suppliers["by-user"][
+    const response = await (client.api.suppliers["by-user"] as any)[
       testUnassociatedUserId
     ].get({
       headers: {
@@ -220,7 +238,7 @@ describe("GET /api/suppliers/by-user/:userId", () => {
 
   it("should enforce tenant isolation", async () => {
     // Try to access other tenant's supplier user from current tenant
-    const response = await client.api.suppliers["by-user"][
+    const response = await (client.api.suppliers["by-user"] as any)[
       otherTenantUserId
     ].get({
       headers: {
@@ -239,7 +257,7 @@ describe("GET /api/suppliers/by-user/:userId", () => {
   });
 
   it("should return 401 without authentication", async () => {
-    const response = await client.api.suppliers["by-user"][
+    const response = await (client.api.suppliers["by-user"] as any)[
       testSupplierUserId
     ].get();
 
@@ -255,7 +273,9 @@ describe("GET /api/suppliers/by-user/:userId", () => {
   it("should return 404 for non-existent user", async () => {
     const fakeUserId = "00000000-0000-0000-0000-000000000000";
 
-    const response = await client.api.suppliers["by-user"][fakeUserId].get({
+    const response = await (client.api.suppliers["by-user"] as any)[
+      fakeUserId
+    ].get({
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -270,4 +290,3 @@ describe("GET /api/suppliers/by-user/:userId", () => {
     }
   });
 });
-

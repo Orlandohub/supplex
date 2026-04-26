@@ -15,6 +15,7 @@ const mockAdminUser: AuthContext["user"] = {
   email: "admin@example.com",
   role: UserRole.ADMIN,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockProcurementUser: AuthContext["user"] = {
@@ -22,6 +23,7 @@ const mockProcurementUser: AuthContext["user"] = {
   email: "procurement@example.com",
   role: UserRole.PROCUREMENT_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockViewerUser: AuthContext["user"] = {
@@ -29,6 +31,7 @@ const mockViewerUser: AuthContext["user"] = {
   email: "viewer@example.com",
   role: UserRole.VIEWER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const validTemplateData = {
@@ -40,9 +43,11 @@ const validTemplateData = {
 describe("Workflow Template API", () => {
   describe("POST /api/workflow-templates - Create Template", () => {
     it("should create workflow template with valid data as Admin", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/", {
@@ -59,9 +64,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 403 for non-Admin users", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(createWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(createWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/", {
@@ -79,9 +86,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 422 for missing required field (name)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createWorkflowTemplateRoute)
+      );
 
       const invalidData = { ...validTemplateData };
       delete (invalidData as any).name;
@@ -100,9 +109,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 422 for missing required field (processType)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createWorkflowTemplateRoute)
+      );
 
       const invalidData = { ...validTemplateData };
       delete (invalidData as any).processType;
@@ -123,9 +134,11 @@ describe("Workflow Template API", () => {
 
   describe("GET /api/workflow-templates - List Templates", () => {
     it("should list templates for Admin user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(listWorkflowTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(listWorkflowTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/", {
@@ -138,9 +151,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 403 for non-Admin users", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockViewerUser }))
-        .use(listWorkflowTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockViewerUser }))
+          .use(listWorkflowTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/", {
@@ -152,9 +167,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should accept pagination params", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(listWorkflowTemplatesRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(listWorkflowTemplatesRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/?limit=10&offset=0", {
@@ -171,9 +188,11 @@ describe("Workflow Template API", () => {
     const testId = "550e8400-e29b-41d4-a716-446655440099";
 
     it("should get template for Admin user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(getWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(getWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/${testId}`, {
@@ -186,9 +205,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 403 for non-Admin users", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(getWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(getWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/${testId}`, {
@@ -204,9 +225,11 @@ describe("Workflow Template API", () => {
     const testId = "550e8400-e29b-41d4-a716-446655440099";
 
     it("should update template for Admin user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(updateWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(updateWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/${testId}`, {
@@ -226,9 +249,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 403 for non-Admin users", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockViewerUser }))
-        .use(updateWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockViewerUser }))
+          .use(updateWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/${testId}`, {
@@ -250,9 +275,11 @@ describe("Workflow Template API", () => {
     const testId = "550e8400-e29b-41d4-a716-446655440099";
 
     it("should delete template for Admin user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(deleteWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(deleteWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/${testId}`, {
@@ -265,9 +292,11 @@ describe("Workflow Template API", () => {
     });
 
     it("should return 403 for non-Admin users", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(deleteWorkflowTemplateRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(deleteWorkflowTemplateRoute)
+      );
 
       const response = await app.handle(
         new Request(`http://localhost/${testId}`, {

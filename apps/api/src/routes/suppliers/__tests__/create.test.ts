@@ -11,6 +11,7 @@ const mockAdminUser: AuthContext["user"] = {
   email: "admin@example.com",
   role: UserRole.ADMIN,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockProcurementUser: AuthContext["user"] = {
@@ -18,6 +19,7 @@ const mockProcurementUser: AuthContext["user"] = {
   email: "procurement@example.com",
   role: UserRole.PROCUREMENT_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockViewerUser: AuthContext["user"] = {
@@ -25,6 +27,7 @@ const mockViewerUser: AuthContext["user"] = {
   email: "viewer@example.com",
   role: UserRole.VIEWER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const mockQualityUser: AuthContext["user"] = {
@@ -32,6 +35,7 @@ const mockQualityUser: AuthContext["user"] = {
   email: "quality@example.com",
   role: UserRole.QUALITY_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 const validSupplierData = {
@@ -56,9 +60,11 @@ const validSupplierData = {
 describe("Supplier Create API", () => {
   describe("POST /api/suppliers", () => {
     it("should create supplier with valid data as Admin", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -76,9 +82,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should create supplier with valid data as Procurement Manager", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockProcurementUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockProcurementUser }))
+          .use(createSupplierRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -95,9 +103,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 403 for Viewer role", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockViewerUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockViewerUser }))
+          .use(createSupplierRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -116,9 +126,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 403 for Quality Manager role", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockQualityUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockQualityUser }))
+          .use(createSupplierRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -137,9 +149,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 400 for missing required field (name)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const invalidData = { ...validSupplierData };
       delete (invalidData as any).name;
@@ -159,9 +173,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 400 for missing required field (contactEmail)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const invalidData = { ...validSupplierData };
       delete (invalidData as any).contactEmail;
@@ -181,9 +197,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 400 for invalid email format", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const invalidData = {
         ...validSupplierData,
@@ -207,9 +225,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 400 for invalid URL format (website)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const invalidData = {
         ...validSupplierData,
@@ -233,9 +253,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should return 400 for missing address fields", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const invalidData = {
         ...validSupplierData,
@@ -260,9 +282,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should accept optional fields (website, notes)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const dataWithoutOptionals = { ...validSupplierData };
       delete (dataWithoutOptionals as any).website;
@@ -283,9 +307,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should set default status to 'prospect' if not provided", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const dataWithoutStatus = { ...validSupplierData };
       delete (dataWithoutStatus as any).status;
@@ -307,9 +333,11 @@ describe("Supplier Create API", () => {
 
   describe("POST /api/suppliers - Duplicate Detection", () => {
     it("should return 409 for duplicate supplier name (without forceSave)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -330,9 +358,11 @@ describe("Supplier Create API", () => {
     });
 
     it("should accept duplicate with forceSave=true", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createSupplierRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createSupplierRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {

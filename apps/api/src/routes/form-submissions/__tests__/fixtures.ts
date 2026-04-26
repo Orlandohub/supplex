@@ -13,6 +13,7 @@ export const mockSupplierUser: AuthContext["user"] = {
   email: "supplier@example.com",
   role: UserRole.SUPPLIER_USER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 export const mockAdminUser: AuthContext["user"] = {
@@ -20,6 +21,7 @@ export const mockAdminUser: AuthContext["user"] = {
   email: "admin@example.com",
   role: UserRole.ADMIN,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 export const mockProcurementUser: AuthContext["user"] = {
@@ -27,6 +29,7 @@ export const mockProcurementUser: AuthContext["user"] = {
   email: "procurement@example.com",
   role: UserRole.PROCUREMENT_MANAGER,
   tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  fullName: "Test User",
 };
 
 // Mock Form Template ID
@@ -112,4 +115,3 @@ export function cleanupTestData() {
   // TODO: Implement with test database connection
   console.log("Test data cleanup not implemented for unit tests");
 }
-

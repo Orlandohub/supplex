@@ -61,7 +61,11 @@ mock.module("../jwt-verifier", () => ({
         exp: Math.floor(Date.now() / 1000) + 3600,
         iat: Math.floor(Date.now() / 1000),
         app_metadata: { provider: "email" },
-        user_metadata: { role: "admin", tenant_id: "tenant-999", full_name: "Stale User" },
+        user_metadata: {
+          role: "admin",
+          tenant_id: "tenant-999",
+          full_name: "Stale User",
+        },
       };
     }
     if (token === "missing-role-token") {
@@ -89,9 +93,15 @@ mock.module("../jwt-verifier", () => ({
       };
     }
     if (token === "expired-token") {
-      throw new MockJWTVerificationError("JWT token has expired", "TOKEN_EXPIRED");
+      throw new MockJWTVerificationError(
+        "JWT token has expired",
+        "TOKEN_EXPIRED"
+      );
     }
-    throw new MockJWTVerificationError("JWT token is invalid or malformed", "INVALID_TOKEN");
+    throw new MockJWTVerificationError(
+      "JWT token is invalid or malformed",
+      "INVALID_TOKEN"
+    );
   }),
 }));
 
@@ -101,22 +111,49 @@ mock.module("../supabase", () => ({
     auth: {
       getUser: mock((token: string) => {
         if (token === "valid-active-token") {
-          return { data: { user: { id: "user-active-123", email: "active@test.com" } }, error: null };
+          return {
+            data: { user: { id: "user-active-123", email: "active@test.com" } },
+            error: null,
+          };
         }
         if (token === "valid-supplier-user-token") {
-          return { data: { user: { id: "user-supplier-789", email: "supplier@test.com" } }, error: null };
+          return {
+            data: {
+              user: { id: "user-supplier-789", email: "supplier@test.com" },
+            },
+            error: null,
+          };
         }
         if (token === "valid-deactivated-token") {
-          return { data: { user: { id: "user-deactivated-456", email: "deactivated@test.com" } }, error: null };
+          return {
+            data: {
+              user: {
+                id: "user-deactivated-456",
+                email: "deactivated@test.com",
+              },
+            },
+            error: null,
+          };
         }
         if (token === "stale-user-metadata-only-token") {
-          return { data: { user: { id: "user-stale-999", email: "stale@test.com" } }, error: null };
+          return {
+            data: { user: { id: "user-stale-999", email: "stale@test.com" } },
+            error: null,
+          };
         }
         if (token === "missing-role-token") {
-          return { data: { user: { id: "user-norole-888", email: "norole@test.com" } }, error: null };
+          return {
+            data: { user: { id: "user-norole-888", email: "norole@test.com" } },
+            error: null,
+          };
         }
         if (token === "updated-role-token") {
-          return { data: { user: { id: "user-updated-777", email: "updated@test.com" } }, error: null };
+          return {
+            data: {
+              user: { id: "user-updated-777", email: "updated@test.com" },
+            },
+            error: null,
+          };
         }
         return { data: { user: null }, error: { message: "Invalid token" } };
       }),
@@ -163,29 +200,39 @@ import { authenticate, requireRole } from "./middleware";
 import { ApiError } from "../errors";
 
 function testApp() {
-  return new Elysia()
-    .onError(({ error, set }) => {
-      if (error instanceof ApiError) {
-        set.status = error.statusCode;
-        return { success: false, error: { code: error.code, message: error.message } };
-      }
-      if (error && typeof error === "object" && "statusCode" in error) {
-        const e = error as any;
-        set.status = e.statusCode;
-        return { success: false, error: { code: e.code, message: e.message } };
-      }
-      set.status = 500;
-      return { success: false, error: { code: "INTERNAL_SERVER_ERROR", message: String(error instanceof Error ? error.message : error) } };
-    });
+  return new Elysia().onError(({ error, set }) => {
+    if (error instanceof ApiError) {
+      set.status = error.statusCode;
+      return {
+        success: false,
+        error: { code: error.code, message: error.message },
+      };
+    }
+    if (error && typeof error === "object" && "statusCode" in error) {
+      const e = error as any;
+      set.status = e.statusCode;
+      return { success: false, error: { code: e.code, message: e.message } };
+    }
+    set.status = 500;
+    return {
+      success: false,
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: String(error instanceof Error ? error.message : error),
+      },
+    };
+  });
 }
 
 describe("Authentication Middleware - Deactivated User Check", () => {
-  let app: Elysia;
+  let app: Elysia<any, any, any, any, any, any, any>;
 
   beforeEach(() => {
-    app = testApp().use(authenticate).get("/test", ({ user }) => {
-      return { success: true, user };
-    });
+    app = testApp()
+      .use(authenticate)
+      .get("/test", ({ user }) => {
+        return { success: true, user };
+      });
   });
 
   test("should reject deactivated user with 401 and USER_DEACTIVATED code", async () => {
@@ -195,7 +242,14 @@ describe("Authentication Middleware - Deactivated User Check", () => {
           limit: mock((_limit: number) => {
             const callCount = mockDbSelect.mock.calls.length;
             if (callCount === 1) {
-              return [{ isActive: false, fullName: "Deactivated User", email: "deactivated@test.com", tenantId: "tenant-456" }];
+              return [
+                {
+                  isActive: false,
+                  fullName: "Deactivated User",
+                  email: "deactivated@test.com",
+                  tenantId: "tenant-456",
+                },
+              ];
             }
             return [{ fullName: "Admin User", email: "admin@test.com" }];
           }),
@@ -205,8 +259,12 @@ describe("Authentication Middleware - Deactivated User Check", () => {
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-deactivated-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-deactivated-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.error).toBeDefined();
@@ -220,15 +278,26 @@ describe("Authentication Middleware - Deactivated User Check", () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Active User", email: "active@test.com", tenantId: "tenant-123" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Active User",
+              email: "active@test.com",
+              tenantId: "tenant-123",
+            },
+          ]),
         })),
       })),
     }));
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-active-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-active-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.success).toBe(true);
@@ -244,9 +313,18 @@ describe("Authentication Middleware - Deactivated User Check", () => {
           limit: mock(() => {
             callIndex++;
             if (callIndex === 1) {
-              return [{ isActive: false, fullName: "Deactivated User", email: "deactivated@test.com", tenantId: "tenant-456" }];
+              return [
+                {
+                  isActive: false,
+                  fullName: "Deactivated User",
+                  email: "deactivated@test.com",
+                  tenantId: "tenant-456",
+                },
+              ];
             }
-            return [{ fullName: "John Admin", email: "john.admin@company.com" }];
+            return [
+              { fullName: "John Admin", email: "john.admin@company.com" },
+            ];
           }),
         })),
       })),
@@ -254,8 +332,12 @@ describe("Authentication Middleware - Deactivated User Check", () => {
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-deactivated-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-deactivated-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.error.message).toContain("John Admin");
@@ -270,7 +352,14 @@ describe("Authentication Middleware - Deactivated User Check", () => {
           limit: mock(() => {
             callIndex++;
             if (callIndex === 1) {
-              return [{ isActive: false, fullName: "Deactivated User", email: "deactivated@test.com", tenantId: "tenant-456" }];
+              return [
+                {
+                  isActive: false,
+                  fullName: "Deactivated User",
+                  email: "deactivated@test.com",
+                  tenantId: "tenant-456",
+                },
+              ];
             }
             return [];
           }),
@@ -280,8 +369,12 @@ describe("Authentication Middleware - Deactivated User Check", () => {
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-deactivated-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-deactivated-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.error.message).toContain("your company's admin");
@@ -289,8 +382,12 @@ describe("Authentication Middleware - Deactivated User Check", () => {
   });
 
   test("should return TOKEN_EXPIRED error for expired tokens", async () => {
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer expired-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer expired-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.error).toBeDefined();
@@ -298,7 +395,7 @@ describe("Authentication Middleware - Deactivated User Check", () => {
   });
 
   test("should return MISSING_TOKEN error when no token provided", async () => {
-    const response = await app
+    const response: any = await app
       .handle(new Request("http://localhost/test"))
       .then((res) => res.json());
 
@@ -308,27 +405,40 @@ describe("Authentication Middleware - Deactivated User Check", () => {
 });
 
 describe("Authentication Middleware - supplier_user Role Support", () => {
-  let app: Elysia;
+  let app: Elysia<any, any, any, any, any, any, any>;
 
   beforeEach(() => {
-    app = testApp().use(authenticate).get("/test", ({ user }) => {
-      return { success: true, user };
-    });
+    app = testApp()
+      .use(authenticate)
+      .get("/test", ({ user }) => {
+        return { success: true, user };
+      });
   });
 
   test("should allow supplier_user role (authentication succeeds)", async () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Supplier Contact", email: "supplier@test.com", tenantId: "tenant-789" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Supplier Contact",
+              email: "supplier@test.com",
+              tenantId: "tenant-789",
+            },
+          ]),
         })),
       })),
     }));
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-supplier-user-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-supplier-user-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.success).toBe(true);
@@ -341,15 +451,26 @@ describe("Authentication Middleware - supplier_user Role Support", () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Supplier Contact", email: "supplier@test.com", tenantId: "tenant-789" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Supplier Contact",
+              email: "supplier@test.com",
+              tenantId: "tenant-789",
+            },
+          ]),
         })),
       })),
     }));
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-supplier-user-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-supplier-user-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.user.role).toBe("supplier_user");
@@ -361,7 +482,14 @@ describe("Role-Based Authorization - supplier_user Role", () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Supplier Contact", email: "supplier@test.com", tenantId: "tenant-789" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Supplier Contact",
+              email: "supplier@test.com",
+              tenantId: "tenant-789",
+            },
+          ]),
         })),
       })),
     }));
@@ -374,8 +502,12 @@ describe("Role-Based Authorization - supplier_user Role", () => {
         return { success: true, role: user.role };
       });
 
-    const response = await app
-      .handle(new Request("http://localhost/supplier-route", { headers: { Authorization: "Bearer valid-supplier-user-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/supplier-route", {
+          headers: { Authorization: "Bearer valid-supplier-user-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.success).toBe(true);
@@ -386,15 +518,27 @@ describe("Role-Based Authorization - supplier_user Role", () => {
     const adminOnlyRoles = [UserRole.ADMIN];
     expect(adminOnlyRoles.includes(UserRole.SUPPLIER_USER)).toBe(false);
 
-    const { PERMISSION_MATRIX, PermissionAction } = await import("@supplex/types");
+    const { PERMISSION_MATRIX, PermissionAction } = await import(
+      "@supplex/types"
+    );
     const supplierUserPermissions = PERMISSION_MATRIX[UserRole.SUPPLIER_USER];
 
-    expect(supplierUserPermissions).not.toContain(PermissionAction.MANAGE_USERS);
-    expect(supplierUserPermissions).not.toContain(PermissionAction.MANAGE_TENANT_SETTINGS);
-    expect(supplierUserPermissions).not.toContain(PermissionAction.CHANGE_USER_ROLES);
+    expect(supplierUserPermissions).not.toContain(
+      PermissionAction.MANAGE_USERS
+    );
+    expect(supplierUserPermissions).not.toContain(
+      PermissionAction.MANAGE_TENANT_SETTINGS
+    );
+    expect(supplierUserPermissions).not.toContain(
+      PermissionAction.CHANGE_USER_ROLES
+    );
 
-    expect(supplierUserPermissions).toContain(PermissionAction.VIEW_OWN_SUPPLIER);
-    expect(supplierUserPermissions).toContain(PermissionAction.EDIT_OWN_SUPPLIER);
+    expect(supplierUserPermissions).toContain(
+      PermissionAction.VIEW_OWN_SUPPLIER
+    );
+    expect(supplierUserPermissions).toContain(
+      PermissionAction.EDIT_OWN_SUPPLIER
+    );
     expect(supplierUserPermissions).toContain(PermissionAction.VIEW_OWN_TASKS);
   });
 
@@ -402,7 +546,14 @@ describe("Role-Based Authorization - supplier_user Role", () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Supplier Contact", email: "supplier@test.com", tenantId: "tenant-789" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Supplier Contact",
+              email: "supplier@test.com",
+              tenantId: "tenant-789",
+            },
+          ]),
         })),
       })),
     }));
@@ -415,8 +566,12 @@ describe("Role-Based Authorization - supplier_user Role", () => {
         return { success: true, role: user.role };
       });
 
-    const response = await app
-      .handle(new Request("http://localhost/shared-route", { headers: { Authorization: "Bearer valid-supplier-user-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/shared-route", {
+          headers: { Authorization: "Bearer valid-supplier-user-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.success).toBe(true);
@@ -427,27 +582,40 @@ describe("Role-Based Authorization - supplier_user Role", () => {
 // ─── SEC-001: New Tests for app_metadata Claims Model ────────────────────────
 
 describe("Authentication Middleware - app_metadata Claims (SEC-001)", () => {
-  let app: Elysia;
+  let app: Elysia<any, any, any, any, any, any, any>;
 
   beforeEach(() => {
-    app = testApp().use(authenticate).get("/test", ({ user }) => {
-      return { success: true, user };
-    });
+    app = testApp()
+      .use(authenticate)
+      .get("/test", ({ user }) => {
+        return { success: true, user };
+      });
   });
 
   test("8.3: middleware correctly reads role and tenant_id from app_metadata", async () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Active User", email: "active@test.com", tenantId: "tenant-123" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Active User",
+              email: "active@test.com",
+              tenantId: "tenant-123",
+            },
+          ]),
         })),
       })),
     }));
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer valid-active-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer valid-active-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.success).toBe(true);
@@ -456,8 +624,12 @@ describe("Authentication Middleware - app_metadata Claims (SEC-001)", () => {
   });
 
   test("8.4: middleware returns 401 INVALID_ROLE when JWT has claims only in user_metadata (stale pre-migration token)", async () => {
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer stale-user-metadata-only-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer stale-user-metadata-only-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.error).toBeDefined();
@@ -466,8 +638,12 @@ describe("Authentication Middleware - app_metadata Claims (SEC-001)", () => {
   });
 
   test("8.4b: middleware returns 401 INVALID_ROLE when role is absent from app_metadata", async () => {
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer missing-role-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer missing-role-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.error).toBeDefined();
@@ -478,15 +654,26 @@ describe("Authentication Middleware - app_metadata Claims (SEC-001)", () => {
     const mockDbSelect = mock(() => ({
       from: mock(() => ({
         where: mock(() => ({
-          limit: mock(() => [{ isActive: true, fullName: "Updated Role User", email: "updated@test.com", tenantId: "tenant-777" }]),
+          limit: mock(() => [
+            {
+              isActive: true,
+              fullName: "Updated Role User",
+              email: "updated@test.com",
+              tenantId: "tenant-777",
+            },
+          ]),
         })),
       })),
     }));
 
     (db as any).select = mockDbSelect;
 
-    const response = await app
-      .handle(new Request("http://localhost/test", { headers: { Authorization: "Bearer updated-role-token" } }))
+    const response: any = await app
+      .handle(
+        new Request("http://localhost/test", {
+          headers: { Authorization: "Bearer updated-role-token" },
+        })
+      )
       .then((res) => res.json());
 
     expect(response.success).toBe(true);

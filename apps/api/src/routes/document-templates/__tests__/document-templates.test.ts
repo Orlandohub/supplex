@@ -19,25 +19,28 @@ describe("Document Templates API Tests", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Test Tenant API",
-        slug: `test-api-${Date.now()}`,
-      })
-      .returning();
+    const tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Test Tenant API",
+          slug: `test-api-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
     testTenantId = tenant.id;
 
     // Create admin user via Supabase
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: `admin-doc-test-${Date.now()}@test.com`,
-      password: "testpassword123",
-      email_confirm: true,
-      app_metadata: {
-        role: "admin",
-        tenant_id: testTenantId,
-      },
-    });
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: `admin-doc-test-${Date.now()}@test.com`,
+        password: "testpassword123",
+        email_confirm: true,
+        app_metadata: {
+          role: "admin",
+          tenant_id: testTenantId,
+        },
+      });
 
     if (authError || !authData.user) {
       throw new Error("Failed to create test admin user");
@@ -72,10 +75,12 @@ describe("Document Templates API Tests", () => {
 
   afterAll(async () => {
     // Cleanup
-    await db.delete(documentTemplate).where(eq(documentTemplate.tenantId, testTenantId));
+    await db
+      .delete(documentTemplate)
+      .where(eq(documentTemplate.tenantId, testTenantId));
     await db.delete(users).where(eq(users.id, adminUserId));
     await db.delete(tenants).where(eq(tenants.id, testTenantId));
-    
+
     // Delete Supabase auth user
     await supabaseAdmin.auth.admin.deleteUser(adminUserId);
   });
@@ -106,7 +111,7 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data: any = await response.json();
       expect(data.success).toBe(true);
       expect(data.data).toBeDefined();
       expect(data.data.templateName).toBe("ISO Certification Documents");
@@ -132,7 +137,7 @@ describe("Document Templates API Tests", () => {
         })
       );
 
-      const data1 = await response1.json();
+      const data1: any = await response1.json();
       const template1Id = data1.data.id;
 
       // Create second default
@@ -155,10 +160,12 @@ describe("Document Templates API Tests", () => {
       expect(response2.status).toBe(200);
 
       // Verify first template is no longer default
-      const [template1] = await db
-        .select()
-        .from(documentTemplate)
-        .where(eq(documentTemplate.id, template1Id));
+      const template1 = (
+        await db
+          .select()
+          .from(documentTemplate)
+          .where(eq(documentTemplate.id, template1Id))
+      )[0]!;
 
       expect(template1.isDefault).toBe(false);
     });
@@ -176,7 +183,7 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data: any = await response.json();
       expect(data.success).toBe(true);
       expect(Array.isArray(data.data.templates)).toBe(true);
       expect(data.data.templates.length).toBeGreaterThan(0);
@@ -184,18 +191,21 @@ describe("Document Templates API Tests", () => {
 
     it("should filter templates by status", async () => {
       const response = await app.handle(
-        new Request("http://localhost/api/document-templates?status=published", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
-        })
+        new Request(
+          "http://localhost/api/document-templates?status=published",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${adminToken}`,
+            },
+          }
+        )
       );
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data: any = await response.json();
       expect(data.success).toBe(true);
-      
+
       // All returned templates should be published
       data.data.templates.forEach((template: any) => {
         expect(template.status).toBe("published");
@@ -215,14 +225,14 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data: any = await response.json();
       expect(data.success).toBe(true);
       expect(Array.isArray(data.data.templates)).toBe(true);
-      
+
       // Verify format: { id, label }
       if (data.data.templates.length > 0) {
-        expect(data.data.templates[0].id).toBeDefined();
-        expect(data.data.templates[0].label).toBeDefined();
+        expect(data.data.templates[0]!.id).toBeDefined();
+        expect(data.data.templates[0]!.label).toBeDefined();
       }
     });
   });
@@ -230,21 +240,24 @@ describe("Document Templates API Tests", () => {
   describe("PUT /api/document-templates/:id - Update Template", () => {
     it("should update an existing template (admin only)", async () => {
       const response = await app.handle(
-        new Request(`http://localhost/api/document-templates/${createdTemplateId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({
-            templateName: "Updated ISO Documents",
-            status: "archived",
-          }),
-        })
+        new Request(
+          `http://localhost/api/document-templates/${createdTemplateId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${adminToken}`,
+            },
+            body: JSON.stringify({
+              templateName: "Updated ISO Documents",
+              status: "archived",
+            }),
+          }
+        )
       );
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data: any = await response.json();
       expect(data.success).toBe(true);
       expect(data.data.templateName).toBe("Updated ISO Documents");
       expect(data.data.status).toBe("archived");
@@ -252,16 +265,19 @@ describe("Document Templates API Tests", () => {
 
     it("should return 404 for non-existent template", async () => {
       const response = await app.handle(
-        new Request(`http://localhost/api/document-templates/00000000-0000-0000-0000-000000000000`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({
-            templateName: "Updated",
-          }),
-        })
+        new Request(
+          `http://localhost/api/document-templates/00000000-0000-0000-0000-000000000000`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${adminToken}`,
+            },
+            body: JSON.stringify({
+              templateName: "Updated",
+            }),
+          }
+        )
       );
 
       expect(response.status).toBe(404);
@@ -287,7 +303,7 @@ describe("Document Templates API Tests", () => {
         })
       );
 
-      const createData = await createResponse.json();
+      const createData: any = await createResponse.json();
       const templateId = createData.data.id;
 
       // Delete it
@@ -301,14 +317,16 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(deleteResponse.status).toBe(200);
-      const deleteData = await deleteResponse.json();
+      const deleteData: any = await deleteResponse.json();
       expect(deleteData.success).toBe(true);
 
       // Verify soft delete
-      const [deletedTemplate] = await db
-        .select()
-        .from(documentTemplate)
-        .where(eq(documentTemplate.id, templateId));
+      const deletedTemplate = (
+        await db
+          .select()
+          .from(documentTemplate)
+          .where(eq(documentTemplate.id, templateId))
+      )[0]!;
 
       expect(deletedTemplate.deletedAt).not.toBeNull();
     });
@@ -323,23 +341,27 @@ describe("Document Templates API Tests", () => {
   describe("Tenant Isolation", () => {
     it("should not allow access to other tenant's templates", async () => {
       // Create another tenant and admin
-      const [otherTenant] = await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant",
-          slug: `other-tenant-${Date.now()}`,
-        })
-        .returning();
+      const otherTenant = (
+        await db
+          .insert(tenants)
+          .values({
+            name: "Other Tenant",
+            slug: `other-tenant-${Date.now()}`,
+          })
+          .returning()
+      )[0]!;
 
-      const { data: otherAuthData } = await supabaseAdmin.auth.admin.createUser({
-        email: `other-admin-${Date.now()}@test.com`,
-        password: "testpassword123",
-        email_confirm: true,
-        app_metadata: {
-          role: "admin",
-          tenant_id: otherTenant.id,
-        },
-      });
+      const { data: otherAuthData } = await supabaseAdmin.auth.admin.createUser(
+        {
+          email: `other-admin-${Date.now()}@test.com`,
+          password: "testpassword123",
+          email_confirm: true,
+          app_metadata: {
+            role: "admin",
+            tenant_id: otherTenant.id,
+          },
+        }
+      );
 
       await db.insert(users).values({
         id: otherAuthData.user!.id,
@@ -350,10 +372,11 @@ describe("Document Templates API Tests", () => {
         isActive: true,
       });
 
-      const { data: otherSignInData } = await supabaseAdmin.auth.signInWithPassword({
-        email: otherAuthData.user!.email!,
-        password: "testpassword123",
-      });
+      const { data: otherSignInData } =
+        await supabaseAdmin.auth.signInWithPassword({
+          email: otherAuthData.user!.email!,
+          password: "testpassword123",
+        });
 
       const otherToken = otherSignInData.session?.access_token || "";
 
@@ -367,8 +390,8 @@ describe("Document Templates API Tests", () => {
         })
       );
 
-      const data = await response.json();
-      
+      const data: any = await response.json();
+
       // Should only see their own tenant's templates (none created)
       expect(data.data.templates.length).toBe(0);
 
@@ -379,4 +402,3 @@ describe("Document Templates API Tests", () => {
     });
   });
 });
-

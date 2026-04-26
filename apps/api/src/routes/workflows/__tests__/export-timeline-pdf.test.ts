@@ -1,5 +1,15 @@
 import { describe, it, expect } from "bun:test";
-import { WorkflowEventType } from "@supplex/db";
+
+// Local stub: WorkflowEventType not exported from @supplex/db (legacy: workflowEvent table)
+const WorkflowEventType = {
+  WORKFLOW_INITIATED: "workflow_initiated",
+  WORKFLOW_COMPLETED: "workflow_completed",
+  STAGE_COMPLETED: "stage_completed",
+  STAGE_APPROVED: "stage_approved",
+  STAGE_REJECTED: "stage_rejected",
+  DOCUMENT_UPLOADED: "document_uploaded",
+  COMMENT_ADDED: "comment_added",
+} as const;
 
 /**
  * Integration Tests for PDF Export Endpoint
@@ -28,7 +38,7 @@ describe("PDF Export Endpoint - Response Headers", () => {
     it("should use attachment disposition for download", () => {
       const workflowId = "12345678-1234-1234-1234-123456789012";
       const expectedDisposition = `attachment; filename="audit-trail-${workflowId}.pdf"`;
-      
+
       expect(expectedDisposition).toContain("attachment");
       expect(expectedDisposition).toContain(`audit-trail-${workflowId}.pdf`);
     });
@@ -36,9 +46,11 @@ describe("PDF Export Endpoint - Response Headers", () => {
     it("should include workflow ID in filename", () => {
       const workflowId = "abcdef12-3456-7890-abcd-ef1234567890";
       const filename = `audit-trail-${workflowId}.pdf`;
-      
+
       expect(filename).toContain(workflowId);
-      expect(filename).toMatch(/^audit-trail-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/);
+      expect(filename).toMatch(
+        /^audit-trail-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/
+      );
     });
 
     it("should have .pdf file extension", () => {
@@ -52,14 +64,14 @@ describe("PDF Export Endpoint - Response Headers", () => {
       // Mock PDF buffer with some content
       const pdfBuffer = Buffer.from("PDF content here");
       const contentLength = pdfBuffer.length;
-      
+
       expect(contentLength).toBeGreaterThan(0);
     });
 
     it("should calculate buffer size correctly", () => {
       const testContent = "Test PDF content";
       const buffer = Buffer.from(testContent, "utf-8");
-      
+
       expect(buffer.length).toBe(testContent.length);
       expect(buffer.toString()).toBe(testContent);
     });
@@ -76,7 +88,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include supplier name field", () => {
       const supplierName = "Test Supplier Inc.";
       const pdfLine = `Supplier Name:    ${supplierName}`;
-      
+
       expect(pdfLine).toContain("Supplier Name:");
       expect(pdfLine).toContain(supplierName);
     });
@@ -84,7 +96,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include workflow ID field", () => {
       const workflowId = "12345678-1234-1234-1234-123456789012";
       const pdfLine = `Workflow ID:      ${workflowId}`;
-      
+
       expect(pdfLine).toContain("Workflow ID:");
       expect(pdfLine).toContain(workflowId);
     });
@@ -92,7 +104,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include print date field", () => {
       const printDate = new Date().toLocaleString();
       const pdfLine = `Print Date:       ${printDate}`;
-      
+
       expect(pdfLine).toContain("Print Date:");
       expect(pdfLine).toContain(printDate);
     });
@@ -100,7 +112,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include workflow status field", () => {
       const status = "Stage2";
       const pdfLine = `Status:           ${status}`;
-      
+
       expect(pdfLine).toContain("Status:");
       expect(pdfLine).toContain(status);
     });
@@ -110,7 +122,7 @@ describe("PDF Content Structure Validation", () => {
     it("should format event with timestamp", () => {
       const eventTimestamp = new Date("2025-10-26T14:30:00Z");
       const eventLine = `1. ${eventTimestamp.toLocaleString()}`;
-      
+
       expect(eventLine).toContain("1.");
       expect(eventLine).toContain(eventTimestamp.toLocaleString());
     });
@@ -118,7 +130,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include event type", () => {
       const eventType = WorkflowEventType.WORKFLOW_INITIATED;
       const eventLine = `   Event:        ${eventType}`;
-      
+
       expect(eventLine).toContain("Event:");
       expect(eventLine).toContain(eventType);
     });
@@ -126,7 +138,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include event description", () => {
       const description = "Qualification workflow initiated";
       const eventLine = `   Description:  ${description}`;
-      
+
       expect(eventLine).toContain("Description:");
       expect(eventLine).toContain(description);
     });
@@ -135,7 +147,7 @@ describe("PDF Content Structure Validation", () => {
       const actorName = "Jane Smith";
       const actorRole = "procurement_manager";
       const eventLine = `   Actor:        ${actorName} (${actorRole})`;
-      
+
       expect(eventLine).toContain("Actor:");
       expect(eventLine).toContain(actorName);
       expect(eventLine).toContain(actorRole);
@@ -144,7 +156,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include comments when present", () => {
       const comments = "All documents verified and approved";
       const eventLine = `   Comments:     ${comments}`;
-      
+
       expect(eventLine).toContain("Comments:");
       expect(eventLine).toContain(comments);
     });
@@ -152,7 +164,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include document name when applicable", () => {
       const documentName = "ISO9001_Certificate.pdf";
       const eventLine = `   Document:     ${documentName}`;
-      
+
       expect(eventLine).toContain("Document:");
       expect(eventLine).toContain(documentName);
     });
@@ -160,7 +172,7 @@ describe("PDF Content Structure Validation", () => {
     it("should include stage number when applicable", () => {
       const stageNumber = 2;
       const eventLine = `   Stage:        ${stageNumber}`;
-      
+
       expect(eventLine).toContain("Stage:");
       expect(eventLine).toContain("2");
     });
@@ -168,21 +180,32 @@ describe("PDF Content Structure Validation", () => {
 
   describe("Timeline ordering", () => {
     it("should order events chronologically (oldest first for PDF)", () => {
-      const oldestEvent = { timestamp: new Date("2025-10-26T10:00:00Z"), description: "Event 1" };
-      const middleEvent = { timestamp: new Date("2025-10-26T12:00:00Z"), description: "Event 2" };
-      const newestEvent = { timestamp: new Date("2025-10-26T14:00:00Z"), description: "Event 3" };
-      
+      const oldestEvent = {
+        timestamp: new Date("2025-10-26T10:00:00Z"),
+        description: "Event 1",
+      };
+      const middleEvent = {
+        timestamp: new Date("2025-10-26T12:00:00Z"),
+        description: "Event 2",
+      };
+      const newestEvent = {
+        timestamp: new Date("2025-10-26T14:00:00Z"),
+        description: "Event 3",
+      };
+
       const events = [newestEvent, oldestEvent, middleEvent];
-      const sortedEvents = events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
-      expect(sortedEvents[0].description).toBe("Event 1"); // Oldest
-      expect(sortedEvents[1].description).toBe("Event 2"); // Middle
-      expect(sortedEvents[2].description).toBe("Event 3"); // Newest
+      const sortedEvents = events.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+      );
+
+      expect(sortedEvents[0]!.description).toBe("Event 1"); // Oldest
+      expect(sortedEvents[1]!.description).toBe("Event 2"); // Middle
+      expect(sortedEvents[2]!.description).toBe("Event 3"); // Newest
     });
 
     it("should number events sequentially starting from 1", () => {
       const eventNumbers = [1, 2, 3, 4, 5];
-      
+
       eventNumbers.forEach((num, index) => {
         expect(num).toBe(index + 1);
       });
@@ -193,7 +216,7 @@ describe("PDF Content Structure Validation", () => {
     it("should display message when no events exist", () => {
       const emptyTimelineMessage = "No events recorded for this workflow.";
       const events: any[] = [];
-      
+
       if (events.length === 0) {
         expect(emptyTimelineMessage).toContain("No events");
       }
@@ -212,7 +235,7 @@ describe("PDF Export Error Handling", () => {
           timestamp: new Date().toISOString(),
         },
       };
-      
+
       expect(notFoundError.success).toBe(false);
       expect(notFoundError.error.code).toBe("NOT_FOUND");
       expect(notFoundError.error.message).toContain("Workflow not found");
@@ -221,9 +244,10 @@ describe("PDF Export Error Handling", () => {
     it("should validate UUID format before query", () => {
       const validUUID = "12345678-1234-1234-1234-123456789012";
       const invalidUUID = "not-a-uuid";
-      
-      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      
+
+      const uuidPattern =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
       expect(uuidPattern.test(validUUID)).toBe(true);
       expect(uuidPattern.test(invalidUUID)).toBe(false);
     });
@@ -239,7 +263,7 @@ describe("PDF Export Error Handling", () => {
           timestamp: new Date().toISOString(),
         },
       };
-      
+
       expect(forbiddenError.success).toBe(false);
       expect(forbiddenError.error.code).toBe("FORBIDDEN");
     });
@@ -255,7 +279,7 @@ describe("PDF Export Error Handling", () => {
           timestamp: new Date().toISOString(),
         },
       };
-      
+
       expect(serverError.success).toBe(false);
       expect(serverError.error.code).toBe("INTERNAL_ERROR");
       expect(serverError.error.message).toContain("Failed to generate PDF");
@@ -267,7 +291,7 @@ describe("PDF Buffer Validation", () => {
   it("should create non-empty buffer from text content", () => {
     const textContent = "Sample PDF content\nLine 2\nLine 3";
     const buffer = Buffer.from(textContent, "utf-8");
-    
+
     expect(buffer.length).toBeGreaterThan(0);
     expect(buffer.toString()).toBe(textContent);
   });
@@ -276,7 +300,7 @@ describe("PDF Buffer Validation", () => {
     const unicodeText = "Supplier: ACME™ Corp • Review ✓";
     const buffer = Buffer.from(unicodeText, "utf-8");
     const decoded = buffer.toString("utf-8");
-    
+
     expect(decoded).toBe(unicodeText);
     expect(decoded).toContain("™");
     expect(decoded).toContain("•");
@@ -287,7 +311,7 @@ describe("PDF Buffer Validation", () => {
     const lines = ["Line 1", "Line 2", "Line 3"];
     const content = lines.join("\n");
     const buffer = Buffer.from(content);
-    
+
     expect(buffer.toString()).toContain("\n");
     expect(buffer.toString().split("\n")).toHaveLength(3);
   });
@@ -295,10 +319,10 @@ describe("PDF Buffer Validation", () => {
 
 /**
  * Manual Integration Test Instructions
- * 
+ *
  * These tests require a running API server with test database.
  * Execute via Postman, curl, or automated E2E test framework.
- * 
+ *
  * Prerequisites:
  * - Database with test tenant, users, and workflows
  * - Authentication token for API requests
@@ -363,7 +387,7 @@ describe("PDF Export Integration Tests (Manual Execution Required)", () => {
 
 /**
  * Test Coverage Summary:
- * 
+ *
  * ✓ Response headers (Content-Type, Content-Disposition, Content-Length)
  * ✓ PDF content structure (header, metadata, timeline)
  * ✓ Event formatting (timestamp, type, description, actor, comments)
@@ -371,14 +395,14 @@ describe("PDF Export Integration Tests (Manual Execution Required)", () => {
  * ✓ Empty timeline handling
  * ✓ Error responses (404, 403, 500)
  * ✓ Buffer creation and UTF-8 encoding
- * 
+ *
  * Manual tests required (see integration-tests-story-2.10.md):
  * - Actual PDF download via API endpoint
  * - Frontend button click and download behavior
  * - PDF viewer rendering and content inspection
  * - Large timeline performance (100+ events)
  * - Tenant isolation enforcement
- * 
+ *
  * Production Upgrade Recommendations:
  * - Install pdfkit library: npm install pdfkit @types/pdfkit
  * - Implement proper PDF binary generation (see export-timeline-pdf.ts:182-229)
@@ -387,4 +411,3 @@ describe("PDF Export Integration Tests (Manual Execution Required)", () => {
  * - Implement pagination for long timelines
  * - Add PDF/A compliance for archival purposes
  */
-

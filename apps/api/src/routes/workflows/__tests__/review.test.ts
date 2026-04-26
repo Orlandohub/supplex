@@ -135,7 +135,7 @@ describe("GET /api/workflows/:id/review", () => {
 
       expect(Array.isArray(checklistItems)).toBe(true);
       expect(checklistItems).toHaveLength(2);
-      expect(checklistItems[0].documentType).toBe("ISO 9001");
+      expect(checklistItems[0]!.documentType).toBe("ISO 9001");
     });
   });
 

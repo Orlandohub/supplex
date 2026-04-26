@@ -1,4 +1,11 @@
-import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  setDefaultTimeout,
+} from "bun:test";
 
 setDefaultTimeout(30_000);
 import { db } from "../../db";
@@ -27,34 +34,40 @@ describe("completeStep transaction rollback", () => {
   let template: { id: string };
 
   beforeAll(async () => {
-    [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Rollback Test Tenant",
-        slug: `rollback-tenant-${Date.now()}`,
-      })
-      .returning();
+    tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Rollback Test Tenant",
+          slug: `rollback-tenant-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
 
-    [user] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId: tenant.id,
-        email: `rollback-user-${Date.now()}@test.com`,
-        fullName: "Rollback Test User",
-        role: "admin",
-      })
-      .returning();
+    user = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId: tenant.id,
+          email: `rollback-user-${Date.now()}@test.com`,
+          fullName: "Rollback Test User",
+          role: "admin",
+        })
+        .returning()
+    )[0]!;
 
-    [template] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId: tenant.id,
-        name: "Rollback Test Template",
-        status: "published",
-        createdBy: user.id,
-      })
-      .returning();
+    template = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId: tenant.id,
+          name: "Rollback Test Template",
+          status: "published",
+          createdBy: user.id,
+        })
+        .returning()
+    )[0]!;
   });
 
   afterAll(async () => {
@@ -63,59 +76,64 @@ describe("completeStep transaction rollback", () => {
 
   test("document check failure rolls back step status to active (not completed)", async () => {
     // Create a document template with a required document
-    const [docTmpl] = await db
-      .insert(documentTemplate)
-      .values({
-        tenantId: tenant.id,
-        name: "Rollback Doc Template",
-        requiredDocuments: [
-          { name: "Required Doc", required: true },
-        ],
-        createdBy: user.id,
-      })
-      .returning();
+    const docTmpl = (
+      await (db.insert(documentTemplate) as any)
+        .values({
+          tenantId: tenant.id,
+          name: "Rollback Doc Template",
+          requiredDocuments: [{ name: "Required Doc", required: true }],
+          createdBy: user.id,
+        })
+        .returning()
+    )[0]!;
 
-    const [stepTmpl] = await db
-      .insert(workflowStepTemplate)
-      .values({
-        workflowTemplateId: template.id,
-        tenantId: tenant.id,
-        stepOrder: 1,
-        name: "Document Step",
-        stepType: "document",
-        taskTitle: "Upload docs",
-        assigneeType: "role",
-        assigneeRole: "admin",
-        documentTemplateId: docTmpl.id,
-      })
-      .returning();
+    const stepTmpl = (
+      await db
+        .insert(workflowStepTemplate)
+        .values({
+          workflowTemplateId: template.id,
+          tenantId: tenant.id,
+          stepOrder: 1,
+          name: "Document Step",
+          stepType: "document",
+          taskTitle: "Upload docs",
+          assigneeType: "role",
+          assigneeRole: "admin",
+          documentTemplateId: docTmpl.id,
+        })
+        .returning()
+    )[0]!;
 
-    const [proc] = await db
-      .insert(processInstance)
-      .values({
-        tenantId: tenant.id,
-        workflowTemplateId: template.id,
-        processType: "workflow_execution",
-        entityType: "supplier",
-        entityId: crypto.randomUUID(),
-        status: "in_progress",
-        initiatedBy: user.id,
-        initiatedDate: new Date(),
-      })
-      .returning();
+    const proc = (
+      await db
+        .insert(processInstance)
+        .values({
+          tenantId: tenant.id,
+          workflowTemplateId: template.id,
+          processType: "workflow_execution",
+          entityType: "supplier",
+          entityId: crypto.randomUUID(),
+          status: "in_progress",
+          initiatedBy: user.id,
+          initiatedDate: new Date(),
+        })
+        .returning()
+    )[0]!;
 
-    const [stepInst] = await db
-      .insert(stepInstance)
-      .values({
-        tenantId: tenant.id,
-        processInstanceId: proc.id,
-        workflowStepTemplateId: stepTmpl.id,
-        stepOrder: 1,
-        stepName: "Document Step",
-        stepType: "document",
-        status: "active",
-      })
-      .returning();
+    const stepInst = (
+      await db
+        .insert(stepInstance)
+        .values({
+          tenantId: tenant.id,
+          processInstanceId: proc.id,
+          workflowStepTemplateId: stepTmpl.id,
+          stepOrder: 1,
+          stepName: "Document Step",
+          stepType: "document",
+          status: "active",
+        })
+        .returning()
+    )[0]!;
 
     // Insert a required document in "pending" status (NOT uploaded)
     await db.insert(workflowStepDocument).values({
@@ -140,13 +158,19 @@ describe("completeStep transaction rollback", () => {
     expect(result.error).toContain("required document");
 
     // Verify the step is still "active" (transaction rolled back)
-    const [stepAfter] = await db
-      .select()
-      .from(stepInstance)
-      .where(eq(stepInstance.id, stepInst.id));
+    const stepAfter = (
+      await db
+        .select()
+        .from(stepInstance)
+        .where(eq(stepInstance.id, stepInst.id))
+    )[0]!;
     expect(stepAfter.status).toBe("active");
 
-    await db.delete(workflowStepTemplate).where(eq(workflowStepTemplate.id, stepTmpl.id));
-    await db.delete(documentTemplate).where(eq(documentTemplate.id, docTmpl.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.id, stepTmpl.id));
+    await db
+      .delete(documentTemplate)
+      .where(eq(documentTemplate.id, docTmpl.id));
   });
 });

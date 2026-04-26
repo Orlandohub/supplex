@@ -18,9 +18,11 @@ import {
 describe("Form Submissions - Create Draft API", () => {
   describe("POST /api/form-submissions/draft", () => {
     it("should create draft with valid data as supplier user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/draft", {
@@ -38,9 +40,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should create draft with valid data as admin user", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockAdminUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(createDraftRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/draft", {
@@ -56,9 +60,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should create draft with process instance ID", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/draft", {
@@ -74,9 +80,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should accept empty answers array (AC: 2 - draft without required fields)", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/draft", {
@@ -93,9 +101,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should return 400 for missing formTemplateId", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const invalidData = { ...validDraftData };
       delete (invalidData as any).formTemplateId;
@@ -114,9 +124,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should return 400 for invalid formTemplateId format", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const invalidData = {
         ...validDraftData,
@@ -137,9 +149,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should return 400 for missing answers array", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const invalidData = { ...validDraftData };
       delete (invalidData as any).answers;
@@ -158,9 +172,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should return 400 for answers not being an array", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const invalidData = {
         ...validDraftData,
@@ -181,9 +197,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should return 400 for answer missing formFieldId", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const invalidData = {
         ...validDraftData,
@@ -209,9 +227,11 @@ describe("Form Submissions - Create Draft API", () => {
     });
 
     it("should return 400 for answer missing answerValue", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockSupplierUser }))
-        .use(createDraftRoute));
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockSupplierUser }))
+          .use(createDraftRoute)
+      );
 
       const invalidData = {
         ...validDraftData,
@@ -237,4 +257,3 @@ describe("Form Submissions - Create Draft API", () => {
     });
   });
 });
-

@@ -24,37 +24,43 @@ describe("Workflow Instantiation", () => {
   let workflowTemplateId: string;
 
   beforeAll(async () => {
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Test Tenant",
-        slug: `test-tenant-instantiate-${Date.now()}`,
-      })
-      .returning();
+    const tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Test Tenant",
+          slug: `test-tenant-instantiate-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
     tenantId = tenant.id;
 
-    const [user] = await db
-      .insert(users)
-      .values({
-        id: crypto.randomUUID(),
-        tenantId,
-        email: `user-instantiate-${Date.now()}@test.com`,
-        fullName: "Test User",
-        role: "admin",
-      })
-      .returning();
+    const user = (
+      await db
+        .insert(users)
+        .values({
+          id: crypto.randomUUID(),
+          tenantId,
+          email: `user-instantiate-${Date.now()}@test.com`,
+          fullName: "Test User",
+          role: "admin",
+        })
+        .returning()
+    )[0]!;
     userId = user.id;
 
-    const [template] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId,
-        name: "Test Workflow",
-        status: "published",
-        active: true,
-        createdBy: userId,
-      })
-      .returning();
+    const template = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId,
+          name: "Test Workflow",
+          status: "published",
+          active: true,
+          createdBy: userId,
+        })
+        .returning()
+    )[0]!;
     workflowTemplateId = template.id;
 
     await db.insert(workflowStepTemplate).values([
@@ -132,22 +138,24 @@ describe("Workflow Instantiation", () => {
       .from(taskInstance)
       .where(eq(taskInstance.stepInstanceId, firstStep!.id));
     expect(tasks.length).toBeGreaterThan(0);
-    expect(tasks[0].status).toBe("pending");
+    expect(tasks[0]!.status).toBe("pending");
 
     // Cleanup
     await db.delete(processInstance).where(eq(processInstance.id, process.id));
   });
 
   test("rejects instantiation of unpublished workflow template", async () => {
-    const [draftTemplate] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId,
-        name: "Draft Workflow",
-        status: "draft",
-        createdBy: userId,
-      })
-      .returning();
+    const draftTemplate = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId,
+          name: "Draft Workflow",
+          status: "draft",
+          createdBy: userId,
+        })
+        .returning()
+    )[0]!;
 
     const result = await instantiateWorkflow(db, {
       tenantId,
@@ -160,17 +168,21 @@ describe("Workflow Instantiation", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("not published");
 
-    await db.delete(workflowTemplate).where(eq(workflowTemplate.id, draftTemplate.id));
+    await db
+      .delete(workflowTemplate)
+      .where(eq(workflowTemplate.id, draftTemplate.id));
   });
 
   test("enforces tenant isolation", async () => {
-    const [otherTenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Other Tenant",
-        slug: `other-tenant-inst-${Date.now()}`,
-      })
-      .returning();
+    const otherTenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Other Tenant",
+          slug: `other-tenant-inst-${Date.now()}`,
+        })
+        .returning()
+    )[0]!;
 
     const result = await instantiateWorkflow(db, {
       tenantId: otherTenant.id,
@@ -187,16 +199,18 @@ describe("Workflow Instantiation", () => {
   });
 
   test("handles workflow template with no steps (transaction rollback)", async () => {
-    const [emptyWorkflow] = await db
-      .insert(workflowTemplate)
-      .values({
-        tenantId,
-        name: "Empty Workflow",
-        status: "published",
-        active: true,
-        createdBy: userId,
-      })
-      .returning();
+    const emptyWorkflow = (
+      await db
+        .insert(workflowTemplate)
+        .values({
+          tenantId,
+          name: "Empty Workflow",
+          status: "published",
+          active: true,
+          createdBy: userId,
+        })
+        .returning()
+    )[0]!;
 
     const result = await instantiateWorkflow(db, {
       tenantId,
@@ -216,7 +230,9 @@ describe("Workflow Instantiation", () => {
       .where(eq(processInstance.workflowTemplateId, emptyWorkflow.id));
     expect(orphans.length).toBe(0);
 
-    await db.delete(workflowTemplate).where(eq(workflowTemplate.id, emptyWorkflow.id));
+    await db
+      .delete(workflowTemplate)
+      .where(eq(workflowTemplate.id, emptyWorkflow.id));
   });
 
   test("batch insert creates all steps in correct order", async () => {
@@ -235,15 +251,19 @@ describe("Workflow Instantiation", () => {
     const steps = await db
       .select()
       .from(stepInstance)
-      .where(eq(stepInstance.processInstanceId, result.data!.processInstance.id))
+      .where(
+        eq(stepInstance.processInstanceId, result.data!.processInstance.id)
+      )
       .orderBy(asc(stepInstance.stepOrder));
 
     expect(steps.length).toBe(2);
-    expect(steps[0].stepOrder).toBe(1);
-    expect(steps[0].status).toBe("active");
-    expect(steps[1].stepOrder).toBe(2);
-    expect(steps[1].status).toBe("blocked");
+    expect(steps[0]!.stepOrder).toBe(1);
+    expect(steps[0]!.status).toBe("active");
+    expect(steps[1]!.stepOrder).toBe(2);
+    expect(steps[1]!.status).toBe("blocked");
 
-    await db.delete(processInstance).where(eq(processInstance.id, result.data!.processInstance.id));
+    await db
+      .delete(processInstance)
+      .where(eq(processInstance.id, result.data!.processInstance.id));
   });
 });

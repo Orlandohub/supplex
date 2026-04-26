@@ -10,6 +10,7 @@ const mockUser: AuthContext["user"] = {
   email: "test@example.com",
   role: "admin" as any,
   tenantId: "tenant-123",
+  fullName: "Test User",
 };
 
 const mockSuppliers = [
@@ -89,9 +90,9 @@ describe("Supplier List API", () => {
   describe("GET /api/suppliers", () => {
     it("should return paginated list of suppliers", async () => {
       // Create test app with mocked authentication
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers")
@@ -108,9 +109,9 @@ describe("Supplier List API", () => {
     });
 
     it("should filter suppliers by search term", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?search=Acme")
@@ -124,9 +125,9 @@ describe("Supplier List API", () => {
     });
 
     it("should filter suppliers by status", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request(
@@ -142,9 +143,9 @@ describe("Supplier List API", () => {
     });
 
     it("should filter suppliers by category", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?category[]=raw_materials")
@@ -158,9 +159,9 @@ describe("Supplier List API", () => {
     });
 
     it("should handle pagination parameters", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?page=2&limit=10")
@@ -175,9 +176,9 @@ describe("Supplier List API", () => {
     });
 
     it("should enforce maximum limit of 100", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?limit=200")
@@ -191,9 +192,9 @@ describe("Supplier List API", () => {
     });
 
     it("should sort suppliers by name ascending", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?sort=name_asc")
@@ -207,9 +208,9 @@ describe("Supplier List API", () => {
     });
 
     it("should sort suppliers by updated_at descending", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?sort=updated_at_desc")
@@ -223,9 +224,9 @@ describe("Supplier List API", () => {
     });
 
     it("should combine multiple filters", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request(
@@ -254,9 +255,9 @@ describe("Supplier List API", () => {
     });
 
     it("should handle database errors gracefully", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       // Note: In a real test, we'd mock the db to throw an error
       // For now, we're testing that the route is properly structured
@@ -270,9 +271,9 @@ describe("Supplier List API", () => {
     });
 
     it("should default to page 1 when page parameter is missing", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers")
@@ -286,9 +287,9 @@ describe("Supplier List API", () => {
     });
 
     it("should default to limit 20 when limit parameter is missing", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers")
@@ -302,9 +303,9 @@ describe("Supplier List API", () => {
     });
 
     it("should default to updated_at_desc sort when sort parameter is missing", async () => {
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers")
@@ -322,9 +323,9 @@ describe("Supplier List API", () => {
       // In a real environment, this would query a test database with 1000+ suppliers
       // For now, we verify the query structure is optimized and would perform well
 
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const startTime = performance.now();
 
@@ -358,9 +359,9 @@ describe("Supplier List API", () => {
 
     it("should efficiently handle pagination with large datasets", async () => {
       // Verify pagination doesn't load all records at once
-      const app = withApiErrorHandler(new Elysia()
-        .derive(() => ({ user: mockUser }))
-        .use(listSuppliersRoute));
+      const app = withApiErrorHandler(
+        new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
+      );
 
       const response = await app.handle(
         new Request("http://localhost/suppliers?page=50&limit=20")

@@ -1,5 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { WorkflowStatus } from "@supplex/db";
+
+// Local stub: WorkflowStatus not exported from @supplex/db
+const WorkflowStatus = {
+  DRAFT: "draft",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+} as const;
 
 /**
  * Test Suite for GET /api/workflows/:workflowId
@@ -82,7 +89,7 @@ describe("GET /api/workflows/:workflowId", () => {
     expect(response.data.workflow.id).toBe("workflow-123");
     expect(response.data.workflow.supplier.name).toBe("Test Supplier Inc.");
     expect(response.data.workflow.checklistItems).toHaveLength(3);
-    expect(response.data.workflow.checklistItems[0].name).toBe(
+    expect(response.data.workflow.checklistItems[0]!.name).toBe(
       "ISO 9001 Certificate"
     );
   });
@@ -142,8 +149,8 @@ describe("GET /api/workflows/:workflowId", () => {
    * Test: Cannot access workflow from another tenant
    */
   it("should enforce tenant isolation", () => {
-    const userTenantId = "tenant-123";
-    const workflowTenantId = "tenant-456";
+    const userTenantId: string = "tenant-123";
+    const workflowTenantId: string = "tenant-456";
 
     // In the actual route, this check happens via SQL WHERE clause
     const canAccess = userTenantId === workflowTenantId;

@@ -97,7 +97,7 @@ describe("GET /api/workflows/qualifications", () => {
     });
 
     it("should calculate days in progress correctly (AC 2)", () => {
-      const workflow = mockWorkflows[0];
+      const workflow = mockWorkflows[0]!;
       const expectedDays = Math.floor(
         (Date.now() - new Date(workflow.initiatedDate).getTime()) /
           (1000 * 60 * 60 * 24)
@@ -129,13 +129,13 @@ describe("GET /api/workflows/qualifications", () => {
     it("should filter by Draft status", () => {
       const filtered = mockWorkflows.filter((w) => w.status === "Draft");
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].status).toBe("Draft");
+      expect(filtered[0]!.status).toBe("Draft");
     });
 
     it("should filter by Approved status", () => {
       const filtered = mockWorkflows.filter((w) => w.status === "Approved");
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].status).toBe("Approved");
+      expect(filtered[0]!.status).toBe("Approved");
     });
 
     it("should filter by InProgress (Stage1, Stage2, Stage3)", () => {
@@ -143,7 +143,7 @@ describe("GET /api/workflows/qualifications", () => {
         ["Stage1", "Stage2", "Stage3"].includes(w.status)
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].status).toBe("Stage1");
+      expect(filtered[0]!.status).toBe("Stage1");
     });
 
     it("should return all workflows when status is 'All'", () => {
@@ -160,7 +160,7 @@ describe("GET /api/workflows/qualifications", () => {
     it("should filter by Stage 1", () => {
       const filtered = mockWorkflows.filter((w) => w.currentStage === 1);
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].currentStage).toBe(1);
+      expect(filtered[0]!.currentStage).toBe(1);
     });
 
     it("should filter by Stage 0 (Draft)", () => {
@@ -184,7 +184,7 @@ describe("GET /api/workflows/qualifications", () => {
         (w) => w.riskScore !== null && w.riskScore < 3.0
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].riskScore).toBe(2.3);
+      expect(filtered[0]!.riskScore).toBe(2.3);
     });
 
     it("should filter by Medium risk (3.0-6.0)", () => {
@@ -192,7 +192,7 @@ describe("GET /api/workflows/qualifications", () => {
         (w) => w.riskScore !== null && w.riskScore >= 3.0 && w.riskScore <= 6.0
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].riskScore).toBe(4.5);
+      expect(filtered[0]!.riskScore).toBe(4.5);
     });
 
     it("should filter by High risk (>6.0)", () => {
@@ -200,7 +200,7 @@ describe("GET /api/workflows/qualifications", () => {
         (w) => w.riskScore !== null && w.riskScore > 6.0
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].riskScore).toBe(7.2);
+      expect(filtered[0]!.riskScore).toBe(7.2);
     });
 
     it("should return all workflows when riskLevel is 'All'", () => {
@@ -220,7 +220,7 @@ describe("GET /api/workflows/qualifications", () => {
         w.supplierName.toLowerCase().includes(searchTerm.toLowerCase())
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].supplierName).toBe("Acme Corp");
+      expect(filtered[0]!.supplierName).toBe("Acme Corp");
     });
 
     it("should search by partial supplier name with multiple matches", () => {
@@ -251,8 +251,8 @@ describe("GET /api/workflows/qualifications", () => {
           new Date(b.initiatedDate).getTime() -
           new Date(a.initiatedDate).getTime()
       );
-      expect(sorted[0].supplierName).toBe("Global Materials");
-      expect(sorted[2].supplierName).toBe("TechSupply Inc");
+      expect(sorted[0]!.supplierName).toBe("Global Materials");
+      expect(sorted[2]!.supplierName).toBe("TechSupply Inc");
     });
 
     it("should sort by initiated_date ASC (oldest first)", () => {
@@ -261,24 +261,24 @@ describe("GET /api/workflows/qualifications", () => {
           new Date(a.initiatedDate).getTime() -
           new Date(b.initiatedDate).getTime()
       );
-      expect(sorted[0].supplierName).toBe("TechSupply Inc");
-      expect(sorted[2].supplierName).toBe("Global Materials");
+      expect(sorted[0]!.supplierName).toBe("TechSupply Inc");
+      expect(sorted[2]!.supplierName).toBe("Global Materials");
     });
 
     it("should sort by days_in_progress DESC (longest first)", () => {
       const sorted = [...mockWorkflows].sort(
         (a, b) => b.daysInProgress - a.daysInProgress
       );
-      expect(sorted[0].daysInProgress).toBe(36);
-      expect(sorted[2].daysInProgress).toBe(1);
+      expect(sorted[0]!.daysInProgress).toBe(36);
+      expect(sorted[2]!.daysInProgress).toBe(1);
     });
 
     it("should sort by days_in_progress ASC (shortest first)", () => {
       const sorted = [...mockWorkflows].sort(
         (a, b) => a.daysInProgress - b.daysInProgress
       );
-      expect(sorted[0].daysInProgress).toBe(1);
-      expect(sorted[2].daysInProgress).toBe(36);
+      expect(sorted[0]!.daysInProgress).toBe(1);
+      expect(sorted[2]!.daysInProgress).toBe(36);
     });
 
     it("should sort by risk_score DESC (highest first)", () => {
@@ -287,8 +287,8 @@ describe("GET /api/workflows/qualifications", () => {
         if (b.riskScore === null) return -1;
         return b.riskScore - a.riskScore;
       });
-      expect(sorted[0].riskScore).toBe(7.2);
-      expect(sorted[2].riskScore).toBe(2.3);
+      expect(sorted[0]!.riskScore).toBe(7.2);
+      expect(sorted[2]!.riskScore).toBe(2.3);
     });
 
     it("should sort by risk_score ASC (lowest first)", () => {
@@ -297,8 +297,8 @@ describe("GET /api/workflows/qualifications", () => {
         if (b.riskScore === null) return -1;
         return a.riskScore - b.riskScore;
       });
-      expect(sorted[0].riskScore).toBe(2.3);
-      expect(sorted[2].riskScore).toBe(7.2);
+      expect(sorted[0]!.riskScore).toBe(2.3);
+      expect(sorted[2]!.riskScore).toBe(7.2);
     });
   });
 
@@ -406,8 +406,8 @@ describe("GET /api/workflows/qualifications", () => {
           w.riskScore <= 6.0
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].status).toBe("Stage1");
-      expect(filtered[0].riskScore).toBe(4.5);
+      expect(filtered[0]!.status).toBe("Stage1");
+      expect(filtered[0]!.riskScore).toBe(4.5);
     });
 
     it("should apply search and stage filters together", () => {
@@ -418,7 +418,7 @@ describe("GET /api/workflows/qualifications", () => {
           w.currentStage === 1
       );
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].supplierName).toBe("Acme Corp");
+      expect(filtered[0]!.supplierName).toBe("Acme Corp");
     });
   });
 

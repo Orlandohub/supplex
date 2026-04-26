@@ -9,7 +9,7 @@ describe("Backend Health Check", () => {
 
     expect(response.status).toBe(200);
 
-    const data = await response.json();
+    const data: any = await response.json();
     expect(data).toMatchObject({
       status: "ok",
       service: "api",
@@ -24,7 +24,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data = await response.json();
+    const data: any = await response.json();
     expect(data.environment).toBeDefined();
   });
 
@@ -33,7 +33,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data = await response.json();
+    const data: any = await response.json();
     expect(data.service).toBe("api");
   });
 
@@ -42,7 +42,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data = await response.json();
+    const data: any = await response.json();
     expect(data.checks).toBeDefined();
     expect(data.checks.database).toBeDefined();
     expect(["connected", "disconnected", "unknown"]).toContain(
@@ -55,7 +55,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data = await response.json();
+    const data: any = await response.json();
     expect(() => new Date(data.timestamp)).not.toThrow();
 
     const timestamp = new Date(data.timestamp);

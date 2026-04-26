@@ -19,7 +19,9 @@ describe("ElysiaJS API", () => {
   describe("GET /", () => {
     it("should return API information", async () => {
       const app = createTestApp();
-      const response = await app.handle(new Request("http://localhost/")).then((r) => r.json());
+      const response: any = await app
+        .handle(new Request("http://localhost/"))
+        .then((r) => r.json());
 
       expect(response).toEqual({
         message: "Supplex API",
@@ -32,7 +34,9 @@ describe("ElysiaJS API", () => {
   describe("GET /health", () => {
     it("should return health check status", async () => {
       const app = createTestApp();
-      const response = await app.handle(new Request("http://localhost/health")).then((r) => r.json()) as { status: string; timestamp: string };
+      const response: any = (await app
+        .handle(new Request("http://localhost/health"))
+        .then((r) => r.json())) as { status: string; timestamp: string };
 
       expect(response).toHaveProperty("status", "ok");
       expect(response).toHaveProperty("timestamp");
@@ -41,11 +45,12 @@ describe("ElysiaJS API", () => {
 
     it("should return valid ISO timestamp", async () => {
       const app = createTestApp();
-      const response = await app.handle(new Request("http://localhost/health")).then((r) => r.json()) as { status: string; timestamp: string };
+      const response: any = (await app
+        .handle(new Request("http://localhost/health"))
+        .then((r) => r.json())) as { status: string; timestamp: string };
 
       const timestamp = new Date(response.timestamp);
       expect(timestamp.toISOString()).toBe(response.timestamp);
     });
   });
 });
-
