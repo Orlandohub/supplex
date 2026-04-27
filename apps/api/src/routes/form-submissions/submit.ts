@@ -8,7 +8,7 @@ import {
   stepInstance,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
 import type { FieldDefinition } from "@supplex/types";
 import { completeStep } from "../../lib/workflow-engine/complete-step";
@@ -35,13 +35,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: Updated submission
  */
 export const submitRoute = new Elysia()
-  .use(authenticate)
+  .use(authenticatedRoute)
   .post(
     "/:submissionId/submit",
-    async ({ params, user, set, requestLogger }: any) => {
+    async ({ params, user, set, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
-        const userId = user.id as string;
+        const tenantId = user.tenantId;
+        const userId = user.id;
         const { submissionId } = params;
 
         // 1. Fetch submission with tenant and user verification

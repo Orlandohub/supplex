@@ -9,7 +9,7 @@ import {
   processInstance,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { verifyProcessAccess } from "../../lib/rbac/entity-authorization";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
 import type { FieldDefinition } from "@supplex/types";
@@ -29,12 +29,12 @@ import { ApiError, Errors } from "../../lib/errors";
  * - DOES validate answer format based on field_type
  * Returns: Full submission with nested answers
  */
-export const createDraftRoute = new Elysia().use(authenticate).post(
+export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
   "/draft",
-  async ({ body, user, set, requestLogger }: any) => {
+  async ({ body, user, set, requestLogger }) => {
     try {
-      const tenantId = user.tenantId as string;
-      const userId = user.id as string;
+      const tenantId = user.tenantId;
+      const userId = user.id;
       const { formTemplateId, processInstanceId, stepInstanceId, answers } =
         body;
 

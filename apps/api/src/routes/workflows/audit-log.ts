@@ -16,7 +16,7 @@ import { requireAdmin } from "../../lib/rbac/middleware";
 
 export const auditLogRoute = new Elysia().use(requireAdmin).get(
   "/audit-log",
-  async ({ query, user }: any) => {
+  async ({ query, user }) => {
     const limit = Math.min(Number(query.limit) || 50, 200);
     const offset = Number(query.offset) || 0;
 

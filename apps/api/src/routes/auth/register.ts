@@ -4,6 +4,7 @@ import { db } from "../../lib/db";
 import { tenants, users } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { authRateLimit } from "../../lib/rate-limiter";
+import { correlationId } from "../../lib/correlation-id";
 import type { InsertUser, InsertTenant } from "@supplex/types";
 import {
   UserRole,
@@ -68,10 +69,11 @@ async function generateUniqueSlug(baseName: string): Promise<string> {
 }
 
 export const registerRoute = new Elysia({ prefix: "/auth" })
+  .use(correlationId)
   .use(authRateLimit)
   .post(
     "/register",
-    async ({ body, set, requestLogger }: any) => {
+    async ({ body, set, requestLogger }) => {
       try {
         const { email, password, fullName, tenantName } = body;
 
@@ -218,7 +220,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
   )
   .get(
     "/register/check-tenant-slug/:slug",
-    async ({ params, requestLogger }: any) => {
+    async ({ params, requestLogger }) => {
       try {
         const { slug } = params;
 

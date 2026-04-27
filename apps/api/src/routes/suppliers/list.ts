@@ -12,7 +12,7 @@ import {
   desc,
   sql,
 } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -30,14 +30,14 @@ import { ApiError, Errors } from "../../lib/errors";
  * Auth: Requires valid JWT (any authenticated user can list suppliers)
  */
 export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/",
-    async ({ query, user, requestLogger }: any) => {
+    async ({ query, user, requestLogger }) => {
       requestLogger.debug({}, "Supplier list handler invoked");
       requestLogger.debug({ user }, "Supplier list user context");
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         // TODO: Add Redis caching for performance optimization
         // Cache key: `suppliers:list:${tenantId}:${queryHash}`

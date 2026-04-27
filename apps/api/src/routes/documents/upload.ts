@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requirePermission } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { PermissionAction } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { validateFileMagicBytes } from "../../lib/file-validation";
@@ -61,10 +62,11 @@ function validateFile(file: File): { valid: boolean; error?: string } {
  * Tenant Scoping: Automatically sets tenant_id from authenticated user
  */
 export const uploadDocument = new Elysia({ prefix: "/api" })
+  .use(authenticatedRoute)
   .use(requirePermission(PermissionAction.UPLOAD_DOCUMENTS))
   .post(
     "/suppliers/:id/documents",
-    async ({ params, body, user, requestLogger }: any) => {
+    async ({ params, body, user, requestLogger }) => {
       const { id: supplierId } = params;
       const { file, documentType, description, expiryDate } = body;
 

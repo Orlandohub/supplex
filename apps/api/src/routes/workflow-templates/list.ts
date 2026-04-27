@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { eq, and, isNull, desc } from "drizzle-orm";
 
@@ -18,13 +18,12 @@ import { eq, and, isNull, desc } from "drizzle-orm";
  * Returns: Array of workflow templates
  */
 export const listWorkflowTemplatesRoute = new Elysia()
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/",
-    async ({ query, user, set, requestLogger }: any) => {
-
+    async ({ query, user, set, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const limit = query.limit || 50;
         const offset = query.offset || 0;
         const { active, status } = query;
@@ -82,9 +81,13 @@ export const listWorkflowTemplatesRoute = new Elysia()
         limit: t.Optional(t.Number()),
         offset: t.Optional(t.Number()),
         active: t.Optional(t.Boolean()),
-        status: t.Optional(t.Union([t.Literal("draft"), t.Literal("published"), t.Literal("archived")])),
+        status: t.Optional(
+          t.Union([
+            t.Literal("draft"),
+            t.Literal("published"),
+            t.Literal("archived"),
+          ])
+        ),
       }),
     }
   );
-
-

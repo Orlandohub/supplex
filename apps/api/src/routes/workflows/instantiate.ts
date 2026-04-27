@@ -14,6 +14,7 @@ import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requirePermission } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { PermissionAction } from "@supplex/types";
 import {
   logWorkflowEvent,
@@ -24,10 +25,11 @@ import { WorkflowProcessStatus } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
 export const instantiateRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requirePermission(PermissionAction.CREATE_QUALIFICATIONS))
   .post(
     "/instantiate",
-    async ({ body, user, requestLogger, correlationId: corrId }: any) => {
+    async ({ body, user, requestLogger, correlationId: corrId }) => {
       const { workflowTemplateId, entityType, entityId, metadata } = body;
 
       if (!user?.id || !user?.tenantId) {

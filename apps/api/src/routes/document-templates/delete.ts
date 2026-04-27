@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { documentTemplate, workflowStepTemplate } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -15,12 +16,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Error: 400 if template is in use by workflow steps
  */
 export const deleteDocumentTemplateRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .delete(
     "/:id",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const templateId = params.id;
 
         // Verify template exists and belongs to tenant

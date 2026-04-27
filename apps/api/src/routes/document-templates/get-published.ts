@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { db } from "../../lib/db";
 import { documentTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -13,12 +13,12 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: List of published templates in { id, label } format
  */
 export const getPublishedDocumentTemplatesRoute = new Elysia()
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/published",
-    async ({ user, requestLogger }: any) => {
+    async ({ user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         // Fetch published templates only
         const templates = await db

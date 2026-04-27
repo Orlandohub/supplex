@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { Errors } from "../../lib/errors";
 
 /**
@@ -15,12 +16,13 @@ import { Errors } from "../../lib/errors";
  * Auth: Requires Admin role
  */
 export const listUsersRoute = new Elysia({ prefix: "/users" })
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .get(
     "/",
-    async ({ query, user, requestLogger }: any) => {
+    async ({ query, user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         // Build query with optional status filter
         let queryBuilder = db

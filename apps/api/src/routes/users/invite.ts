@@ -2,9 +2,15 @@ import { Elysia, t } from "elysia";
 import { supabaseAdmin } from "../../lib/supabase";
 import { db } from "../../lib/db";
 import { users } from "@supplex/db";
-import { UserRole, createUserAuthMetadata, createUserProfileMetadata, AuditAction } from "@supplex/types";
+import {
+  UserRole,
+  createUserAuthMetadata,
+  createUserProfileMetadata,
+  AuditAction,
+} from "@supplex/types";
 import type { InsertUser } from "@supplex/types";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { ApiError, Errors } from "../../lib/errors";
 
@@ -20,13 +26,14 @@ import { ApiError, Errors } from "../../lib/errors";
  * Auth: Requires Admin role
  */
 export const inviteUserRoute = new Elysia({ prefix: "/users" })
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .post(
     "/invite",
-    async ({ body, user, set, headers, requestLogger }: any) => {
+    async ({ body, user, set, headers, requestLogger }) => {
       try {
         const { email, role, message } = body;
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const auditContext = createAuditContext(
           headers as Record<string, string | undefined>
         );
@@ -57,7 +64,9 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
 
         if (authError || !authUser.user) {
           requestLogger.error({ err: authError }, "Supabase auth error");
-          throw Errors.badRequest(authError?.message || "Failed to create user account");
+          throw Errors.badRequest(
+            authError?.message || "Failed to create user account"
+          );
         }
 
         const userId = authUser.user.id;
@@ -136,7 +145,10 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
             },
           };
         } catch (dbError: any) {
-          requestLogger.error({ err: dbError }, "Database error during invitation");
+          requestLogger.error(
+            { err: dbError },
+            "Database error during invitation"
+          );
 
           // Rollback: Delete the Supabase auth user
           try {

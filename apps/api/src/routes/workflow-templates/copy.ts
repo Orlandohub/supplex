@@ -19,7 +19,7 @@ import { Errors } from "../../lib/errors";
 
 export const copyWorkflowTemplate = new Elysia().use(requireAdmin).post(
   "/workflow-templates/:id/copy",
-  async ({ params, body, user }: any) => {
+  async ({ params, body, user }) => {
     const { id } = params;
 
     // Fetch original template with tenant isolation

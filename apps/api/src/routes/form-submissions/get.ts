@@ -10,7 +10,7 @@ import {
   taskInstance,
 } from "@supplex/db";
 import { eq, and, isNull, or } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -23,11 +23,11 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: Full submission with answers and field metadata for rendering
  */
 export const getSubmissionRoute = new Elysia()
-  .use(authenticate)
-  .get("/:submissionId", async ({ params, user, set, requestLogger }: any) => {
+  .use(authenticatedRoute)
+  .get("/:submissionId", async ({ params, user, set, requestLogger }) => {
     try {
-      const tenantId = user.tenantId as string;
-      const userId = user.id as string;
+      const tenantId = user.tenantId;
+      const userId = user.id;
       const { submissionId } = params;
 
       // Fetch submission with tenant verification

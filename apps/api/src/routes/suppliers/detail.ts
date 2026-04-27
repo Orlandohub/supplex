@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers, users } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate, requireRole } from "../../lib/rbac/middleware";
+import { requireRole } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole, SupplierStatus } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
@@ -14,13 +15,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Tenant Scoping: Automatically filtered by user's tenant_id
  */
 export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/:id",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       try {
         const { id } = params;
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         // Validate UUID format
         const uuidRegex =
@@ -126,11 +127,11 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
   .patch(
     "/:id/status",
-    async ({ params, body, user, requestLogger }: any) => {
+    async ({ params, body, user, requestLogger }) => {
       try {
         const { id } = params;
         const { status } = body;
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         // Validate UUID format
         const uuidRegex =
@@ -144,7 +145,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
         }
 
         // Validate status enum
-        const validStatuses = Object.values(SupplierStatus);
+        const validStatuses: readonly string[] = Object.values(SupplierStatus);
         if (!validStatuses.includes(status)) {
           throw new ApiError(
             400,
@@ -217,10 +218,10 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
   .use(requireRole([UserRole.ADMIN]))
   .delete(
     "/:id",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       try {
         const { id } = params;
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         // Validate UUID format
         const uuidRegex =

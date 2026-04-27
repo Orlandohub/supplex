@@ -3,7 +3,7 @@ import { ApiError, Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
 import { processInstance, suppliers, users, stepInstance } from "@supplex/db";
 import { eq, and, isNull, desc, asc, sql, or, ilike } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 
 const ROLE_DISPLAY_LABELS: Record<string, string> = {
@@ -30,12 +30,12 @@ function roleToDisplayLabel(role: string): string {
  *
  * Returns lean payload with counts for the summary strip.
  */
-export const listProcessesRoute = new Elysia().use(authenticate).get(
+export const listProcessesRoute = new Elysia().use(authenticatedRoute).get(
   "/processes",
-  async ({ user, query, requestLogger }: any) => {
-    const tenantId = user!.tenantId as string;
-    const userRole = user!.role as string;
-    const userId = user!.id as string;
+  async ({ user, query, requestLogger }) => {
+    const tenantId = user.tenantId;
+    const userRole = user.role;
+    const userId = user.id;
 
     try {
       const page = Math.max(1, Number(query.page) || 1);

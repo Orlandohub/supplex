@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { users, suppliers, userInvitations } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import {
   UserRole,
   createUserAuthMetadata,
@@ -14,9 +14,9 @@ import { AuditAction } from "@supplex/types";
 import { randomBytes } from "crypto";
 import { ApiError, Errors } from "../../lib/errors";
 
-export const addContactRoute = new Elysia().use(authenticate).post(
+export const addContactRoute = new Elysia().use(authenticatedRoute).post(
   "/suppliers/:id/contact",
-  async ({ params, body, user, set, headers, requestLogger }: any) => {
+  async ({ params, body, user, set, headers, requestLogger }) => {
     // Check role: Admin or Procurement Manager
     if (
       !user?.role ||
@@ -28,8 +28,8 @@ export const addContactRoute = new Elysia().use(authenticate).post(
     }
 
     try {
-      const tenantId = user.tenantId as string;
-      const userId = user.id as string;
+      const tenantId = user.tenantId;
+      const userId = user.id;
       const supplierId = params.id;
       const { name, email, phone } = body;
       const auditContext = createAuditContext(headers);

@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { users, userInvitations } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate, requireRole } from "../../lib/rbac/middleware";
+import { requireRole } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { randomBytes } from "crypto";
 import { ApiError, Errors } from "../../lib/errors";
@@ -16,15 +17,15 @@ import { ApiError, Errors } from "../../lib/errors";
  * Action: Invalidates previous invitation and generates new one
  */
 export const resendInvitationRoute = new Elysia({ prefix: "/users" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .use(requireRole([UserRole.ADMIN]))
   .post(
     "/resend-invitation",
-    async ({ body, user, set, requestLogger }: any) => {
+    async ({ body, user, set, requestLogger }) => {
       try {
         const { userId } = body;
-        const tenantId = user.tenantId as string;
-        const currentUserId = user.id as string;
+        const tenantId = user.tenantId;
+        const currentUserId = user.id;
 
         // Step 1: Verify user exists and belongs to current tenant
         const targetUser = await db.query.users.findFirst({
@@ -103,4 +104,3 @@ export const resendInvitationRoute = new Elysia({ prefix: "/users" })
       },
     }
   );
-

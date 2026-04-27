@@ -22,13 +22,13 @@ import {
   suppliers,
 } from "@supplex/db";
 import { isNull, asc, eq, and, aliasedTable } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { verifyProcessAccess } from "../../../lib/rbac/entity-authorization";
 
-export const getProcessRoute = new Elysia().use(authenticate).get(
+export const getProcessRoute = new Elysia().use(authenticatedRoute).get(
   "/processes/:processInstanceId",
-  async ({ params, user, requestLogger }: any) => {
+  async ({ params, user, requestLogger }) => {
     const { processInstanceId } = params;
 
     if (!user?.id || !user?.tenantId) {

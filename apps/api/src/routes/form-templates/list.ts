@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { formTemplate } from "@supplex/db";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
@@ -14,11 +14,11 @@ import { ApiError, Errors } from "../../lib/errors";
  * Query: status (optional) - Filter by status: all, draft, published, archived
  * Returns: List of templates with status and isActive flags
  */
-export const listFormTemplatesRoute = new Elysia().use(authenticate).get(
+export const listFormTemplatesRoute = new Elysia().use(authenticatedRoute).get(
   "/",
-  async ({ query, user, requestLogger }: any) => {
+  async ({ query, user, requestLogger }) => {
     try {
-      const tenantId = user.tenantId as string;
+      const tenantId = user.tenantId;
       const statusFilter = query.status || "all";
       const isAdmin = user.role === UserRole.ADMIN;
 

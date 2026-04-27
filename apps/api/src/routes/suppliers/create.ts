@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers, users, userInvitations } from "@supplex/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import {
   UserRole,
   InsertSupplierSchema,
@@ -21,10 +21,10 @@ import { ApiError, Errors } from "../../lib/errors";
  * Tenant Scoping: Automatically sets tenant_id from authenticated user's JWT
  */
 export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .post(
     "/",
-    async ({ body, user, set, requestLogger }: any) => {
+    async ({ body, user, set, requestLogger }) => {
       // Check role permission
       if (
         !user?.role ||
@@ -35,8 +35,8 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
         );
       }
       try {
-        const tenantId = user.tenantId as string;
-        const userId = user.id as string;
+        const tenantId = user.tenantId;
+        const userId = user.id;
 
         // Validate request body with Zod schema
         const validationResult = InsertSupplierSchema.safeParse(body);

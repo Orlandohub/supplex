@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { auditLogs } from "@supplex/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { Errors } from "../../lib/errors";
 
 /**
@@ -16,13 +17,14 @@ import { Errors } from "../../lib/errors";
  * Auth: Requires Admin role
  */
 export const auditLogRoute = new Elysia({ prefix: "/users" })
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .get(
     "/:id/audit",
-    async ({ params, query, user, requestLogger }: any) => {
+    async ({ params, query, user, requestLogger }) => {
       try {
         const { id: targetUserId } = params;
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         const limit = Math.min(query.limit || 20, 100);
         const offset = query.offset || 0;

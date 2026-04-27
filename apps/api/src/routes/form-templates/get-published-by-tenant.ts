@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { db } from "../../lib/db";
 import { formTemplate } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -18,12 +18,12 @@ import { ApiError, Errors } from "../../lib/errors";
  * Story: 2.2.7.2 - Add Tenant-Scoped Dropdowns for Form and Document Templates
  */
 export const getPublishedFormTemplatesRoute = new Elysia()
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/published",
-    async ({ user, requestLogger }: any) => {
+    async ({ user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
 
         const publishedTemplates = await db.query.formTemplate.findMany({
           where: and(

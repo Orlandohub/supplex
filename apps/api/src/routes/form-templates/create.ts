@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { formTemplate } from "@supplex/db";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -14,12 +15,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: Created template
  */
 export const createFormTemplateRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .post(
     "/",
-    async ({ body, user, set, requestLogger }: any) => {
+    async ({ body, user, set, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const { name } = body;
 
         const [newTemplate] = await db

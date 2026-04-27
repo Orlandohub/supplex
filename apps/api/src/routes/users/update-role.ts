@@ -10,6 +10,7 @@ import {
   AuditAction,
 } from "@supplex/types";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { authCache } from "../../lib/auth-cache";
 import { ApiError, Errors } from "../../lib/errors";
@@ -27,15 +28,16 @@ import { ApiError, Errors } from "../../lib/errors";
  * - Must be in the same tenant as the target user
  */
 export const updateRoleRoute = new Elysia({ prefix: "/users" })
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .patch(
     "/:id/role",
-    async ({ params, body, user, headers, requestLogger }: any) => {
+    async ({ params, body, user, headers, requestLogger }) => {
       try {
         const { id: targetUserId } = params;
         const { role } = body;
-        const currentUserId = user.id as string;
-        const tenantId = user.tenantId as string;
+        const currentUserId = user.id;
+        const tenantId = user.tenantId;
         const auditContext = createAuditContext(
           headers as Record<string, string | undefined>
         );
