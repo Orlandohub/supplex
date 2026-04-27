@@ -53,7 +53,7 @@ export const getNotificationPreferencesRoute = new Elysia({ prefix: "/users" })
           success: true,
           data: result,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error(
           { err: error },
           "Error fetching notification preferences"
@@ -150,7 +150,7 @@ export const updateNotificationPreferencesRoute = new Elysia({
             message: "Notification preference created successfully",
           };
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error(
           { err: error },
           "Error updating notification preferences"

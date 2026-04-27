@@ -82,7 +82,7 @@ export const reorderStepsRoute = new Elysia()
           success: true,
           data: updatedSteps,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow steps reorder failed");
         throw Errors.internal("Failed to reorder steps");

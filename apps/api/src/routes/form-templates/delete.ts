@@ -58,7 +58,7 @@ export const deleteFormTemplateRoute = new Elysia()
             message: "Form template deleted successfully",
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error deleting form template");
         throw Errors.internal("Failed to delete form template");

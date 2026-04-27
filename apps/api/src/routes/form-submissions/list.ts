@@ -77,7 +77,7 @@ export const listSubmissionsRoute = new Elysia().use(authenticatedRoute).get(
           })),
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       requestLogger.error({ err: error }, "Submission list failed");
       throw Errors.internal("Failed to list submissions");
     }

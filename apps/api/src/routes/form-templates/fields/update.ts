@@ -188,7 +188,7 @@ export const updateFieldRoute = new Elysia()
             field: updatedField,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error updating field");
         throw Errors.internal("Failed to update field");

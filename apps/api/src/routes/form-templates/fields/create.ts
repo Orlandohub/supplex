@@ -166,7 +166,7 @@ export const createFieldRoute = new Elysia()
             field: newField,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error creating field");
         throw Errors.internal("Failed to create field");

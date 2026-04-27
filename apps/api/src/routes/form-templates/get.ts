@@ -94,7 +94,7 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
           sections: sectionsWithFields,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Error fetching form template");
       throw Errors.internal("Failed to fetch form template");

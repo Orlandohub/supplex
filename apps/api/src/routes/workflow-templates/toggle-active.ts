@@ -59,7 +59,7 @@ export const toggleActiveWorkflowTemplateRoute = new Elysia()
           success: true,
           data: updated,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error(
           { err: error },

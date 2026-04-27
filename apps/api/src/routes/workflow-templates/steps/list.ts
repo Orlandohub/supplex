@@ -50,7 +50,7 @@ export const listStepsRoute = new Elysia()
           success: true,
           data: steps,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow steps list failed");
         throw Errors.internal("Failed to list steps");

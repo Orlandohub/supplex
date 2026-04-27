@@ -61,7 +61,7 @@ export const listUsersRoute = new Elysia({ prefix: "/users" })
             total: usersList.length,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error({ err: error }, "Error fetching users");
         throw Errors.internal("Failed to fetch users");
       }

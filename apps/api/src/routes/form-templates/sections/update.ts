@@ -86,7 +86,7 @@ export const updateSectionRoute = new Elysia()
             section: updatedSection,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error updating section");
         throw Errors.internal("Failed to update section");

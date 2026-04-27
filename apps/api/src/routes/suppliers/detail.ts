@@ -107,7 +107,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             supplierUser,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error fetching supplier detail");
         throw Errors.internal("Failed to fetch supplier details");
@@ -193,7 +193,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             supplier: updatedSupplier[0],
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error updating supplier status");
         throw Errors.internal("Failed to update supplier status");
@@ -271,7 +271,7 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
             message: "Supplier deleted successfully",
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error deleting supplier");
         throw Errors.internal("Failed to delete supplier");

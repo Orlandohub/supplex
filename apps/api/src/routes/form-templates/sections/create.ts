@@ -73,7 +73,7 @@ export const createSectionRoute = new Elysia()
             section: newSection,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error creating section");
         throw Errors.internal("Failed to create section");

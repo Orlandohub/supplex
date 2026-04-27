@@ -45,7 +45,7 @@ export const getEmailSettingsRoute = new Elysia().use(authenticatedRoute).get(
         success: true,
         data: settings,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Email settings fetch failed");
       throw Errors.internal("Internal server error");
@@ -132,7 +132,7 @@ export const updateEmailSettingsRoute = new Elysia()
           },
           message: "Email settings updated successfully",
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Email settings update failed");
         throw Errors.internal("Internal server error");

@@ -114,7 +114,7 @@ export const emailLogsRoute = new Elysia().use(authenticatedRoute).get(
           },
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       requestLogger.error({ err: error }, "Email logs fetch failed");
       throw Errors.internal("Internal server error");
     }

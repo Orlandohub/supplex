@@ -45,7 +45,7 @@ export const getPublishedFormTemplatesRoute = new Elysia()
             templates: formattedOptions,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error(
           { err: error },

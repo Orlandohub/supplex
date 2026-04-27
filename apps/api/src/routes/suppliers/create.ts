@@ -12,6 +12,7 @@ import {
 import { supabaseAdmin } from "../../lib/supabase";
 import { randomBytes } from "crypto";
 import { ApiError, Errors } from "../../lib/errors";
+import { isPostgresError } from "../../lib/error-utils";
 
 /**
  * POST /api/suppliers
@@ -147,7 +148,7 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
             });
 
             invitationToken = token;
-          } catch (userError: any) {
+          } catch (userError: unknown) {
             requestLogger.error(
               { err: userError },
               "Error creating supplier user"
@@ -209,7 +210,7 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
               updatedAt: new Date(),
             })
             .returning();
-        } catch (supplierError: any) {
+        } catch (supplierError: unknown) {
           requestLogger.error(
             { err: supplierError },
             "Error creating supplier record"
@@ -254,11 +255,12 @@ export const createSupplierRoute = new Elysia({ prefix: "/suppliers" })
             invitationToken,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error creating supplier");
 
         if (
+          isPostgresError(error) &&
           error.code === "23505" &&
           error.constraint === "suppliers_tenant_tax_id_unique"
         ) {

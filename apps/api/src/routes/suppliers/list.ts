@@ -142,7 +142,7 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
             limit: limitNum,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error fetching suppliers");
         throw Errors.internal("Failed to fetch suppliers");

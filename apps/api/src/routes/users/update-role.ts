@@ -139,7 +139,7 @@ export const updateRoleRoute = new Elysia({ prefix: "/users" })
             },
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error updating user role");
         throw Errors.internal("Internal server error");

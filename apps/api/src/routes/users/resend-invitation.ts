@@ -86,7 +86,7 @@ export const resendInvitationRoute = new Elysia({ prefix: "/users" })
             message: "New invitation generated successfully",
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error resending invitation");
         throw Errors.internal("Failed to resend invitation");

@@ -63,7 +63,7 @@ export const deleteWorkflowTemplateRoute = new Elysia()
           success: true,
           message: "Workflow template deleted successfully",
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow template delete failed");
         throw Errors.internal("Failed to delete workflow template");

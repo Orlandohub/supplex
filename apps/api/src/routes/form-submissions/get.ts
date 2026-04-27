@@ -205,7 +205,7 @@ export const getSubmissionRoute = new Elysia()
           },
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Submission fetch failed");
       throw Errors.internal("Failed to fetch submission");

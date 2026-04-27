@@ -64,7 +64,7 @@ export const auditLogRoute = new Elysia({ prefix: "/users" })
             offset,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error({ err: error }, "Error fetching audit logs");
         throw Errors.internal("Failed to fetch audit logs");
       }

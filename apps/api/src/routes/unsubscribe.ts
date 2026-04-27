@@ -250,7 +250,7 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" })
           </body>
         </html>
       `;
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error({ err: error }, "Unsubscribe processing failed");
         set.status = 500;
         set.headers["content-type"] = "text/html; charset=utf-8";

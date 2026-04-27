@@ -128,7 +128,7 @@ export const publishWorkflowTemplateRoute = new Elysia()
           data: updatedTemplate,
           message: `Template ${newStatus === "published" ? "published" : "unpublished"} successfully`,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error(
           { err: error },

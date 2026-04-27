@@ -165,7 +165,7 @@ export const updateContactRoute = new Elysia().use(authenticatedRoute).patch(
         },
         message: "Supplier contact updated successfully",
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Error updating supplier contact");
       throw Errors.internal("Failed to update supplier contact");
