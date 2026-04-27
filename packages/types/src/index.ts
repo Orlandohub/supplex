@@ -6,14 +6,20 @@
 import { z } from "zod";
 
 /**
- * Common response types
+ * Discriminated union for API response envelopes.
+ *
+ * The runtime shape matches what `apps/api/src/lib/test-utils.ts:handleTestError`
+ * produces and what every successful route under `apps/api/src/routes/**`
+ * returns. Use this type at the HTTP boundary (loaders, test response narrowing)
+ * so that `result.success` correctly narrows access to `result.data` versus
+ * `result.error`.
+ *
+ * The success branch's `data` is optional because void operations (e.g. DELETE
+ * routes) return `{ success: true }` without a `data` field.
  */
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
+export type ApiResult<T = unknown> =
+  | { success: true; data?: T }
+  | { success: false; error: { code: string; message: string } };
 
 /**
  * Health check response

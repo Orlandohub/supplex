@@ -14,7 +14,7 @@ import {
   DocumentSchema,
   DocumentType,
 } from "./index";
-import type { HealthCheck, ApiResponse } from "./index";
+import type { HealthCheck, ApiResult } from "./index";
 
 describe("Shared Types Package", () => {
   describe("HealthCheckSchema", () => {
@@ -227,7 +227,8 @@ describe("Shared Types Package", () => {
         supplierId: "770e8400-e29b-41d4-a716-446655440000",
         filename: "ISO9001-Certificate.pdf",
         documentType: DocumentType.CERTIFICATE,
-        storagePath: "tenants/660e8400/suppliers/770e8400/ISO9001-Certificate.pdf",
+        storagePath:
+          "tenants/660e8400/suppliers/770e8400/ISO9001-Certificate.pdf",
         fileSize: 1024000,
         mimeType: "application/pdf",
         description: "ISO 9001 Certification",
@@ -243,25 +244,56 @@ describe("Shared Types Package", () => {
     });
   });
 
-  describe("ApiResponse type", () => {
+  describe("ApiResult type", () => {
     it("should allow success response with data", () => {
-      const response: ApiResponse<string> = {
+      const response: ApiResult<string> = {
         success: true,
         data: "test data",
       };
 
       expect(response.success).toBe(true);
-      expect(response.data).toBe("test data");
+      if (response.success) {
+        expect(response.data).toBe("test data");
+      }
     });
 
-    it("should allow error response", () => {
-      const response: ApiResponse = {
+    it("should allow success response without data (void operations)", () => {
+      const response: ApiResult = { success: true };
+
+      expect(response.success).toBe(true);
+      if (response.success) {
+        expect(response.data).toBeUndefined();
+      }
+    });
+
+    it("should allow error response with code and message", () => {
+      const response: ApiResult = {
         success: false,
-        error: "Something went wrong",
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Something went wrong",
+        },
       };
 
       expect(response.success).toBe(false);
-      expect(response.error).toBe("Something went wrong");
+      if (!response.success) {
+        expect(response.error.code).toBe("INTERNAL_SERVER_ERROR");
+        expect(response.error.message).toBe("Something went wrong");
+      }
+    });
+
+    it("should narrow data access via success discriminant", () => {
+      const response: ApiResult<{ id: string }> = {
+        success: true,
+        data: { id: "abc-123" },
+      };
+
+      if (response.success && response.data) {
+        const id: string = response.data.id;
+        expect(id).toBe("abc-123");
+      } else {
+        throw new Error("expected success branch");
+      }
     });
   });
 

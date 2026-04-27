@@ -88,3 +88,85 @@ export function withApiErrorHandler<T extends AppWithOnError>(app: T): T {
   app.onError(handleTestError);
   return app;
 }
+
+/**
+ * Typed stand-in for a Drizzle query-builder chain in unit tests.
+ *
+ * Drizzle's chained query APIs (`db.select().from().where().limit()`,
+ * `db.insert().values().returning()`, `db.update().set().where().returning()`,
+ * etc.) are thenable at every step — awaiting at any depth produces the same
+ * row array. This class satisfies that contract without leaking `any` into
+ * the test surface, so a single call replaces the nested
+ * `vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({...}) })`
+ * boilerplate that has accumulated across the suite.
+ *
+ * Each chain method returns `this`, allowing arbitrary chain depth without
+ * additional setup. The class implements `PromiseLike<T[]>`, so `await chain`
+ * — at any depth — resolves to the supplied `rows` array.
+ *
+ * Usage:
+ *
+ *   const chain = mockDbChain<User>([userRow]);
+ *   db.select.mockReturnValue(chain);
+ *   const result = await db.select().from(users).where(eq(...)).limit(1);
+ *   // result === [userRow]
+ *
+ *   // Inserts and updates work the same way:
+ *   db.insert.mockReturnValue(mockDbChain<User>([newUser]));
+ *   const inserted = await db.insert(users).values({...}).returning();
+ *   // inserted === [newUser]
+ *
+ * The supported method list is the public Drizzle chainable surface area.
+ * If a test exercises a chain method that is not enumerated here, add it
+ * to this class rather than reaching for `as any` at the call site.
+ */
+export class MockDbChain<T> implements PromiseLike<T[]> {
+  private readonly rows: T[];
+
+  constructor(rows: T[]) {
+    this.rows = rows;
+  }
+
+  from = (..._args: readonly unknown[]): this => this;
+  where = (..._args: readonly unknown[]): this => this;
+  leftJoin = (..._args: readonly unknown[]): this => this;
+  innerJoin = (..._args: readonly unknown[]): this => this;
+  rightJoin = (..._args: readonly unknown[]): this => this;
+  fullJoin = (..._args: readonly unknown[]): this => this;
+  orderBy = (..._args: readonly unknown[]): this => this;
+  limit = (..._args: readonly unknown[]): this => this;
+  offset = (..._args: readonly unknown[]): this => this;
+  groupBy = (..._args: readonly unknown[]): this => this;
+  having = (..._args: readonly unknown[]): this => this;
+  values = (..._args: readonly unknown[]): this => this;
+  set = (..._args: readonly unknown[]): this => this;
+  returning = (..._args: readonly unknown[]): this => this;
+  execute = (..._args: readonly unknown[]): this => this;
+  for = (..._args: readonly unknown[]): this => this;
+  onConflictDoNothing = (..._args: readonly unknown[]): this => this;
+  onConflictDoUpdate = (..._args: readonly unknown[]): this => this;
+
+  then<TResult1 = T[], TResult2 = never>(
+    onfulfilled?:
+      | ((value: T[]) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this.rows).then(onfulfilled, onrejected);
+  }
+}
+
+/**
+ * Convenience constructor for {@link MockDbChain}.
+ *
+ * Prefer this in tests over instantiating the class directly:
+ *
+ *   db.select.mockReturnValue(mockDbChain<User>([userRow]));
+ */
+export function mockDbChain<T>(rows: T[]): MockDbChain<T> {
+  return new MockDbChain(rows);
+}

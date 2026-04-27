@@ -1,5 +1,6 @@
 import { describe, it, expect, mock } from "bun:test";
 import { Elysia } from "elysia";
+import { UserRole } from "@supplex/types";
 import { listSuppliersRoute } from "../list";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import { withApiErrorHandler } from "../../../lib/test-utils";
@@ -8,7 +9,7 @@ import { withApiErrorHandler } from "../../../lib/test-utils";
 const mockUser: AuthContext["user"] = {
   id: "user-123",
   email: "test@example.com",
-  role: "admin" as any,
+  role: UserRole.ADMIN,
   tenantId: "tenant-123",
   fullName: "Test User",
 };
