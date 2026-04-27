@@ -11,6 +11,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type { ValidationConfig } from "@supplex/types";
 import { tenants } from "./tenants";
 import { users } from "./users";
 import { workflowTemplate } from "./workflow-template";
@@ -147,10 +148,16 @@ export const workflowStepTemplate = pgTable(
 
     // Auto-validation configuration (Story 2.2.15)
     requiresValidation: boolean("requires_validation").notNull().default(false),
-    validationConfig: jsonb("validation_config").notNull().default({}),
+    validationConfig: jsonb("validation_config")
+      .$type<ValidationConfig | Record<string, never>>()
+      .notNull()
+      .default({}),
 
     // Extensible configuration
-    metadata: jsonb("metadata").notNull().default({}),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
 
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()

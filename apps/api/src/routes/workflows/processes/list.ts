@@ -1,10 +1,23 @@
 import { Elysia, t } from "elysia";
 import { ApiError, Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
-import { processInstance, suppliers, users, stepInstance } from "@supplex/db";
+import {
+  processInstance,
+  suppliers,
+  users,
+  stepInstance,
+  ProcessStatus,
+  type ProcessStatusType,
+} from "@supplex/db";
 import { eq, and, isNull, desc, asc, sql, or, ilike } from "drizzle-orm";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
+
+const ALLOWED_PROCESS_STATUSES = new Set<string>(Object.values(ProcessStatus));
+
+function isProcessStatus(value: string): value is ProcessStatusType {
+  return ALLOWED_PROCESS_STATUSES.has(value);
+}
 
 const ROLE_DISPLAY_LABELS: Record<string, string> = {
   supplier_user: "Supplier Contact",
@@ -79,8 +92,8 @@ export const listProcessesRoute = new Elysia().use(authenticatedRoute).get(
         );
       }
 
-      if (statusFilter) {
-        baseConditions.push(eq(processInstance.status, statusFilter as any));
+      if (statusFilter && isProcessStatus(statusFilter)) {
+        baseConditions.push(eq(processInstance.status, statusFilter));
       }
 
       if (search) {

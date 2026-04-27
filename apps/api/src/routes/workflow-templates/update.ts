@@ -44,7 +44,7 @@ export const updateWorkflowTemplateRoute = new Elysia()
         }
 
         // Build update object
-        const updates: any = {
+        const updates: Partial<typeof workflowTemplate.$inferInsert> = {
           updatedAt: new Date(),
         };
 

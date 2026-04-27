@@ -7,7 +7,12 @@
  * Fire-and-forget: errors are logged but never thrown to the caller.
  */
 
-import { db, workflowEvent, type InsertWorkflowEvent, type DbOrTx } from "@supplex/db";
+import {
+  db,
+  workflowEvent,
+  type InsertWorkflowEvent,
+  type DbOrTx,
+} from "@supplex/db";
 import { WorkflowEventType } from "@supplex/types";
 import logger from "../lib/logger";
 
@@ -32,7 +37,7 @@ export interface LogEventParams {
   entityType?: string | null;
   entityId?: string | null;
   comment?: string | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   correlationId?: string;
 }
 
@@ -61,7 +66,10 @@ function buildEventRow(params: LogEventParams): InsertWorkflowEvent {
  * Insert a workflow event inside a caller-provided transaction.
  * Errors propagate so the wrapping transaction rolls back on failure.
  */
-export async function logWorkflowEventTx(tx: DbOrTx, params: LogEventParams): Promise<void> {
+export async function logWorkflowEventTx(
+  tx: DbOrTx,
+  params: LogEventParams
+): Promise<void> {
   await tx.insert(workflowEvent).values(buildEventRow(params));
 }
 
@@ -73,6 +81,9 @@ export async function logWorkflowEvent(params: LogEventParams): Promise<void> {
   try {
     await db.insert(workflowEvent).values(buildEventRow(params));
   } catch (error) {
-    logger.error({ err: error, eventType: params.eventType }, "failed to log workflow event");
+    logger.error(
+      { err: error, eventType: params.eventType },
+      "failed to log workflow event"
+    );
   }
 }

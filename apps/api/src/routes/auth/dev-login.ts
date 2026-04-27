@@ -8,6 +8,7 @@ import { supabaseAdmin } from "../../lib/supabase";
 import { randomBytes } from "crypto";
 import { ApiError, Errors } from "../../lib/errors";
 import { correlationId } from "../../lib/correlation-id";
+import { isValidRole } from "@supplex/types";
 
 /**
  * Development Quick Login
@@ -66,11 +67,22 @@ export const devLoginRoute = new Elysia({ prefix: "/auth" })
           throw Errors.internal(error.message || "Failed to prepare login");
         }
 
+        // The `users.role` column is `varchar` for historical reasons but
+        // semantically holds a `UserRole`. Validate at this boundary before
+        // populating the auth cache so a bogus value can never propagate.
+        if (!isValidRole(user.role)) {
+          requestLogger.error(
+            { userId: user.id, role: user.role },
+            "Dev login: user has invalid role in database"
+          );
+          throw Errors.internal("Invalid user role configuration");
+        }
+
         // Cache user for the API middleware
         await authCache.set(user.id, {
           userId: user.id,
           email: user.email,
-          role: user.role as any,
+          role: user.role,
           tenantId: user.tenantId,
           isActive: user.isActive,
           fullName: user.fullName,

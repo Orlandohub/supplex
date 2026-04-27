@@ -12,7 +12,6 @@ import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
 import { verifyProcessAccess } from "../../lib/rbac/entity-authorization";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
-import type { FieldDefinition } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -118,10 +117,7 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         }
 
         // Validate answer format based on field_type
-        const validationError = validateAnswerFormat(
-          answer.answerValue,
-          field as unknown as FieldDefinition
-        );
+        const validationError = validateAnswerFormat(answer.answerValue, field);
         if (validationError) {
           throw Errors.badRequest(
             `${field.label}: ${validationError}`,
@@ -213,7 +209,7 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         // Insert answers
         if (answers.length > 0) {
           await db.insert(formAnswer).values(
-            answers.map((answer: any) => ({
+            answers.map((answer) => ({
               formSubmissionId: newSubmission.id,
               formFieldId: answer.formFieldId,
               tenantId,

@@ -3,7 +3,7 @@
  * SUP-14 sub-task: typed Elysia route context.
  *
  * Composed Elysia plugins that bundle commonly-paired derives so that route
- * handlers get a fully-typed context (no `({ ... }: any)` widening required).
+ * handlers get a fully-typed context (no untyped widening required).
  *
  * Background
  * ----------
@@ -16,7 +16,8 @@
  *   `requestLogger` were previously forced to type the context as `any`.
  * - `authenticate` (lib/rbac/middleware.ts) decorates the context with
  *   `user`. Its types DO propagate forward through the chain, which is why
- *   routes that destructure only `{ user }` already work without `: any`.
+ *   routes that destructure only `{ user }` already work without an untyped
+ *   widening of the context parameter.
  *
  * `authenticatedRoute` re-exposes both derives, so any route that calls
  * `.use(authenticatedRoute)` instead of `.use(authenticate)` sees
@@ -38,7 +39,7 @@
  * ```
  *
  * Routes that need only `{ user }` (no logger) may continue using
- * `.use(authenticate)` directly — they already work without `: any`.
+ * `.use(authenticate)` directly — they already work with full context typing.
  */
 
 import { Elysia } from "elysia";

@@ -149,9 +149,14 @@ export async function createTasksForStep(
     ? new Date(Date.now() + stepTemplate.dueDays * 24 * 60 * 60 * 1000)
     : null;
 
-  let assigneeUserId = stepTemplate.assigneeUserId || undefined;
-  let assigneeType = stepTemplate.assigneeType;
-  let assigneeRole = stepTemplate.assigneeRole || undefined;
+  let assigneeUserId: string | undefined =
+    stepTemplate.assigneeUserId ?? undefined;
+  // `taskInstance.assigneeType` is `varchar NOT NULL DEFAULT 'user'`, so when
+  // the step template does not specify an assignee type we let the database
+  // default apply by passing `undefined` (omitting the field).
+  let assigneeType: typeof taskInstance.$inferInsert.assigneeType =
+    stepTemplate.assigneeType ?? undefined;
+  let assigneeRole: string | undefined = stepTemplate.assigneeRole ?? undefined;
 
   if (stepTemplate.assigneeRole === "supplier_user") {
     const resolvedUserId = await resolveSupplierUser(
@@ -167,22 +172,27 @@ export async function createTasksForStep(
     }
   }
 
+  const insertValues: typeof taskInstance.$inferInsert = {
+    tenantId,
+    processInstanceId,
+    stepInstanceId,
+    // `taskInstance.title` is NOT NULL but `workflowStepTemplate.taskTitle`
+    // is nullable. Fall back to the step name (always present) when no
+    // task title is configured rather than passing `null`.
+    title: stepTemplate.taskTitle ?? stepTemplate.name,
+    description: stepTemplate.taskDescription ?? undefined,
+    assigneeType,
+    assigneeRole,
+    assigneeUserId,
+    completionTimeDays: stepTemplate.dueDays ?? undefined,
+    dueAt: dueAt,
+    taskType,
+    status: "pending",
+  };
+
   const [task] = await tx
     .insert(taskInstance)
-    .values({
-      tenantId,
-      processInstanceId,
-      stepInstanceId,
-      title: stepTemplate.taskTitle,
-      description: stepTemplate.taskDescription || undefined,
-      assigneeType,
-      assigneeRole,
-      assigneeUserId,
-      completionTimeDays: stepTemplate.dueDays || undefined,
-      dueAt: dueAt,
-      taskType,
-      status: "pending" as const,
-    } as any)
+    .values(insertValues)
     .onConflictDoNothing()
     .returning();
 

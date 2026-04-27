@@ -13,7 +13,7 @@ export interface AuditLogEntry {
   userId: string;
   targetUserId?: string | null;
   action: AuditAction;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   ipAddress?: string | null;
   userAgent?: string | null;
 }
@@ -34,9 +34,25 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
       userAgent: entry.userAgent || null,
     });
 
-    auditLogger.info({ action: entry.action, userId: entry.userId, tenantId: entry.tenantId, details: entry.details }, "Audit event logged");
+    auditLogger.info(
+      {
+        action: entry.action,
+        userId: entry.userId,
+        tenantId: entry.tenantId,
+        details: entry.details,
+      },
+      "Audit event logged"
+    );
   } catch (error) {
-    auditLogger.error({ err: error, action: entry.action, userId: entry.userId, tenantId: entry.tenantId }, "Failed to persist audit event");
+    auditLogger.error(
+      {
+        err: error,
+        action: entry.action,
+        userId: entry.userId,
+        tenantId: entry.tenantId,
+      },
+      "Failed to persist audit event"
+    );
   }
 }
 

@@ -146,7 +146,7 @@ export const getProcessRoute = new Elysia().use(authenticatedRoute).get(
               [] as {
                 stepOrder: number;
                 requiresValidation: boolean;
-                validationConfig: any;
+                validationConfig: typeof workflowStepTemplate.$inferSelect.validationConfig;
               }[]
             ),
 
@@ -246,7 +246,8 @@ export const getProcessRoute = new Elysia().use(authenticatedRoute).get(
         };
       });
 
-      const formSubmissionsByStep: Record<string, any> = {};
+      type FormSubmissionRow = (typeof formSubmissions)[number];
+      const formSubmissionsByStep: Record<string, FormSubmissionRow> = {};
       for (const fs of formSubmissions) {
         if (fs.stepInstanceId) {
           formSubmissionsByStep[fs.stepInstanceId] = fs;

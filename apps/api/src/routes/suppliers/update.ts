@@ -71,13 +71,34 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
           );
         }
 
-        // Update supplier with provided fields only
+        // Project the Zod-validated body onto the supplier table's columns.
+        // `UpdateSupplierSchema` exposes a few fields that don't map 1:1 to
+        // the DB row (e.g. `supplierContact` is a sibling user record, the
+        // schema allows `null` for `status`, and `numeric` columns return
+        // `string` from Drizzle), so we explicitly project known columns and
+        // coerce nullables/numerics to satisfy
+        // `Partial<typeof suppliers.$inferInsert>`.
+        const {
+          supplierContact: _supplierContact,
+          status,
+          performanceScore,
+          riskScore,
+          ...rest
+        } = updateData;
+        const setData: Partial<typeof suppliers.$inferInsert> = {
+          ...rest,
+          ...(status !== null && status !== undefined ? { status } : {}),
+          ...(performanceScore !== undefined
+            ? { performanceScore: performanceScore?.toString() ?? null }
+            : {}),
+          ...(riskScore !== undefined
+            ? { riskScore: riskScore?.toString() ?? null }
+            : {}),
+          updatedAt: new Date(),
+        };
         const updatedSupplier = await db
           .update(suppliers)
-          .set({
-            ...updateData,
-            updatedAt: new Date(),
-          } as any)
+          .set(setData)
           .where(eq(suppliers.id, id))
           .returning();
 

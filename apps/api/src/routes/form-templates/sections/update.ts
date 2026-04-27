@@ -58,7 +58,7 @@ export const updateSectionRoute = new Elysia()
           );
         }
 
-        const updateData: any = {
+        const updateData: Partial<typeof formSection.$inferInsert> = {
           updatedAt: new Date(),
         };
 

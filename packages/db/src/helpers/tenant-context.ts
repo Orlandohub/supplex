@@ -169,8 +169,21 @@ export function extractTenantContext(request: Request): TenantContext {
  *   });
  * ```
  */
+/**
+ * Structural shape of the subset of an Elysia app that this helper needs.
+ *
+ * `packages/db` intentionally does not depend on `elysia` (it would couple the
+ * data layer to a web framework), so we type against the minimal contract
+ * required to call `.derive(...)`. Real Elysia instances satisfy this shape.
+ */
+interface ElysiaAppLike {
+  derive<TDerived>(
+    fn: (ctx: { request: Request }) => TDerived | Promise<TDerived>
+  ): unknown;
+}
+
 export function requireTenant() {
-  return (app: any) =>
+  return <App extends ElysiaAppLike>(app: App) =>
     app.derive(async ({ request }: { request: Request }) => {
       const tenantContext = extractTenantContext(request);
       return { tenantContext };
@@ -194,7 +207,10 @@ export function requireTenant() {
  * // Now all queries should manually include tenant filtering
  * ```
  */
-export function getTenantDb(db: any, tenantId: string) {
+export function getTenantDb<TDb>(
+  db: TDb,
+  tenantId: string
+): { db: TDb; tenantId: string } {
   if (!tenantId) {
     throw new TenantContextError("Tenant ID is required");
   }

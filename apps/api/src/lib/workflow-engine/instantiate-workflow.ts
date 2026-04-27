@@ -29,7 +29,7 @@ interface InstantiateWorkflowParams {
   entityId: string;
   initiatedBy: string;
   workflowName?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface InstantiateWorkflowResult {
@@ -90,11 +90,16 @@ export async function instantiateWorkflow(
         };
       }
 
+      const processType =
+        typeof metadata?.processType === "string"
+          ? metadata.processType
+          : "workflow_execution";
+
       const [process] = await tx
         .insert(processInstance)
         .values({
           tenantId,
-          processType: metadata?.processType || "workflow_execution",
+          processType,
           entityType,
           entityId,
           status: "in_progress",
