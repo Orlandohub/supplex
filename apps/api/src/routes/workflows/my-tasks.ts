@@ -8,7 +8,7 @@ import {
   users,
 } from "@supplex/db";
 import { eq, and, isNull, sql, asc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -22,17 +22,17 @@ import { ApiError, Errors } from "../../lib/errors";
  * Auth: Requires authenticated user
  * Tenant Scoping: Returns only tasks for workflows in user's tenant
  */
-export const myTasksRoute = new Elysia().use(authenticate).get(
+export const myTasksRoute = new Elysia().use(authenticatedRoute).get(
   "/my-tasks",
-  async ({ user, query, requestLogger }: any) => {
+  async ({ user, query, requestLogger }) => {
     try {
-      const userId = user!.id as string;
-      const userRole = user!.role as string;
-      const tenantId = user!.tenantId as string;
+      const userId = user.id;
+      const userRole = user.role;
+      const tenantId = user.tenantId;
 
-      const view = (query as any)?.view as string | undefined;
-      const statusFilter = (query as any)?.status as string | undefined;
-      const search = (query as any)?.search as string | undefined;
+      const view = query.view;
+      const statusFilter = query.status;
+      const search = query.search;
 
       const assigneeCondition = sql`(
         (${taskInstance.assigneeType} = 'role' AND ${taskInstance.assigneeRole} = ${userRole})
@@ -49,9 +49,18 @@ export const myTasksRoute = new Elysia().use(authenticate).get(
       ];
 
       // View-based filtering (takes priority over legacy status param)
-      const effectiveView = view || (statusFilter === "completed" ? "completed_this_week" : statusFilter === "all" ? "all" : "pending");
+      const effectiveView =
+        view ||
+        (statusFilter === "completed"
+          ? "completed_this_week"
+          : statusFilter === "all"
+            ? "all"
+            : "pending");
 
-      const viewConditions: Record<string, ReturnType<typeof sql> | ReturnType<typeof eq> | undefined> = {
+      const viewConditions: Record<
+        string,
+        ReturnType<typeof sql> | ReturnType<typeof eq> | undefined
+      > = {
         pending: eq(taskInstance.status, "pending"),
         due_today: sql`${taskInstance.status} = 'pending' AND ${taskInstance.dueAt}::date = CURRENT_DATE`,
         overdue: sql`${taskInstance.status} = 'pending' AND ${taskInstance.dueAt} < NOW()`,
@@ -183,9 +192,7 @@ export const myTasksRoute = new Elysia().use(authenticate).get(
           entityId: task.entityId,
           entityName:
             task.supplierName ||
-            (task.entityType === "supplier"
-              ? "Unknown Supplier"
-              : "Unknown"),
+            (task.entityType === "supplier" ? "Unknown Supplier" : "Unknown"),
           processStatus: task.processStatus,
           processType: task.processType,
           workflowName: task.workflowName,
