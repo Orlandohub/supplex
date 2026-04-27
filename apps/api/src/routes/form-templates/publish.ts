@@ -103,7 +103,7 @@ export const publishVersionRoute = new Elysia()
           data: updatedTemplate,
           message: `Template ${newStatus === "published" ? "published" : "unpublished"} successfully`,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error toggling publish status");
         throw Errors.internal("Failed to toggle publish status");

@@ -88,7 +88,7 @@ export const updateWorkflowTemplateRoute = new Elysia()
           success: true,
           data: updated,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow template update failed");
         throw Errors.internal("Failed to update workflow template");

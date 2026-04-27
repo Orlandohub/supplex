@@ -89,7 +89,7 @@ export const bySupplierRoute = new Elysia()
             })),
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error(
           { err: error },
           "Supplier form submission list failed"

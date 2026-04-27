@@ -46,7 +46,7 @@ export const listFormTemplatesRoute = new Elysia().use(authenticatedRoute).get(
           templates,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Error fetching form templates");
       throw Errors.internal("Failed to fetch form templates");

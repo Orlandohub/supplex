@@ -85,7 +85,7 @@ export const updateDocumentTemplateRoute = new Elysia()
           success: true,
           data: updatedTemplate,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Document template update failed");
         throw Errors.internal("Failed to update document template");

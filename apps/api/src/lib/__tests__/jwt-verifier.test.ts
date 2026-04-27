@@ -163,9 +163,11 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false); // should not reach
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("TOKEN_EXPIRED");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("TOKEN_EXPIRED");
+        }
       }
     });
 
@@ -177,9 +179,11 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("INVALID_TOKEN");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("INVALID_TOKEN");
+        }
       }
     });
 
@@ -195,9 +199,11 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("MISSING_CLAIMS");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("MISSING_CLAIMS");
+        }
       }
     });
   });
@@ -218,10 +224,12 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("INVALID_TOKEN");
-        expect(err.message).toContain("no HMAC secret configured");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("INVALID_TOKEN");
+          expect(err.message).toContain("no HMAC secret configured");
+        }
       }
     });
 
@@ -233,9 +241,11 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("TOKEN_EXPIRED");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("TOKEN_EXPIRED");
+        }
       }
     });
   });
@@ -248,10 +258,12 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("INVALID_TOKEN");
-        expect(err.message).toContain("Unsupported JWT algorithm");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("INVALID_TOKEN");
+          expect(err.message).toContain("Unsupported JWT algorithm");
+        }
       }
     });
 
@@ -260,10 +272,12 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT(token);
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("INVALID_TOKEN");
-        expect(err.message).toContain("Unsupported JWT algorithm");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("INVALID_TOKEN");
+          expect(err.message).toContain("Unsupported JWT algorithm");
+        }
       }
     });
 
@@ -271,9 +285,11 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT("not.a.jwt");
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("INVALID_TOKEN");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("INVALID_TOKEN");
+        }
       }
     });
 
@@ -281,9 +297,11 @@ describe("SEC-006: JWT Verifier — JWKS + HMAC fallback", () => {
       try {
         await verifyJWT("");
         expect(true).toBe(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         expect(err).toBeInstanceOf(JWTVerificationError);
-        expect(err.code).toBe("INVALID_TOKEN");
+        if (err instanceof JWTVerificationError) {
+          expect(err.code).toBe("INVALID_TOKEN");
+        }
       }
     });
   });

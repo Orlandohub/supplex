@@ -120,7 +120,7 @@ export const pendingInvitationsRoute = new Elysia({ prefix: "/users" })
           success: true,
           data: validResults,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error(
           { err: error },
           "Error fetching pending invitations"

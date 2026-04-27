@@ -53,7 +53,7 @@ export const createDocumentTemplateRoute = new Elysia()
           success: true,
           data: newTemplate,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error(
           { err: error },

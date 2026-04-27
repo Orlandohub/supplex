@@ -63,7 +63,7 @@ export const listWorkflowTemplatesRoute = new Elysia()
           success: true,
           data: templates,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error({ err: error }, "Workflow template list failed");
         set.status = 500;
         return {

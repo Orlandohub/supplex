@@ -45,7 +45,7 @@ export const createFormTemplateRoute = new Elysia()
           success: true,
           data: newTemplate,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error creating form template");
         throw Errors.internal("Failed to create form template");

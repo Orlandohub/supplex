@@ -68,7 +68,7 @@ export const updateFormTemplateRoute = new Elysia()
             template: updatedTemplate,
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error updating form template");
         throw Errors.internal("Failed to update form template");

@@ -44,7 +44,7 @@ export const getWorkflowTemplateRoute = new Elysia()
           success: true,
           data: template,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow template fetch failed");
         throw Errors.internal("Failed to fetch workflow template");

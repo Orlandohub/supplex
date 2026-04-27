@@ -144,7 +144,7 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
               invitationSent: !inviteError,
             },
           };
-        } catch (dbError: any) {
+        } catch (dbError: unknown) {
           requestLogger.error(
             { err: dbError },
             "Database error during invitation"
@@ -163,7 +163,7 @@ export const inviteUserRoute = new Elysia({ prefix: "/users" })
           if (dbError instanceof ApiError) throw dbError;
           throw Errors.internal("Failed to create user record");
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Invitation error");
         throw Errors.internal("Internal server error during invitation");

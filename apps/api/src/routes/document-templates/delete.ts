@@ -72,7 +72,7 @@ export const deleteDocumentTemplateRoute = new Elysia()
           success: true,
           message: "Document template deleted successfully",
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error(
           { err: error },

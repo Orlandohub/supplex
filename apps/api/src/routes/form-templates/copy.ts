@@ -127,7 +127,7 @@ export const copyFormTemplate = new Elysia()
           data: result,
           message: `Form template "${copyName}" created successfully`,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error copying form template");
         throw Errors.internal("Failed to copy form template");

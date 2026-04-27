@@ -73,7 +73,7 @@ export const deleteFieldRoute = new Elysia()
             message: "Field deleted successfully",
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error deleting field");
         throw Errors.internal("Failed to delete field");

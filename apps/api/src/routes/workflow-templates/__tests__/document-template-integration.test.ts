@@ -16,6 +16,7 @@ import {
 } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { supabaseAdmin } from "../../../lib/supabase";
+import { getErrorMessage } from "../../../lib/error-utils";
 
 describe("Document Template Integration Tests", () => {
   let adminToken: string;
@@ -168,10 +169,10 @@ describe("Document Template Integration Tests", () => {
         assigneeType: "role",
         assigneeRole: "quality_manager",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       errorOccurred = true;
       // FK constraint violation expected
-      expect(error.message).toContain("foreign key");
+      expect(getErrorMessage(error)).toContain("foreign key");
     }
 
     expect(errorOccurred).toBe(true);

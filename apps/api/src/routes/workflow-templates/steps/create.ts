@@ -148,7 +148,7 @@ export const createStepRoute = new Elysia()
           success: true,
           data: newStep,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow step creation failed");
         throw Errors.internal("Failed to create step");

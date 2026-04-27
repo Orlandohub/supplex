@@ -72,7 +72,7 @@ export const deleteSectionRoute = new Elysia()
             message: "Section deleted successfully",
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error deleting section");
         throw Errors.internal("Failed to delete section");

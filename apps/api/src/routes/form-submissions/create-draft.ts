@@ -249,7 +249,7 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
           },
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Draft submission save failed");
       throw Errors.internal("Failed to create/update draft submission");

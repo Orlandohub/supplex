@@ -18,6 +18,11 @@ import {
   WorkflowEventType,
 } from "../../services/workflow-event-logger";
 import { ApiError, Errors } from "../../lib/errors";
+import {
+  isApiErrorLike,
+  tryGetErrorMessage,
+  getErrorName,
+} from "../../lib/error-utils";
 
 /**
  * POST /api/form-submissions/:submissionId/submit
@@ -280,22 +285,19 @@ export const submitRoute = new Elysia()
               );
               throw Errors.internal("Submission failed — please try again");
             }
-          } catch (txError: any) {
-            if (
-              txError instanceof ApiError ||
-              ("statusCode" in txError && "code" in txError)
-            )
+          } catch (txError: unknown) {
+            if (txError instanceof ApiError || isApiErrorLike(txError))
               throw txError;
             requestLogger.error(
               {
                 submissionId,
                 stepId: submissionRecord.stepInstanceId,
-                errorMessage: txError?.message,
-                errorName: txError?.name,
+                errorMessage: tryGetErrorMessage(txError),
+                errorName: getErrorName(txError),
               },
               "form submit transaction failed"
             );
-            const msg = txError?.message || "";
+            const msg = tryGetErrorMessage(txError) ?? "";
             if (
               msg.includes("not in active state") ||
               msg.includes("already processed")
@@ -332,12 +334,8 @@ export const submitRoute = new Elysia()
             stepCompleted: stepCompletionResult?.success ?? false,
           },
         };
-      } catch (error: any) {
-        if (
-          error instanceof ApiError ||
-          ("statusCode" in error && "code" in error)
-        )
-          throw error;
+      } catch (error: unknown) {
+        if (error instanceof ApiError || isApiErrorLike(error)) throw error;
         requestLogger.error({ err: error }, "Form submit failed");
         throw Errors.internal("Failed to submit form");
       }

@@ -185,7 +185,7 @@ export const addContactRoute = new Elysia().use(authenticatedRoute).post(
         }
         throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ApiError) throw error;
       requestLogger.error({ err: error }, "Error adding supplier contact");
       throw Errors.internal("Failed to add supplier contact");

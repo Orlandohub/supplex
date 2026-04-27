@@ -73,7 +73,7 @@ export const deleteStepRoute = new Elysia()
           success: true,
           message: "Step deleted successfully",
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Workflow step delete failed");
         throw Errors.internal("Failed to delete step");

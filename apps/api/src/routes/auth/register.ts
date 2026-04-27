@@ -183,7 +183,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
               },
             },
           };
-        } catch (dbError: any) {
+        } catch (dbError: unknown) {
           requestLogger.error(
             { err: dbError },
             "Database error during registration"
@@ -202,7 +202,7 @@ export const registerRoute = new Elysia({ prefix: "/auth" })
           if (dbError instanceof ApiError) throw dbError;
           throw Errors.internal("Failed to create tenant and user records");
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         requestLogger.error({ err: error }, "Registration error");
         if (error instanceof ApiError) throw error;
         throw Errors.internal("Internal server error during registration");

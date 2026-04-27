@@ -86,7 +86,7 @@ export const reorderSectionsRoute = new Elysia()
             message: "Sections reordered successfully",
           },
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error reordering sections");
         throw Errors.internal("Failed to reorder sections");
