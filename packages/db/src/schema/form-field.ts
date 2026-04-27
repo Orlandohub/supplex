@@ -11,6 +11,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type { FieldOptions, ValidationRules } from "@supplex/types";
 import { tenants } from "./tenants";
 import { formSection } from "./form-section";
 
@@ -79,8 +80,14 @@ export const formField = pgTable(
     label: varchar("label", { length: 255 }).notNull(),
     placeholder: text("placeholder"),
     required: boolean("required").notNull().default(false),
-    validationRules: jsonb("validation_rules").notNull().default({}),
-    options: jsonb("options").notNull().default({}),
+    validationRules: jsonb("validation_rules")
+      .$type<ValidationRules>()
+      .notNull()
+      .default({}),
+    options: jsonb("options")
+      .$type<FieldOptions | Record<string, never>>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

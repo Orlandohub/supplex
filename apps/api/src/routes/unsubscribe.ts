@@ -7,6 +7,16 @@ import { EmailEventType } from "@supplex/types";
 import { correlationId } from "../lib/correlation-id";
 
 /**
+ * Narrow shape of the unsubscribe JWT payload signed by the email service.
+ * Only `userId` and `eventType` are required for unsubscribe — everything
+ * else is treated as untrusted metadata.
+ */
+interface UnsubscribePayload {
+  userId?: unknown;
+  eventType?: unknown;
+}
+
+/**
  * GET /api/unsubscribe/:token
  * Unsubscribe user from email notifications via token
  *
@@ -26,10 +36,15 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" })
           process.env.UNSUBSCRIBE_JWT_SECRET ||
           process.env.JWT_SECRET ||
           "dev-secret";
-        let decoded: any;
+        let decoded: UnsubscribePayload;
 
         try {
-          decoded = jwt.verify(token, secret);
+          // jwt.verify returns `string | JwtPayload`; narrow to object payload.
+          const verified = jwt.verify(token, secret);
+          decoded =
+            typeof verified === "object" && verified !== null
+              ? (verified as UnsubscribePayload)
+              : {};
         } catch (error) {
           set.status = 400;
           set.headers["content-type"] = "text/html; charset=utf-8";
@@ -70,7 +85,10 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" })
         `;
         }
 
-        const { userId, eventType } = decoded;
+        const userId =
+          typeof decoded.userId === "string" ? decoded.userId : null;
+        const eventType =
+          typeof decoded.eventType === "string" ? decoded.eventType : null;
 
         if (!userId || !eventType) {
           set.status = 400;

@@ -70,7 +70,12 @@ export {
   ProcessType,
   ProcessStatus,
 } from "./schema/process-instance";
-export { stepInstance, stepInstanceStatusEnum, StepType, StepStatus } from "./schema/step-instance";
+export {
+  stepInstance,
+  stepInstanceStatusEnum,
+  StepType,
+  StepStatus,
+} from "./schema/step-instance";
 export {
   formTemplate,
   formTemplateStatusEnum,
@@ -90,9 +95,7 @@ export {
   TaskInstanceStatus,
   TaskAssigneeType,
 } from "./schema/task-instance";
-export {
-  workflowTemplate,
-} from "./schema/workflow-template";
+export { workflowTemplate } from "./schema/workflow-template";
 export {
   workflowStepTemplate,
   stepTypeEnum,
@@ -143,6 +146,7 @@ export type {
 export type {
   InsertProcessInstance,
   SelectProcessInstance,
+  ProcessStatusType,
 } from "./schema/process-instance";
 export type {
   InsertStepInstance,
@@ -160,18 +164,12 @@ export type {
   InsertFormSection,
   SelectFormSection,
 } from "./schema/form-section";
-export type {
-  InsertFormField,
-  SelectFormField,
-} from "./schema/form-field";
+export type { InsertFormField, SelectFormField } from "./schema/form-field";
 export type {
   InsertFormSubmission,
   SelectFormSubmission,
 } from "./schema/form-submission";
-export type {
-  InsertFormAnswer,
-  SelectFormAnswer,
-} from "./schema/form-answer";
+export type { InsertFormAnswer, SelectFormAnswer } from "./schema/form-answer";
 // export type { InsertTaskTemplate, SelectTaskTemplate } from "./schema/task-template"; // DEPRECATED - Story 2.2.5.1
 export type {
   InsertTaskInstance,

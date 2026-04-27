@@ -1,7 +1,7 @@
 /**
  * Type-safe helpers for working with caught errors typed as `unknown`.
  *
- * These utilities replace ad-hoc `catch (error: any)` patterns with narrow,
+ * These utilities replace ad-hoc untyped catch patterns with narrow,
  * intentional access to error properties (Postgres driver errors, ApiError-shaped
  * errors crossing module boundaries, generic Error message/name extraction).
  */

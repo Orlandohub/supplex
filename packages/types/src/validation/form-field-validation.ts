@@ -7,13 +7,17 @@
  * - Client: apps/web/app/components/form-runtime/FormRenderer.tsx
  */
 
-import type { FieldType, ValidationRules, FieldOptions } from "../models/form-template";
+import type {
+  FieldType,
+  ValidationRules,
+  FieldOptions,
+} from "../models/form-template";
 
 export interface FieldDefinition {
   fieldType: FieldType | string;
   required?: boolean;
   validationRules?: ValidationRules | null;
-  options?: FieldOptions | Record<string, any> | null;
+  options?: FieldOptions | Record<string, never> | null;
 }
 
 /**

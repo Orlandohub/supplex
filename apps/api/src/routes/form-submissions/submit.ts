@@ -10,8 +10,10 @@ import {
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
 import { validateAnswerFormat } from "../../lib/validation/form-answer-validation";
-import type { FieldDefinition } from "@supplex/types";
-import { completeStep } from "../../lib/workflow-engine/complete-step";
+import {
+  completeStep,
+  type CompleteStepResult,
+} from "../../lib/workflow-engine/complete-step";
 import { verifyTaskAssignment } from "../../lib/rbac/entity-authorization";
 import {
   logWorkflowEventTx,
@@ -152,7 +154,7 @@ export const submitRoute = new Elysia()
           if (answer.answerValue) {
             const validationError = validateAnswerFormat(
               answer.answerValue,
-              field as unknown as FieldDefinition
+              field
             );
             if (validationError) {
               throw Errors.badRequest(
@@ -164,8 +166,8 @@ export const submitRoute = new Elysia()
         }
 
         // 7. Mutation block
-        let updatedSubmission: any;
-        let stepCompletionResult: any = null;
+        let updatedSubmission: typeof formSubmission.$inferSelect | undefined;
+        let stepCompletionResult: CompleteStepResult | null = null;
 
         if (submissionRecord.stepInstanceId) {
           // Workflow-linked: wrap form update + completeStep + event logging in a single transaction

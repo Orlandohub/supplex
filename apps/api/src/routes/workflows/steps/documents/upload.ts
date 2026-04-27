@@ -161,9 +161,7 @@ export const uploadStepDocumentRoute = new Elysia()
 
         if (!newDoc) throw new Error("Failed to create document record");
 
-        const expiryDate = (body as any).expiryDate
-          ? new Date((body as any).expiryDate)
-          : null;
+        const expiryDate = body.expiryDate ? new Date(body.expiryDate) : null;
 
         await db
           .update(workflowStepDocument)
@@ -208,6 +206,7 @@ export const uploadStepDocumentRoute = new Elysia()
       }),
       body: t.Object({
         file: t.File(),
+        expiryDate: t.Optional(t.String()),
       }),
     }
   );

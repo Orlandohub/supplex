@@ -24,8 +24,16 @@ export const listUsersRoute = new Elysia({ prefix: "/users" })
       try {
         const tenantId = user.tenantId;
 
-        // Build query with optional status filter
-        let queryBuilder = db
+        // Compose filter conditions first, then build the query in a single
+        // chain to preserve Drizzle's inferred return type without casting.
+        const whereClause = query.status
+          ? and(
+              eq(users.tenantId, tenantId),
+              eq(users.isActive, query.status === "active")
+            )
+          : eq(users.tenantId, tenantId);
+
+        const usersList = await db
           .select({
             id: users.id,
             tenantId: users.tenantId,
@@ -38,21 +46,8 @@ export const listUsersRoute = new Elysia({ prefix: "/users" })
             createdAt: users.createdAt,
             updatedAt: users.updatedAt,
           })
-          .from(users);
-
-        // Apply tenant filter
-        if (query.status) {
-          const isActive = query.status === "active";
-          queryBuilder = queryBuilder.where(
-            and(eq(users.tenantId, tenantId), eq(users.isActive, isActive))
-          ) as any;
-        } else {
-          queryBuilder = queryBuilder.where(
-            eq(users.tenantId, tenantId)
-          ) as any;
-        }
-
-        const usersList = await queryBuilder;
+          .from(users)
+          .where(whereClause);
 
         return {
           success: true,

@@ -157,15 +157,75 @@ export async function verifyJWT(token: string): Promise<SupabaseJWTPayload> {
     );
   }
 
-  // Step 3: Validate required claims
-  if (!payload.sub) {
+  // Step 3: Validate required claims and narrow to SupabaseJWTPayload.
+  // jose's JWTPayload is `JSONObject`-typed; we explicitly project to the
+  // strongly-typed Supabase shape rather than blind-casting via `unknown`.
+  if (typeof payload.sub !== "string" || payload.sub.length === 0) {
     throw new JWTVerificationError(
       "Missing user ID (sub claim)",
       "MISSING_CLAIMS"
     );
   }
 
-  return payload as unknown as SupabaseJWTPayload;
+  return projectSupabasePayload(payload);
+}
+
+/**
+ * Project a verified `jose.JWTPayload` into the strongly-typed
+ * `SupabaseJWTPayload` shape, validating fields with type predicates.
+ *
+ * Anything not present is left `undefined` so the caller can decide whether
+ * a missing claim is acceptable.
+ */
+function projectSupabasePayload(payload: jose.JWTPayload): SupabaseJWTPayload {
+  const userMetadata =
+    payload.user_metadata && typeof payload.user_metadata === "object"
+      ? (payload.user_metadata as Record<string, unknown>)
+      : undefined;
+  const appMetadata =
+    payload.app_metadata && typeof payload.app_metadata === "object"
+      ? (payload.app_metadata as Record<string, unknown>)
+      : undefined;
+
+  return {
+    sub: payload.sub as string,
+    email: typeof payload.email === "string" ? payload.email : undefined,
+    role: typeof payload.role === "string" ? payload.role : "",
+    aud: typeof payload.aud === "string" ? payload.aud : "",
+    exp: typeof payload.exp === "number" ? payload.exp : 0,
+    iat: typeof payload.iat === "number" ? payload.iat : 0,
+    user_metadata: userMetadata
+      ? {
+          full_name:
+            typeof userMetadata.full_name === "string"
+              ? userMetadata.full_name
+              : undefined,
+          email_verified:
+            typeof userMetadata.email_verified === "boolean"
+              ? userMetadata.email_verified
+              : undefined,
+        }
+      : undefined,
+    app_metadata: appMetadata
+      ? {
+          role:
+            typeof appMetadata.role === "string" ? appMetadata.role : undefined,
+          tenant_id:
+            typeof appMetadata.tenant_id === "string"
+              ? appMetadata.tenant_id
+              : undefined,
+          provider:
+            typeof appMetadata.provider === "string"
+              ? appMetadata.provider
+              : undefined,
+          providers: Array.isArray(appMetadata.providers)
+            ? appMetadata.providers.filter(
+                (p): p is string => typeof p === "string"
+              )
+            : undefined,
+        }
+      : undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------

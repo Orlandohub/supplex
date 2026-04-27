@@ -28,7 +28,7 @@ setInterval(
 interface RateLimitOptions {
   windowMs: number; // Time window in milliseconds
   maxRequests: number; // Maximum requests per window
-  keyGenerator?: (request: any) => string; // Function to generate rate limit key
+  keyGenerator?: (request: Request) => string; // Function to generate rate limit key
   skipSuccessfulRequests?: boolean; // Don't count successful requests
   skipFailedRequests?: boolean; // Don't count failed requests
 }
@@ -71,17 +71,24 @@ export function rateLimit(options: RateLimitOptions) {
           "X-RateLimit-Reset": data.resetTime.toString(),
         };
 
-        rateLimitLogger.warn({
-          event: "rate_limited",
-          key,
-          route: request.url,
-          method: request.method,
-          correlationId: request.headers.get("x-correlation-id"),
-          clientIp: getClientIP(request),
-          retryAfter: resetInSeconds,
-        }, "Rate limit exceeded");
+        rateLimitLogger.warn(
+          {
+            event: "rate_limited",
+            key,
+            route: request.url,
+            method: request.method,
+            correlationId: request.headers.get("x-correlation-id"),
+            clientIp: getClientIP(request),
+            retryAfter: resetInSeconds,
+          },
+          "Rate limit exceeded"
+        );
 
-        throw new ApiError(429, "RATE_LIMITED", "Too many requests. Please try again later.");
+        throw new ApiError(
+          429,
+          "RATE_LIMITED",
+          "Too many requests. Please try again later."
+        );
       }
 
       // Increment counter (will be decremented if request should be skipped)

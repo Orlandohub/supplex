@@ -57,7 +57,7 @@ export const updateDocumentTemplateRoute = new Elysia()
         }
 
         // Build update object with only provided fields
-        const updateData: any = {
+        const updateData: Partial<typeof documentTemplate.$inferInsert> = {
           updatedAt: new Date(),
         };
 

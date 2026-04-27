@@ -94,7 +94,7 @@ export function captureException(
     request?: Request;
     userId?: string;
     tenantId?: string;
-    extra?: Record<string, any>;
+    extra?: Record<string, unknown>;
   }
 ) {
   // NOTE: Uncomment when @sentry/bun is installed
@@ -114,7 +114,10 @@ export function captureException(
   });
   */
 
-  sentryLogger.error({ err: error, userId: context?.userId, tenantId: context?.tenantId }, "Error captured");
+  sentryLogger.error(
+    { err: error, userId: context?.userId, tenantId: context?.tenantId },
+    "Error captured"
+  );
 }
 
 /**
@@ -131,11 +134,25 @@ export function captureException(
  *   }));
  * ```
  */
-export function wrapElysiaErrorHandler<T extends (...args: any[]) => any>(
-  handler: T
-): T {
-  return ((...args: any[]) => {
-    const [context] = args;
+/**
+ * Minimal contract for an Elysia error-handler context. We type defensively
+ * here so this wrapper stays decoupled from Elysia's internal `Context`
+ * generics (which depend on the route's typed schema and would force
+ * callers to surface those generics through the wrapper).
+ */
+interface ElysiaErrorHandlerContext {
+  error: unknown;
+  request?: Request;
+  code?: string;
+  path?: string;
+}
+
+type ElysiaErrorHandler<R> = (context: ElysiaErrorHandlerContext) => R;
+
+export function wrapElysiaErrorHandler<R>(
+  handler: ElysiaErrorHandler<R>
+): ElysiaErrorHandler<R> {
+  return (context) => {
     const { error } = context;
 
     // Capture error in Sentry
@@ -150,8 +167,8 @@ export function wrapElysiaErrorHandler<T extends (...args: any[]) => any>(
     }
 
     // Call original handler
-    return handler(...args);
-  }) as T;
+    return handler(context);
+  };
 }
 
 /**
@@ -198,7 +215,7 @@ export function clearUserContext() {
  * @param message - Breadcrumb message
  * @param data - Additional data
  */
-export function addBreadcrumb(message: string, data?: Record<string, any>) {
+export function addBreadcrumb(message: string, data?: Record<string, unknown>) {
   // NOTE: Uncomment when @sentry/bun is installed
   /*
   Sentry.addBreadcrumb({

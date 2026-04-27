@@ -104,7 +104,9 @@ export const updateContactRoute = new Elysia().use(authenticatedRoute).patch(
       }
 
       // Step 4: Build update object with BOTH isActive and status fields
-      const updateData: any = { updatedAt: new Date() };
+      const updateData: Partial<typeof users.$inferInsert> = {
+        updatedAt: new Date(),
+      };
       if (fullName !== undefined) updateData.fullName = fullName;
       if (email !== undefined) updateData.email = email;
 

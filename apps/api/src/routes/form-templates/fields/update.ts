@@ -5,6 +5,27 @@ import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
+import type { FieldOptions } from "@supplex/types";
+
+/**
+ * Type guard that narrows the JSONB `options` column to `FieldOptions`
+ * (the dropdown/multi-select shape `{ choices: Array<{ value, label }> }`).
+ *
+ * The schema types the column as `FieldOptions | Record<string, never>` to
+ * accommodate non-choice fields (where the column stores `{}`). This guard
+ * lets us safely operate on the options when we know the field is a
+ * choice-based type.
+ */
+function hasChoices(
+  options: FieldOptions | Record<string, never> | undefined | null
+): options is FieldOptions {
+  return (
+    !!options &&
+    typeof options === "object" &&
+    "choices" in options &&
+    Array.isArray((options as FieldOptions).choices)
+  );
+}
 
 /**
  * PATCH /api/form-templates/fields/:fieldId
@@ -65,19 +86,14 @@ export const updateFieldRoute = new Elysia()
           effectiveFieldType === "dropdown" ||
           effectiveFieldType === "multi_select"
         ) {
-          const optionsToValidate =
+          const optionsToValidate: FieldOptions | undefined =
             body.options !== undefined
               ? body.options
-              : (field.field.options as any);
+              : hasChoices(field.field.options)
+                ? field.field.options
+                : undefined;
 
-          if (!optionsToValidate || typeof optionsToValidate !== "object") {
-            throw Errors.badRequest(
-              "Dropdown and multi-select fields must have an options object with a choices array",
-              "INVALID_OPTIONS"
-            );
-          }
-
-          if (!Array.isArray(optionsToValidate.choices)) {
+          if (!optionsToValidate) {
             throw Errors.badRequest(
               "Dropdown and multi-select fields must have an options object with a choices array",
               "INVALID_OPTIONS"
@@ -144,7 +160,7 @@ export const updateFieldRoute = new Elysia()
           }
         }
 
-        const updateData: any = {
+        const updateData: Partial<typeof formField.$inferInsert> = {
           updatedAt: new Date(),
         };
 

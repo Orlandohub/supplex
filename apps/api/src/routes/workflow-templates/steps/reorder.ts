@@ -69,7 +69,7 @@ export const reorderStepsRoute = new Elysia()
         });
 
         // Fetch updated steps
-        const stepIds = stepOrders.map((s: any) => s.stepId);
+        const stepIds = stepOrders.map((s) => s.stepId);
         const updatedSteps = await db.query.workflowStepTemplate.findMany({
           where: and(
             inArray(workflowStepTemplate.id, stepIds),

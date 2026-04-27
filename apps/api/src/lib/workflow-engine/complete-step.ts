@@ -38,7 +38,7 @@ interface CompleteStepParams {
   comments?: string;
 }
 
-interface CompleteStepResult {
+export interface CompleteStepResult {
   success: boolean;
   data?: {
     stepCompleted: boolean;

@@ -44,7 +44,7 @@ export const updateFormTemplateRoute = new Elysia()
           );
         }
 
-        const updateData: any = {
+        const updateData: Partial<typeof formTemplate.$inferInsert> = {
           updatedAt: new Date(),
         };
 

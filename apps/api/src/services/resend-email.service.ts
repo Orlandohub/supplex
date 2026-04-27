@@ -56,39 +56,47 @@ export async function sendEmail(
   try {
     emailLogger.debug({ recipient: to, subject }, "Sending email via Resend");
 
-    const { data, error } = (await resend.emails.send({
+    // Resend's underlying `fetchRequest` does NOT throw on non-2xx responses;
+    // it returns the parsed JSON body, which for errors looks like
+    // `{ name, message, statusCode }` and for success looks like `{ id }`.
+    // Treat the response as `unknown` and narrow at runtime.
+    const response: unknown = await resend.emails.send({
       from: emailFrom,
       to,
       subject,
       html,
-    })) as any;
+    });
 
-    if (error) {
-      emailLogger.error({ err: error, recipient: to }, "Resend API error");
+    if (
+      response &&
+      typeof response === "object" &&
+      "id" in response &&
+      typeof (response as { id: unknown }).id === "string"
+    ) {
+      const messageId = (response as { id: string }).id;
+      emailLogger.info({ messageId, recipient: to }, "Email sent successfully");
       return {
-        success: false,
-        error: error.message || "Unknown Resend API error",
+        success: true,
+        messageId,
       };
     }
 
-    if (!data?.id) {
-      emailLogger.error(
-        { recipient: to },
-        "No message ID returned from Resend"
-      );
-      return {
-        success: false,
-        error: "No message ID returned from Resend",
-      };
-    }
+    // Resend returned an error body instead of `{ id }`.
+    const errorMessage =
+      response &&
+      typeof response === "object" &&
+      "message" in response &&
+      typeof (response as { message: unknown }).message === "string"
+        ? (response as { message: string }).message
+        : "No message ID returned from Resend";
 
-    emailLogger.info(
-      { messageId: data.id, recipient: to },
-      "Email sent successfully"
+    emailLogger.error(
+      { recipient: to, response },
+      "Resend API returned no message ID"
     );
     return {
-      success: true,
-      messageId: data.id,
+      success: false,
+      error: errorMessage,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
