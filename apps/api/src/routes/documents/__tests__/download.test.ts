@@ -31,14 +31,16 @@ describe("GET /api/documents/:id/download", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Test Tenant - Documents Download",
-        slug: "test-tenant-docs-download",
-        settings: {},
-      })
-      .returning();
+    const tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Test Tenant - Documents Download",
+          slug: "test-tenant-docs-download",
+          settings: {},
+        })
+        .returning()
+    )[0]!;
     testTenantId = tenant.id;
 
     // Create test user
@@ -58,45 +60,49 @@ describe("GET /api/documents/:id/download", () => {
     testToken = "mock-jwt-token";
 
     // Create test supplier
-    const [supplier] = await db
-      .insert(suppliers)
-      .values({
-        tenantId: testTenantId,
-        name: "Test Supplier",
-        taxId: "12345678",
-        category: "manufacturer",
-        status: "approved",
-        contactName: "John Doe",
-        contactEmail: "john@example.com",
-        contactPhone: "+1234567890",
-        address: {
-          street: "123 Main St",
-          city: "Test City",
-          state: "TS",
-          postalCode: "12345",
-          country: "US",
-        },
-        certifications: [],
-        metadata: {},
-        createdBy: testUserId,
-      })
-      .returning();
+    const supplier = (
+      await db
+        .insert(suppliers)
+        .values({
+          tenantId: testTenantId,
+          name: "Test Supplier",
+          taxId: "12345678",
+          category: "manufacturer",
+          status: "approved",
+          contactName: "John Doe",
+          contactEmail: "john@example.com",
+          contactPhone: "+1234567890",
+          address: {
+            street: "123 Main St",
+            city: "Test City",
+            state: "TS",
+            postalCode: "12345",
+            country: "US",
+          },
+          certifications: [],
+          metadata: {},
+          createdBy: testUserId,
+        })
+        .returning()
+    )[0]!;
     testSupplierId = supplier.id;
 
     // Create test document
-    const [document] = await db
-      .insert(documents)
-      .values({
-        tenantId: testTenantId,
-        supplierId: testSupplierId,
-        filename: "download-test.pdf",
-        documentType: "certificate",
-        storagePath: `${testTenantId}/${testSupplierId}/download-test.pdf`,
-        fileSize: 1024,
-        mimeType: "application/pdf",
-        uploadedBy: testUserId,
-      })
-      .returning();
+    const document = (
+      await db
+        .insert(documents)
+        .values({
+          tenantId: testTenantId,
+          supplierId: testSupplierId,
+          filename: "download-test.pdf",
+          documentType: "certificate",
+          storagePath: `${testTenantId}/${testSupplierId}/download-test.pdf`,
+          fileSize: 1024,
+          mimeType: "application/pdf",
+          uploadedBy: testUserId,
+        })
+        .returning()
+    )[0]!;
     testDocumentId = document.id;
   });
 
@@ -109,7 +115,9 @@ describe("GET /api/documents/:id/download", () => {
   });
 
   it("should generate signed URL for document download", async () => {
-    const response = await client.api.documents[testDocumentId].download.get({
+    const response = await (client.api.documents as any)[
+      testDocumentId
+    ]!.download.get({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },
@@ -126,7 +134,7 @@ describe("GET /api/documents/:id/download", () => {
 
   it("should return 404 if document doesn't exist", async () => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
-    const response = await client.api.documents[fakeId].download.get({
+    const response = await (client.api.documents as any)[fakeId]!.download.get({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },
@@ -136,39 +144,47 @@ describe("GET /api/documents/:id/download", () => {
   });
 
   it("should require authentication", async () => {
-    const response = await client.api.documents[testDocumentId].download.get();
+    const response = await (client.api.documents as any)[
+      testDocumentId
+    ]!.download.get();
 
     expect(response.status).toBe(401);
   });
 
   it("should enforce tenant isolation", async () => {
     // Create different tenant with document
-    const [otherTenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Other Tenant",
-        slug: "other-tenant-download",
-        settings: {},
-      })
-      .returning();
+    const otherTenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Other Tenant",
+          slug: "other-tenant-download",
+          settings: {},
+        })
+        .returning()
+    )[0]!;
 
     const otherUserId = randomUUID();
-    const [otherUser] = await db
-      .insert(users)
-      .values({
-        id: otherUserId,
-        email: "other-user-download@example.com",
-        fullName: "Other Tenant User",
-        role: "admin",
-        tenantId: otherTenant.id,
-        isActive: true,
-      })
-      .returning();
+    const otherUser = (
+      await db
+        .insert(users)
+        .values({
+          id: otherUserId,
+          email: "other-user-download@example.com",
+          fullName: "Other Tenant User",
+          role: "admin",
+          tenantId: otherTenant.id,
+          isActive: true,
+        })
+        .returning()
+    )[0]!;
 
     const otherToken = "mock-other-token";
 
     // Attempt to download document from different tenant
-    const response = await client.api.documents[testDocumentId].download.get({
+    const response = await (client.api.documents as any)[
+      testDocumentId
+    ]!.download.get({
       headers: {
         Authorization: `Bearer ${otherToken}`,
       },
@@ -183,22 +199,26 @@ describe("GET /api/documents/:id/download", () => {
 
   it("should not allow download of deleted documents", async () => {
     // Create and delete document
-    const [deletedDoc] = await db
-      .insert(documents)
-      .values({
-        tenantId: testTenantId,
-        supplierId: testSupplierId,
-        filename: "deleted-doc.pdf",
-        documentType: "contract",
-        storagePath: `${testTenantId}/${testSupplierId}/deleted.pdf`,
-        fileSize: 2048,
-        mimeType: "application/pdf",
-        uploadedBy: testUserId,
-        deletedAt: new Date(),
-      })
-      .returning();
+    const deletedDoc = (
+      await db
+        .insert(documents)
+        .values({
+          tenantId: testTenantId,
+          supplierId: testSupplierId,
+          filename: "deleted-doc.pdf",
+          documentType: "contract",
+          storagePath: `${testTenantId}/${testSupplierId}/deleted.pdf`,
+          fileSize: 2048,
+          mimeType: "application/pdf",
+          uploadedBy: testUserId,
+          deletedAt: new Date(),
+        })
+        .returning()
+    )[0]!;
 
-    const response = await client.api.documents[deletedDoc.id].download.get({
+    const response = await (client.api.documents as any)[
+      deletedDoc.id
+    ].download.get({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },

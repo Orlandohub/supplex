@@ -73,7 +73,7 @@ describe("Auth Registration API", () => {
         user: { id: "user-123", email: "test@example.com" },
       };
 
-      supabaseAdmin.auth.admin.createUser.mockResolvedValue({
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({
         data: mockAuthUser,
         error: null,
       });
@@ -85,7 +85,7 @@ describe("Auth Registration API", () => {
         slug: "test-company",
       };
 
-      db.select.mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([]), // No existing tenant
@@ -93,7 +93,7 @@ describe("Auth Registration API", () => {
         }),
       });
 
-      db.insert.mockReturnValue({
+      (db.insert as any).mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([mockTenant]),
         }),
@@ -108,7 +108,7 @@ describe("Auth Registration API", () => {
         role: "admin",
       };
 
-      db.insert
+      (db.insert as any)
         .mockReturnValueOnce({
           values: vi.fn().mockReturnValue({
             returning: vi.fn().mockResolvedValue([mockTenant]),
@@ -180,7 +180,7 @@ describe("Auth Registration API", () => {
     });
 
     it("should handle Supabase auth error", async () => {
-      supabaseAdmin.auth.admin.createUser.mockResolvedValue({
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({
         data: { user: null },
         error: { message: "Email already registered" },
       });
@@ -205,13 +205,13 @@ describe("Auth Registration API", () => {
         user: { id: "user-123", email: "test@example.com" },
       };
 
-      supabaseAdmin.auth.admin.createUser.mockResolvedValue({
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({
         data: mockAuthUser,
         error: null,
       });
 
       // Mock database error during tenant creation
-      db.select.mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([]),
@@ -219,7 +219,7 @@ describe("Auth Registration API", () => {
         }),
       });
 
-      db.insert.mockReturnValue({
+      (db.insert as any).mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockRejectedValue(new Error("Database error")),
         }),
@@ -237,7 +237,9 @@ describe("Auth Registration API", () => {
 
       const result = (await response.json()) as any;
       expect(result?.success).toBe(false);
-      expect(result?.error?.message).toBe("Failed to create tenant and user records");
+      expect(result?.error?.message).toBe(
+        "Failed to create tenant and user records"
+      );
 
       // Verify rollback was attempted
       expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith(
@@ -250,13 +252,13 @@ describe("Auth Registration API", () => {
         user: { id: "user-123", email: "test@example.com" },
       };
 
-      supabaseAdmin.auth.admin.createUser.mockResolvedValue({
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({
         data: mockAuthUser,
         error: null,
       });
 
       // Mock existing tenant with same slug
-      db.select
+      (db.select as any)
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             where: vi.fn().mockReturnValue({
@@ -278,7 +280,7 @@ describe("Auth Registration API", () => {
         slug: "test-company-1", // Should have -1 suffix
       };
 
-      db.insert.mockReturnValue({
+      (db.insert as any).mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([mockTenant]),
         }),
@@ -301,7 +303,7 @@ describe("Auth Registration API", () => {
 
   describe("GET /auth/register/check-tenant-slug/:slug", () => {
     it("should return available for new slug", async () => {
-      db.select.mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([]), // No existing tenant
@@ -323,7 +325,7 @@ describe("Auth Registration API", () => {
     });
 
     it("should return unavailable for existing slug", async () => {
-      db.select.mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([{ id: "existing" }]), // Existing tenant
@@ -345,7 +347,7 @@ describe("Auth Registration API", () => {
     });
 
     it("should handle database error", async () => {
-      db.select.mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockRejectedValue(new Error("Database error")),

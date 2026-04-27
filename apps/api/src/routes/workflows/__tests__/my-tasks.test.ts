@@ -74,7 +74,7 @@ describe("GET /api/workflows/my-tasks", () => {
       );
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].id).toBe("stage-123");
+      expect(filtered[0]!.id).toBe("stage-123");
     });
 
     it("should include supplier name in task data", async () => {
@@ -148,9 +148,9 @@ describe("GET /api/workflows/my-tasks", () => {
         (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
       );
 
-      expect(sorted[0].id).toBe("stage-2"); // 5 days old = oldest = most days pending
-      expect(sorted[1].id).toBe("stage-3"); // 3 days old
-      expect(sorted[2].id).toBe("stage-1"); // 1 day old = newest = least days pending
+      expect(sorted[0]!.id).toBe("stage-2"); // 5 days old = oldest = most days pending
+      expect(sorted[1]!.id).toBe("stage-3"); // 3 days old
+      expect(sorted[2]!.id).toBe("stage-1"); // 1 day old = newest = least days pending
     });
   });
 
@@ -168,7 +168,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockWorkflows.filter((w) => w.deletedAt === null);
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].id).toBe("wf-1");
+      expect(filtered[0]!.id).toBe("wf-1");
     });
 
     it("should only return Pending status stages", async () => {
@@ -182,7 +182,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockStages.filter((s) => s.status === "Pending");
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].id).toBe("stage-1");
+      expect(filtered[0]!.id).toBe("stage-1");
     });
 
     it("should filter out soft-deleted stages", async () => {
@@ -195,7 +195,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockStages.filter((s) => s.deletedAt === null);
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].id).toBe("stage-1");
+      expect(filtered[0]!.id).toBe("stage-1");
     });
   });
 
@@ -214,7 +214,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockWorkflows.filter((w) => w.tenantId === userTenantId);
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].id).toBe("wf-1");
+      expect(filtered[0]!.id).toBe("wf-1");
     });
 
     it("should not leak data across tenants", async () => {
@@ -300,7 +300,10 @@ describe("GET /api/workflows/my-tasks", () => {
 
     it("should handle null values gracefully", async () => {
       // Test handles missing supplier/initiator names
-      const workflowWithNulls = {
+      const workflowWithNulls: {
+        supplier: { name: string } | null;
+        initiator: { fullName: string } | null;
+      } = {
         supplier: null,
         initiator: null,
       };

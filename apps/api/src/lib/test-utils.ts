@@ -34,7 +34,14 @@ export function createTestApp() {
 
 /**
  * Adds the standard ApiError handler to an existing Elysia instance.
+ *
+ * The constraint uses fully `any`-typed Elysia generics so that callers can
+ * pass test apps that have already been enriched via `.derive(...)` /
+ * `.use(...)` without TypeScript flagging the richer generics as not assignable
+ * to the default-instantiated `Elysia` constraint.
  */
-export function withApiErrorHandler<T extends Elysia>(app: T): T {
+export function withApiErrorHandler<
+  T extends Elysia<any, any, any, any, any, any, any>,
+>(app: T): T {
   return app.onError(handleTestError as any) as T;
 }

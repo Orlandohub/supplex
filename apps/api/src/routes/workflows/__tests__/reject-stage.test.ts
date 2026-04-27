@@ -140,7 +140,7 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/reject", () => {
    */
   describe("Request validation", () => {
     it("should return 400 if comments missing", async () => {
-      const comments = "";
+      const comments: string = "";
 
       if (!comments || comments.trim().length < 10) {
         const errorCode = "VALIDATION_ERROR";

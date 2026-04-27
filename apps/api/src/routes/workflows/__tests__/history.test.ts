@@ -99,8 +99,8 @@ describe("GET /api/workflows/:workflowId/history", () => {
     expect(expectedResponse.data.workflowId).toBe("workflow-123");
     expect(expectedResponse.data.supplierName).toBe("Test Supplier Co.");
     expect(expectedResponse.data.stages).toHaveLength(2);
-    expect(expectedResponse.data.stages[0].stageNumber).toBe(1);
-    expect(expectedResponse.data.stages[1].stageNumber).toBe(2);
+    expect(expectedResponse.data.stages[0]!.stageNumber).toBe(1);
+    expect(expectedResponse.data.stages[1]!.stageNumber).toBe(2);
   });
 
   it("should return 404 for non-existent workflow", async () => {
@@ -122,8 +122,8 @@ describe("GET /api/workflows/:workflowId/history", () => {
   });
 
   it("should return 403 for workflow in different tenant", async () => {
-    const userTenantId = "tenant-123";
-    const workflowTenantId = "tenant-456";
+    const userTenantId: string = "tenant-123";
+    const workflowTenantId: string = "tenant-456";
     const hasAccess = userTenantId === workflowTenantId;
 
     expect(hasAccess).toBe(false);
@@ -187,8 +187,8 @@ describe("GET /api/workflows/:workflowId/history", () => {
     });
 
     expect(stages).toHaveLength(2);
-    expect(stages[0].stageNumber).toBe(1);
-    expect(stages[1].stageNumber).toBe(2);
+    expect(stages[0]!.stageNumber).toBe(1);
+    expect(stages[1]!.stageNumber).toBe(2);
   });
 
   it("should calculate document completion percentage correctly", async () => {
@@ -244,9 +244,9 @@ describe("GET /api/workflows/:workflowId/history", () => {
       (a, b) => a.stageNumber - b.stageNumber
     );
 
-    expect(sortedStages[0].stageNumber).toBe(1);
-    expect(sortedStages[1].stageNumber).toBe(2);
-    expect(sortedStages[2].stageNumber).toBe(3);
+    expect(sortedStages[0]!.stageNumber).toBe(1);
+    expect(sortedStages[1]!.stageNumber).toBe(2);
+    expect(sortedStages[2]!.stageNumber).toBe(3);
   });
 
   it("should include risk score in response", async () => {

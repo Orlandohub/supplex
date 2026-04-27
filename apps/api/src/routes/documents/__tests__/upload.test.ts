@@ -28,14 +28,16 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: "Test Tenant - Documents Upload",
-        slug: "test-tenant-docs-upload",
-        settings: {},
-      })
-      .returning();
+    const tenant = (
+      await db
+        .insert(tenants)
+        .values({
+          name: "Test Tenant - Documents Upload",
+          slug: "test-tenant-docs-upload",
+          settings: {},
+        })
+        .returning()
+    )[0]!;
     testTenantId = tenant.id;
 
     // Create test user (Admin)
@@ -56,29 +58,31 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     testToken = "mock-jwt-token";
 
     // Create test supplier
-    const [supplier] = await db
-      .insert(suppliers)
-      .values({
-        tenantId: testTenantId,
-        name: "Test Supplier",
-        taxId: "12345678",
-        category: "manufacturer",
-        status: "approved",
-        contactName: "John Doe",
-        contactEmail: "john@example.com",
-        contactPhone: "+1234567890",
-        address: {
-          street: "123 Main St",
-          city: "Test City",
-          state: "TS",
-          postalCode: "12345",
-          country: "US",
-        },
-        certifications: [],
-        metadata: {},
-        createdBy: testUserId,
-      })
-      .returning();
+    const supplier = (
+      await db
+        .insert(suppliers)
+        .values({
+          tenantId: testTenantId,
+          name: "Test Supplier",
+          taxId: "12345678",
+          category: "manufacturer",
+          status: "approved",
+          contactName: "John Doe",
+          contactEmail: "john@example.com",
+          contactPhone: "+1234567890",
+          address: {
+            street: "123 Main St",
+            city: "Test City",
+            state: "TS",
+            postalCode: "12345",
+            country: "US",
+          },
+          certifications: [],
+          metadata: {},
+          createdBy: testUserId,
+        })
+        .returning()
+    )[0]!;
     testSupplierId = supplier.id;
   });
 
@@ -101,14 +105,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("description", "Test certificate");
     formData.append("expiryDate", "2025-12-31");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(200);
     expect(response.data).toBeDefined();
@@ -128,14 +131,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "other");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(400);
   });
@@ -151,14 +153,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "contract");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(413);
   });
@@ -169,9 +170,9 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "certificate");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any);
 
     expect(response.status).toBe(401);
   });
@@ -179,17 +180,19 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
   it("should enforce RBAC (Admin/Procurement Manager only)", async () => {
     // Create viewer user
     const viewerId = randomUUID();
-    const [viewer] = await db
-      .insert(users)
-      .values({
-        id: viewerId,
-        email: "viewer@example.com",
-        fullName: "Test Viewer",
-        role: "viewer",
-        tenantId: testTenantId,
-        isActive: true,
-      })
-      .returning();
+    const viewer = (
+      await db
+        .insert(users)
+        .values({
+          id: viewerId,
+          email: "viewer@example.com",
+          fullName: "Test Viewer",
+          role: "viewer",
+          tenantId: testTenantId,
+          isActive: true,
+        })
+        .returning()
+    )[0]!;
 
     const viewerToken = "mock-viewer-token";
 
@@ -198,14 +201,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "certificate");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${viewerToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${viewerToken}`,
+      },
+    });
 
     expect(response.status).toBe(403);
 
@@ -220,14 +222,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "certificate");
 
-    const response = await client.api.suppliers[fakeId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      fakeId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(404);
   });
@@ -241,14 +242,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "other");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(200);
     if (response.data && "document" in response.data) {
@@ -267,14 +267,13 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     formData.append("file", file);
     formData.append("documentType", "certificate");
 
-    const response = await client.api.suppliers[testSupplierId].documents.post(
-      formData as any,
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await (client.api.suppliers as any)[
+      testSupplierId
+    ]!.documents.post(formData as any, {
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(200);
     if (response.data && "document" in response.data) {

@@ -6,10 +6,12 @@ import {
   sendSupplierApprovalCongratulations,
 } from "../email-notification.service";
 
-// Mock dependencies
-const mockQueueEmailJob = mock(() => Promise.resolve());
-const mockCheckEmailRateLimit = mock(() => Promise.resolve(true));
-const mockDbQuery = mock(() => Promise.resolve(null));
+// Mock dependencies. Typed as `any` so that `.mockResolvedValue(...)` overrides
+// can return arbitrary fixture shapes and `.mock.calls[i][j]` indexing works
+// under `noUncheckedIndexedAccess` without per-site casts.
+const mockQueueEmailJob: any = mock(() => Promise.resolve());
+const mockCheckEmailRateLimit: any = mock(() => Promise.resolve(true));
+const mockDbQuery: any = mock(() => Promise.resolve(null));
 
 mock.module("../queue/email-queue", () => ({
   queueEmailJob: mockQueueEmailJob,
