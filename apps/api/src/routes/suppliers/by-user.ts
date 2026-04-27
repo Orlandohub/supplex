@@ -7,10 +7,10 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { Errors } from "../../lib/errors";
 
-export default new Elysia().use(authenticate).get(
+export default new Elysia().use(authenticatedRoute).get(
   "",
   async ({ params, user }) => {
     const { userId } = params;

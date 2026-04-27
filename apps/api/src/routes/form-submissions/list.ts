@@ -1,11 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
-import {
-  formSubmission,
-  formTemplate,
-} from "@supplex/db";
+import { formSubmission, formTemplate } from "@supplex/db";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { Errors } from "../../lib/errors";
 
 /**
@@ -20,12 +17,12 @@ import { Errors } from "../../lib/errors";
  * - stepInstanceId: filter by workflow step instance
  * Returns: Array of submissions with metadata (no answers for performance)
  */
-export const listSubmissionsRoute = new Elysia().use(authenticate).get(
+export const listSubmissionsRoute = new Elysia().use(authenticatedRoute).get(
   "/",
-  async ({ query, user, set, requestLogger }: any) => {
+  async ({ query, user, set, requestLogger }) => {
     try {
-      const tenantId = user.tenantId as string;
-      const userId = user.id as string;
+      const tenantId = user.tenantId;
+      const userId = user.id;
       const { status, processInstanceId, stepInstanceId } = query;
 
       // Build query conditions
@@ -49,9 +46,7 @@ export const listSubmissionsRoute = new Elysia().use(authenticate).get(
 
       // Add stepInstanceId filter if provided
       if (stepInstanceId) {
-        conditions.push(
-          eq(formSubmission.stepInstanceId, stepInstanceId)
-        );
+        conditions.push(eq(formSubmission.stepInstanceId, stepInstanceId));
       }
 
       // Fetch submissions with template metadata
@@ -101,4 +96,3 @@ export const listSubmissionsRoute = new Elysia().use(authenticate).get(
     }),
   }
 );
-

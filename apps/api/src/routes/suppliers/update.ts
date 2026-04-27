@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { suppliers } from "@supplex/db";
 import { and, eq, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole, UpdateSupplierSchema } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
@@ -14,16 +14,14 @@ import { ApiError, Errors } from "../../lib/errors";
  * Tenant Scoping: Updates only if supplier belongs to user's tenant
  */
 export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .put(
     "/:id",
-    async ({ params, body, user, requestLogger }: any) => {
+    async ({ params, body, user, requestLogger }) => {
       // Check role permission
       if (
         !user?.role ||
-        ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
-          user.role as UserRole
-        )
+        ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
       ) {
         throw Errors.forbidden(
           "Access denied. Required role: Admin or Procurement Manager"
@@ -31,8 +29,8 @@ export const updateSupplierRoute = new Elysia({ prefix: "/suppliers" })
       }
       try {
         const { id } = params;
-        const tenantId = user.tenantId as string;
-        const _userId = user.id as string;
+        const tenantId = user.tenantId;
+        const _userId = user.id;
 
         // Validate UUID format
         const uuidRegex =

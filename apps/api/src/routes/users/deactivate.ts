@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { users } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { logAuditEvent, createAuditContext } from "../../lib/audit/logger";
 import { AuditAction } from "@supplex/types";
 import { authCache } from "../../lib/auth-cache";
@@ -22,15 +23,16 @@ import { ApiError, Errors } from "../../lib/errors";
  * - Preserves audit history
  */
 export const deactivateUserRoute = new Elysia({ prefix: "/users" })
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .patch(
     "/:id/status",
-    async ({ params, body, user, headers, requestLogger }: any) => {
+    async ({ params, body, user, headers, requestLogger }) => {
       try {
         const { id: targetUserId } = params;
         const { isActive } = body;
-        const currentUserId = user.id as string;
-        const tenantId = user.tenantId as string;
+        const currentUserId = user.id;
+        const tenantId = user.tenantId;
         const auditContext = createAuditContext(
           headers as Record<string, string | undefined>
         );

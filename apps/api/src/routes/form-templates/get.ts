@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { formTemplate, formSection, formField } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
@@ -14,11 +14,11 @@ import { ApiError, Errors } from "../../lib/errors";
  * Tenant: Enforces tenant isolation - returns 403 for cross-tenant access
  * Returns: Complete template structure with nested sections and fields
  */
-export const getFormTemplateRoute = new Elysia().use(authenticate).get(
+export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
   "/:id",
-  async ({ params, user, requestLogger }: any) => {
+  async ({ params, user, requestLogger }) => {
     try {
-      const tenantId = user.tenantId as string;
+      const tenantId = user.tenantId;
       const templateId = params.id;
 
       const [templateRecord] = await db

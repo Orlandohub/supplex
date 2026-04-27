@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../../../lib/db";
 import { documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../../lib/route-plugins";
 import { verifyDocumentAccess } from "../../../../lib/rbac/entity-authorization";
 import { supabaseAdmin } from "../../../../lib/supabase";
 import { Errors } from "../../../../lib/errors";
@@ -12,10 +12,10 @@ import { Errors } from "../../../../lib/errors";
  * Returns a signed URL for viewing/downloading a document.
  */
 export const viewDocumentRoute = new Elysia({ prefix: "/api" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/documents/:id/view",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       if (!user?.id || !user?.tenantId) {
         throw Errors.unauthorized("Unauthorized");
       }

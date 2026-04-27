@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db, documents } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { verifyDocumentAccess } from "../../lib/rbac/entity-authorization";
 import { supabaseAdmin } from "../../lib/supabase";
 import { ApiError, Errors } from "../../lib/errors";
@@ -14,10 +14,10 @@ import { ApiError, Errors } from "../../lib/errors";
  * Tenant Scoping: Only allows download if document belongs to user's tenant
  */
 export const downloadDocument = new Elysia({ prefix: "/api" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/documents/:id/download",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       const { id } = params;
 
       // Fetch document and verify tenant ownership

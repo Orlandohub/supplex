@@ -3,6 +3,7 @@ import { db } from "../../../lib/db";
 import { formSection, formTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
@@ -15,12 +16,13 @@ import { ApiError, Errors } from "../../../lib/errors";
  * Returns: Created section
  */
 export const createSectionRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .post(
     "/:templateId/sections",
-    async ({ params, body, user, set, requestLogger }: any) => {
+    async ({ params, body, user, set, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const { templateId } = params;
         const { title, description, sectionOrder } = body;
 
@@ -37,7 +39,10 @@ export const createSectionRoute = new Elysia()
           .limit(1);
 
         if (!template) {
-          throw Errors.notFound("Form template not found or you don't have access to it", "TEMPLATE_NOT_FOUND");
+          throw Errors.notFound(
+            "Form template not found or you don't have access to it",
+            "TEMPLATE_NOT_FOUND"
+          );
         }
 
         if (template.status !== "draft") {

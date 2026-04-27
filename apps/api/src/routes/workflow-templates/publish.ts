@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { workflowTemplate, workflowStepTemplate } from "@supplex/db";
 import { eq, and, isNull, ne, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import {
   logWorkflowEvent,
   WorkflowEventType,
@@ -22,12 +23,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: Updated template
  */
 export const publishWorkflowTemplateRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .patch(
     "/:templateId/publish",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const { templateId } = params;
 
         // Verify template exists and belongs to user's tenant

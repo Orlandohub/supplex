@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { AuditAction } from "@supplex/types";
 import { eq, and, isNull } from "drizzle-orm";
 import { logAuditEvent } from "../../lib/audit/logger";
@@ -17,12 +18,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: Success message
  */
 export const deleteWorkflowTemplateRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .delete(
     "/:workflowId",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const { workflowId } = params;
 
         // Check if template exists and belongs to tenant

@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { userNotificationPreferences } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { EmailEventType } from "@supplex/types";
 import { Errors } from "../../lib/errors";
 
@@ -13,13 +13,13 @@ import { Errors } from "../../lib/errors";
  * Auth: Requires authentication
  */
 export const getNotificationPreferencesRoute = new Elysia({ prefix: "/users" })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .get(
     "/me/notification-preferences",
-    async ({ user, requestLogger }: any) => {
+    async ({ user, requestLogger }) => {
       try {
-        const userId = user.id as string;
-        const tenantId = user.tenantId as string;
+        const userId = user.id;
+        const tenantId = user.tenantId;
 
         // Fetch user preferences
         const preferences = await db
@@ -84,13 +84,13 @@ export const getNotificationPreferencesRoute = new Elysia({ prefix: "/users" })
 export const updateNotificationPreferencesRoute = new Elysia({
   prefix: "/users",
 })
-  .use(authenticate)
+  .use(authenticatedRoute)
   .put(
     "/me/notification-preferences",
-    async ({ body, user, requestLogger }: any) => {
+    async ({ body, user, requestLogger }) => {
       try {
-        const userId = user.id as string;
-        const tenantId = user.tenantId as string;
+        const userId = user.id;
+        const tenantId = user.tenantId;
         const { eventType, emailEnabled } = body;
 
         // Check if preference already exists

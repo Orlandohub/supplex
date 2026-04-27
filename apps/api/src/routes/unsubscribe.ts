@@ -4,6 +4,7 @@ import { userNotificationPreferences } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import * as jwt from "jsonwebtoken";
 import { EmailEventType } from "@supplex/types";
+import { correlationId } from "../lib/correlation-id";
 
 /**
  * GET /api/unsubscribe/:token
@@ -12,25 +13,27 @@ import { EmailEventType } from "@supplex/types";
  * Public route - no authentication required
  * Token contains userId and eventType
  */
-export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
-  "/unsubscribe/:token",
-  async ({ params, set, requestLogger }: any) => {
-    try {
-      const { token } = params;
-
-      // Verify and decode token
-      const secret =
-        process.env.UNSUBSCRIBE_JWT_SECRET ||
-        process.env.JWT_SECRET ||
-        "dev-secret";
-      let decoded: any;
-
+export const unsubscribeRoute = new Elysia({ prefix: "/api" })
+  .use(correlationId)
+  .get(
+    "/unsubscribe/:token",
+    async ({ params, set, requestLogger }) => {
       try {
-        decoded = jwt.verify(token, secret);
-      } catch (error) {
-        set.status = 400;
-        set.headers["content-type"] = "text/html; charset=utf-8";
-        return `
+        const { token } = params;
+
+        // Verify and decode token
+        const secret =
+          process.env.UNSUBSCRIBE_JWT_SECRET ||
+          process.env.JWT_SECRET ||
+          "dev-secret";
+        let decoded: any;
+
+        try {
+          decoded = jwt.verify(token, secret);
+        } catch (error) {
+          set.status = 400;
+          set.headers["content-type"] = "text/html; charset=utf-8";
+          return `
           <!DOCTYPE html>
           <html>
             <head>
@@ -65,14 +68,14 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
             </body>
           </html>
         `;
-      }
+        }
 
-      const { userId, eventType } = decoded;
+        const { userId, eventType } = decoded;
 
-      if (!userId || !eventType) {
-        set.status = 400;
-        set.headers["content-type"] = "text/html; charset=utf-8";
-        return `
+        if (!userId || !eventType) {
+          set.status = 400;
+          set.headers["content-type"] = "text/html; charset=utf-8";
+          return `
           <!DOCTYPE html>
           <html>
             <head>
@@ -107,17 +110,17 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
             </body>
           </html>
         `;
-      }
+        }
 
-      // Get user to determine tenant
-      const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.id, userId),
-      });
+        // Get user to determine tenant
+        const user = await db.query.users.findFirst({
+          where: (users, { eq }) => eq(users.id, userId),
+        });
 
-      if (!user) {
-        set.status = 404;
-        set.headers["content-type"] = "text/html; charset=utf-8";
-        return `
+        if (!user) {
+          set.status = 404;
+          set.headers["content-type"] = "text/html; charset=utf-8";
+          return `
           <!DOCTYPE html>
           <html>
             <head>
@@ -152,52 +155,51 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
             </body>
           </html>
         `;
-      }
-
-      // Check if preference already exists
-      const existingPref = await db.query.userNotificationPreferences.findFirst(
-        {
-          where: and(
-            eq(userNotificationPreferences.userId, userId),
-            eq(userNotificationPreferences.eventType, eventType)
-          ),
         }
-      );
 
-      if (existingPref) {
-        // Update existing preference
-        await db
-          .update(userNotificationPreferences)
-          .set({
+        // Check if preference already exists
+        const existingPref =
+          await db.query.userNotificationPreferences.findFirst({
+            where: and(
+              eq(userNotificationPreferences.userId, userId),
+              eq(userNotificationPreferences.eventType, eventType)
+            ),
+          });
+
+        if (existingPref) {
+          // Update existing preference
+          await db
+            .update(userNotificationPreferences)
+            .set({
+              emailEnabled: false,
+              unsubscribedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(userNotificationPreferences.id, existingPref.id));
+        } else {
+          // Create new preference
+          await db.insert(userNotificationPreferences).values({
+            userId,
+            tenantId: user.tenantId,
+            eventType,
             emailEnabled: false,
             unsubscribedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(userNotificationPreferences.id, existingPref.id));
-      } else {
-        // Create new preference
-        await db.insert(userNotificationPreferences).values({
-          userId,
-          tenantId: user.tenantId,
-          eventType,
-          emailEnabled: false,
-          unsubscribedAt: new Date(),
-        });
-      }
+          });
+        }
 
-      // Map event type to friendly name
-      const eventNames: Record<string, string> = {
-        [EmailEventType.WORKFLOW_SUBMITTED]: "Workflow Submitted",
-        [EmailEventType.STAGE_APPROVED]: "Stage Approved",
-        [EmailEventType.STAGE_REJECTED]: "Stage Rejected",
-        [EmailEventType.STAGE_ADVANCED]: "Stage Advanced",
-        [EmailEventType.WORKFLOW_APPROVED]: "Workflow Approved",
-      };
+        // Map event type to friendly name
+        const eventNames: Record<string, string> = {
+          [EmailEventType.WORKFLOW_SUBMITTED]: "Workflow Submitted",
+          [EmailEventType.STAGE_APPROVED]: "Stage Approved",
+          [EmailEventType.STAGE_REJECTED]: "Stage Rejected",
+          [EmailEventType.STAGE_ADVANCED]: "Stage Advanced",
+          [EmailEventType.WORKFLOW_APPROVED]: "Workflow Approved",
+        };
 
-      const eventName = eventNames[eventType] || eventType;
+        const eventName = eventNames[eventType] || eventType;
 
-      set.headers["content-type"] = "text/html; charset=utf-8";
-      return `
+        set.headers["content-type"] = "text/html; charset=utf-8";
+        return `
         <!DOCTYPE html>
         <html>
           <head>
@@ -248,11 +250,11 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
           </body>
         </html>
       `;
-    } catch (error: any) {
-      requestLogger.error({ err: error }, "Unsubscribe processing failed");
-      set.status = 500;
-      set.headers["content-type"] = "text/html; charset=utf-8";
-      return `
+      } catch (error: any) {
+        requestLogger.error({ err: error }, "Unsubscribe processing failed");
+        set.status = 500;
+        set.headers["content-type"] = "text/html; charset=utf-8";
+        return `
         <!DOCTYPE html>
         <html>
           <head>
@@ -287,17 +289,17 @@ export const unsubscribeRoute = new Elysia({ prefix: "/api" }).get(
           </body>
         </html>
       `;
-    }
-  },
-  {
-    params: t.Object({
-      token: t.String(),
-    }),
-    detail: {
-      summary: "Unsubscribe from email notifications",
-      description:
-        "Public endpoint to unsubscribe from specific email notification types",
-      tags: ["Email", "Public"],
+      }
     },
-  }
-);
+    {
+      params: t.Object({
+        token: t.String(),
+      }),
+      detail: {
+        summary: "Unsubscribe from email notifications",
+        description:
+          "Public endpoint to unsubscribe from specific email notification types",
+        tags: ["Email", "Public"],
+      },
+    }
+  );

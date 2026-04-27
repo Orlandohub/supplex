@@ -4,6 +4,7 @@ import { db } from "../../lib/db";
 import { tenants, users, suppliers } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { Errors } from "../../lib/errors";
+import { correlationId } from "../../lib/correlation-id";
 
 /**
  * Development Quick Login - List Users Endpoint
@@ -13,98 +14,100 @@ import { Errors } from "../../lib/errors";
  *
  * Security: Environment check ensures this route is never accessible in production.
  */
-export const devListUsersRoute = new Elysia({ prefix: "/auth" }).get(
-  "/dev/users",
-  async ({ requestLogger }: any) => {
-    // CRITICAL: Environment check FIRST - reject in production
-    if (config.nodeEnv !== "development") {
-      throw Errors.notFound("Not found");
-    }
+export const devListUsersRoute = new Elysia({ prefix: "/auth" })
+  .use(correlationId)
+  .get(
+    "/dev/users",
+    async ({ requestLogger }) => {
+      // CRITICAL: Environment check FIRST - reject in production
+      if (config.nodeEnv !== "development") {
+        throw Errors.notFound("Not found");
+      }
 
-    try {
-      // Query all active tenants
-      const allTenants = await db
-        .select({
-          id: tenants.id,
-          name: tenants.name,
-        })
-        .from(tenants)
-        .where(eq(tenants.status, "active"));
+      try {
+        // Query all active tenants
+        const allTenants = await db
+          .select({
+            id: tenants.id,
+            name: tenants.name,
+          })
+          .from(tenants)
+          .where(eq(tenants.status, "active"));
 
-      // Build response for each tenant with their users
-      const tenantsWithUsers = await Promise.all(
-        allTenants.map(async (tenant) => {
-          // Query tenant users (users belonging to this tenant directly)
-          const tenantUsers = await db
-            .select({
-              id: users.id,
-              email: users.email,
-              role: users.role,
-              fullName: users.fullName,
-              isActive: users.isActive,
-            })
-            .from(users)
-            .where(
-              and(eq(users.tenantId, tenant.id), eq(users.isActive, true))
-            );
+        // Build response for each tenant with their users
+        const tenantsWithUsers = await Promise.all(
+          allTenants.map(async (tenant) => {
+            // Query tenant users (users belonging to this tenant directly)
+            const tenantUsers = await db
+              .select({
+                id: users.id,
+                email: users.email,
+                role: users.role,
+                fullName: users.fullName,
+                isActive: users.isActive,
+              })
+              .from(users)
+              .where(
+                and(eq(users.tenantId, tenant.id), eq(users.isActive, true))
+              );
 
-          // Query supplier users (users associated with suppliers for this tenant)
-          const tenantSuppliers = await db
-            .select({
-              supplierId: suppliers.id,
-              supplierName: suppliers.name,
-              userId: users.id,
-              email: users.email,
-              role: users.role,
-              fullName: users.fullName,
-              isActive: users.isActive,
-            })
-            .from(suppliers)
-            .innerJoin(users, eq(suppliers.supplierUserId, users.id))
-            .where(
-              and(
-                eq(suppliers.tenantId, tenant.id),
-                isNull(suppliers.deletedAt),
-                eq(users.isActive, true)
-              )
-            );
+            // Query supplier users (users associated with suppliers for this tenant)
+            const tenantSuppliers = await db
+              .select({
+                supplierId: suppliers.id,
+                supplierName: suppliers.name,
+                userId: users.id,
+                email: users.email,
+                role: users.role,
+                fullName: users.fullName,
+                isActive: users.isActive,
+              })
+              .from(suppliers)
+              .innerJoin(users, eq(suppliers.supplierUserId, users.id))
+              .where(
+                and(
+                  eq(suppliers.tenantId, tenant.id),
+                  isNull(suppliers.deletedAt),
+                  eq(users.isActive, true)
+                )
+              );
 
-          // Format supplier users with supplier context
-          const supplierUsers = tenantSuppliers.map((s) => ({
-            id: s.userId,
-            email: s.email,
-            role: s.role,
-            fullName: s.fullName,
-            isActive: s.isActive,
-            supplierId: s.supplierId,
-            supplierName: s.supplierName,
-          }));
+            // Format supplier users with supplier context
+            const supplierUsers = tenantSuppliers.map((s) => ({
+              id: s.userId,
+              email: s.email,
+              role: s.role,
+              fullName: s.fullName,
+              isActive: s.isActive,
+              supplierId: s.supplierId,
+              supplierName: s.supplierName,
+            }));
 
-          return {
-            id: tenant.id,
-            name: tenant.name,
-            users: tenantUsers,
-            supplierUsers: supplierUsers,
-          };
-        })
-      );
+            return {
+              id: tenant.id,
+              name: tenant.name,
+              users: tenantUsers,
+              supplierUsers: supplierUsers,
+            };
+          })
+        );
 
-      return {
-        tenants: tenantsWithUsers,
-      };
-    } catch (error) {
-      requestLogger.error({ err: error }, "Dev list users error");
-      throw Errors.internal(
-        "Failed to fetch users for development quick login"
-      );
-    }
-  },
-  {
-    detail: {
-      summary: "List users for dev quick login (Development Only)",
-      description:
-        "Returns all active users grouped by tenant for development quick login. Returns 404 in production.",
-      tags: ["Authentication", "Development"],
+        return {
+          tenants: tenantsWithUsers,
+        };
+      } catch (error) {
+        requestLogger.error({ err: error }, "Dev list users error");
+        throw Errors.internal(
+          "Failed to fetch users for development quick login"
+        );
+      }
     },
-  }
-);
+    {
+      detail: {
+        summary: "List users for dev quick login (Development Only)",
+        description:
+          "Returns all active users grouped by tenant for development quick login. Returns 404 in production.",
+        tags: ["Authentication", "Development"],
+      },
+    }
+  );

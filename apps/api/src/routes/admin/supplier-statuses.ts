@@ -3,8 +3,11 @@ import { db } from "../../lib/db";
 import { supplierStatus, suppliers } from "@supplex/db";
 import { eq, and, count } from "drizzle-orm";
 import { Errors } from "../../lib/errors";
+import { authenticatedRoute } from "../../lib/route-plugins";
+
 export const supplierStatusRoutes = new Elysia()
-  .get("/supplier-statuses", async ({ user }: any) => {
+  .use(authenticatedRoute)
+  .get("/supplier-statuses", async ({ user }) => {
     const rows = await db
       .select()
       .from(supplierStatus)
@@ -15,7 +18,7 @@ export const supplierStatusRoutes = new Elysia()
   })
   .post(
     "/supplier-statuses",
-    async ({ body, user }: any) => {
+    async ({ body, user }) => {
       const { name, displayOrder, isDefault } = body;
 
       const [created] = await db
@@ -40,7 +43,7 @@ export const supplierStatusRoutes = new Elysia()
   )
   .patch(
     "/supplier-statuses/:id",
-    async ({ params, body, user }: any) => {
+    async ({ params, body, user }) => {
       const [existing] = await db
         .select()
         .from(supplierStatus)
@@ -83,7 +86,7 @@ export const supplierStatusRoutes = new Elysia()
   )
   .delete(
     "/supplier-statuses/:id",
-    async ({ params, user }: any) => {
+    async ({ params, user }) => {
       const [existing] = await db
         .select()
         .from(supplierStatus)

@@ -3,8 +3,11 @@ import { db } from "../../lib/db";
 import { workflowType, workflowTemplate, supplierStatus } from "@supplex/db";
 import { eq, and, count } from "drizzle-orm";
 import { Errors } from "../../lib/errors";
+import { authenticatedRoute } from "../../lib/route-plugins";
+
 export const workflowTypeRoutes = new Elysia()
-  .get("/workflow-types", async ({ user }: any) => {
+  .use(authenticatedRoute)
+  .get("/workflow-types", async ({ user }) => {
     const rows = await db
       .select({
         id: workflowType.id,
@@ -27,7 +30,7 @@ export const workflowTypeRoutes = new Elysia()
   })
   .post(
     "/workflow-types",
-    async ({ body, user }: any) => {
+    async ({ body, user }) => {
       const { name, supplierStatusId } = body;
 
       const [created] = await db
@@ -50,7 +53,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .patch(
     "/workflow-types/:id",
-    async ({ params, body, user }: any) => {
+    async ({ params, body, user }) => {
       const [existing] = await db
         .select()
         .from(workflowType)
@@ -89,7 +92,7 @@ export const workflowTypeRoutes = new Elysia()
   )
   .delete(
     "/workflow-types/:id",
-    async ({ params, user }: any) => {
+    async ({ params, user }) => {
       const [existing] = await db
         .select()
         .from(workflowType)

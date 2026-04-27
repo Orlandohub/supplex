@@ -3,6 +3,7 @@ import { db } from "../../../lib/db";
 import { formField, formSection, formTemplate } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
@@ -15,12 +16,13 @@ import { ApiError, Errors } from "../../../lib/errors";
  * Returns: Created field
  */
 export const createFieldRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .post(
     "/sections/:sectionId/fields",
-    async ({ params, body, user, set, requestLogger }: any) => {
+    async ({ params, body, user, set, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const { sectionId } = params;
         const {
           label,
@@ -71,7 +73,10 @@ export const createFieldRoute = new Elysia()
               );
             }
 
-            if (typeof choice.value !== "string" || choice.value.trim() === "") {
+            if (
+              typeof choice.value !== "string" ||
+              choice.value.trim() === ""
+            ) {
               throw Errors.badRequest(
                 `Option at index ${i} must have a non-empty value`,
                 "INVALID_OPTION_VALUE"
@@ -85,7 +90,10 @@ export const createFieldRoute = new Elysia()
               );
             }
 
-            if (typeof choice.label !== "string" || choice.label.trim() === "") {
+            if (
+              typeof choice.label !== "string" ||
+              choice.label.trim() === ""
+            ) {
               throw Errors.badRequest(
                 `Option at index ${i} must have a non-empty label`,
                 "INVALID_OPTION_LABEL"
@@ -121,7 +129,10 @@ export const createFieldRoute = new Elysia()
           .limit(1);
 
         if (!section) {
-          throw Errors.notFound("Section not found or you don't have access to it", "SECTION_NOT_FOUND");
+          throw Errors.notFound(
+            "Section not found or you don't have access to it",
+            "SECTION_NOT_FOUND"
+          );
         }
 
         if (section.templateStatus !== "draft") {

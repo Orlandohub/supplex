@@ -3,6 +3,7 @@ import { db } from "../../lib/db";
 import { emailNotifications } from "@supplex/db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { Errors } from "../../lib/errors";
+import { authenticatedRoute } from "../../lib/route-plugins";
 
 /**
  * GET /api/admin/email-logs
@@ -18,11 +19,11 @@ import { Errors } from "../../lib/errors";
  *
  * Auth: Requires Admin role
  */
-export const emailLogsRoute = new Elysia().get(
+export const emailLogsRoute = new Elysia().use(authenticatedRoute).get(
   "/email-logs",
-  async ({ query, user, requestLogger }: any) => {
+  async ({ query, user, requestLogger }) => {
     try {
-      const tenantId = user.tenantId as string;
+      const tenantId = user.tenantId;
       const {
         status,
         startDate,

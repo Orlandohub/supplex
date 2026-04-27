@@ -13,12 +13,12 @@ import { Errors } from "../../../lib/errors";
 import { db } from "../../../lib/db";
 import { workflowEvent, processInstance } from "@supplex/db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { verifyProcessAccess } from "../../../lib/rbac/entity-authorization";
 
-export const getProcessEventsRoute = new Elysia().use(authenticate).get(
+export const getProcessEventsRoute = new Elysia().use(authenticatedRoute).get(
   "/processes/:processInstanceId/events",
-  async ({ params, query, user }: any) => {
+  async ({ params, query, user }) => {
     const { processInstanceId } = params;
     const limit = Math.min(Number(query.limit) || 100, 500);
     const offset = Number(query.offset) || 0;

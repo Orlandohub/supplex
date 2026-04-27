@@ -11,6 +11,7 @@ import {
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireRole } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { UserRole, EmailEventType } from "@supplex/types";
 import { queueEmailJob } from "../../../queue/email-queue";
 
@@ -25,13 +26,14 @@ const FRONTEND_URL =
  * Validates: process belongs to tenant, has pending supplier-assigned task
  */
 export const sendReminderRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireRole([UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER]))
   .post(
     "/processes/:processInstanceId/send-reminder",
-    async ({ user, params, requestLogger }: any) => {
-      const tenantId = user!.tenantId as string;
-      const _userRole = user!.role as string;
-      const callerName = user!.fullName as string;
+    async ({ user, params, requestLogger }) => {
+      const tenantId = user.tenantId;
+      const _userRole = user.role;
+      const callerName = user.fullName;
 
       try {
         const processId = params.processInstanceId;

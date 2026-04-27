@@ -24,16 +24,16 @@ import { WorkflowProcessStatus } from "@supplex/types";
 import { approveValidationTask } from "../../../lib/workflow-engine/approve-validation-task";
 import { completeStep } from "../../../lib/workflow-engine/complete-step";
 import { createTasksForStep } from "../../../lib/workflow-engine/create-tasks-for-step";
-import { authenticate } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { verifyTaskAssignment } from "../../../lib/rbac/entity-authorization";
 import {
   logWorkflowEventTx,
   WorkflowEventType,
 } from "../../../services/workflow-event-logger";
 
-export const completeStepRoute = new Elysia().use(authenticate).post(
+export const completeStepRoute = new Elysia().use(authenticatedRoute).post(
   "/steps/:stepInstanceId/complete",
-  async ({ params, body, user, requestLogger, correlationId: corrId }: any) => {
+  async ({ params, body, user, requestLogger, correlationId: corrId }) => {
     const { stepInstanceId } = params;
     const { action, comment: declineComment } = body;
 

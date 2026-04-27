@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { users, suppliers } from "@supplex/db";
 import { eq, and, ne } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { supabaseAdmin } from "../../lib/supabase";
 import { authCache } from "../../lib/auth-cache";
@@ -27,15 +27,13 @@ import { ApiError, Errors } from "../../lib/errors";
  *
  * Note: No prefix here - parent route (index.ts) provides "/api" prefix
  */
-export const updateContactRoute = new Elysia().use(authenticate).patch(
+export const updateContactRoute = new Elysia().use(authenticatedRoute).patch(
   "/suppliers/:id/contact",
-  async ({ params, body, user, headers, requestLogger }: any) => {
+  async ({ params, body, user, headers, requestLogger }) => {
     // Check role: Admin or Procurement Manager
     if (
       !user?.role ||
-      ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
-        user.role as UserRole
-      )
+      ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
     ) {
       throw Errors.forbidden(
         "Access denied. Required role: Admin or Procurement Manager"
@@ -43,7 +41,7 @@ export const updateContactRoute = new Elysia().use(authenticate).patch(
     }
 
     try {
-      const tenantId = user.tenantId as string;
+      const tenantId = user.tenantId;
       const supplierId = params.id;
       const { fullName, email, isActive } = body;
       const auditContext = createAuditContext(headers);

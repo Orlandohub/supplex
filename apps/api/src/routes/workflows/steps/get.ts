@@ -17,13 +17,13 @@ import {
   workflowStepTemplate,
 } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
-import { authenticate } from "../../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { verifyStepProcessAccess } from "../../../lib/rbac/entity-authorization";
 
-export const getStepRoute = new Elysia().use(authenticate).get(
+export const getStepRoute = new Elysia().use(authenticatedRoute).get(
   "/steps/:stepInstanceId",
-  async ({ params, user, requestLogger }: any) => {
+  async ({ params, user, requestLogger }) => {
     const { stepInstanceId } = params;
 
     if (!user?.id || !user?.tenantId) {

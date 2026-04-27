@@ -48,7 +48,7 @@ const { supabaseAdmin } = await import("../../../lib/supabase");
 const { db } = await import("../../../lib/db");
 
 describe("Auth Registration API", () => {
-  let app: Elysia;
+  let app: Elysia<any, any, any, any, any, any, any>;
 
   beforeEach(() => {
     app = withApiErrorHandler(new Elysia().use(registerRoute));

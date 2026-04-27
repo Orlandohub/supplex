@@ -12,15 +12,16 @@ import { db } from "../../lib/db";
 import { processInstance, stepInstance, taskInstance } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import logger from "../../lib/logger";
+import { authenticatedRoute } from "../../lib/route-plugins";
 
 const healthLog = logger.child({ module: "workflow-health" });
 
-export const workflowHealthRoute = new Elysia().get(
-  "/workflow-health",
-  async ({ user, requestLogger }: any) => {
+export const workflowHealthRoute = new Elysia()
+  .use(authenticatedRoute)
+  .get("/workflow-health", async ({ user, requestLogger }) => {
     const log = requestLogger || healthLog;
     const start = Date.now();
-    const tenantId = user.tenantId as string;
+    const tenantId = user.tenantId;
 
     // Query 1: Stuck processes — in_progress but no current step pointer
     const stuckProcesses = await db
@@ -114,5 +115,4 @@ export const workflowHealthRoute = new Elysia().get(
       success: true,
       data: result,
     };
-  }
-);
+  });

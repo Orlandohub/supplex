@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import { workflowTemplate } from "@supplex/db";
 import { requireAdmin } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { eq, and, isNull } from "drizzle-orm";
 import { ApiError, Errors } from "../../lib/errors";
 
@@ -15,12 +16,13 @@ import { ApiError, Errors } from "../../lib/errors";
  * Returns: Updated template
  */
 export const toggleActiveWorkflowTemplateRoute = new Elysia()
+  .use(authenticatedRoute)
   .use(requireAdmin)
   .patch(
     "/:templateId/toggle-active",
-    async ({ params, user, requestLogger }: any) => {
+    async ({ params, user, requestLogger }) => {
       try {
-        const tenantId = user.tenantId as string;
+        const tenantId = user.tenantId;
         const { templateId } = params;
 
         // Fetch template and verify tenant ownership
