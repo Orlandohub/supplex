@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { db } from "../../lib/db";
 import { taskInstance } from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
-import { authenticate } from "../../lib/rbac/middleware";
+import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
@@ -17,13 +17,13 @@ import { ApiError, Errors } from "../../lib/errors";
  *
  * AC 1, 3: Returns count of pending tasks for navigation badge
  */
-export const myTasksCountRoute = new Elysia().use(authenticate).get(
+export const myTasksCountRoute = new Elysia().use(authenticatedRoute).get(
   "/my-tasks/count",
-  async ({ user, requestLogger }: any) => {
+  async ({ user, requestLogger }) => {
     try {
-      const userId = user!.id as string;
-      const userRole = user!.role as string;
-      const tenantId = user!.tenantId as string;
+      const userId = user.id;
+      const userRole = user.role;
+      const tenantId = user.tenantId;
 
       // Efficient count query for open tasks assigned to current user
       const result = await db
@@ -60,7 +60,8 @@ export const myTasksCountRoute = new Elysia().use(authenticate).get(
   {
     detail: {
       summary: "Get my pending tasks count (New Workflow Engine)",
-      description: "Returns count of workflow tasks from task_instance table awaiting action (for badge)",
+      description:
+        "Returns count of workflow tasks from task_instance table awaiting action (for badge)",
       tags: ["Workflows", "Tasks"],
     },
   }
