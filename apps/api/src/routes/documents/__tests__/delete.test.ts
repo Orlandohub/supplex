@@ -99,7 +99,7 @@ describe("DELETE /api/documents/:id", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.documents as any)[document.id].delete({
+    const response = await client.api.documents({ id: document.id }).delete({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },
@@ -139,7 +139,7 @@ describe("DELETE /api/documents/:id", () => {
 
   it("should return 404 if document doesn't exist", async () => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
-    const response = await (client.api.documents as any)[fakeId]!.delete({
+    const response = await client.api.documents({ id: fakeId }).delete({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },
@@ -165,7 +165,7 @@ describe("DELETE /api/documents/:id", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.documents as any)[document.id].delete();
+    const response = await client.api.documents({ id: document.id }).delete();
 
     expect(response.status).toBe(401);
 
@@ -208,7 +208,7 @@ describe("DELETE /api/documents/:id", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.documents as any)[document.id].delete({
+    const response = await client.api.documents({ id: document.id }).delete({
       headers: {
         Authorization: `Bearer ${viewerToken}`,
       },
@@ -292,13 +292,13 @@ describe("DELETE /api/documents/:id", () => {
     )[0]!;
 
     // Attempt to delete document from different tenant
-    const response = await (client.api.documents as any)[
-      otherDocument.id
-    ].delete({
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .documents({ id: otherDocument.id })
+      .delete({
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      });
 
     expect(response.status).toBe(404); // Should not find document from other tenant
 
@@ -328,7 +328,7 @@ describe("DELETE /api/documents/:id", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.documents as any)[document.id].delete({
+    const response = await client.api.documents({ id: document.id }).delete({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },
