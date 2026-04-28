@@ -215,7 +215,7 @@ describe("PDF Content Structure Validation", () => {
   describe("Empty timeline handling", () => {
     it("should display message when no events exist", () => {
       const emptyTimelineMessage = "No events recorded for this workflow.";
-      const events: any[] = [];
+      const events: unknown[] = [];
 
       if (events.length === 0) {
         expect(emptyTimelineMessage).toContain("No events");

@@ -9,11 +9,36 @@ import { eq } from "drizzle-orm";
  * Integration Tests: Workflow Step Validation Config API
  * Story 2.2.15
  *
- * Tests the validation config endpoints (create/update steps with requiresValidation and validationConfig)
+ * Tests the validation config endpoints (create/update steps with
+ * `requiresValidation` and `validationConfig`).
  */
 
 const API_URL = process.env.API_URL || "http://localhost:3000";
 const client = treaty<App>(API_URL);
+
+interface WorkflowStepFixture {
+  id: string;
+  requiresValidation: boolean;
+  validationConfig: {
+    approverRoles?: string[];
+    requireAllApprovals?: boolean;
+  };
+}
+
+interface ApiErrorBody {
+  success: false;
+  error: { code: string; message?: string };
+}
+
+/**
+ * Treaty puts the response body in `response.data` for 2xx responses and
+ * `response.error.value` for non-2xx. This helper extracts the typed error
+ * envelope without each call site needing a type assertion.
+ */
+function errorBody(error: { value: unknown } | null): ApiErrorBody | null {
+  if (!error) return null;
+  return error.value as ApiErrorBody;
+}
 
 describe("Workflow Step Validation Config API", () => {
   let tenant: { id: string };
@@ -22,7 +47,6 @@ describe("Workflow Step Validation Config API", () => {
   let adminToken: string;
 
   beforeAll(async () => {
-    // Create tenant
     tenant = (
       await db
         .insert(tenants)
@@ -33,7 +57,6 @@ describe("Workflow Step Validation Config API", () => {
         .returning()
     )[0]!;
 
-    // Create admin user
     const adminEmail = `admin-validation-${Date.now()}@test.com`;
     adminUser = (
       await db
@@ -48,10 +71,8 @@ describe("Workflow Step Validation Config API", () => {
         .returning()
     )[0]!;
 
-    // Mock JWT token for admin
     adminToken = `mock-token-admin-${adminUser.id}`;
 
-    // Create draft workflow template
     template = (
       await db
         .insert(workflowTemplate)
@@ -69,10 +90,47 @@ describe("Workflow Step Validation Config API", () => {
     await db.delete(tenants).where(eq(tenants.id, tenant.id));
   });
 
+  // Treaty's typed dynamic-path syntax: `client.api["workflow-templates"]
+  // ({ workflowId, templateId })...`. Both keys must be supplied because
+  // the workflow-templates router mounts step routes (`:workflowId`)
+  // alongside publish / toggle-active routes (`:templateId`); Treaty's
+  // path inference collapses the two into a single union so callers fill
+  // both. Bracket indexing previously hid the issue behind `as any` — the
+  // function-call form keeps body/response types end-to-end inferred.
+  //
+  // The result of `client.api["workflow-templates"]({...})` is a Treaty
+  // union of the two siblings (publish/toggle-active vs. steps/get/post/
+  // put/delete) — both runtime paths are identical, but TypeScript can't
+  // tell them apart structurally. We pick the steps-bearing branch via
+  // `Extract` to preserve full body/response inference for `steps.post`,
+  // `steps.put`, etc., without resorting to `as any`.
+  type WorkflowTemplateBranches = ReturnType<
+    (typeof client.api)["workflow-templates"]
+  >;
+  type StepsBranch = Extract<WorkflowTemplateBranches, { steps: unknown }>;
+
+  function stepsRoot(id: string): StepsBranch["steps"] {
+    return (
+      client.api["workflow-templates"]({
+        workflowId: id,
+        templateId: id,
+      }) as StepsBranch
+    ).steps;
+  }
+
+  function templateRoot(id: string): StepsBranch {
+    return client.api["workflow-templates"]({
+      workflowId: id,
+      templateId: id,
+    }) as StepsBranch;
+  }
+
+  const authHeaders = () => ({
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+
   test("create step with requiresValidation=true and valid approverRoles", async () => {
-    const response = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const response = await stepsRoot(template.id).post(
       {
         name: "Submit Supplier Profile",
         stepType: "form",
@@ -82,26 +140,22 @@ describe("Workflow Step Validation Config API", () => {
           requireAllApprovals: false,
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
     expect(response.status).toBe(200);
     expect(response.data?.success).toBe(true);
-    expect(response.data?.data?.requiresValidation).toBe(true);
-    expect(response.data?.data?.validationConfig.approverRoles).toEqual([
+    if (!response.data?.success) return;
+    const data = response.data.data as WorkflowStepFixture;
+    expect(data.requiresValidation).toBe(true);
+    expect(data.validationConfig.approverRoles).toEqual([
       "quality_manager",
       "procurement_manager",
     ]);
   });
 
   test("create step with requiresValidation=true but empty approverRoles should fail", async () => {
-    const response = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const response = await stepsRoot(template.id).post(
       {
         name: "Invalid Step",
         stepType: "form",
@@ -110,82 +164,63 @@ describe("Workflow Step Validation Config API", () => {
           approverRoles: [],
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
     expect(response.status).toBe(400);
-    expect(response.data?.error?.code).toBe("INVALID_VALIDATION_CONFIG");
+    const body = errorBody(response.error);
+    expect(body?.error.code).toBe("INVALID_VALIDATION_CONFIG");
   });
 
   test("create step with requiresValidation=true but missing validationConfig should fail", async () => {
-    const response = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const response = await stepsRoot(template.id).post(
       {
         name: "Missing Config Step",
         stepType: "form",
         requiresValidation: true,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
     expect(response.status).toBe(400);
-    expect(response.data?.error?.code).toBe("INVALID_VALIDATION_CONFIG");
+    const body = errorBody(response.error);
+    expect(body?.error.code).toBe("INVALID_VALIDATION_CONFIG");
   });
 
   test("create step with requiresValidation=false (default) should succeed without validationConfig", async () => {
-    const response = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const response = await stepsRoot(template.id).post(
       {
         name: "No Validation Step",
         stepType: "form",
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
     expect(response.status).toBe(200);
     expect(response.data?.success).toBe(true);
-    expect(response.data?.data?.requiresValidation).toBe(false);
-    expect(response.data?.data?.validationConfig).toEqual({});
+    if (!response.data?.success) return;
+    const data = response.data.data as WorkflowStepFixture;
+    expect(data.requiresValidation).toBe(false);
+    expect(data.validationConfig).toEqual({});
   });
 
   test("update step to add validation config", async () => {
-    // Create step without validation
-    const createResponse = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const createResponse = await stepsRoot(template.id).post(
       {
         name: "Update Test Step",
         stepType: "document",
         requiresValidation: false,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
-    const stepId = createResponse.data?.data?.id;
+    expect(createResponse.data?.success).toBe(true);
+    if (!createResponse.data?.success) return;
+    const created = createResponse.data.data as WorkflowStepFixture;
+    const stepId = created.id;
     expect(stepId).toBeDefined();
 
-    // Update step to enable validation
-    const updateResponse = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps[stepId!].put(
+    const updateResponse = await stepsRoot(template.id)({ stepId }).put(
       {
         name: "Update Test Step",
         stepType: "document",
@@ -194,26 +229,19 @@ describe("Workflow Step Validation Config API", () => {
           approverRoles: ["admin"],
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.data?.success).toBe(true);
-    expect(updateResponse.data?.data?.requiresValidation).toBe(true);
-    expect(updateResponse.data?.data?.validationConfig.approverRoles).toEqual([
-      "admin",
-    ]);
+    if (!updateResponse.data?.success) return;
+    const updated = updateResponse.data.data as WorkflowStepFixture;
+    expect(updated.requiresValidation).toBe(true);
+    expect(updated.validationConfig.approverRoles).toEqual(["admin"]);
   });
 
   test("update step to remove validation config", async () => {
-    // Create step with validation
-    const createResponse = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const createResponse = await stepsRoot(template.id).post(
       {
         name: "Remove Validation Step",
         stepType: "form",
@@ -222,20 +250,15 @@ describe("Workflow Step Validation Config API", () => {
           approverRoles: ["quality_manager"],
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
-    const stepId = createResponse.data?.data?.id;
-    expect(stepId).toBeDefined();
+    expect(createResponse.data?.success).toBe(true);
+    if (!createResponse.data?.success) return;
+    const created = createResponse.data.data as WorkflowStepFixture;
+    const stepId = created.id;
 
-    // Update step to disable validation
-    const updateResponse = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps[stepId!].put(
+    const updateResponse = await stepsRoot(template.id)({ stepId }).put(
       {
         name: "Remove Validation Step",
         stepType: "form",
@@ -244,23 +267,18 @@ describe("Workflow Step Validation Config API", () => {
           approverRoles: [],
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.data?.success).toBe(true);
-    expect(updateResponse.data?.data?.requiresValidation).toBe(false);
+    if (!updateResponse.data?.success) return;
+    const updated = updateResponse.data.data as WorkflowStepFixture;
+    expect(updated.requiresValidation).toBe(false);
   });
 
   test("retrieve step and verify validation config persisted", async () => {
-    // Create step with validation
-    const createResponse = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].steps.post(
+    const createResponse = await stepsRoot(template.id).post(
       {
         name: "Persist Test Step",
         stepType: "form",
@@ -270,28 +288,24 @@ describe("Workflow Step Validation Config API", () => {
           requireAllApprovals: true,
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
-      }
+      authHeaders()
     );
 
-    const stepId = createResponse.data?.data?.id;
+    expect(createResponse.data?.success).toBe(true);
+    if (!createResponse.data?.success) return;
+    const created = createResponse.data.data as WorkflowStepFixture;
+    const stepId = created.id;
 
-    // Retrieve template with steps
-    const getResponse = await (client.api["workflow-templates"] as any)[
-      template.id
-    ].get({
-      headers: {
-        Authorization: `Bearer ${adminToken}`,
-      },
-    });
+    const getResponse = await templateRoot(template.id).get(authHeaders());
 
     expect(getResponse.status).toBe(200);
-    const step = getResponse.data?.data?.steps?.find(
-      (s: any) => s.id === stepId
-    );
+    if (!getResponse.data?.success) {
+      throw new Error("Expected workflow template fetch to succeed");
+    }
+    const templateData = getResponse.data.data as {
+      steps?: WorkflowStepFixture[];
+    };
+    const step = templateData.steps?.find((s) => s.id === stepId);
     expect(step).toBeDefined();
     expect(step?.requiresValidation).toBe(true);
     expect(step?.validationConfig.approverRoles).toEqual([

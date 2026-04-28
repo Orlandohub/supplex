@@ -75,14 +75,21 @@ describe("completeStep transaction rollback", () => {
   });
 
   test("document check failure rolls back step status to active (not completed)", async () => {
-    // Create a document template with a required document
+    // Create a document template with a required document.
+    //
+    // Historic note: the previous revision of this test cast the entire
+    // insert builder to `any` to bypass type errors caused by stale field
+    // names (`name` / `createdBy`) that don't exist on the
+    // `document_template` schema. The actual columns are `templateName`
+    // and have no `createdBy`. Using the real schema fields removes the
+    // need for the cast and exercises a realistic insert path.
     const docTmpl = (
-      await (db.insert(documentTemplate) as any)
+      await db
+        .insert(documentTemplate)
         .values({
           tenantId: tenant.id,
-          name: "Rollback Doc Template",
+          templateName: "Rollback Doc Template",
           requiredDocuments: [{ name: "Required Doc", required: true }],
-          createdBy: user.id,
         })
         .returning()
     )[0]!;

@@ -5,42 +5,105 @@ import {
   sendStageRejectedEmail,
   sendSupplierApprovalCongratulations,
 } from "../email-notification.service";
+import { mockDbChain, type MockDb } from "../../lib/test-utils";
 
-// Mock dependencies. Typed as `any` so that `.mockResolvedValue(...)` overrides
-// can return arbitrary fixture shapes and `.mock.calls[i][j]` indexing works
-// under `noUncheckedIndexedAccess` without per-site casts.
-const mockQueueEmailJob: any = mock(() => Promise.resolve());
-const mockCheckEmailRateLimit: any = mock(() => Promise.resolve(true));
-const mockDbQuery: any = mock(() => Promise.resolve(null));
+// ─────────────────────────────────────────────────────────────────────────────
+// Module mocks. NOTE: mock.module() paths are relative to *this* file
+// (`apps/api/src/services/__tests__/`), so each path needs `../../` to climb
+// out of `__tests__` and `services` to reach `apps/api/src/`. Earlier
+// revisions used `../queue/...` / `../lib/...` which silently no-op'd because
+// those paths don't resolve to real modules; the production code then
+// imported the *real* `db` and crashed against a Postgres uuid validation.
+// See SUP-9d.
+// ─────────────────────────────────────────────────────────────────────────────
 
-mock.module("../queue/email-queue", () => ({
+const mockQueueEmailJob = mock((..._args: readonly unknown[]) =>
+  Promise.resolve()
+);
+const mockCheckEmailRateLimit = mock(
+  (_userId: string): Promise<boolean> => Promise.resolve(true)
+);
+
+interface TenantSettingsFixture {
+  id: string;
+  settings: {
+    emailNotifications: Partial<{
+      workflowSubmitted: boolean;
+      stageApproved: boolean;
+      stageRejected: boolean;
+      workflowApproved: boolean;
+    }>;
+  };
+}
+
+const mockDbQuery = mock(
+  (..._args: readonly unknown[]): Promise<TenantSettingsFixture | null> =>
+    Promise.resolve(null)
+);
+
+// Build a complete db mock; pre-register the query namespaces this service
+// reads. The chained `insert(...).values(...).returning()` path returns a
+// fixture that mimics a freshly-inserted notification row.
+const mockInsert = mock(() =>
+  mockDbChain<{ id: string }>([{ id: "notif-123" }])
+);
+
+const mockDb: MockDb = {
+  select: mock(() => mockDbChain<unknown>([])),
+  selectDistinct: mock(() => mockDbChain<unknown>([])),
+  insert: mockInsert as unknown as MockDb["insert"],
+  update: mock(() => mockDbChain<unknown>([])),
+  delete: mock(() => mockDbChain<unknown>([])),
+  execute: mock(() => Promise.resolve(undefined)),
+  transaction: mock(
+    async (callback: (tx: MockDb) => unknown | Promise<unknown>) => {
+      return await callback(mockDb);
+    }
+  ),
+  query: {
+    tenants: {
+      findFirst: mockDbQuery as MockDb["query"][string]["findFirst"],
+      findMany: mock(() =>
+        Promise.resolve([])
+      ) as MockDb["query"][string]["findMany"],
+    },
+    users: {
+      findFirst: mockDbQuery as MockDb["query"][string]["findFirst"],
+      findMany: mock(() =>
+        Promise.resolve([])
+      ) as MockDb["query"][string]["findMany"],
+    },
+    userNotificationPreferences: {
+      findFirst: mockDbQuery as MockDb["query"][string]["findFirst"],
+      findMany: mock(() =>
+        Promise.resolve([])
+      ) as MockDb["query"][string]["findMany"],
+    },
+  },
+};
+
+mock.module("../../queue/email-queue", () => ({
   queueEmailJob: mockQueueEmailJob,
 }));
 
-mock.module("../utils/email-rate-limiter", () => ({
+mock.module("../../utils/email-rate-limiter", () => ({
   checkEmailRateLimit: mockCheckEmailRateLimit,
 }));
 
-mock.module("../lib/db", () => ({
-  db: {
-    query: {
-      tenants: {
-        findFirst: mockDbQuery,
-      },
-      users: {
-        findFirst: mockDbQuery,
-      },
-      userNotificationPreferences: {
-        findFirst: mockDbQuery,
-      },
-    },
-    insert: mock(() => ({
-      values: mock(() => ({
-        returning: mock(() => Promise.resolve([{ id: "notif-123" }])),
-      })),
-    })),
-  },
+mock.module("../../lib/db", () => ({
+  db: mockDb,
 }));
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
+
+interface QueuedEmailJob {
+  templateName: string;
+  templateData: Record<string, unknown>;
+  recipientEmail: string;
+  notificationId: string;
+  recipientName?: string;
+  subject: string;
+}
 
 describe("Email Notification Service", () => {
   beforeEach(() => {
@@ -48,7 +111,7 @@ describe("Email Notification Service", () => {
     mockCheckEmailRateLimit.mockClear();
     mockDbQuery.mockClear();
 
-    // Default: Allow emails (tenant and user preferences enabled)
+    // Default: allow emails (tenant + user preferences enabled)
     mockCheckEmailRateLimit.mockResolvedValue(true);
     mockDbQuery.mockResolvedValue({
       id: "test-tenant",
@@ -139,9 +202,11 @@ describe("Email Notification Service", () => {
       });
 
       expect(mockQueueEmailJob).toHaveBeenCalled();
-      const callArgs = mockQueueEmailJob.mock.calls[0][0];
-      expect(callArgs.templateName).toBe("stage-approved");
-      expect(callArgs.templateData.stageNumber).toBe("1");
+      const callArgs = mockQueueEmailJob.mock.calls[0]?.[0] as
+        | QueuedEmailJob
+        | undefined;
+      expect(callArgs?.templateName).toBe("stage-approved");
+      expect(callArgs?.templateData["stageNumber"]).toBe("1");
     });
   });
 
@@ -161,9 +226,13 @@ describe("Email Notification Service", () => {
       });
 
       expect(mockQueueEmailJob).toHaveBeenCalled();
-      const callArgs = mockQueueEmailJob.mock.calls[0][0];
-      expect(callArgs.templateName).toBe("stage-rejected");
-      expect(callArgs.templateData.comments).toBe("Missing required documents");
+      const callArgs = mockQueueEmailJob.mock.calls[0]?.[0] as
+        | QueuedEmailJob
+        | undefined;
+      expect(callArgs?.templateName).toBe("stage-rejected");
+      expect(callArgs?.templateData["comments"]).toBe(
+        "Missing required documents"
+      );
     });
   });
 
@@ -180,10 +249,11 @@ describe("Email Notification Service", () => {
       });
 
       expect(mockQueueEmailJob).toHaveBeenCalled();
-      const callArgs = mockQueueEmailJob.mock.calls[0][0];
-      expect(callArgs.recipientEmail).toBe("supplier@acme.com");
-      expect(callArgs.templateName).toBe("workflow-approved");
-      // No rate limit check for supplier emails (external contact)
+      const callArgs = mockQueueEmailJob.mock.calls[0]?.[0] as
+        | QueuedEmailJob
+        | undefined;
+      expect(callArgs?.recipientEmail).toBe("supplier@acme.com");
+      expect(callArgs?.templateName).toBe("workflow-approved");
     });
   });
 });

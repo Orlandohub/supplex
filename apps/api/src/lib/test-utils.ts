@@ -1,6 +1,27 @@
 import { Elysia } from "elysia";
-import type { ApiResult } from "@supplex/types";
+import { mock, type Mock } from "bun:test";
+import type { UserRole } from "@supplex/types";
+import { isValidRole, type ApiResult } from "@supplex/types";
 import { ApiError } from "./errors";
+
+/**
+ * Narrows a `users.role` string column read out of Drizzle to the
+ * `UserRole` enum that `AuthContext` and RBAC checks expect.
+ *
+ * Throws (failing the test fixture) when the DB value is unexpectedly
+ * off-grid, which is far better than silently funnelling an invalid role
+ * through `as UserRole` and getting downstream RBAC drift.
+ *
+ * This helper lives in `test-utils` so route-level integration tests that
+ * seed real `users` rows and need to construct an `AuthContext["user"]`
+ * for the test app share a single, type-safe narrowing path.
+ */
+export function asUserRole(role: string): UserRole {
+  if (!isValidRole(role)) {
+    throw new Error(`Test fixture inserted invalid role: ${role}`);
+  }
+  return role;
+}
 
 /**
  * Mutable subset of Elysia's `set` parameter that the test error handler
@@ -173,6 +194,162 @@ export function mockDbChain<T>(rows: T[]): MockDbChain<T> {
 }
 
 /**
+ * Shape of the test-side `db` mock returned by {@link createMockDb}.
+ *
+ * Each top-level write/read entry is a Bun {@link Mock} whose default
+ * implementation produces a {@link MockDbChain} resolving to `[]`. Tests can
+ * override per-call via `mocks.db.select.mockReturnValue(mockDbChain([row]))`.
+ *
+ * The shape mirrors the public surface of Drizzle's `db` instance that any
+ * test in this repo currently consumes; expand it (here, not at the call
+ * site with `as any`) if a route or service starts using a new `db.X(...)`
+ * method.
+ */
+export interface MockDb {
+  select: Mock<(..._args: readonly unknown[]) => MockDbChain<unknown>>;
+  selectDistinct: Mock<(..._args: readonly unknown[]) => MockDbChain<unknown>>;
+  insert: Mock<(..._args: readonly unknown[]) => MockDbChain<unknown>>;
+  update: Mock<(..._args: readonly unknown[]) => MockDbChain<unknown>>;
+  delete: Mock<(..._args: readonly unknown[]) => MockDbChain<unknown>>;
+  execute: Mock<(..._args: readonly unknown[]) => Promise<unknown>>;
+  transaction: Mock<
+    (callback: (tx: MockDb) => unknown | Promise<unknown>) => Promise<unknown>
+  >;
+  query: Record<
+    string,
+    {
+      findFirst: Mock<(..._args: readonly unknown[]) => Promise<unknown>>;
+      findMany: Mock<(..._args: readonly unknown[]) => Promise<unknown[]>>;
+    }
+  >;
+}
+
+/**
+ * Builds a complete, type-safe `db` mock suitable for `mock.module("...lib/db",
+ * () => ({ db: createMockDb(...) }))` at test-file scope.
+ *
+ * **Why this exists.** Bun's `mock.module()` is process-wide and is not
+ * cleaned up between test files. Earlier revisions of several test files
+ * declared *partial* mocks (e.g. `{ db: { select } }` with no `insert` /
+ * `update` / `delete`). When such a mock was registered, any unrelated test
+ * file that subsequently imported `db` and called the missing method
+ * crashed with `db.X is not a function` in its `beforeAll` hook, collapsing
+ * that file's entire `describe` block to a single `(unnamed)` failure.
+ *
+ * `createMockDb` returns a *complete* shape — every method that any test in
+ * the suite touches resolves to an empty `MockDbChain`, so polluted-into
+ * test files at worst run their lifecycle hooks against empty arrays
+ * instead of crashing. Combined with `query` namespaces stubbed to return
+ * `null` / `[]`, the mock is safe to leak across files.
+ *
+ * Tests that depend on specific db responses can either:
+ *   (a) override per-call: `mocks.db.select.mockReturnValueOnce(mockDbChain([row]))`
+ *   (b) pass an `overrides` object to seed the default behavior at construction:
+ *       `createMockDb({ select: mock(() => mockDbChain([row])) })`
+ *
+ * The `query` namespace is keyed by table name. Pass `queryTables` to
+ * pre-register tables your test reads, e.g. `["tenants", "users"]`. Other
+ * tables are still safe to access at runtime — accessing an unknown table
+ * lazily creates a stub via the {@link MockDb.query} getter.
+ *
+ * Usage:
+ *
+ *     import { createMockDb, mockDbChain } from "../../lib/test-utils";
+ *
+ *     const mockDb = createMockDb({
+ *       queryTables: ["tenants", "users"],
+ *     });
+ *
+ *     mock.module("../../lib/db", () => ({ db: mockDb }));
+ *
+ *     // later, in a test body:
+ *     mockDb.select.mockReturnValueOnce(mockDbChain([{ id: "t-1" }]));
+ *     mockDb.query.users.findFirst.mockResolvedValueOnce({ id: "u-1" });
+ */
+export interface CreateMockDbOptions {
+  /** Drizzle query-namespace tables to pre-register. */
+  queryTables?: readonly string[];
+  /** Optional overrides for individual top-level mocks. */
+  overrides?: Partial<{
+    select: MockDb["select"];
+    selectDistinct: MockDb["selectDistinct"];
+    insert: MockDb["insert"];
+    update: MockDb["update"];
+    delete: MockDb["delete"];
+    execute: MockDb["execute"];
+    transaction: MockDb["transaction"];
+  }>;
+}
+
+export function createMockDb(options: CreateMockDbOptions = {}): MockDb {
+  const { queryTables = [], overrides = {} } = options;
+
+  const defaultChain = (): MockDbChain<unknown> => mockDbChain<unknown>([]);
+
+  const select = overrides.select ?? (mock(defaultChain) as MockDb["select"]);
+  const selectDistinct =
+    overrides.selectDistinct ??
+    (mock(defaultChain) as MockDb["selectDistinct"]);
+  const insert = overrides.insert ?? (mock(defaultChain) as MockDb["insert"]);
+  const update = overrides.update ?? (mock(defaultChain) as MockDb["update"]);
+  const del = overrides.delete ?? (mock(defaultChain) as MockDb["delete"]);
+  const execute =
+    overrides.execute ??
+    (mock(() => Promise.resolve(undefined as unknown)) as MockDb["execute"]);
+
+  const queryNamespace: MockDb["query"] = {};
+  for (const table of queryTables) {
+    queryNamespace[table] = {
+      findFirst: mock(() =>
+        Promise.resolve(null)
+      ) as MockDb["query"][string]["findFirst"],
+      findMany: mock(() =>
+        Promise.resolve([])
+      ) as MockDb["query"][string]["findMany"],
+    };
+  }
+
+  // Lazy proxy: any read of `query.<unknown table>` produces a stub on demand
+  // so polluted-into test files don't crash on `db.query.X.findFirst()` when
+  // we forgot to enumerate `X` in `queryTables`.
+  const queryProxy = new Proxy(queryNamespace, {
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && !(prop in target)) {
+        target[prop] = {
+          findFirst: mock(() =>
+            Promise.resolve(null)
+          ) as MockDb["query"][string]["findFirst"],
+          findMany: mock(() =>
+            Promise.resolve([])
+          ) as MockDb["query"][string]["findMany"],
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+
+  const db: MockDb = {
+    select,
+    selectDistinct,
+    insert,
+    update,
+    delete: del,
+    execute,
+    // `transaction` runs the supplied callback with the same mock so that
+    // test code wrapping `db.transaction(async (tx) => tx.insert(...)...)`
+    // hits the same `select`/`insert`/etc. mocks the test has already set up.
+    transaction:
+      overrides.transaction ??
+      (mock(async (callback: (tx: MockDb) => unknown | Promise<unknown>) => {
+        return await callback(db);
+      }) as MockDb["transaction"]),
+    query: queryProxy,
+  };
+
+  return db;
+}
+
+/**
  * Asserts that a parsed API response is the success branch and that `data`
  * is present, narrowing `result` to `{ success: true; data: T }` for the
  * remainder of the test.
@@ -228,9 +405,7 @@ export function expectOkVoidResult(
  *   expectErrResult(result);
  *   expect(result.error.code).toBe("VALIDATION_ERROR");
  */
-export function expectErrResult(
-  result: ApiResult
-): asserts result is {
+export function expectErrResult(result: ApiResult): asserts result is {
   success: false;
   error: { code: string; message: string };
 } {

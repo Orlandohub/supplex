@@ -1,9 +1,17 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { sendEmail, isResendConfigured } from "../resend-email.service";
 
-// Mock Resend
-const mockResendSend: any = mock(() =>
-  Promise.resolve({ data: { id: "test-message-id" }, error: null })
+// The Resend API returns either `{ data: { id }, error: null }` or
+// `{ data: null, error: { message } }`. Modelling both branches up front
+// avoids `as any` on `mockResolvedValueOnce(...)` calls below.
+interface ResendSendResponse {
+  data: { id?: string } | null;
+  error: { message: string } | null;
+}
+
+const mockResendSend = mock(
+  (..._args: readonly unknown[]): Promise<ResendSendResponse> =>
+    Promise.resolve({ data: { id: "test-message-id" }, error: null })
 );
 
 mock.module("resend", () => ({

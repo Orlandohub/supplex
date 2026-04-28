@@ -38,7 +38,7 @@ describe("GET /api/workflows/my-tasks/count", () => {
 
     it("should return 0 if no pending tasks", async () => {
       // Test empty state
-      const mockStages: any[] = [];
+      const mockStages: { status: string }[] = [];
       const count = mockStages.filter((s) => s.status === "Pending").length;
 
       expect(count).toBe(0);
@@ -108,7 +108,7 @@ describe("GET /api/workflows/my-tasks/count", () => {
 
     it("should handle null count result", async () => {
       // Test fallback when count is null/undefined
-      const mockResult: any[] = [];
+      const mockResult: { count: number }[] = [];
       const count = mockResult[0]?.count ?? 0;
 
       expect(count).toBe(0);

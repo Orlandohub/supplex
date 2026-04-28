@@ -12,6 +12,22 @@ import { UserRole } from "@supplex/types";
  * 3. Seed test data before each test
  */
 
+/**
+ * Public shape of a CSV-exportable workflow row. The route's underlying
+ * SQL leaves `riskScore` nullable, so the type used by the test fixtures
+ * and the `generateCSV` helper must mirror that — otherwise tests for the
+ * "null risk score" branch had to cast through `any`.
+ */
+interface ExportableWorkflowRow {
+  supplierName: string;
+  status: string;
+  currentStage: number;
+  initiatedBy: string;
+  initiatedDate: Date;
+  riskScore: number | null;
+  daysInProgress: number;
+}
+
 describe("GET /api/workflows/qualifications/export", () => {
   /**
    * Test Data Setup
@@ -23,7 +39,7 @@ describe("GET /api/workflows/qualifications/export", () => {
     email: "test@example.com",
   };
 
-  const mockWorkflows = [
+  const mockWorkflows: ExportableWorkflowRow[] = [
     {
       supplierName: "Acme Corp",
       status: "Stage1",
@@ -56,7 +72,7 @@ describe("GET /api/workflows/qualifications/export", () => {
   /**
    * Helper: Generate CSV from workflow data
    */
-  const generateCSV = (workflows: typeof mockWorkflows) => {
+  const generateCSV = (workflows: readonly ExportableWorkflowRow[]) => {
     const headers = [
       "Supplier Name",
       "Status",
@@ -165,7 +181,7 @@ describe("GET /api/workflows/qualifications/export", () => {
         },
       ];
 
-      const csv = generateCSV(workflows as any);
+      const csv = generateCSV(workflows);
       expect(csv).toContain("N/A");
     });
   });
@@ -380,7 +396,7 @@ describe("GET /api/workflows/qualifications/export", () => {
     });
 
     it("should return empty CSV for user from different tenant", () => {
-      const filtered: any[] = [];
+      const filtered: ExportableWorkflowRow[] = [];
       const csv = generateCSV(filtered);
       const lines = csv.split("\n");
 

@@ -386,7 +386,7 @@ describe("GET /api/workflows/qualifications", () => {
     it("should return empty array for user from different tenant", () => {
       const _userTenantId = "tenant-456";
       // In real implementation, query would filter by tenant_id
-      const filtered: any[] = []; // No workflows match different tenant
+      const filtered: unknown[] = []; // No workflows match different tenant
 
       expect(filtered).toHaveLength(0);
     });
