@@ -104,13 +104,13 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
   });
 
   it("should return documents for a supplier", async () => {
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.get({
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.get({
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      });
 
     expect(response.status).toBe(200);
     expect(response.data).toBeDefined();
@@ -149,13 +149,13 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.suppliers as any)[
-      emptySupplier.id
-    ].documents.get({
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: emptySupplier.id })
+      .documents.get({
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      });
 
     expect(response.status).toBe(200);
     expect(response.data).toBeDefined();
@@ -170,21 +170,19 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
 
   it("should return 404 if supplier doesn't exist", async () => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
-    const response = await (client.api.suppliers as any)[fakeId]!.documents.get(
-      {
-        headers: {
-          Authorization: `Bearer ${testToken}`,
-        },
-      }
-    );
+    const response = await client.api.suppliers({ id: fakeId }).documents.get({
+      headers: {
+        Authorization: `Bearer ${testToken}`,
+      },
+    });
 
     expect(response.status).toBe(404);
   });
 
   it("should return 401 without authentication", async () => {
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.get();
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.get();
 
     expect(response.status).toBe(401);
   });
@@ -208,18 +206,18 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.get({
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.get({
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      });
 
     expect(response.status).toBe(200);
     if (response.data && "documents" in response.data) {
       const deletedDocExists = response.data.documents.some(
-        (doc: any) => doc.id === deletedDoc.id
+        (doc) => doc.id === deletedDoc.id
       );
       expect(deletedDocExists).toBe(false);
     }

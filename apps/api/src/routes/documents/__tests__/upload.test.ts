@@ -99,19 +99,21 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
       type: "application/pdf",
     });
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "certificate");
-    formData.append("description", "Test certificate");
-    formData.append("expiryDate", "2025-12-31");
-
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post(
+        {
+          file,
+          documentType: "certificate",
+          description: "Test certificate",
+          expiryDate: "2025-12-31",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${testToken}`,
+          },
+        }
+      );
 
     expect(response.status).toBe(200);
     expect(response.data).toBeDefined();
@@ -127,17 +129,19 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
       type: "application/x-msdownload",
     });
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "other");
-
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post(
+        {
+          file,
+          documentType: "other",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${testToken}`,
+          },
+        }
+      );
 
     expect(response.status).toBe(400);
   });
@@ -149,30 +153,32 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
       type: "application/pdf",
     });
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "contract");
-
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post(
+        {
+          file,
+          documentType: "contract",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${testToken}`,
+          },
+        }
+      );
 
     expect(response.status).toBe(413);
   });
 
   it("should require authentication", async () => {
     const file = new File(["test"], "test.pdf", { type: "application/pdf" });
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "certificate");
 
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any);
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post({
+        file,
+        documentType: "certificate",
+      });
 
     expect(response.status).toBe(401);
   });
@@ -197,17 +203,20 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     const viewerToken = "mock-viewer-token";
 
     const file = new File(["test"], "test.pdf", { type: "application/pdf" });
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "certificate");
 
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${viewerToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post(
+        {
+          file,
+          documentType: "certificate",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${viewerToken}`,
+          },
+        }
+      );
 
     expect(response.status).toBe(403);
 
@@ -218,17 +227,18 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
   it("should return 404 if supplier doesn't exist", async () => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
     const file = new File(["test"], "test.pdf", { type: "application/pdf" });
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "certificate");
 
-    const response = await (client.api.suppliers as any)[
-      fakeId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${testToken}`,
+    const response = await client.api.suppliers({ id: fakeId }).documents.post(
+      {
+        file,
+        documentType: "certificate",
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      }
+    );
 
     expect(response.status).toBe(404);
   });
@@ -238,17 +248,19 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
       type: "application/pdf",
     });
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "other");
-
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post(
+        {
+          file,
+          documentType: "other",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${testToken}`,
+          },
+        }
+      );
 
     expect(response.status).toBe(200);
     if (response.data && "document" in response.data) {
@@ -263,17 +275,19 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
       type: "application/pdf",
     });
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", "certificate");
-
-    const response = await (client.api.suppliers as any)[
-      testSupplierId
-    ]!.documents.post(formData as any, {
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .suppliers({ id: testSupplierId })
+      .documents.post(
+        {
+          file,
+          documentType: "certificate",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${testToken}`,
+          },
+        }
+      );
 
     expect(response.status).toBe(200);
     if (response.data && "document" in response.data) {

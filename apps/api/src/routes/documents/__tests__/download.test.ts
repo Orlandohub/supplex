@@ -115,13 +115,13 @@ describe("GET /api/documents/:id/download", () => {
   });
 
   it("should generate signed URL for document download", async () => {
-    const response = await (client.api.documents as any)[
-      testDocumentId
-    ]!.download.get({
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .documents({ id: testDocumentId })
+      .download.get({
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      });
 
     expect(response.status).toBe(200);
     expect(response.data).toBeDefined();
@@ -134,7 +134,7 @@ describe("GET /api/documents/:id/download", () => {
 
   it("should return 404 if document doesn't exist", async () => {
     const fakeId = "00000000-0000-0000-0000-000000000000";
-    const response = await (client.api.documents as any)[fakeId]!.download.get({
+    const response = await client.api.documents({ id: fakeId }).download.get({
       headers: {
         Authorization: `Bearer ${testToken}`,
       },
@@ -144,9 +144,9 @@ describe("GET /api/documents/:id/download", () => {
   });
 
   it("should require authentication", async () => {
-    const response = await (client.api.documents as any)[
-      testDocumentId
-    ]!.download.get();
+    const response = await client.api
+      .documents({ id: testDocumentId })
+      .download.get();
 
     expect(response.status).toBe(401);
   });
@@ -182,13 +182,13 @@ describe("GET /api/documents/:id/download", () => {
     const otherToken = "mock-other-token";
 
     // Attempt to download document from different tenant
-    const response = await (client.api.documents as any)[
-      testDocumentId
-    ]!.download.get({
-      headers: {
-        Authorization: `Bearer ${otherToken}`,
-      },
-    });
+    const response = await client.api
+      .documents({ id: testDocumentId })
+      .download.get({
+        headers: {
+          Authorization: `Bearer ${otherToken}`,
+        },
+      });
 
     expect(response.status).toBe(404); // Should not find document from other tenant
 
@@ -216,13 +216,13 @@ describe("GET /api/documents/:id/download", () => {
         .returning()
     )[0]!;
 
-    const response = await (client.api.documents as any)[
-      deletedDoc.id
-    ].download.get({
-      headers: {
-        Authorization: `Bearer ${testToken}`,
-      },
-    });
+    const response = await client.api
+      .documents({ id: deletedDoc.id })
+      .download.get({
+        headers: {
+          Authorization: `Bearer ${testToken}`,
+        },
+      });
 
     expect(response.status).toBe(404);
 
