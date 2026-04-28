@@ -1,44 +1,69 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import type { EmailJobData } from "../email-queue";
+import { createMockDb, mockDbChain, type MockDb } from "../../lib/test-utils";
 
-// Mock dependencies
-const mockSendEmail: any = mock(() =>
-  Promise.resolve({ success: true, messageId: "msg-123" })
-);
-const mockRenderEmailTemplate = mock(() => "<html>Test Email</html>");
-const mockDbQuery: any = mock(() =>
-  Promise.resolve({
-    id: "notif-123",
-    status: "pending",
-    attemptCount: 0,
-  })
-);
-const mockDbUpdate = mock(() => ({
-  set: mock(() => ({
-    where: mock(() => Promise.resolve()),
-  })),
-}));
+// ─────────────────────────────────────────────────────────────────────────────
+// Module mocks. The `db` mock uses {@link createMockDb} so every chain method
+// (`select` / `insert` / `update` / `delete` / `transaction`) is present —
+// this prevents partial-shape pollution from leaking into other test files
+// in the suite. See SUP-9d.
+// ─────────────────────────────────────────────────────────────────────────────
 
-mock.module("../services/resend-email.service", () => ({
+interface SendEmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+const mockSendEmail = mock(
+  (): Promise<SendEmailResult> =>
+    Promise.resolve({ success: true, messageId: "msg-123" })
+);
+
+const mockRenderEmailTemplate = mock((): string => "<html>Test Email</html>");
+
+interface EmailNotificationFixture {
+  id: string;
+  status: "pending" | "sent" | "failed" | "bounced";
+  attemptCount: number;
+}
+
+const mockDbQuery = mock(
+  (): Promise<EmailNotificationFixture | null> =>
+    Promise.resolve({
+      id: "notif-123",
+      status: "pending",
+      attemptCount: 0,
+    })
+);
+
+const mockDb: MockDb = createMockDb({
+  queryTables: ["emailNotifications"],
+});
+
+// Replace the lazily-created `query.emailNotifications.findFirst` stub with
+// the typed fixture used across this suite, so production code that calls
+// `db.query.emailNotifications.findFirst(...)` exercises our fixture.
+mockDb.query.emailNotifications = {
+  findFirst: mockDbQuery as MockDb["query"][string]["findFirst"],
+  findMany: mock(() =>
+    Promise.resolve([])
+  ) as MockDb["query"][string]["findMany"],
+};
+
+mock.module("../../services/resend-email.service", () => ({
   sendEmail: mockSendEmail,
 }));
 
-mock.module("../templates/emails/template-renderer", () => ({
+mock.module("../../templates/emails/template-renderer", () => ({
   renderEmailTemplate: mockRenderEmailTemplate,
 }));
 
-mock.module("../lib/db", () => ({
-  db: {
-    query: {
-      emailNotifications: {
-        findFirst: mockDbQuery,
-      },
-    },
-    update: mockDbUpdate,
-  },
+mock.module("../../lib/db", () => ({
+  db: mockDb,
 }));
 
-// Import processEmailJob after mocking
+// Import processEmailJob after mocking so it picks up the typed mocks.
 import { processEmailJob } from "../../services/email-job-processor.service";
 
 describe("Email Worker", () => {
@@ -46,7 +71,7 @@ describe("Email Worker", () => {
     mockSendEmail.mockClear();
     mockRenderEmailTemplate.mockClear();
     mockDbQuery.mockClear();
-    mockDbUpdate.mockClear();
+    mockDb.update.mockClear();
 
     // Default successful responses
     mockSendEmail.mockResolvedValue({ success: true, messageId: "msg-123" });
@@ -56,6 +81,7 @@ describe("Email Worker", () => {
       status: "pending",
       attemptCount: 0,
     });
+    mockDb.update.mockImplementation(() => mockDbChain<unknown>([]));
   });
 
   describe("processEmailJob", () => {
@@ -85,7 +111,7 @@ describe("Email Worker", () => {
         "Test Email",
         "<html>Test Email</html>"
       );
-      expect(mockDbUpdate).toHaveBeenCalled();
+      expect(mockDb.update).toHaveBeenCalled();
     });
 
     it("should handle email send failure and update status", async () => {
@@ -96,7 +122,7 @@ describe("Email Worker", () => {
 
       await expect(processEmailJob(mockJobData)).rejects.toThrow();
 
-      expect(mockDbUpdate).toHaveBeenCalled();
+      expect(mockDb.update).toHaveBeenCalled();
     });
 
     it("should skip if email already sent", async () => {
@@ -141,8 +167,7 @@ describe("Email Worker", () => {
 
       await expect(processEmailJob(mockJobData)).rejects.toThrow();
 
-      // Verify attempt count would be incremented to 2
-      expect(mockDbUpdate).toHaveBeenCalled();
+      expect(mockDb.update).toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,17 @@
 import { describe, it, expect } from "bun:test";
 import app from "../../index";
 
+interface HealthResponse {
+  status: "ok" | "degraded" | "error";
+  service: string;
+  version: string;
+  timestamp: string;
+  environment: string;
+  checks: {
+    database: "connected" | "disconnected" | "unknown";
+  };
+}
+
 describe("Backend Health Check", () => {
   it("should return 200 OK with health status when database is connected", async () => {
     const response = await app.handle(
@@ -9,7 +20,7 @@ describe("Backend Health Check", () => {
 
     expect(response.status).toBe(200);
 
-    const data: any = await response.json();
+    const data = (await response.json()) as HealthResponse;
     expect(data).toMatchObject({
       status: "ok",
       service: "api",
@@ -24,7 +35,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data: any = await response.json();
+    const data = (await response.json()) as HealthResponse;
     expect(data.environment).toBeDefined();
   });
 
@@ -33,7 +44,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data: any = await response.json();
+    const data = (await response.json()) as HealthResponse;
     expect(data.service).toBe("api");
   });
 
@@ -42,7 +53,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data: any = await response.json();
+    const data = (await response.json()) as HealthResponse;
     expect(data.checks).toBeDefined();
     expect(data.checks.database).toBeDefined();
     expect(["connected", "disconnected", "unknown"]).toContain(
@@ -55,7 +66,7 @@ describe("Backend Health Check", () => {
       new Request("http://localhost:3001/api/health")
     );
 
-    const data: any = await response.json();
+    const data = (await response.json()) as HealthResponse;
     expect(() => new Date(data.timestamp)).not.toThrow();
 
     const timestamp = new Date(data.timestamp);

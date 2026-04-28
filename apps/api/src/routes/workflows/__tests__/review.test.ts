@@ -207,7 +207,7 @@ describe("GET /api/workflows/:id/review", () => {
   describe("Not found cases", () => {
     it("should return 404 if workflow not found", async () => {
       // Test workflow doesn't exist
-      const mockWorkflows: any[] = [];
+      const mockWorkflows: { id: string }[] = [];
       const workflowId = "non-existent-workflow";
       const workflow = mockWorkflows.find((w) => w.id === workflowId);
 
@@ -236,20 +236,19 @@ describe("GET /api/workflows/:id/review", () => {
       ];
       const mockDocs = [createMockDocument({ checklistItemId: "item-1" })];
 
-      const docsByItem = mockDocs.reduce(
-        (acc, doc) => {
-          acc[doc.checklistItemId] = doc;
-          return acc;
-        },
-        {} as Record<string, any>
-      );
+      const docsByItem = mockDocs.reduce<
+        Record<string, (typeof mockDocs)[number]>
+      >((acc, doc) => {
+        acc[doc.checklistItemId] = doc;
+        return acc;
+      }, {});
 
       expect(docsByItem["item-1"]).toBeDefined();
       expect(docsByItem["item-2"]).toBeUndefined();
     });
 
     it("should handle workflows with no documents", async () => {
-      const mockDocs: any[] = [];
+      const mockDocs: unknown[] = [];
 
       expect(Array.isArray(mockDocs)).toBe(true);
       expect(mockDocs).toHaveLength(0);
@@ -317,7 +316,7 @@ describe("GET /api/workflows/:id/review", () => {
     it("should handle malformed checklist JSON", async () => {
       const mockWorkflow = createMockWorkflow({ snapshotedChecklist: null });
 
-      let checklistItems: any[] = [];
+      let checklistItems: unknown[] = [];
       if (mockWorkflow.snapshotedChecklist) {
         try {
           checklistItems = Array.isArray(mockWorkflow.snapshotedChecklist)

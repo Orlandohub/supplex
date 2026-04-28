@@ -107,8 +107,8 @@ describe("Form Submissions - Create Draft API", () => {
           .use(createDraftRoute)
       );
 
-      const invalidData = { ...validDraftData };
-      delete (invalidData as any).formTemplateId;
+      const invalidData: Record<string, unknown> = { ...validDraftData };
+      delete invalidData.formTemplateId;
 
       const response = await app.handle(
         new Request("http://localhost/draft", {
@@ -155,8 +155,8 @@ describe("Form Submissions - Create Draft API", () => {
           .use(createDraftRoute)
       );
 
-      const invalidData = { ...validDraftData };
-      delete (invalidData as any).answers;
+      const invalidData: Record<string, unknown> = { ...validDraftData };
+      delete invalidData.answers;
 
       const response = await app.handle(
         new Request("http://localhost/draft", {

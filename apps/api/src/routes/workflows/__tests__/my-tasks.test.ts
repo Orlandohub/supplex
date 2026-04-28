@@ -239,7 +239,7 @@ describe("GET /api/workflows/my-tasks", () => {
   describe("Empty state", () => {
     it("should return empty array if no pending tasks", async () => {
       // Test returns [] when user has no tasks
-      const emptyTasks: any[] = [];
+      const emptyTasks: unknown[] = [];
       const response = {
         success: true,
         data: { tasks: emptyTasks },

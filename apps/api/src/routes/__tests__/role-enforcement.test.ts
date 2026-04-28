@@ -164,7 +164,7 @@ describe("SEC-005: Role Enforcement", () => {
     });
 
     test("null role fails inline check", () => {
-      const user: any = { role: null };
+      const user: { role: UserRole | null } = { role: null };
       expect(!user?.role || user.role !== UserRole.ADMIN).toBe(true);
     });
   });

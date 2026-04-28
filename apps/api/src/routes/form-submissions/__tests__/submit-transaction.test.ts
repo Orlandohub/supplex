@@ -50,6 +50,28 @@ import {
 } from "@supplex/db";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import { logger } from "../../../lib/logger";
+import { asUserRole } from "../../../lib/test-utils";
+
+/**
+ * Body of `POST /:submissionId/submit` on the success path. The route
+ * returns an `ApiResult<{ submission, stepCompleted }>`-shaped envelope;
+ * we type only the fields these transaction-safety tests assert on so
+ * that drifting unrelated fields don't churn this fixture.
+ */
+interface SubmitSuccessBody {
+  success: true;
+  data: {
+    stepCompleted: boolean;
+    [key: string]: unknown;
+  };
+}
+
+interface SubmitErrorBody {
+  success: false;
+  error: { code: string; message: string };
+}
+
+type SubmitResponseBody = SubmitSuccessBody | SubmitErrorBody;
 
 function createApp(user: AuthContext["user"]) {
   return withApiErrorHandler(
@@ -93,7 +115,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     testUser = {
       id: user1.id,
       email: user1.email,
-      role: user1.role as any,
+      role: asUserRole(user1.role),
       tenantId: tenant.id,
       fullName: user1.fullName,
     };
@@ -114,7 +136,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     secondUser = {
       id: user2.id,
       email: user2.email,
-      role: user2.role as any,
+      role: asUserRole(user2.role),
       tenantId: tenant.id,
       fullName: user2.fullName,
     };
@@ -273,8 +295,9 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
 
     expect(response.status).toBe(200);
 
-    const body: any = await response.json();
+    const body = (await response.json()) as SubmitResponseBody;
     expect(body.success).toBe(true);
+    if (!body.success) return;
     expect(body.data.stepCompleted).toBe(true);
 
     const dbSubmission = (
@@ -462,8 +485,9 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
 
     expect(response.status).toBe(200);
 
-    const body: any = await response.json();
+    const body = (await response.json()) as SubmitResponseBody;
     expect(body.success).toBe(true);
+    if (!body.success) return;
     expect(body.data.stepCompleted).toBe(false);
 
     const dbSubmission = (

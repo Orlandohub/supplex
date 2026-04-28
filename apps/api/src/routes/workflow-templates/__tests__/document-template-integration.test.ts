@@ -18,6 +18,28 @@ import { eq } from "drizzle-orm";
 import { supabaseAdmin } from "../../../lib/supabase";
 import { getErrorMessage } from "../../../lib/error-utils";
 
+/**
+ * Shape of the JSON envelope these tests assert against. The route under
+ * test (`/api/document-templates/...`) returns an `ApiResult<T>`-style
+ * `{ success, data?, error? }` body. We type the relevant branches here
+ * to avoid `data: any` parsing in each `it(...)` block.
+ */
+interface DocumentTemplateRecord {
+  id: string;
+  label: string;
+  templateName?: string;
+}
+
+interface DocumentTemplateErrorBody {
+  success: false;
+  error: { code: string; message: string };
+}
+
+interface DocumentTemplateListBody {
+  success: true;
+  data: { templates: DocumentTemplateRecord[] };
+}
+
 describe("Document Template Integration Tests", () => {
   let adminToken: string;
   let adminUserId: string;
@@ -190,7 +212,7 @@ describe("Document Template Integration Tests", () => {
     );
 
     expect(response.status).toBe(400);
-    const data: any = await response.json();
+    const data = (await response.json()) as DocumentTemplateErrorBody;
     expect(data.success).toBe(false);
     expect(data.error.code).toBe("TEMPLATE_IN_USE");
   });
@@ -206,16 +228,16 @@ describe("Document Template Integration Tests", () => {
     );
 
     expect(response.status).toBe(200);
-    const data: any = await response.json();
+    const data = (await response.json()) as DocumentTemplateListBody;
     expect(data.success).toBe(true);
     expect(Array.isArray(data.data.templates)).toBe(true);
 
     // Should include our published template
     const foundTemplate = data.data.templates.find(
-      (t: any) => t.id === testTemplateId
+      (t) => t.id === testTemplateId
     );
     expect(foundTemplate).toBeDefined();
-    expect(foundTemplate.label).toBe("Integration Test Template");
+    expect(foundTemplate?.label).toBe("Integration Test Template");
   });
 
   it("should enforce tenant isolation in workflow-template integration", async () => {

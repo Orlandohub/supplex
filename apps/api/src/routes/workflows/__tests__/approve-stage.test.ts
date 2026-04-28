@@ -622,21 +622,27 @@ describe("POST /api/workflows/:workflowId/stages/:stageId/approve", () => {
     });
 
     it("should trigger supplier approval email on Stage 3 approval", async () => {
+      // The Stage 3 fixture extends the default supplier with a
+      // `contactEmail` field consumed by the supplier-approval email job.
+      // We type the override locally so the property is statically known
+      // on `stage3.workflow.supplier`, instead of asserting through
+      // `as any` at the read site.
+      const supplierWithEmail = {
+        id: "supplier-123",
+        name: "Test Supplier Co.",
+        contactEmail: "contact@testsupplier.com",
+      };
       const stage3 = createMockStage({
         stageNumber: 3,
         workflow: {
           ...createMockStage().workflow,
-          supplier: {
-            id: "supplier-123",
-            name: "Test Supplier Co.",
-            contactEmail: "contact@testsupplier.com",
-          },
+          supplier: supplierWithEmail,
         },
       });
 
       const emailData = {
-        supplierName: stage3.workflow.supplier.name,
-        supplierEmail: (stage3.workflow.supplier as any).contactEmail,
+        supplierName: supplierWithEmail.name,
+        supplierEmail: supplierWithEmail.contactEmail,
         workflowId: stage3.workflowId,
       };
 

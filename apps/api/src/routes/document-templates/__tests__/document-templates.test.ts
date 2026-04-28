@@ -11,6 +11,51 @@ import { documentTemplate, tenants, users } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { supabaseAdmin } from "../../../lib/supabase";
 
+// ─── Typed response shapes for `response.json()` parses ─────────────────────
+
+interface DocumentTemplateRecord {
+  id: string;
+  templateName: string;
+  status: "draft" | "published" | "archived";
+  isDefault?: boolean;
+  deletedAt?: string | null;
+}
+
+interface DocumentTemplateOption {
+  id: string;
+  label: string;
+}
+
+interface CreateOrUpdateBody {
+  success: true;
+  data: DocumentTemplateRecord;
+}
+
+interface ListBody {
+  success: true;
+  data: { templates: DocumentTemplateRecord[] };
+}
+
+interface PublishedListBody {
+  success: true;
+  data: { templates: DocumentTemplateOption[] };
+}
+
+interface DeleteBody {
+  success: true;
+  data?: { id: string };
+}
+
+interface ApiErrorBody {
+  success: false;
+  error: { code: string; message: string };
+}
+
+type CreateOrUpdateResponse = CreateOrUpdateBody | ApiErrorBody;
+type ListResponse = ListBody | ApiErrorBody;
+type PublishedResponse = PublishedListBody | ApiErrorBody;
+type DeleteResponse = DeleteBody | ApiErrorBody;
+
 describe("Document Templates API Tests", () => {
   let adminToken: string;
   let adminUserId: string;
@@ -111,8 +156,9 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data: any = await response.json();
+      const data = (await response.json()) as CreateOrUpdateResponse;
       expect(data.success).toBe(true);
+      if (!data.success) return;
       expect(data.data).toBeDefined();
       expect(data.data.templateName).toBe("ISO Certification Documents");
 
@@ -137,7 +183,10 @@ describe("Document Templates API Tests", () => {
         })
       );
 
-      const data1: any = await response1.json();
+      const data1 = (await response1.json()) as CreateOrUpdateResponse;
+      if (!data1.success) {
+        throw new Error("Expected first default-template creation to succeed");
+      }
       const template1Id = data1.data.id;
 
       // Create second default
@@ -183,8 +232,9 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data: any = await response.json();
+      const data = (await response.json()) as ListResponse;
       expect(data.success).toBe(true);
+      if (!data.success) return;
       expect(Array.isArray(data.data.templates)).toBe(true);
       expect(data.data.templates.length).toBeGreaterThan(0);
     });
@@ -203,11 +253,12 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data: any = await response.json();
+      const data = (await response.json()) as ListResponse;
       expect(data.success).toBe(true);
+      if (!data.success) return;
 
       // All returned templates should be published
-      data.data.templates.forEach((template: any) => {
+      data.data.templates.forEach((template) => {
         expect(template.status).toBe("published");
       });
     });
@@ -225,14 +276,16 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data: any = await response.json();
+      const data = (await response.json()) as PublishedResponse;
       expect(data.success).toBe(true);
+      if (!data.success) return;
       expect(Array.isArray(data.data.templates)).toBe(true);
 
       // Verify format: { id, label }
       if (data.data.templates.length > 0) {
-        expect(data.data.templates[0]!.id).toBeDefined();
-        expect(data.data.templates[0]!.label).toBeDefined();
+        const first = data.data.templates[0];
+        expect(first?.id).toBeDefined();
+        expect(first?.label).toBeDefined();
       }
     });
   });
@@ -257,8 +310,9 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(response.status).toBe(200);
-      const data: any = await response.json();
+      const data = (await response.json()) as CreateOrUpdateResponse;
       expect(data.success).toBe(true);
+      if (!data.success) return;
       expect(data.data.templateName).toBe("Updated ISO Documents");
       expect(data.data.status).toBe("archived");
     });
@@ -303,7 +357,11 @@ describe("Document Templates API Tests", () => {
         })
       );
 
-      const createData: any = await createResponse.json();
+      const createData =
+        (await createResponse.json()) as CreateOrUpdateResponse;
+      if (!createData.success) {
+        throw new Error("Expected template-to-delete creation to succeed");
+      }
       const templateId = createData.data.id;
 
       // Delete it
@@ -317,7 +375,7 @@ describe("Document Templates API Tests", () => {
       );
 
       expect(deleteResponse.status).toBe(200);
-      const deleteData: any = await deleteResponse.json();
+      const deleteData = (await deleteResponse.json()) as DeleteResponse;
       expect(deleteData.success).toBe(true);
 
       // Verify soft delete
@@ -390,9 +448,12 @@ describe("Document Templates API Tests", () => {
         })
       );
 
-      const data: any = await response.json();
+      const data = (await response.json()) as ListResponse;
 
       // Should only see their own tenant's templates (none created)
+      if (!data.success) {
+        throw new Error("Expected list-templates request to succeed");
+      }
       expect(data.data.templates.length).toBe(0);
 
       // Cleanup

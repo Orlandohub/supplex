@@ -120,15 +120,23 @@ const _exportedPublicJWK = async () => {
   return jwk;
 };
 
-// We mock the jose.createRemoteJWKSet so it returns a local key set
+// We mock the jose.createRemoteJWKSet so it returns a local key set.
+//
+// jose's `createRemoteJWKSet` returns a `JWTVerifyGetKey` resolver:
+// `(protectedHeader: JWSHeaderParameters, token: FlattenedJWSInput) =>
+// Promise<KeyLike | Uint8Array>`. We import the public types from jose
+// rather than reaching for `: any`, which previously masked any drift in
+// jose's public API.
 mock.module("jose", () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const actualJose = require("jose");
   return {
     ...actualJose,
     createRemoteJWKSet: (_url: URL) => {
-      // Return a function compatible with jose.FlattenedJWSInput key resolver
-      return async (protectedHeader: any, _token: any) => {
+      return async (
+        protectedHeader: jose.JWSHeaderParameters,
+        _token: jose.FlattenedJWSInput
+      ): Promise<jose.KeyLike | Uint8Array> => {
         if (protectedHeader.kid === "test-kid") {
           return es256PublicKey;
         }

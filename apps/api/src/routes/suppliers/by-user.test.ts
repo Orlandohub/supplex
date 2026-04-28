@@ -15,6 +15,23 @@ import { UserRole } from "@supplex/types";
 // Create treaty client
 const client = treaty<App>(app);
 
+interface SupplierByUserError {
+  success: false;
+  error: { code: string; message: string };
+}
+
+/**
+ * Treaty puts non-2xx response bodies in `response.error.value`. Centralised
+ * so each test can assert on `error.code` / `error.message` without mixing
+ * `response.data?.error` (success-only path) with `response.error.value`.
+ */
+function errorBody(
+  error: { value: unknown } | null
+): SupplierByUserError | null {
+  if (!error) return null;
+  return error.value as SupplierByUserError;
+}
+
 // Test data
 let testTenantId: string;
 let testUserId: string;
@@ -194,9 +211,9 @@ describe("GET /api/suppliers/by-user/:userId", () => {
   });
 
   it("should return supplier for valid supplier_user", async () => {
-    const response = await (client.api.suppliers["by-user"] as any)[
-      testSupplierUserId
-    ].get({
+    const response = await client.api.suppliers["by-user"]({
+      userId: testSupplierUserId,
+    }).get({
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -215,32 +232,26 @@ describe("GET /api/suppliers/by-user/:userId", () => {
   });
 
   it("should return 404 for user with no associated supplier", async () => {
-    const response = await (client.api.suppliers["by-user"] as any)[
-      testUnassociatedUserId
-    ].get({
+    const response = await client.api.suppliers["by-user"]({
+      userId: testUnassociatedUserId,
+    }).get({
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
     });
 
     expect(response.status).toBe(404);
-    expect(response.data).toBeDefined();
-
-    if (response.data && "success" in response.data) {
-      expect(response.data.success).toBe(false);
-      expect(response.data.error).toBeDefined();
-      expect(response.data.error?.code).toBe("SUPPLIER_NOT_FOUND");
-      expect(response.data.error?.message).toBe(
-        "No supplier associated with this user"
-      );
-    }
+    const body = errorBody(response.error);
+    expect(body?.success).toBe(false);
+    expect(body?.error.code).toBe("SUPPLIER_NOT_FOUND");
+    expect(body?.error.message).toBe("No supplier associated with this user");
   });
 
   it("should enforce tenant isolation", async () => {
     // Try to access other tenant's supplier user from current tenant
-    const response = await (client.api.suppliers["by-user"] as any)[
-      otherTenantUserId
-    ].get({
+    const response = await client.api.suppliers["by-user"]({
+      userId: otherTenantUserId,
+    }).get({
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -248,45 +259,33 @@ describe("GET /api/suppliers/by-user/:userId", () => {
 
     // Should return 404 because tenant isolation prevents cross-tenant access
     expect(response.status).toBe(404);
-    expect(response.data).toBeDefined();
-
-    if (response.data && "success" in response.data) {
-      expect(response.data.success).toBe(false);
-      expect(response.data.error?.code).toBe("SUPPLIER_NOT_FOUND");
-    }
+    const body = errorBody(response.error);
+    expect(body?.error.code).toBe("SUPPLIER_NOT_FOUND");
   });
 
   it("should return 401 without authentication", async () => {
-    const response = await (client.api.suppliers["by-user"] as any)[
-      testSupplierUserId
-    ].get();
+    const response = await client.api.suppliers["by-user"]({
+      userId: testSupplierUserId,
+    }).get();
 
     expect(response.status).toBe(401);
-    expect(response.data).toBeDefined();
-
-    if (response.data && "success" in response.data) {
-      expect(response.data.success).toBe(false);
-      expect(response.data.error?.code).toBe("UNAUTHORIZED");
-    }
+    const body = errorBody(response.error);
+    expect(body?.error.code).toBe("UNAUTHORIZED");
   });
 
   it("should return 404 for non-existent user", async () => {
     const fakeUserId = "00000000-0000-0000-0000-000000000000";
 
-    const response = await (client.api.suppliers["by-user"] as any)[
-      fakeUserId
-    ].get({
+    const response = await client.api.suppliers["by-user"]({
+      userId: fakeUserId,
+    }).get({
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
     });
 
     expect(response.status).toBe(404);
-    expect(response.data).toBeDefined();
-
-    if (response.data && "success" in response.data) {
-      expect(response.data.success).toBe(false);
-      expect(response.data.error?.code).toBe("SUPPLIER_NOT_FOUND");
-    }
+    const body = errorBody(response.error);
+    expect(body?.error.code).toBe("SUPPLIER_NOT_FOUND");
   });
 });

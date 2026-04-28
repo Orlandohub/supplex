@@ -46,6 +46,23 @@ import {
 } from "@supplex/db";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import { logger } from "../../../lib/logger";
+import { asUserRole } from "../../../lib/test-utils";
+
+interface SubmissionGetSuccess {
+  success: true;
+  data: {
+    canValidate: boolean;
+    isReadOnly: boolean;
+    [key: string]: unknown;
+  };
+}
+
+interface SubmissionGetError {
+  success: false;
+  error: { code: string; message: string };
+}
+
+type SubmissionGetBody = SubmissionGetSuccess | SubmissionGetError;
 
 function createApp(user: AuthContext["user"]) {
   return withApiErrorHandler(
@@ -92,7 +109,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     submitterUser = {
       id: u1.id,
       email: u1.email,
-      role: u1.role as any,
+      role: asUserRole(u1.role),
       tenantId: tenant.id,
       fullName: u1.fullName,
     };
@@ -113,7 +130,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     validatorUser = {
       id: u2.id,
       email: u2.email,
-      role: u2.role as any,
+      role: asUserRole(u2.role),
       tenantId: tenant.id,
       fullName: u2.fullName,
     };
@@ -262,8 +279,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body: any = await response.json();
+    const body = (await response.json()) as SubmissionGetBody;
     expect(body.success).toBe(true);
+    if (!body.success) return;
     expect(body.data.canValidate).toBe(false);
     expect(body.data.isReadOnly).toBe(false);
   });
@@ -294,8 +312,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body: any = await response.json();
+    const body = (await response.json()) as SubmissionGetBody;
     expect(body.success).toBe(true);
+    if (!body.success) return;
     expect(body.data.canValidate).toBe(true);
     expect(body.data.isReadOnly).toBe(true);
   });
@@ -327,8 +346,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body: any = await response.json();
+    const body = (await response.json()) as SubmissionGetBody;
     expect(body.success).toBe(true);
+    if (!body.success) return;
     expect(body.data.canValidate).toBe(false);
     expect(body.data.isReadOnly).toBe(false);
   });
@@ -357,8 +377,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     );
 
     expect(response.status).toBe(200);
-    const body: any = await response.json();
+    const body = (await response.json()) as SubmissionGetBody;
     expect(body.success).toBe(true);
+    if (!body.success) return;
     expect(body.data.canValidate).toBe(true);
     expect(body.data.isReadOnly).toBe(true);
   });

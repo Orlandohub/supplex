@@ -582,7 +582,7 @@ describe("POST /api/workflows/initiate", () => {
  *     );
  *
  *     expect(response.status).toBe(201);
- *     const body: any = await response.json();
+ *     const body = (await response.json()) as { success: boolean };
  *     expect(body.success).toBe(true);
  *   });
  * });
