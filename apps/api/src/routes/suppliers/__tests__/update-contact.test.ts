@@ -1,8 +1,23 @@
 import { describe, it, expect } from "bun:test";
 import { Elysia, t } from "elysia";
 import type { AuthContext } from "../../../lib/rbac/middleware";
+import type { ApiResult } from "@supplex/types";
 import { UserRole } from "@supplex/types";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import { expectErrResult, withApiErrorHandler } from "../../../lib/test-utils";
+
+/**
+ * Minimal context shape for the simulated PATCH handler below. The real
+ * route's Elysia handler exposes additional fields, but this test stub only
+ * inspects authorization (`user`) and writes the response status (`set`).
+ *
+ * `set.status` mirrors Elysia's own widened type (numeric code OR named
+ * status string like "Forbidden") so the inline handler stays assignable to
+ * Elysia's `InlineHandler` parameter contract.
+ */
+interface ContactPatchContext {
+  readonly user: AuthContext["user"] | undefined;
+  set: { status?: number | string };
+}
 
 /**
  * Backend Unit Tests for Supplier Contact Update Endpoint
@@ -48,13 +63,11 @@ function createTestRoute(user: AuthContext["user"]) {
       }))
       .patch(
         "/:id/contact",
-        async ({ params: _params, body: _body, user, set }: any) => {
+        async ({ user, set }: ContactPatchContext) => {
           // Authorization check (same as real route)
           if (
             !user?.role ||
-            ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(
-              user.role as UserRole
-            )
+            ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
           ) {
             set.status = 403;
             return {
@@ -120,7 +133,8 @@ describe("Supplier Contact Update API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("FORBIDDEN");
     });
   });
@@ -261,7 +275,8 @@ describe("Supplier Contact Update API", () => {
         })
       );
 
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
 
       expect(result).toHaveProperty("success", false);
       expect(result).toHaveProperty("error");

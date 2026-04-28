@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import type { ApiResult } from "@supplex/types";
 import { ApiError } from "./errors";
 
 /**
@@ -169,4 +170,73 @@ export class MockDbChain<T> implements PromiseLike<T[]> {
  */
 export function mockDbChain<T>(rows: T[]): MockDbChain<T> {
   return new MockDbChain(rows);
+}
+
+/**
+ * Asserts that a parsed API response is the success branch and that `data`
+ * is present, narrowing `result` to `{ success: true; data: T }` for the
+ * remainder of the test.
+ *
+ * Throws (failing the test) with a descriptive message that includes the
+ * server-provided error code+message when the response is the error branch,
+ * which is much more useful than a bare `expect(result.success).toBe(true)`
+ * failure.
+ *
+ * Usage:
+ *
+ *   const result = (await response.json()) as ApiResult<MyData>;
+ *   expectOkResult(result);
+ *   expect(result.data.field).toBe("value"); // result.data narrowed to MyData
+ */
+export function expectOkResult<T>(
+  result: ApiResult<T>
+): asserts result is { success: true; data: T } {
+  if (!result.success) {
+    throw new Error(
+      `Expected success result, got error ${result.error.code}: ${result.error.message}`
+    );
+  }
+  if (result.data === undefined) {
+    throw new Error(
+      "Expected success result with `data`, but `data` was undefined. Use `expectOkVoidResult` for void operations."
+    );
+  }
+}
+
+/**
+ * Asserts that a parsed API response is the success branch *without* `data`,
+ * narrowing `result` to `{ success: true }`. Use for DELETE-style routes
+ * that return `{ success: true }` with no payload.
+ */
+export function expectOkVoidResult(
+  result: ApiResult
+): asserts result is { success: true } {
+  if (!result.success) {
+    throw new Error(
+      `Expected success result, got error ${result.error.code}: ${result.error.message}`
+    );
+  }
+}
+
+/**
+ * Asserts that a parsed API response is the error branch, narrowing
+ * `result` to the error variant for the remainder of the test.
+ *
+ * Usage:
+ *
+ *   const result = (await response.json()) as ApiResult<unknown>;
+ *   expectErrResult(result);
+ *   expect(result.error.code).toBe("VALIDATION_ERROR");
+ */
+export function expectErrResult(
+  result: ApiResult
+): asserts result is {
+  success: false;
+  error: { code: string; message: string };
+} {
+  if (result.success) {
+    throw new Error(
+      `Expected error result, got success: ${JSON.stringify(result.data)}`
+    );
+  }
 }

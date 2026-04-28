@@ -2,8 +2,30 @@ import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { supplierDetailRoutes } from "../detail";
 import type { AuthContext } from "../../../lib/rbac/middleware";
+import type { ApiResult, Supplier } from "@supplex/types";
 import { UserRole } from "@supplex/types";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import {
+  expectErrResult,
+  expectOkResult,
+  withApiErrorHandler,
+} from "../../../lib/test-utils";
+
+/**
+ * Response body shape for `GET /api/suppliers/:id`. The route returns the
+ * supplier row joined with creator metadata (see
+ * `apps/api/src/routes/suppliers/detail.ts`).
+ */
+interface SupplierDetailData {
+  supplier: Supplier & {
+    createdByName?: string;
+    createdByEmail?: string | null;
+  };
+}
+
+/** Response body shape for the soft-delete endpoint. */
+interface SupplierDeleteData {
+  message: string;
+}
 
 // Mock data
 const mockAdminUser: AuthContext["user"] = {
@@ -85,9 +107,9 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SupplierDetailData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data).toHaveProperty("supplier");
     });
 
@@ -103,9 +125,9 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
 
-      expect(result.success).toBe(false);
       expect(result.error.code).toBe("INVALID_ID");
       expect(result.error.message).toContain("UUID");
     });
@@ -124,9 +146,9 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(404);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
 
-      expect(result.success).toBe(false);
       expect(result.error.code).toBe("NOT_FOUND");
     });
 
@@ -171,9 +193,9 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(404);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
 
-      expect(result.success).toBe(false);
       expect(result.error.code).toBe("NOT_FOUND");
       expect(result.error.message).toContain("access");
     });
@@ -190,7 +212,8 @@ describe("Supplier Detail API", () => {
       );
 
       if (response.status === 200) {
-        const result = (await response.json()) as any;
+        const result = (await response.json()) as ApiResult<SupplierDetailData>;
+        expectOkResult(result);
         expect(result.data.supplier).toBeDefined();
         // The response should include created_by user information
         // This is verified by the join in the query
@@ -317,7 +340,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error).toBeDefined();
     });
 
@@ -337,7 +361,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("INVALID_STATUS");
     });
 
@@ -357,7 +382,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("INVALID_ID");
     });
 
@@ -380,7 +406,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(404);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("NOT_FOUND");
     });
 
@@ -482,7 +509,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error).toBeDefined();
     });
 
@@ -500,7 +528,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error).toBeDefined();
     });
 
@@ -518,7 +547,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("INVALID_ID");
     });
 
@@ -539,7 +569,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(404);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("NOT_FOUND");
     });
 
@@ -576,8 +607,8 @@ describe("Supplier Detail API", () => {
       );
 
       if (response.status === 200) {
-        const result = (await response.json()) as any;
-        expect(result.success).toBe(true);
+        const result = (await response.json()) as ApiResult<SupplierDeleteData>;
+        expectOkResult(result);
         expect(result.data.message).toContain("deleted successfully");
       }
     });
@@ -616,7 +647,8 @@ describe("Supplier Detail API", () => {
       );
 
       expect(response.status).toBe(404);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("NOT_FOUND");
     });
   });
