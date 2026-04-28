@@ -2,8 +2,9 @@ import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { createSupplierRoute } from "../create";
 import type { AuthContext } from "../../../lib/rbac/middleware";
+import type { ApiResult } from "@supplex/types";
 import { UserRole } from "@supplex/types";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import { expectErrResult, withApiErrorHandler } from "../../../lib/test-utils";
 
 // Mock data
 const mockAdminUser: AuthContext["user"] = {
@@ -120,7 +121,8 @@ describe("Supplier Create API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error).toHaveProperty("code");
       expect(result.error.code).toBe("FORBIDDEN");
     });
@@ -143,7 +145,8 @@ describe("Supplier Create API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error).toHaveProperty("code");
       expect(result.error.code).toBe("FORBIDDEN");
     });
@@ -155,8 +158,7 @@ describe("Supplier Create API", () => {
           .use(createSupplierRoute)
       );
 
-      const invalidData = { ...validSupplierData };
-      delete (invalidData as any).name;
+      const { name: _excludedName, ...invalidData } = validSupplierData;
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -179,8 +181,8 @@ describe("Supplier Create API", () => {
           .use(createSupplierRoute)
       );
 
-      const invalidData = { ...validSupplierData };
-      delete (invalidData as any).contactEmail;
+      const { contactEmail: _excludedContactEmail, ...invalidData } =
+        validSupplierData;
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -219,8 +221,8 @@ describe("Supplier Create API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
-      expect(result.success).toBe(false);
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("VALIDATION_ERROR");
     });
 
@@ -247,8 +249,8 @@ describe("Supplier Create API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
-      expect(result.success).toBe(false);
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("VALIDATION_ERROR");
     });
 
@@ -288,9 +290,11 @@ describe("Supplier Create API", () => {
           .use(createSupplierRoute)
       );
 
-      const dataWithoutOptionals = { ...validSupplierData };
-      delete (dataWithoutOptionals as any).website;
-      delete (dataWithoutOptionals as any).notes;
+      const {
+        website: _excludedWebsite,
+        notes: _excludedNotes,
+        ...dataWithoutOptionals
+      } = validSupplierData;
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {
@@ -313,8 +317,8 @@ describe("Supplier Create API", () => {
           .use(createSupplierRoute)
       );
 
-      const dataWithoutStatus = { ...validSupplierData };
-      delete (dataWithoutStatus as any).status;
+      const { status: _excludedStatus, ...dataWithoutStatus } =
+        validSupplierData;
 
       const response = await app.handle(
         new Request("http://localhost/suppliers", {

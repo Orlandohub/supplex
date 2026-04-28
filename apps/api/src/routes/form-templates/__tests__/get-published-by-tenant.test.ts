@@ -1,9 +1,28 @@
 import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { getPublishedFormTemplatesRoute } from "../get-published-by-tenant";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import {
+  expectErrResult,
+  expectOkResult,
+  withApiErrorHandler,
+} from "../../../lib/test-utils";
 import type { AuthContext } from "../../../lib/rbac/middleware";
+import type { ApiResult } from "@supplex/types";
 import { UserRole } from "@supplex/types";
+
+/**
+ * Dropdown-option shape returned by `GET /api/form-templates/published`.
+ * The route formats published templates as `{ id, label }` pairs where
+ * `label` is `"Template Name vX"`.
+ */
+interface PublishedTemplateOption {
+  id: string;
+  label: string;
+}
+
+interface PublishedTemplatesData {
+  templates: PublishedTemplateOption[];
+}
 
 /**
  * Unit Tests: GET /api/form-templates/published
@@ -137,8 +156,9 @@ describe("GET /api/form-templates/published", () => {
       );
 
       if (response.status === 200) {
-        const result = (await response.json()) as any;
-        expect(result.success).toBe(true);
+        const result =
+          (await response.json()) as ApiResult<PublishedTemplatesData>;
+        expectOkResult(result);
         expect(result.data).toBeDefined();
         expect(result.data.templates).toBeInstanceOf(Array);
       }
@@ -158,12 +178,14 @@ describe("GET /api/form-templates/published", () => {
       );
 
       if (response.status === 200) {
-        const result = (await response.json()) as any;
+        const result =
+          (await response.json()) as ApiResult<PublishedTemplatesData>;
+        expectOkResult(result);
         const templates = result.data.templates;
 
         if (templates.length > 0) {
           // Each template should have id and label
-          templates.forEach((template: any) => {
+          templates.forEach((template) => {
             expect(template.id).toBeDefined();
             expect(template.label).toBeDefined();
             expect(typeof template.id).toBe("string");
@@ -226,7 +248,9 @@ describe("GET /api/form-templates/published", () => {
       );
 
       if (response.status === 200) {
-        const result = (await response.json()) as any;
+        const result =
+          (await response.json()) as ApiResult<PublishedTemplatesData>;
+        expectOkResult(result);
         const templates = result.data.templates;
 
         // All returned templates should be published
@@ -253,8 +277,8 @@ describe("GET /api/form-templates/published", () => {
       );
 
       if (response.status === 500) {
-        const result = (await response.json()) as any;
-        expect(result.success).toBe(false);
+        const result = (await response.json()) as ApiResult;
+        expectErrResult(result);
         expect(result.error).toBeDefined();
         expect(result.error.code).toBe("INTERNAL_SERVER_ERROR");
       }
@@ -276,15 +300,19 @@ describe("GET /api/form-templates/published", () => {
       );
 
       if (response.status === 200) {
-        const result = (await response.json()) as any;
+        const result =
+          (await response.json()) as ApiResult<PublishedTemplatesData>;
+        expectOkResult(result);
         const templates = result.data.templates;
 
         if (templates.length > 1) {
           // Verify alphabetical order
           for (let i = 0; i < templates.length - 1; i++) {
             const currentName = templates[i]!.label.split(" v")[0];
-            const nextName = templates[i + 1].label.split(" v")[0];
-            expect(currentName.localeCompare(nextName)).toBeLessThanOrEqual(0);
+            const nextName = templates[i + 1]!.label.split(" v")[0];
+            expect(currentName!.localeCompare(nextName!)).toBeLessThanOrEqual(
+              0
+            );
           }
         }
       }

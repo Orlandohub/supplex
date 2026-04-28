@@ -2,8 +2,9 @@ import { describe, it, expect } from "bun:test";
 import { Elysia } from "elysia";
 import { updateSupplierRoute } from "../update";
 import type { AuthContext } from "../../../lib/rbac/middleware";
+import type { ApiResult } from "@supplex/types";
 import { UserRole } from "@supplex/types";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import { expectErrResult, withApiErrorHandler } from "../../../lib/test-utils";
 
 // Mock data
 const mockAdminUser: AuthContext["user"] = {
@@ -97,7 +98,8 @@ describe("Supplier Update API", () => {
       );
 
       expect(response.status).toBe(403);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("FORBIDDEN");
     });
 
@@ -119,7 +121,8 @@ describe("Supplier Update API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("INVALID_ID");
     });
 
@@ -143,7 +146,8 @@ describe("Supplier Update API", () => {
       );
 
       expect(response.status).toBe(400);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
       expect(result.error.code).toBe("VALIDATION_ERROR");
     });
 

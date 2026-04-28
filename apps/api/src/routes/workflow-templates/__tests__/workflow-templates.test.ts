@@ -6,8 +6,9 @@ import { getWorkflowTemplateRoute } from "../get";
 import { updateWorkflowTemplateRoute } from "../update";
 import { deleteWorkflowTemplateRoute } from "../delete";
 import type { AuthContext } from "../../../lib/rbac/middleware";
+import type { ApiResult } from "@supplex/types";
 import { UserRole } from "@supplex/types";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import { expectErrResult, withApiErrorHandler } from "../../../lib/test-utils";
 
 // Mock data
 const mockAdminUser: AuthContext["user"] = {
@@ -81,8 +82,9 @@ describe("Workflow Template API", () => {
       );
 
       expect(response.status).toBeOneOf([401, 403]);
-      const result = (await response.json()) as any;
-      expect(result.error?.code).toBeOneOf(["FORBIDDEN", "MISSING_TOKEN"]);
+      const result = (await response.json()) as ApiResult;
+      expectErrResult(result);
+      expect(result.error.code).toBeOneOf(["FORBIDDEN", "MISSING_TOKEN"]);
     });
 
     it("should return 422 for missing required field (name)", async () => {
@@ -92,8 +94,7 @@ describe("Workflow Template API", () => {
           .use(createWorkflowTemplateRoute)
       );
 
-      const invalidData = { ...validTemplateData };
-      delete (invalidData as any).name;
+      const { name: _excludedName, ...invalidData } = validTemplateData;
 
       const response = await app.handle(
         new Request("http://localhost/", {
@@ -115,8 +116,8 @@ describe("Workflow Template API", () => {
           .use(createWorkflowTemplateRoute)
       );
 
-      const invalidData = { ...validTemplateData };
-      delete (invalidData as any).processType;
+      const { processType: _excludedProcessType, ...invalidData } =
+        validTemplateData;
 
       const response = await app.handle(
         new Request("http://localhost/", {

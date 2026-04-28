@@ -1,9 +1,21 @@
 import { describe, it, expect, mock } from "bun:test";
 import { Elysia } from "elysia";
+import type { ApiResult, Supplier } from "@supplex/types";
 import { UserRole } from "@supplex/types";
 import { listSuppliersRoute } from "../list";
 import type { AuthContext } from "../../../lib/rbac/middleware";
-import { withApiErrorHandler } from "../../../lib/test-utils";
+import { expectOkResult, withApiErrorHandler } from "../../../lib/test-utils";
+
+/**
+ * Response body shape for `GET /api/suppliers`. Mirrors the route's
+ * paginated envelope (see `apps/api/src/routes/suppliers/list.ts`).
+ */
+interface SuppliersListData {
+  suppliers: Supplier[];
+  total: number;
+  page: number;
+  limit: number;
+}
 
 // Mock data
 const mockUser: AuthContext["user"] = {
@@ -100,9 +112,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data).toHaveProperty("suppliers");
       expect(result.data).toHaveProperty("total");
       expect(result.data).toHaveProperty("page");
@@ -119,9 +131,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
     });
 
@@ -137,9 +149,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
     });
 
@@ -153,9 +165,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
     });
 
@@ -169,9 +181,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.page).toBe(2);
       expect(result.data.limit).toBe(10);
     });
@@ -186,9 +198,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.limit).toBe(100);
     });
 
@@ -202,9 +214,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
     });
 
@@ -218,9 +230,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
     });
 
@@ -236,9 +248,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
       expect(result.data.page).toBe(1);
       expect(result.data.limit).toBe(20);
@@ -281,9 +293,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.page).toBe(1);
     });
 
@@ -297,9 +309,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.limit).toBe(20);
     });
 
@@ -313,9 +325,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.suppliers).toBeDefined();
     });
 
@@ -338,10 +350,9 @@ describe("Supplier List API", () => {
       const executionTime = endTime - startTime;
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
-      expect(result.success).toBe(true);
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      // Verify response structure is correct for large datasets
       expect(result.data).toHaveProperty("suppliers");
       expect(result.data).toHaveProperty("total");
       expect(result.data).toHaveProperty("page");
@@ -369,9 +380,9 @@ describe("Supplier List API", () => {
       );
 
       expect(response.status).toBe(200);
-      const result = (await response.json()) as any;
+      const result = (await response.json()) as ApiResult<SuppliersListData>;
+      expectOkResult(result);
 
-      expect(result.success).toBe(true);
       expect(result.data.page).toBe(50);
       expect(result.data.limit).toBe(20);
       // Verify offset calculation is correct: (50-1) * 20 = 980
