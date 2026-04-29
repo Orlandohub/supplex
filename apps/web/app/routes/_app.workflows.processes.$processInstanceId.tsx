@@ -73,6 +73,10 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch process details
+    // NOTE: dynamic-path migration deferred to PR 10c — coupled with the
+    // SerializeFrom prop-typing fix (Date → string) for ProcessInstance,
+    // StepInstance[], TaskInstance[], CommentThread[]. See SUP-10c plan.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const processResponse = await (client.api.workflows.processes as any)[
       processInstanceId
     ].get();

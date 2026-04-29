@@ -8,6 +8,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import {
@@ -235,9 +236,13 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await (client.api["workflow-templates"] as any)[
-        templateId
-      ].steps.get();
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: templateId,
+          templateId,
+        }),
+        "steps"
+      ).steps.get();
 
       if (response.error) {
         throw new Error("Failed to fetch steps");
@@ -327,7 +332,11 @@ export function WorkflowStepBuilder({
 
     try {
       if (editingStep) {
-        // Update existing step
+        // NOTE: dynamic-path migration deferred to PR 10c — `stepData` retains
+        // form-only fields (`validationApproverRoles`, `validationDueDays`)
+        // that don't match the API's body type. Cleaning the payload shape is
+        // body-typing work for SUP-10c.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const response = await (client.api["workflow-templates"] as any)[
           templateId
         ].steps[editingStep.id].put(stepData);
@@ -341,7 +350,8 @@ export function WorkflowStepBuilder({
           description: "Workflow step updated successfully",
         });
       } else {
-        // Create new step
+        // NOTE: dynamic-path migration deferred to PR 10c — see PUT branch above.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const response = await (client.api["workflow-templates"] as any)[
           templateId
         ].steps.post(stepData);
@@ -377,9 +387,15 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await (client.api["workflow-templates"] as any)[
-        templateId
-      ].steps[stepId].delete();
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: templateId,
+          templateId,
+        }),
+        "steps"
+      )
+        .steps({ stepId })
+        .delete();
 
       if (response.error) {
         throw new Error("Failed to delete step");
@@ -446,9 +462,13 @@ export function WorkflowStepBuilder({
     const client = createClientEdenTreatyClient(token);
 
     try {
-      const response = await (client.api["workflow-templates"] as any)[
-        templateId
-      ].steps.reorder.put({
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: templateId,
+          templateId,
+        }),
+        "steps"
+      ).steps.reorder.put({
         stepOrders: updates,
       });
 

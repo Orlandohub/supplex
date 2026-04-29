@@ -12,6 +12,7 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 import { Plus, CheckCircle, Copy } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 import { AddSectionModal } from "./AddSectionModal";
@@ -87,9 +88,13 @@ export function FormTemplateBuilder({
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["form-templates"] as any)[
-        template.id
-      ].publish.patch();
+      const response = await withTreatyBranch(
+        client.api["form-templates"]({
+          id: template.id,
+          templateId: template.id,
+        }),
+        "publish"
+      ).publish.patch();
 
       if (response.error) {
         const errorData = response.error as any;

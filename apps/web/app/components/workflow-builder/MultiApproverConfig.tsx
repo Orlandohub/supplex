@@ -2,6 +2,14 @@
  * Multi-Approver Configuration Component
  * Manages approvers for multi-approver workflow steps
  * Updated: Story 2.2.14 - Removed versioning
+ *
+ * NOTE (SUP-10b / SUP-12): This component is currently unreferenced and
+ * targets an `/api/workflow-templates/:templateId/steps/:stepId/approvers`
+ * route that does NOT exist on the API. The current API stores approvers
+ * inline on the step (`validationConfig.approverRoles[]`). The three
+ * `as any` casts on the Treaty client below were masking this dead route
+ * and remain in place pending decision in SUP-12 — either wire up a real
+ * approvers route on the API or delete this component.
  */
 
 import { useState, useEffect } from "react";

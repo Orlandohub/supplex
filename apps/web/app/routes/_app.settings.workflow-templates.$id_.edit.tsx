@@ -57,6 +57,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch template with versions
+    // NOTE: dynamic-path migration deferred to PR 10c — coupled with the
+    // SerializeFrom prop-typing fix for `WorkflowTemplate` (Date → string).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templateResponse = await (client.api["workflow-templates"] as any)[
       id
     ].get();

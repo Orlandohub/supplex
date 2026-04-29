@@ -57,12 +57,14 @@ export function EditSectionModal({
     setIsSubmitting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["form-templates"].sections as any)[
-        section.id
-      ].patch({
-        title: title.trim(),
-        description: description.trim() || undefined,
-      });
+      const response = await client.api["form-templates"]
+        .sections({
+          sectionId: section.id,
+        })
+        .patch({
+          title: title.trim(),
+          description: description.trim() || undefined,
+        });
 
       if (response.error) {
         toast({

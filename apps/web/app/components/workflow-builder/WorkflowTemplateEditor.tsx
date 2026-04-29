@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useRevalidator } from "react-router";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button } from "~/components/ui/button";
 import { WorkflowMetadataEditor } from "./WorkflowMetadataEditor";
@@ -62,9 +63,13 @@ export function WorkflowTemplateEditor({
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["workflow-templates"] as any)[
-        template.id
-      ].publish.patch();
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: template.id,
+          templateId: template.id,
+        }),
+        "publish"
+      ).publish.patch();
 
       if (response.error) {
         const body = (

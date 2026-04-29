@@ -30,9 +30,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Get the step instance to find the form template ID
-    const stepResponse = await (client.api.workflows.steps as any)[
-      stepId
-    ].get();
+    const stepResponse = await client.api.workflows
+      .steps({ stepInstanceId: stepId })
+      .get();
 
     if (stepResponse.error) {
       const status = stepResponse.status || 500;

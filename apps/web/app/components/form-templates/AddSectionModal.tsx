@@ -20,6 +20,7 @@ import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 
 interface AddSectionModalProps {
   open: boolean;
@@ -53,9 +54,13 @@ export function AddSectionModal({
     setIsSubmitting(true);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["form-templates"] as any)[
-        templateId
-      ].sections.post({
+      const response = await withTreatyBranch(
+        client.api["form-templates"]({
+          id: templateId,
+          templateId,
+        }),
+        "sections"
+      ).sections.post({
         title: title.trim(),
         description: description.trim() || undefined,
         sectionOrder: nextOrder,

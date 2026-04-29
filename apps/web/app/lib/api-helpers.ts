@@ -47,6 +47,34 @@ export function errorBody(
 }
 
 /**
+ * Narrow an Eden Treaty function-call return value to the union variant
+ * exposing the property `K`.
+ *
+ * Treaty's path inference collapses Elysia routes that share the same
+ * dynamic-segment position into a union — for example, `/:id` (GET, PATCH,
+ * DELETE), `/:id/publish` (PATCH), and `/:templateId/sections` (POST) all
+ * mounted under `/api/form-templates` collapse into one function-call
+ * signature whose return type is a union of all per-variant route shapes.
+ * Accessing a property that is unique to one variant (e.g. `publish` lives
+ * only on the `/:id`-bearing branch) therefore needs explicit narrowing.
+ *
+ * This is the same pattern that SUP-9c established for `apps/api` tests.
+ * The runtime value is unchanged; the helper is purely a typed assertion.
+ *
+ * Usage:
+ * ```ts
+ * const route = client.api["form-templates"]({ id, templateId: id });
+ * const response = await withTreatyBranch(route, "publish").publish.patch();
+ * ```
+ */
+export function withTreatyBranch<T, K extends string>(
+  route: T,
+  _key: K
+): Extract<T, Record<K, unknown>> {
+  return route as Extract<T, Record<K, unknown>>;
+}
+
+/**
  * Extract the typed `ApiResult<T>` data envelope from a Treaty `response.data`.
  *
  * Treaty already validates the success-path shape against the route's

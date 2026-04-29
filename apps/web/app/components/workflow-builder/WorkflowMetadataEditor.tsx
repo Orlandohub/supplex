@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
@@ -72,9 +73,13 @@ export function WorkflowMetadataEditor({
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["workflow-templates"] as any)[
-        template.id
-      ].put({
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: template.id,
+          templateId: template.id,
+        }),
+        "put"
+      ).put({
         name,
         description: description || undefined,
         workflowTypeId: workflowTypeId,

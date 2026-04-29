@@ -19,6 +19,7 @@ Use `docs/README.md` for the full documentation map. Keep detailed app setup and
 | `Preflight validation check failed` | Use TypeBox in Elysia route validation, not Zod schemas |
 | `TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '((params: { id: string \| number; }) => ...)` | Use Eden Treaty's function-call syntax: `client.api.suppliers({ id }).get()` instead of `client.api.suppliers[id].get()`. See [Eden Treaty: dynamic path segments](#eden-treaty-dynamic-path-segments). |
 | 401/403 redirects never fire from Treaty calls | Eden's `treaty(url, { fetch })` slot expects an object of default `RequestInit` options. To inject a custom fetch implementation, use `fetcher:` instead. See [Eden Treaty: `fetch` vs `fetcher`](#eden-treaty-fetch-vs-fetcher). |
+| `Property 'X' does not exist on type '{ ... } \| { ... }'` after a Treaty function call | Treaty collapses Elysia routes that share the same dynamic-segment position into a union; narrow with `withTreatyBranch(route, "X").X.method()` from `~/lib/api-helpers`. See [Eden Treaty: union narrowing](#eden-treaty-union-narrowing). |
 
 ## Recurring Contributor Pitfalls
 
@@ -109,6 +110,36 @@ references), `typeof fetch` carries Bun-specific surface (`preconnect`,
 single `as typeof fetch` cast at declaration is acceptable here — it is
 substantially narrower than `as any` and the inner arrow function still
 enforces a fetch-shaped parameter contract.
+
+### Eden Treaty: union narrowing
+
+When several Elysia routes share the same dynamic-segment position (for
+example `/api/form-templates/:id`, `/api/form-templates/:id/publish`, and
+`/api/form-templates/:templateId/sections` are all mounted at the first
+segment of `/api/form-templates`), Treaty's path inference collapses the
+per-route shapes into a **union**. The function call must satisfy every
+variant's params (so you supply both `id` and `templateId` even when the
+route only uses one), and accessing a property that lives on only one
+variant — `publish`, `sections`, `get`, etc. — fails with TS2339 against
+the union.
+
+Narrow the union with `withTreatyBranch` from `apps/web/app/lib/api-helpers.ts`:
+
+```ts
+import { withTreatyBranch } from "~/lib/api-helpers";
+
+const response = await withTreatyBranch(
+  client.api["form-templates"]({ id, templateId: id }),
+  "publish",
+).publish.patch();
+```
+
+Pass the property unique to the branch you actually need; the helper does
+exactly one `Extract<T, Record<K, unknown>>` assertion at the call site.
+The runtime is untouched — both branches share the same URL — but
+TypeScript can now resolve `publish.patch` against the correct variant
+without losing body/response inference. This is the same pattern SUP-9c
+established for `apps/api` tests via `Extract<WorkflowTemplateBranches, { steps: unknown }>`.
 
 ## Debugging Checklist
 

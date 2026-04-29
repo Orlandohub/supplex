@@ -20,9 +20,7 @@ export async function getSupplierForUser(
   try {
     const client = createEdenTreatyClient(token);
 
-    const response = await (client.api.suppliers["by-user"] as any)[
-      userId
-    ].get();
+    const response = await client.api.suppliers["by-user"]({ userId }).get();
 
     // Handle 404 - no supplier found for this user
     if (response.error && response.status === 404) {

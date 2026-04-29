@@ -100,21 +100,23 @@ export function EditFieldModal({
     try {
       const client = createClientEdenTreatyClient(token);
 
-      // Prepare options payload
+      // Prepare options payload — only `dropdown`/`multi_select` carry choices.
       const optionsPayload =
         fieldType === "dropdown" || fieldType === "multi_select"
           ? { choices: options }
-          : {};
+          : undefined;
 
-      const response = await (client.api["form-templates"].fields as any)[
-        field.id
-      ].patch({
-        label: label.trim(),
-        fieldType: fieldType as any,
-        required,
-        placeholder: placeholder.trim() || undefined,
-        options: optionsPayload,
-      });
+      const response = await client.api["form-templates"]
+        .fields({
+          fieldId: field.id,
+        })
+        .patch({
+          label: label.trim(),
+          fieldType: fieldType as any,
+          required,
+          placeholder: placeholder.trim() || undefined,
+          options: optionsPayload,
+        });
 
       if (response.error) {
         toast({

@@ -110,9 +110,9 @@ export function useFormSubmission({
     try {
       const client = createClientEdenTreatyClient(token);
 
-      const response = await (client.api["form-submissions"] as any)[
-        submissionId
-      ].submit.post();
+      const response = await client.api["form-submissions"]({
+        submissionId,
+      }).submit.post();
 
       if (response.error) {
         const errorData = response.error.value as any;
