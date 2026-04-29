@@ -66,18 +66,18 @@ export async function action(args: ActionFunctionArgs) {
   const client = createEdenTreatyClient(token);
 
   try {
-    // NOTE: the form collects `processType` but the current API body
-    // schema (`apps/api/src/routes/workflow-templates/create.ts`) only
-    // accepts `{ name, description?, active? }`. The `as any` here is
-    // a body-shape mismatch — keeping it but documenting for SUP-12 to
-    // either widen the API schema or drop the field from the form.
-    // This is product-shaping work, not type-removal work.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // TODO(SUP-12): the form collects `processType` but the current API
+    // body schema (`apps/api/src/routes/workflow-templates/create.ts`)
+    // only accepts `{ name, description?, active? }`, so the field is
+    // silently dropped today. We omit it from the request body to match
+    // the wire contract; SUP-12 should either widen the API schema to
+    // persist it or drop the field from the form. Reference here so the
+    // unused local does not get inlined away.
+    void processType;
     const response = await client.api["workflow-templates"].post({
       name,
       description: description || undefined,
-      processType,
-    } as any);
+    });
 
     if (response.error) {
       return json(
