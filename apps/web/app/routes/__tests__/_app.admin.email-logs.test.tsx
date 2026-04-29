@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import AdminEmailLogsPage, { loader } from "../_app.admin.email-logs";
+import { createLoaderArgs } from "~/lib/test-utils";
 
 // Mock API client
 const mockEmailLogs = [
@@ -258,9 +259,13 @@ describe("Admin Email Logs Page", () => {
   describe("Loader", () => {
     it("should fetch email logs with default parameters", async () => {
       const request = new Request("http://localhost/admin/email-logs");
-      const result = await loader({ request, params: {}, context: {} } as any);
+      const result = await loader(createLoaderArgs(request));
 
-      const data = (result as unknown as { data: any }).data;
+      const data = (
+        result as unknown as {
+          data: { logs: unknown; pagination: unknown };
+        }
+      ).data;
       expect(data.logs).toBeDefined();
       expect(data.pagination).toBeDefined();
     });
@@ -269,9 +274,13 @@ describe("Admin Email Logs Page", () => {
       const request = new Request(
         "http://localhost/admin/email-logs?status=failed&startDate=2025-10-01"
       );
-      const result = await loader({ request, params: {}, context: {} } as any);
+      const result = await loader(createLoaderArgs(request));
 
-      const data = (result as unknown as { data: any }).data;
+      const data = (
+        result as unknown as {
+          data: { filters: { status: string; startDate: string } };
+        }
+      ).data;
       expect(data.filters.status).toBe("failed");
       expect(data.filters.startDate).toBe("2025-10-01");
     });
@@ -290,9 +299,7 @@ describe("Admin Email Logs Page", () => {
       const request = new Request("http://localhost/admin/email-logs");
 
       // Should redirect (throw redirect response)
-      await expect(
-        loader({ request, params: {}, context: {} } as any)
-      ).rejects.toThrow();
+      await expect(loader(createLoaderArgs(request))).rejects.toThrow();
     });
   });
 });

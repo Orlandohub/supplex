@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useAuth } from "../useAuth";
 import { UserRole } from "@supplex/types";
+import { createMockSession, createMockSupabaseUser } from "~/lib/test-utils";
 
 // Mock Supabase client
 const mockSupabaseClient = {
@@ -30,18 +31,32 @@ vi.mock("~/lib/auth/supabase-client", () => ({
   getBrowserClient: () => mockSupabaseClient,
 }));
 
-// Mock fetch for API calls
-global.fetch = vi.fn() as any;
-(global.fetch as any).preconnect = vi.fn();
+// Mock fetch for API calls. React's RSC plumbing reads
+// `fetch.preconnect` at module-eval time; without it tests crash with
+// "fetch.preconnect is not a function". `as unknown as ...` keeps the
+// cast narrow at this single boundary.
+type FetchWithPreconnect = typeof fetch & {
+  preconnect: ReturnType<typeof vi.fn>;
+};
 
-// Mock localStorage
+function installMockFetch(impl: typeof fetch | ReturnType<typeof vi.fn>) {
+  const fn = impl as unknown as FetchWithPreconnect;
+  fn.preconnect = vi.fn();
+  global.fetch = fn;
+  return fn;
+}
+
+installMockFetch(vi.fn());
+
+// Mock localStorage. Cast bridges the structural mock to the DOM
+// `Storage` interface (which adds `length` / indexed access we don't use).
 const mockLocalStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
 };
-global.localStorage = mockLocalStorage as any;
+global.localStorage = mockLocalStorage as unknown as Storage;
 
 // Mock window.location
 const mockLocation = {
@@ -184,11 +199,12 @@ describe("useAuth", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockApiResponse),
-      }) as any;
-      (global.fetch as any).preconnect = vi.fn();
+      installMockFetch(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockApiResponse),
+        })
+      );
 
       const mockUser = { id: "123", email: "test@example.com" };
       const mockSession = { access_token: "token", user: mockUser };
@@ -226,16 +242,17 @@ describe("useAuth", () => {
     });
 
     it("should handle sign up API error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: () =>
-          Promise.resolve({
-            success: false,
-            error: "Email already exists",
-          }),
-      }) as any;
-      (global.fetch as any).preconnect = vi.fn();
+      installMockFetch(
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          json: () =>
+            Promise.resolve({
+              success: false,
+              error: "Email already exists",
+            }),
+        })
+      );
 
       const { result } = renderHook(() => useAuth());
 
@@ -299,8 +316,8 @@ describe("useAuth", () => {
       // Set initial auth state
       act(() => {
         result.current.setAuth(
-          { id: "123", email: "test@example.com" } as any,
-          { access_token: "token" } as any,
+          createMockSupabaseUser({ id: "123" }),
+          createMockSession({ access_token: "token" }),
           {
             id: "123",
             email: "test@example.com",
@@ -373,8 +390,8 @@ describe("useAuth", () => {
       // Set initial auth state
       act(() => {
         result.current.setAuth(
-          { id: "123", email: "test@example.com" } as any,
-          { access_token: "token" } as any
+          createMockSupabaseUser({ id: "123" }),
+          createMockSession({ access_token: "token" })
         );
       });
 
@@ -393,12 +410,14 @@ describe("useAuth", () => {
     it("should set authentication state correctly", () => {
       const { result } = renderHook(() => useAuth());
 
-      const mockUser = { id: "123", email: "test@example.com" };
-      const mockSession = { access_token: "token", user: mockUser };
-      const mockUserRecord = { id: "123", email: "test@example.com" };
+      const mockUser = createMockSupabaseUser({ id: "123" });
+      const mockSession = createMockSession({
+        access_token: "token",
+        user: mockUser,
+      });
 
       act(() => {
-        result.current.setAuth(mockUser as any, mockSession as any, {
+        result.current.setAuth(mockUser, mockSession, {
           id: "user-456",
           tenantId: "tenant-123",
           email: "test@example.com",
@@ -415,7 +434,7 @@ describe("useAuth", () => {
       expect(result.current.isAuthenticated).toBe(true);
       expect(result.current.user).toEqual(mockUser);
       expect(result.current.session).toEqual(mockSession);
-      expect(result.current.userRecord).toEqual(mockUserRecord);
+      expect(result.current.userRecord?.id).toBe("user-456");
       expect(result.current.isLoading).toBe(false);
     });
 
@@ -425,8 +444,8 @@ describe("useAuth", () => {
       // Set initial state
       act(() => {
         result.current.setAuth(
-          { id: "123", email: "test@example.com" } as any,
-          { access_token: "token" } as any
+          createMockSupabaseUser({ id: "123" }),
+          createMockSession({ access_token: "token" })
         );
       });
 

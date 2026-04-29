@@ -23,13 +23,15 @@ vi.mock("react-router", () => ({
   ),
 }));
 
-// Mock localStorage
+// Mock localStorage. The cast bridges the structural mock to the DOM
+// `Storage` interface (which has `length`, indexed access, etc. that the
+// production code never touches).
 const mockLocalStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
 };
-global.localStorage = mockLocalStorage as any;
+global.localStorage = mockLocalStorage as unknown as Storage;
 
 describe("LoginForm", () => {
   beforeEach(() => {

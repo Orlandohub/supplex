@@ -32,9 +32,12 @@ describe("Tenant Context Helpers", () => {
     });
 
     it("should throw error when tenant ID is null", () => {
-      expect(() => withTenantId(suppliers.tenantId, null as any)).toThrow(
-        TenantContextError
-      );
+      // Intentional bad input: pass `null` past the `string` type to verify
+      // the runtime guard. `as unknown as string` keeps the cast narrow at
+      // this single trust boundary.
+      expect(() =>
+        withTenantId(suppliers.tenantId, null as unknown as string)
+      ).toThrow(TenantContextError);
     });
   });
 

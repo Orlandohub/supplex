@@ -1,8 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { validateFieldValue, type FieldDefinition } from "../../validation/form-field-validation";
+import {
+  validateFieldValue,
+  type FieldDefinition,
+} from "../../validation/form-field-validation";
 
-function field(overrides: Partial<FieldDefinition> & Pick<FieldDefinition, "fieldType">): FieldDefinition {
-  return { required: false, validationRules: null, options: null, ...overrides };
+function field(
+  overrides: Partial<FieldDefinition> & Pick<FieldDefinition, "fieldType">
+): FieldDefinition {
+  return {
+    required: false,
+    validationRules: null,
+    options: null,
+    ...overrides,
+  };
 }
 
 describe("validateFieldValue", () => {
@@ -47,11 +57,15 @@ describe("validateFieldValue", () => {
     });
 
     it("rejects bad format", () => {
-      expect(validateFieldValue("04/04/2026", base)).toBe("Must be a valid date in YYYY-MM-DD format");
+      expect(validateFieldValue("04/04/2026", base)).toBe(
+        "Must be a valid date in YYYY-MM-DD format"
+      );
     });
 
     it("rejects invalid date that matches regex", () => {
-      expect(validateFieldValue("2026-13-40", base)).toBe("Must be a valid date");
+      expect(validateFieldValue("2026-13-40", base)).toBe(
+        "Must be a valid date"
+      );
     });
   });
 
@@ -59,7 +73,12 @@ describe("validateFieldValue", () => {
   describe("dropdown", () => {
     const f = field({
       fieldType: "dropdown",
-      options: { choices: [{ label: "A", value: "a" }, { label: "B", value: "b" }] },
+      options: {
+        choices: [
+          { label: "A", value: "a" },
+          { label: "B", value: "b" },
+        ],
+      },
     });
 
     it("accepts valid choice", () => {
@@ -71,9 +90,15 @@ describe("validateFieldValue", () => {
     });
 
     it("errors when choices missing", () => {
-      expect(validateFieldValue("a", field({ fieldType: "dropdown", options: {} as any }))).toBe(
-        "Field configuration error: missing choices"
-      );
+      // Intentional bad input: an empty object stands in for a malformed
+      // `FieldOptions` record. `as Record<string, never>` matches the
+      // `FieldDefinition.options` union without widening to `any`.
+      expect(
+        validateFieldValue(
+          "a",
+          field({ fieldType: "dropdown", options: {} as Record<string, never> })
+        )
+      ).toBe("Field configuration error: missing choices");
     });
   });
 
@@ -81,7 +106,12 @@ describe("validateFieldValue", () => {
   describe("multi_select", () => {
     const f = field({
       fieldType: "multi_select",
-      options: { choices: [{ label: "X", value: "x" }, { label: "Y", value: "y" }] },
+      options: {
+        choices: [
+          { label: "X", value: "x" },
+          { label: "Y", value: "y" },
+        ],
+      },
     });
 
     it("accepts valid selections", () => {
@@ -90,7 +120,9 @@ describe("validateFieldValue", () => {
     });
 
     it("rejects invalid selection", () => {
-      expect(validateFieldValue("x, z", f)).toBe("Invalid selection: z. Must be one of: x, y");
+      expect(validateFieldValue("x, z", f)).toBe(
+        "Invalid selection: z. Must be one of: x, y"
+      );
     });
   });
 
@@ -117,27 +149,41 @@ describe("validateFieldValue", () => {
     });
 
     it("enforces maxLength", () => {
-      const f = field({ fieldType: "textarea", validationRules: { maxLength: 3 } });
-      expect(validateFieldValue("abcd", f)).toBe("Must be at most 3 characters");
+      const f = field({
+        fieldType: "textarea",
+        validationRules: { maxLength: 3 },
+      });
+      expect(validateFieldValue("abcd", f)).toBe(
+        "Must be at most 3 characters"
+      );
       expect(validateFieldValue("abc", f)).toBeNull();
     });
 
     it("enforces pattern with custom message", () => {
       const f = field({
         fieldType: "text",
-        validationRules: { pattern: "^[A-Z]+$", customMessage: "Uppercase only" },
+        validationRules: {
+          pattern: "^[A-Z]+$",
+          customMessage: "Uppercase only",
+        },
       });
       expect(validateFieldValue("abc", f)).toBe("Uppercase only");
       expect(validateFieldValue("ABC", f)).toBeNull();
     });
 
     it("uses default message when pattern fails without customMessage", () => {
-      const f = field({ fieldType: "text", validationRules: { pattern: "^\\d+$" } });
+      const f = field({
+        fieldType: "text",
+        validationRules: { pattern: "^\\d+$" },
+      });
       expect(validateFieldValue("abc", f)).toBe("Invalid format");
     });
 
     it("ignores invalid regex gracefully", () => {
-      const f = field({ fieldType: "text", validationRules: { pattern: "[invalid" } });
+      const f = field({
+        fieldType: "text",
+        validationRules: { pattern: "[invalid" },
+      });
       expect(validateFieldValue("abc", f)).toBeNull();
     });
   });

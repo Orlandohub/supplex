@@ -11,7 +11,11 @@ import {
   TaskInstanceStatus,
   TaskAssigneeType,
 } from "../task-instance";
-import { processInstance, ProcessStatus, ProcessType } from "../process-instance";
+import {
+  processInstance,
+  ProcessStatus,
+  ProcessType,
+} from "../process-instance";
 import { stepInstance, StepStatus, StepType } from "../step-instance";
 import { tenants } from "../tenants";
 import { users } from "../users";
@@ -181,7 +185,9 @@ describe("Task Instance Runtime Creation", () => {
     it("should calculate due_at from completion_time_days", async () => {
       const completionDays = 7;
       const now = new Date();
-      const expectedDueDate = new Date(now.getTime() + completionDays * 24 * 60 * 60 * 1000);
+      const expectedDueDate = new Date(
+        now.getTime() + completionDays * 24 * 60 * 60 * 1000
+      );
 
       const [task] = await db
         .insert(taskInstance)
@@ -201,9 +207,11 @@ describe("Task Instance Runtime Creation", () => {
 
       expect(task.completionTimeDays).toBe(completionDays);
       expect(task.dueAt).toBeDefined();
-      
+
       // Check due date is approximately correct (within 1 minute tolerance)
-      const timeDiff = Math.abs(task.dueAt!.getTime() - expectedDueDate.getTime());
+      const timeDiff = Math.abs(
+        task.dueAt!.getTime() - expectedDueDate.getTime()
+      );
       expect(timeDiff).toBeLessThan(60000); // Less than 1 minute
     });
 
@@ -214,7 +222,10 @@ describe("Task Instance Runtime Creation", () => {
         await db.insert(taskInstance).values({
           tenantId: tenant1Id,
           processInstanceId: processId1,
-          stepInstanceId: null as any, // Try to set to NULL
+          // Intentional bad input: bypass the inferred `string` type to
+          // verify the database-level NOT NULL constraint rejects the
+          // insert at runtime.
+          stepInstanceId: null as unknown as string,
           title: "Invalid Task",
           description: "Should fail",
           assigneeType: TaskAssigneeType.USER,
@@ -660,4 +671,3 @@ describe("Task Instance Runtime Creation", () => {
     });
   });
 });
-

@@ -46,7 +46,7 @@ describe("AppShell", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: false,
       toggleSidebar: mockToggleSidebar,
     });
@@ -108,7 +108,7 @@ describe("AppShell", () => {
   });
 
   it("applies correct padding when sidebar is collapsed", () => {
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: true,
       toggleSidebar: mockToggleSidebar,
     });
