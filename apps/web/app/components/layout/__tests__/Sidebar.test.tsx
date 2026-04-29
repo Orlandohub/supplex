@@ -30,7 +30,7 @@ describe("Sidebar", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: false,
       toggleSidebar: mockToggleSidebar,
     });
@@ -67,7 +67,7 @@ describe("Sidebar", () => {
   });
 
   it("hides logo text when collapsed", () => {
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: true,
       toggleSidebar: mockToggleSidebar,
     });
@@ -89,7 +89,7 @@ describe("Sidebar", () => {
   });
 
   it("displays expand button when sidebar is collapsed", () => {
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: true,
       toggleSidebar: mockToggleSidebar,
     });
@@ -123,7 +123,7 @@ describe("Sidebar", () => {
   });
 
   it("shows tooltips when sidebar is collapsed", () => {
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: true,
       toggleSidebar: mockToggleSidebar,
     });
@@ -135,7 +135,7 @@ describe("Sidebar", () => {
   });
 
   it("applies correct CSS classes for collapsed state", () => {
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: true,
       toggleSidebar: mockToggleSidebar,
     });

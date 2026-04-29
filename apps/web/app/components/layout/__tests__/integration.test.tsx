@@ -46,7 +46,7 @@ describe("App Shell Integration Tests", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useNavigationStore as any).mockReturnValue({
+    vi.mocked(useNavigationStore).mockReturnValue({
       isSidebarCollapsed: false,
       toggleSidebar: mockToggleSidebar,
       setSidebarCollapsed: mockSetSidebarCollapsed,
@@ -139,7 +139,7 @@ describe("App Shell Integration Tests", () => {
 
   describe("Sidebar State Persistence", () => {
     it("persists sidebar collapsed state", () => {
-      (useNavigationStore as any).mockReturnValue({
+      vi.mocked(useNavigationStore).mockReturnValue({
         isSidebarCollapsed: true,
         toggleSidebar: mockToggleSidebar,
         setSidebarCollapsed: mockSetSidebarCollapsed,
@@ -168,7 +168,7 @@ describe("App Shell Integration Tests", () => {
       expect(mainWrapper).toBeInTheDocument();
 
       // Toggle sidebar
-      (useNavigationStore as any).mockReturnValue({
+      vi.mocked(useNavigationStore).mockReturnValue({
         isSidebarCollapsed: true,
         toggleSidebar: mockToggleSidebar,
         setSidebarCollapsed: mockSetSidebarCollapsed,

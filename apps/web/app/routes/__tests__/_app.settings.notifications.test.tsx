@@ -5,6 +5,7 @@ import NotificationPreferencesPage, {
   loader,
   action,
 } from "../_app.settings.notifications";
+import { createActionArgs, createLoaderArgs } from "~/lib/test-utils";
 
 // Mock API client
 vi.mock("~/lib/api-client", () => ({
@@ -156,9 +157,13 @@ describe("Notification Preferences Page", () => {
   describe("Loader", () => {
     it("should fetch notification preferences", async () => {
       const request = new Request("http://localhost/settings/notifications");
-      const result = await loader({ request, params: {}, context: {} } as any);
+      const result = await loader(createLoaderArgs(request));
 
-      const data = (result as unknown as { data: any }).data;
+      const data = (
+        result as unknown as {
+          data: { preferences: { workflowSubmitted: boolean } };
+        }
+      ).data;
       expect(data.preferences).toBeDefined();
       expect(data.preferences.workflowSubmitted).toBe(true);
     });
@@ -179,9 +184,11 @@ describe("Notification Preferences Page", () => {
       }));
 
       const request = new Request("http://localhost/settings/notifications");
-      const result = await loader({ request, params: {}, context: {} } as any);
+      const result = await loader(createLoaderArgs(request));
 
-      const data = (result as unknown as { data: any }).data;
+      const data = (
+        result as unknown as { data: { error?: string; preferences: unknown } }
+      ).data;
       expect(data.error).toBeDefined();
       expect(data.preferences).toBeDefined(); // Should have defaults
     });
@@ -198,13 +205,9 @@ describe("Notification Preferences Page", () => {
         body: formData,
       });
 
-      const result = await action({
-        request,
-        params: {},
-        context: {},
-      } as any);
+      const result = await action(createActionArgs(request));
 
-      const data = (result as unknown as { data: any }).data;
+      const data = (result as unknown as { data: { success: boolean } }).data;
       expect(data.success).toBe(true);
     });
   });

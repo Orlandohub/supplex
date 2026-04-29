@@ -86,8 +86,11 @@ describe("Qualification Workflows Table", () => {
     });
 
     it("should throw error for null tenant ID", () => {
+      // Intentional bad input: bypass the `string` type to verify the
+      // runtime guard. `as unknown as string` is the narrow cast for
+      // negative-path tests like this one.
       expect(() =>
-        withTenantId(qualificationProcess.tenantId, null as any)
+        withTenantId(qualificationProcess.tenantId, null as unknown as string)
       ).toThrow(TenantContextError);
     });
   });
