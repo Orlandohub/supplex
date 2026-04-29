@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import { useToast } from "~/hooks/use-toast";
 
 interface UseFormSubmissionOptions {
@@ -55,9 +56,8 @@ export function useFormSubmission({
       });
 
       if (response.error) {
-        const errorMessage =
-          (response.error.value as any)?.error?.message ||
-          "Failed to save draft";
+        const errBody = errorBody(response.error);
+        const errorMessage = errBody?.error.message || "Failed to save draft";
         toast({
           title: "Error",
           description: errorMessage,
@@ -66,8 +66,11 @@ export function useFormSubmission({
         return { success: false, error: errorMessage };
       }
 
-      const data = response.data as any;
-      const submissionId = data.data?.submission?.id;
+      const draftPayload = response.data as {
+        success: boolean;
+        data?: { submission?: { id?: string } };
+      } | null;
+      const submissionId = draftPayload?.data?.submission?.id;
 
       if (!silent) {
         toast({
@@ -115,13 +118,14 @@ export function useFormSubmission({
       }).submit.post();
 
       if (response.error) {
-        const errorData = response.error.value as any;
-        const errorMessage =
-          errorData?.error?.message || "Failed to submit form";
+        const errBody = errorBody(response.error);
+        const errorMessage = errBody?.error.message || "Failed to submit form";
 
-        if (errorData?.error?.code === "REQUIRED_FIELD_MISSING") {
-          const missingFields =
-            errorData?.error?.details?.missingFields?.join(", ");
+        if (errBody?.error.code === "REQUIRED_FIELD_MISSING") {
+          const missingFieldsRaw = errBody.error.details?.missingFields;
+          const missingFields = Array.isArray(missingFieldsRaw)
+            ? missingFieldsRaw.join(", ")
+            : undefined;
           toast({
             title: "Required Fields Missing",
             description: missingFields
@@ -140,8 +144,11 @@ export function useFormSubmission({
         return { success: false, error: errorMessage };
       }
 
-      const responseData = response.data as any;
-      const processInstanceId = responseData?.data?.processInstanceId || null;
+      const submitPayload = response.data as {
+        success: boolean;
+        data?: { processInstanceId?: string | null };
+      } | null;
+      const processInstanceId = submitPayload?.data?.processInstanceId || null;
 
       toast({
         title: "Form Submitted",

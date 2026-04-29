@@ -11,6 +11,7 @@ import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import type { DocumentTemplate } from "@supplex/types";
 import { useAuth } from "~/hooks/useAuth";
@@ -201,12 +202,11 @@ export default function DocumentTemplatesPage() {
       }).delete();
 
       if (response.error) {
-        const errorData = response.error as any;
+        const errBody = errorBody(response.error);
         toast({
           title: "Error",
           description:
-            errorData.value?.error?.message ||
-            "Failed to delete document template",
+            errBody?.error.message || "Failed to delete document template",
           variant: "destructive",
         });
         return;

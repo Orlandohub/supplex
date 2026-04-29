@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import { useNavigate } from "react-router";
 
 interface CommentThread {
@@ -78,7 +79,8 @@ export function CommentThreadView({
       });
 
       if (response.error) {
-        setError((response.error as any).message || "Failed to add comment");
+        const errBody = errorBody(response.error);
+        setError(errBody?.error.message || "Failed to add comment");
         return;
       }
 

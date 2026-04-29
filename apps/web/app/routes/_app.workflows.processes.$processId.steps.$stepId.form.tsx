@@ -42,7 +42,20 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to load step", { status });
     }
 
-    const stepData = stepResponse.data?.data as any;
+    // Trust-boundary cast: this loader only consumes a couple of scalar
+    // fields off the step payload, so we narrow inline rather than
+    // importing the full step contract.
+    const stepPayload = stepResponse.data as unknown as {
+      success: boolean;
+      data?: {
+        step: { stepType: string };
+        stepTemplate?: { formTemplateId?: string };
+      };
+    } | null;
+    const stepData = stepPayload?.data;
+    if (!stepData) {
+      throw new Response("Invalid step response", { status: 500 });
+    }
     const step = stepData.step;
     const stepTemplate = stepData.stepTemplate;
 
@@ -72,13 +85,22 @@ export async function loader(args: LoaderFunctionArgs) {
       });
     }
 
-    const submissionsData = submissionsResponse.data?.data as any;
-    const existingSubmissions = submissionsData?.submissions || [];
+    const submissionsPayload = submissionsResponse.data as unknown as {
+      success: boolean;
+      data?: {
+        submissions?: Array<{
+          id: string;
+          status: string;
+          stepInstanceId: string | null;
+        }>;
+      };
+    } | null;
+    const existingSubmissions = submissionsPayload?.data?.submissions ?? [];
 
     console.log("[FORM STEP] Checking for existing submissions:", {
       stepId,
       found: existingSubmissions.length,
-      submissions: existingSubmissions.map((s: any) => ({
+      submissions: existingSubmissions.map((s) => ({
         id: s.id,
         status: s.status,
         stepInstanceId: s.stepInstanceId,
@@ -86,7 +108,7 @@ export async function loader(args: LoaderFunctionArgs) {
     });
 
     // If submission exists, redirect to it
-    if (existingSubmissions.length > 0) {
+    if (existingSubmissions.length > 0 && existingSubmissions[0]) {
       const submissionId = existingSubmissions[0].id;
       console.log(
         "[FORM STEP] Found existing submission, redirecting to:",
@@ -114,12 +136,17 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to create form submission", { status: 500 });
     }
 
-    const createData = createResponse.data?.data as any;
-    const newSubmissionId = createData?.submission?.id;
+    const createPayload = createResponse.data as unknown as {
+      success: boolean;
+      data?: {
+        submission?: { id?: string; stepInstanceId?: string | null };
+      };
+    } | null;
+    const newSubmissionId = createPayload?.data?.submission?.id;
 
     console.log("[FORM STEP] Created submission:", {
       submissionId: newSubmissionId,
-      stepInstanceId: createData?.submission?.stepInstanceId,
+      stepInstanceId: createPayload?.data?.submission?.stepInstanceId,
     });
 
     if (!newSubmissionId) {

@@ -1,7 +1,7 @@
 /**
  * Workflow Process Detail Page Component
  * Story: 2.2.8 - Workflow Execution Engine
- * 
+ *
  * Main component for displaying workflow process details
  */
 
@@ -14,7 +14,17 @@ import { ActiveStepPanel } from "./ActiveStepPanel";
 import { CommentThreadView } from "./CommentThreadView";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 
-interface ProcessInstance {
+/**
+ * Serialized prop types for `WorkflowProcessDetailPage`.
+ *
+ * These reflect the *post-serialization* runtime shapes (Date → ISO string
+ * after Remix/React-Router JSON-encodes the loader return). They are
+ * exported so loaders can cast Treaty's typed response (which carries
+ * Date objects) to a single trust-boundary type before returning JSON.
+ *
+ * Same pattern as `SerializedSupplier` in `_app.suppliers.$id_.edit.tsx`.
+ */
+export interface ProcessInstance {
   id: string;
   tenantId: string;
   processType: string;
@@ -30,7 +40,7 @@ interface ProcessInstance {
   supplierName?: string | null;
 }
 
-interface StepInstance {
+export interface StepInstance {
   id: string;
   tenantId: string;
   processInstanceId: string;
@@ -44,7 +54,7 @@ interface StepInstance {
   metadata: Record<string, any>;
 }
 
-interface TaskInstance {
+export interface TaskInstance {
   id: string;
   tenantId: string;
   processInstanceId: string;
@@ -70,7 +80,7 @@ interface TaskInstance {
   completedByFullName?: string | null;
 }
 
-interface CommentThread {
+export interface CommentThread {
   id: string;
   tenantId: string;
   processInstanceId: string;
@@ -140,27 +150,33 @@ export function WorkflowProcessDetailPage({
   const getAssignedUsersForStep = (stepId: string) => {
     const stepTasks = tasks.filter((t) => t.stepInstanceId === stepId);
 
-    return stepTasks.map((task) => {
-      const isRoleAssigned = task.assigneeType === "role" && !task.assigneeUserId;
-      const roleName = (task.assigneeRole || "").replace(/_/g, " ");
-      const isResubmission = task.taskType === "resubmission";
+    return stepTasks
+      .map((task) => {
+        const isRoleAssigned =
+          task.assigneeType === "role" && !task.assigneeUserId;
+        const roleName = (task.assigneeRole || "").replace(/_/g, " ");
+        const isResubmission = task.taskType === "resubmission";
 
-      return {
-        taskId: task.id,
-        taskTitle: task.title,
-        status: task.status,
-        isResubmission,
-        fullName: isRoleAssigned
-          ? `Any ${roleName}`
-          : task.assignedUserFullName || "Unassigned",
-        createdAt: task.createdAt || null,
-        completedAt: task.status === "completed" ? (task.completedAt || task.updatedAt || null) : null,
-      };
-    }).sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
-    });
+        return {
+          taskId: task.id,
+          taskTitle: task.title,
+          status: task.status,
+          isResubmission,
+          fullName: isRoleAssigned
+            ? `Any ${roleName}`
+            : task.assignedUserFullName || "Unassigned",
+          createdAt: task.createdAt || null,
+          completedAt:
+            task.status === "completed"
+              ? task.completedAt || task.updatedAt || null
+              : null,
+        };
+      })
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
   };
 
   const STATUS_DISPLAY: Record<string, string> = {
@@ -190,14 +206,18 @@ export function WorkflowProcessDetailPage({
     type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   const workflowRef = `WF-${process.id.slice(0, 4).toUpperCase()}`;
-  const workflowTitle = process.workflowName || prettifyType(process.processType);
+  const workflowTitle =
+    process.workflowName || prettifyType(process.processType);
   const entityLabel = process.supplierName || process.entityId;
-  const isTerminal = process.status === "complete" || process.status === "cancelled";
+  const isTerminal =
+    process.status === "complete" || process.status === "cancelled";
 
   // Waiting-on context for subtitle
   const pendingTasks = tasks.filter((t) => t.status === "pending");
   const hasSupplierWaiting = pendingTasks.some(
-    (t) => t.assigneeRole === "supplier_user" || t.assignedUserRole === "supplier_user"
+    (t) =>
+      t.assigneeRole === "supplier_user" ||
+      t.assignedUserRole === "supplier_user"
   );
   const waitingContext = isTerminal
     ? null
@@ -208,9 +228,12 @@ export function WorkflowProcessDetailPage({
         : "Internal review in progress";
 
   // Progress stats
-  const completedSteps = steps.filter((s) => s.status === "completed" || s.status === "validated").length;
+  const completedSteps = steps.filter(
+    (s) => s.status === "completed" || s.status === "validated"
+  ).length;
   const totalSteps = steps.length;
-  const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  const progressPct =
+    totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
   // Open task stats
   const openTaskCount = pendingTasks.length;
@@ -223,18 +246,36 @@ export function WorkflowProcessDetailPage({
   const activeStepPendingTasks = activeStep
     ? pendingTasks.filter((t) => t.stepInstanceId === activeStep.id)
     : [];
-  const earliestDue = activeStepPendingTasks
-    .filter((t) => t.dueAt)
-    .map((t) => new Date(t.dueAt!))
-    .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+  const earliestDue =
+    activeStepPendingTasks
+      .filter((t) => t.dueAt)
+      .map((t) => new Date(t.dueAt!))
+      .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
 
   function stepDueLabel(): { text: string; tone: string } | null {
     if (!earliestDue) return null;
-    const diffDays = Math.ceil((earliestDue.getTime() - now.getTime()) / 86_400_000);
-    if (diffDays < 0) return { text: `${Math.abs(diffDays)}d overdue`, tone: "text-red-600 bg-red-50 border-red-200" };
-    if (diffDays === 0) return { text: "Due today", tone: "text-amber-700 bg-amber-50 border-amber-200" };
-    if (diffDays === 1) return { text: "Due tomorrow", tone: "text-amber-700 bg-amber-50 border-amber-200" };
-    return { text: `Due in ${diffDays} days`, tone: "text-gray-600 bg-gray-50 border-gray-200" };
+    const diffDays = Math.ceil(
+      (earliestDue.getTime() - now.getTime()) / 86_400_000
+    );
+    if (diffDays < 0)
+      return {
+        text: `${Math.abs(diffDays)}d overdue`,
+        tone: "text-red-600 bg-red-50 border-red-200",
+      };
+    if (diffDays === 0)
+      return {
+        text: "Due today",
+        tone: "text-amber-700 bg-amber-50 border-amber-200",
+      };
+    if (diffDays === 1)
+      return {
+        text: "Due tomorrow",
+        tone: "text-amber-700 bg-amber-50 border-amber-200",
+      };
+    return {
+      text: `Due in ${diffDays} days`,
+      tone: "text-gray-600 bg-gray-50 border-gray-200",
+    };
   }
 
   const dueLabel = stepDueLabel();
@@ -249,7 +290,10 @@ export function WorkflowProcessDetailPage({
     if (hrs < 24) return `${hrs}h ago`;
     const days = Math.floor(hrs / 24);
     if (days < 7) return `${days}d ago`;
-    return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return new Date(dateStr).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
   }
 
   return (
@@ -257,7 +301,6 @@ export function WorkflowProcessDetailPage({
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-
           {/* Badge + Title + Context + Status */}
           <div className="flex justify-between items-start gap-4">
             <div className="min-w-0">
@@ -283,24 +326,42 @@ export function WorkflowProcessDetailPage({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Supplier */}
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Supplier</div>
-              <div className="mt-1 font-medium text-gray-900">{entityLabel}</div>
-              <div className="text-xs text-gray-500 capitalize">{process.entityType}</div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Supplier
+              </div>
+              <div className="mt-1 font-medium text-gray-900">
+                {entityLabel}
+              </div>
+              <div className="text-xs text-gray-500 capitalize">
+                {process.entityType}
+              </div>
             </div>
             {/* Started */}
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Started</div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Started
+              </div>
               <div className="mt-1 font-medium text-gray-900">
-                {new Date(process.initiatedDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                {new Date(process.initiatedDate).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
               </div>
               {process.updatedAt && (
-                <div className="text-xs text-gray-500">Updated {relativeTime(process.updatedAt)}</div>
+                <div className="text-xs text-gray-500">
+                  Updated {relativeTime(process.updatedAt)}
+                </div>
               )}
             </div>
             {/* Progress */}
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Progress</div>
-              <div className="mt-1 font-medium text-gray-900">{completedSteps} of {totalSteps} steps</div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Progress
+              </div>
+              <div className="mt-1 font-medium text-gray-900">
+                {completedSteps} of {totalSteps} steps
+              </div>
               <div className="mt-1 flex items-center gap-2">
                 <div className="h-1.5 flex-1 rounded-full bg-gray-200">
                   <div
@@ -308,19 +369,29 @@ export function WorkflowProcessDetailPage({
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-                <span className="text-xs text-gray-500 tabular-nums">{progressPct}%</span>
+                <span className="text-xs text-gray-500 tabular-nums">
+                  {progressPct}%
+                </span>
               </div>
             </div>
             {/* Open Tasks */}
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Open Tasks</div>
-              <div className="mt-1 font-medium text-gray-900">{openTaskCount}</div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Open Tasks
+              </div>
+              <div className="mt-1 font-medium text-gray-900">
+                {openTaskCount}
+              </div>
               {overdueTaskCount > 0 ? (
-                <div className="text-xs font-medium text-red-600">{overdueTaskCount} overdue</div>
+                <div className="text-xs font-medium text-red-600">
+                  {overdueTaskCount} overdue
+                </div>
               ) : openTaskCount > 0 ? (
                 <div className="text-xs text-green-600">All on track</div>
               ) : (
-                <div className="text-xs text-gray-400">{isTerminal ? "Workflow closed" : "No pending tasks"}</div>
+                <div className="text-xs text-gray-400">
+                  {isTerminal ? "Workflow closed" : "No pending tasks"}
+                </div>
               )}
             </div>
           </div>
@@ -329,15 +400,23 @@ export function WorkflowProcessDetailPage({
           {activeStep && !isTerminal && (
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-xs font-medium text-gray-500">Current step</div>
-                <div className="mt-0.5 font-medium text-gray-900">{activeStep.stepName}</div>
+                <div className="text-xs font-medium text-gray-500">
+                  Current step
+                </div>
+                <div className="mt-0.5 font-medium text-gray-900">
+                  {activeStep.stepName}
+                </div>
                 <div className="mt-0.5 text-sm text-gray-500">
                   Step {activeStep.stepOrder} of {totalSteps}
-                  {activeStep.stepType && <> &middot; {prettifyType(activeStep.stepType)}</>}
+                  {activeStep.stepType && (
+                    <> &middot; {prettifyType(activeStep.stepType)}</>
+                  )}
                 </div>
               </div>
               {dueLabel && (
-                <span className={`shrink-0 inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${dueLabel.tone}`}>
+                <span
+                  className={`shrink-0 inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${dueLabel.tone}`}
+                >
                   {dueLabel.text}
                 </span>
               )}
@@ -376,7 +455,10 @@ export function WorkflowProcessDetailPage({
 
           <TabsContent value="overview" className="mt-6 space-y-6">
             {/* Step Timeline */}
-            <WorkflowStepTimeline steps={steps} validationSteps={validationSteps} />
+            <WorkflowStepTimeline
+              steps={steps}
+              validationSteps={validationSteps}
+            />
 
             {/* Active Step Panel */}
             {activeStep && (
@@ -388,7 +470,9 @@ export function WorkflowProcessDetailPage({
                 formSubmission={formSubmissions[activeStep.id]}
                 documentProgress={documentProgress[activeStep.id] || null}
                 processStatus={process.status}
-                stepComments={comments.filter((c) => c.stepInstanceId === activeStep.id)}
+                stepComments={comments.filter(
+                  (c) => c.stepInstanceId === activeStep.id
+                )}
               />
             )}
 
@@ -455,7 +539,11 @@ interface AssignedUser {
   completedAt: string | null;
 }
 
-function TaskAssignmentsContent({ assignedUsers }: { assignedUsers: AssignedUser[] }) {
+function TaskAssignmentsContent({
+  assignedUsers,
+}: {
+  assignedUsers: AssignedUser[];
+}) {
   if (assignedUsers.length === 0) {
     return (
       <div>
@@ -473,10 +561,18 @@ function TaskAssignmentsContent({ assignedUsers }: { assignedUsers: AssignedUser
         <table className="w-full">
           <thead>
             <tr className="border-b">
-              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Task</th>
-              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Assigned To</th>
-              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Created On</th>
-              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">Completed On</th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">
+                Task
+              </th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">
+                Assigned To
+              </th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">
+                Created On
+              </th>
+              <th className="text-left py-3 px-2 text-sm font-medium text-gray-700">
+                Completed On
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -497,16 +593,24 @@ function TaskAssignmentsContent({ assignedUsers }: { assignedUsers: AssignedUser
                             : "bg-blue-100 text-blue-800"
                       }
                     >
-                      {u.status === "completed" ? "Completed" : u.isResubmission ? "Re-submission" : "Pending"}
+                      {u.status === "completed"
+                        ? "Completed"
+                        : u.isResubmission
+                          ? "Re-submission"
+                          : "Pending"}
                     </Badge>
                   </div>
                 </td>
                 <td className="py-3 px-2 text-sm font-medium">{u.fullName}</td>
                 <td className="py-3 px-2 text-sm text-gray-600">
-                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
+                  {u.createdAt
+                    ? new Date(u.createdAt).toLocaleDateString()
+                    : "-"}
                 </td>
                 <td className="py-3 px-2 text-sm text-gray-600">
-                  {u.completedAt ? new Date(u.completedAt).toLocaleDateString() : "-"}
+                  {u.completedAt
+                    ? new Date(u.completedAt).toLocaleDateString()
+                    : "-"}
                 </td>
               </tr>
             ))}
@@ -535,7 +639,11 @@ function TaskAssignmentsContent({ assignedUsers }: { assignedUsers: AssignedUser
                       : "bg-blue-100 text-blue-800"
                 }
               >
-                {u.status === "completed" ? "Completed" : u.isResubmission ? "Re-submission" : "Pending"}
+                {u.status === "completed"
+                  ? "Completed"
+                  : u.isResubmission
+                    ? "Re-submission"
+                    : "Pending"}
               </Badge>
             </div>
             <div>
@@ -551,7 +659,9 @@ function TaskAssignmentsContent({ assignedUsers }: { assignedUsers: AssignedUser
             <div>
               <p className="text-xs text-gray-500">Completed On</p>
               <p className="text-sm text-gray-600">
-                {u.completedAt ? new Date(u.completedAt).toLocaleDateString() : "-"}
+                {u.completedAt
+                  ? new Date(u.completedAt).toLocaleDateString()
+                  : "-"}
               </p>
             </div>
           </div>
@@ -615,10 +725,22 @@ function WorkflowHistory({
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client as any).api.workflows.processes[processId].events.get();
+      const response = await client.api.workflows
+        .processes({
+          processInstanceId: processId,
+        })
+        .events.get();
 
-      if (response.data?.success && response.data.data) {
-        setEvents(response.data.data.events);
+      // Narrow the body to the shape this component consumes. Treaty
+      // types `Date` fields here, but Remix-style serialization isn't
+      // involved (this is a direct client-side fetch), so the helper
+      // accepts whatever shape the events route returns.
+      const eventsPayload = response.data as {
+        success: boolean;
+        data?: { events: HistoryEvent[] };
+      } | null;
+      if (eventsPayload?.success && eventsPayload.data) {
+        setEvents(eventsPayload.data.events);
       } else {
         setError("Failed to load history");
       }
@@ -642,12 +764,15 @@ function WorkflowHistory({
 
       <div>
         {loading ? (
-          <p className="text-gray-500 text-sm py-4 text-center">Loading history...</p>
+          <p className="text-gray-500 text-sm py-4 text-center">
+            Loading history...
+          </p>
         ) : error ? (
           <p className="text-red-500 text-sm py-4 text-center">{error}</p>
         ) : loaded && events.length === 0 ? (
           <p className="text-gray-500 text-sm py-4 text-center">
-            No history events yet. Events will appear here as actions are performed.
+            No history events yet. Events will appear here as actions are
+            performed.
           </p>
         ) : events.length > 0 ? (
           <div className="space-y-4">
@@ -662,7 +787,9 @@ function WorkflowHistory({
                   }`}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{event.eventDescription}</p>
+                  <p className="font-medium text-gray-900">
+                    {event.eventDescription}
+                  </p>
                   <p className="text-sm text-gray-500">
                     by {event.actorName}{" "}
                     <span className="text-gray-400">
@@ -686,4 +813,3 @@ function WorkflowHistory({
     </Card>
   );
 }
-

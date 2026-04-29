@@ -50,12 +50,17 @@ export async function loader(args: LoaderFunctionArgs) {
     });
 
     if (!listResponse.error) {
-      const data = listResponse.data?.data as any;
-      const submissions = data.submissions || [];
+      const listPayload = listResponse.data as unknown as {
+        success: boolean;
+        data?: {
+          submissions?: Array<{ id: string; formTemplateId: string }>;
+        };
+      } | null;
+      const submissions = listPayload?.data?.submissions ?? [];
 
       // Find existing draft for this form template
       const existingDraft = submissions.find(
-        (sub: any) => sub.formTemplateId === formTemplateId
+        (sub) => sub.formTemplateId === formTemplateId
       );
 
       if (existingDraft) {

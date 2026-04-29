@@ -21,6 +21,7 @@ import {
   createEdenTreatyClient,
   createClientEdenTreatyClient,
 } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import type {
   FormSubmission,
   FormTemplateWithStructureUI,
@@ -71,15 +72,32 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to load submission", { status });
     }
 
-    const data = submissionResponse.data?.data as any;
-    const submission = data.submission as FormSubmission;
+    // Trust-boundary cast via `unknown`: API returns `Date` fields, the
+    // local `FormSubmission`/`FormAnswer` types use post-serialization
+    // strings.
+    const submissionPayload = submissionResponse.data as unknown as {
+      success: boolean;
+      data: {
+        submission: FormSubmission;
+        formTemplate: FormTemplateWithStructureUI & { name?: string };
+        answers: FormAnswer[];
+        formStructure: { sections: FormTemplateWithStructureUI["sections"] };
+        isReadOnly?: boolean;
+        canValidate?: boolean;
+      };
+    } | null;
+    if (!submissionPayload?.data) {
+      throw new Response("Invalid API response", { status: 500 });
+    }
+    const data = submissionPayload.data;
+    const submission = data.submission;
     const formTemplate = data.formTemplate;
-    const answers = data.answers as FormAnswer[];
+    const answers = data.answers;
     const formStructure = data.formStructure;
     const isReadOnly = data.isReadOnly ?? false;
     const canValidate = data.canValidate ?? false;
 
-    const formVersion: FormTemplateWithStructureUI = {
+    const formVersion: FormTemplateWithStructureUI & { name?: string } = {
       ...formTemplate,
       sections: formStructure.sections,
     };
@@ -99,11 +117,21 @@ export async function loader(args: LoaderFunctionArgs) {
           })
           .get();
         if (!processResponse.error) {
-          const processData = (processResponse.data as any)?.data;
+          // Narrow the process payload to the fields we read here. We
+          // intentionally don't import the full ProcessInstance contract
+          // because this loader only consumes a couple of strings.
+          const processBody = processResponse.data as unknown as {
+            success: boolean;
+            data?: {
+              process?: { workflowName?: string; processType?: string };
+              steps?: Array<{ id: string; stepName?: string }>;
+            };
+          } | null;
+          const processData = processBody?.data;
           const process = processData?.process;
-          const steps = processData?.steps || [];
+          const steps = processData?.steps ?? [];
           const currentStep = steps.find(
-            (s: any) => s.id === submission.stepInstanceId
+            (s) => s.id === submission.stepInstanceId
           );
           workflowContext = {
             processInstanceId: submission.processInstanceId,
@@ -221,9 +249,8 @@ export default function FormExecutionPage() {
           action: "approve",
         });
       if (response.error) {
-        setValidationError(
-          (response.error as any).message || "Failed to approve"
-        );
+        const errBody = errorBody(response.error);
+        setValidationError(errBody?.error.message || "Failed to approve");
         setIsProcessing(false);
         return;
       }
@@ -254,9 +281,8 @@ export default function FormExecutionPage() {
           comment: declineComment.trim(),
         });
       if (response.error) {
-        setValidationError(
-          (response.error as any).message || "Failed to decline"
-        );
+        const errBody = errorBody(response.error);
+        setValidationError(errBody?.error.message || "Failed to decline");
         setIsProcessing(false);
         return;
       }
@@ -301,7 +327,7 @@ export default function FormExecutionPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isSupplierContext
-              ? `${supplierContext!.supplierName} — ${(formVersion as any).name || "Form"}`
+              ? `${supplierContext!.supplierName} — ${formVersion.name || "Form"}`
               : isValidator
                 ? "Review Form Submission"
                 : mode === "view"

@@ -20,6 +20,8 @@ Use `docs/README.md` for the full documentation map. Keep detailed app setup and
 | `TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '((params: { id: string \| number; }) => ...)` | Use Eden Treaty's function-call syntax: `client.api.suppliers({ id }).get()` instead of `client.api.suppliers[id].get()`. See [Eden Treaty: dynamic path segments](#eden-treaty-dynamic-path-segments). |
 | 401/403 redirects never fire from Treaty calls | Eden's `treaty(url, { fetch })` slot expects an object of default `RequestInit` options. To inject a custom fetch implementation, use `fetcher:` instead. See [Eden Treaty: `fetch` vs `fetcher`](#eden-treaty-fetch-vs-fetcher). |
 | `Property 'X' does not exist on type '{ ... } \| { ... }'` after a Treaty function call | Treaty collapses Elysia routes that share the same dynamic-segment position into a union; narrow with `withTreatyBranch(route, "X").X.method()` from `~/lib/api-helpers`. See [Eden Treaty: union narrowing](#eden-treaty-union-narrowing). |
+| `Type 'Date' is not assignable to type 'string'` on a loader-returned object | Remix/React Router serializes `Date → string` over the wire, but the loader-side TypeScript still sees `Date`. Cast the API payload via `as unknown as { ... }` at the loader boundary using post-serialization (`string`-bearing) prop interfaces. See [Eden Treaty: response body typing](#eden-treaty-response-body-typing). |
+| Need to read `response.error.message` / `error.code` / `error.details` from a Treaty error | Use `errorBody(response.error)` from `~/lib/api-helpers`; it narrows `response.error.value` to `ApiErrorBody` and gives you typed access to `error.code`, `error.message`, and `error.details`. |
 
 ## Recurring Contributor Pitfalls
 
@@ -140,6 +142,56 @@ The runtime is untouched — both branches share the same URL — but
 TypeScript can now resolve `publish.patch` against the correct variant
 without losing body/response inference. This is the same pattern SUP-9c
 established for `apps/api` tests via `Extract<WorkflowTemplateBranches, { steps: unknown }>`.
+
+### Eden Treaty: response body typing
+
+Treaty's per-route inference yields a fully-typed `response.data`/`response.error`
+pair, but two mismatches recur in `apps/web`:
+
+1. **Date → string serialization**. The API returns `Date` fields, but
+   Remix/React-Router JSON-encodes them to ISO strings before the
+   consumer sees the loader data. Component prop interfaces in `apps/web`
+   (e.g. `ProcessInstance`, `WorkflowTemplate`, `SerializedSupplier`)
+   reflect the post-serialization runtime shape (`string` dates).
+2. **`error.value` envelope**. On error, Treaty exposes the response body
+   at `response.error.value`, **not** `response.data`; the latter is `null`.
+   Reading `error.message` directly off `response.error` walks past the
+   envelope.
+
+Use the helpers in `apps/web/app/lib/api-helpers.ts` to bridge both:
+
+```ts
+import { errorBody } from "~/lib/api-helpers";
+import type { ProcessInstance } from "~/components/workflow-engine/WorkflowProcessDetailPage";
+
+const response = await client.api.workflows.processes({
+  processInstanceId,
+}).get();
+
+if (response.error) {
+  const errBody = errorBody(response.error);
+  // errBody is `ApiErrorBody | null` with `error.code`, `error.message`,
+  // and route-specific `error.details`. The 422-validation case carries
+  // `details: { missingFields: string[] }` for example.
+  throw new Response(errBody?.error.message ?? "Failed", {
+    status: response.status ?? 500,
+  });
+}
+
+// Trust-boundary cast via `unknown`: TS sees `Date` on `response.data`,
+// the runtime has `string`. Cast once, here, to the same post-serialization
+// shape the consumer component declares.
+const payload = response.data as unknown as {
+  success: boolean;
+  data: { process: ProcessInstance; /* … */ };
+} | null;
+```
+
+This is the same pattern `_app.suppliers.$id_.edit.tsx` has used since
+SUP-9b and that SUP-10c rolled out across the rest of `apps/web`. It
+keeps the loader-to-component contract explicit and confines the
+`unknown` cast to a single trust boundary, instead of leaking `as any`
+into call sites.
 
 ## Debugging Checklist
 

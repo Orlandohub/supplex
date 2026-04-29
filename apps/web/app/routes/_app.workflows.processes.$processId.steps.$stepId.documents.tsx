@@ -24,6 +24,7 @@ import {
 import { useState, useRef } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -49,6 +50,21 @@ interface ReviewerDecision {
   comment: string | null;
   decidedAt: string;
   taskInstanceId: string;
+}
+
+interface StepDocument {
+  id: string;
+  requiredDocumentName: string;
+  documentId: string | null;
+  status: string;
+  declineComment: string | null;
+  filename: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+  description: string | null;
+  required: boolean;
+  documentType: string | null;
+  reviewerDecisions?: ReviewerDecision[];
 }
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -79,7 +95,30 @@ export async function loader(args: LoaderFunctionArgs) {
     throw new Response("Failed to load documents", { status });
   }
 
-  const docsData = (docsResponse.data as any)?.data;
+  // Trust-boundary cast via `unknown`: the API types `Date` fields, but
+  // Remix/React-Router serializes them to ISO strings before reaching the
+  // consumer; the local `StepDocument` shape (defined below) uses
+  // post-serialization strings.
+  const docsPayload = docsResponse.data as unknown as {
+    success: boolean;
+    data?: {
+      stepName: string;
+      stepStatus: string;
+      validationRound?: number;
+      documents: StepDocument[];
+      summary: {
+        total: number;
+        uploaded: number;
+        approved: number;
+        declined: number;
+        pending?: number;
+      };
+    };
+  } | null;
+  const docsData = docsPayload?.data;
+  if (!docsData) {
+    throw new Response("Invalid documents response", { status: 500 });
+  }
 
   const processResponse = await client.api.workflows
     .processes({ processInstanceId: processId })
@@ -92,13 +131,27 @@ export async function loader(args: LoaderFunctionArgs) {
       });
     }
   }
-  const processData = (processResponse.data as any)?.data;
+  // Narrow only the `tasks` slice we actually consume in this loader.
+  const processBody = processResponse.data as unknown as {
+    success: boolean;
+    data?: {
+      tasks?: Array<{
+        stepInstanceId?: string | null;
+        status?: string;
+        taskType?: string;
+        assigneeUserId?: string | null;
+        assigneeType?: string;
+        assigneeRole?: string | null;
+      }>;
+    };
+  } | null;
+  const processData = processBody?.data;
   const userRole = userRecord?.role || "";
   const userId = supabaseUser.id;
 
-  const tasks = processData?.tasks || [];
+  const tasks = processData?.tasks ?? [];
   const validationTask = tasks.find(
-    (t: any) =>
+    (t) =>
       t.stepInstanceId === stepId &&
       t.status === "pending" &&
       t.taskType === "validation" &&
@@ -127,21 +180,6 @@ export async function loader(args: LoaderFunctionArgs) {
   });
 }
 
-interface StepDocument {
-  id: string;
-  requiredDocumentName: string;
-  documentId: string | null;
-  status: string;
-  declineComment: string | null;
-  filename: string | null;
-  mimeType: string | null;
-  fileSize: number | null;
-  description: string | null;
-  required: boolean;
-  documentType: string | null;
-  reviewerDecisions?: ReviewerDecision[];
-}
-
 export default function WorkflowStepDocumentsPage() {
   const {
     processId,
@@ -156,7 +194,7 @@ export default function WorkflowStepDocumentsPage() {
   } = useLoaderData<typeof loader>();
 
   const navigate = useNavigate();
-  const [docs, setDocs] = useState<StepDocument[]>(documents as any);
+  const [docs, setDocs] = useState<StepDocument[]>(documents);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerMime, setViewerMime] = useState<string>("");
@@ -248,7 +286,11 @@ export default function WorkflowStepDocumentsPage() {
   const handleViewDocument = async (documentId: string) => {
     try {
       const res = await client.api.documents({ id: documentId }).view.get();
-      const data = (res.data as any)?.data;
+      const viewPayload = res.data as {
+        success: boolean;
+        data?: { url?: string; mimeType?: string; filename?: string };
+      } | null;
+      const data = viewPayload?.data;
       if (data?.url) {
         setViewerUrl(data.url);
         setViewerMime(data.mimeType || "");
@@ -270,8 +312,9 @@ export default function WorkflowStepDocumentsPage() {
           action: "submit",
         });
 
-      if ((res as any).error) {
-        setError((res as any).error?.message || "Failed to submit documents");
+      if (res.error) {
+        const errBody = errorBody(res.error);
+        setError(errBody?.error.message || "Failed to submit documents");
         setSubmitting(false);
         return;
       }
