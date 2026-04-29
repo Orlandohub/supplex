@@ -17,6 +17,8 @@ Use `docs/README.md` for the full documentation map. Keep detailed app setup and
 | `Cannot create route... parameter` | Use consistent route parameter names |
 | `POST to /suppliers/undefined/api/...` | Use centralized `config.apiUrl`, not a non-existent `VITE_API_URL` |
 | `Preflight validation check failed` | Use TypeBox in Elysia route validation, not Zod schemas |
+| `TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '((params: { id: string \| number; }) => ...)` | Use Eden Treaty's function-call syntax: `client.api.suppliers({ id }).get()` instead of `client.api.suppliers[id].get()`. See [Eden Treaty: dynamic path segments](#eden-treaty-dynamic-path-segments). |
+| 401/403 redirects never fire from Treaty calls | Eden's `treaty(url, { fetch })` slot expects an object of default `RequestInit` options. To inject a custom fetch implementation, use `fetcher:` instead. See [Eden Treaty: `fetch` vs `fetcher`](#eden-treaty-fetch-vs-fetcher). |
 
 ## Recurring Contributor Pitfalls
 
@@ -52,6 +54,61 @@ Use `docs/README.md` for the full documentation map. Keep detailed app setup and
 - Let parent aggregators own route prefixes
 - Keep child route modules prefix-free
 - Use consistent route parameter names across related endpoints
+
+### Eden Treaty: dynamic path segments
+
+Treaty exposes routes with dynamic path parameters (e.g. Elysia's
+`.get("/:id", ...)`) as a **callable function** on the segment, not a
+bracket-indexable record. Bracket access (`client.api.suppliers[id].get()`)
+fails type-checking with [TS7053][ts7053] because the route is typed as
+`(params: { id: string | number }) => { get, put, patch, delete }`. The
+correct call shape:
+
+```ts
+const response = await client.api.suppliers({ id }).get();
+//                              ^^^^^^^^^^^^^^^^^ function call, not index
+```
+
+When a `params` object has multiple keys (e.g. `/:templateId/steps/:stepId`),
+spread them in the same call: `client.api.workflowTemplates({ templateId, stepId }).get()`.
+
+This pattern is the proven fix from `apps/api`'s test suite (SUP-9b/c) and
+the same approach is being rolled out in `apps/web` production code under
+SUP-10. It eliminates the `as any` previously required to silence TS7053.
+
+[ts7053]: https://typescript.tv/errors/#ts7053
+
+### Eden Treaty: `fetch` vs `fetcher`
+
+Eden 1.4.x's `Treaty.Config` has **two** fetch-related slots, with very
+different meanings:
+
+| Slot | Type | Purpose |
+| --- | --- | --- |
+| `fetch` | `Omit<RequestInit, 'headers' \| 'method'>` | **Default `RequestInit` options** spread into every request (e.g. `credentials: "include"`, `cache: "no-store"`). |
+| `fetcher` | `typeof fetch` | **Custom fetch implementation** that Eden calls instead of `globalThis.fetch`. |
+
+Passing a function to the `fetch` slot is a silent no-op: Eden destructures
+it as `let { fetch: _ } = config` and spreads it into per-request init via
+`{ ..._ }`, but spread of a function value yields no own enumerable
+properties, so the function is dropped and `globalThis.fetch` is used.
+Symptom: any wrapping the developer added (auth-error redirects, logging,
+mock injection) **never runs**.
+
+Always use `fetcher` for custom fetch implementations:
+
+```ts
+return treaty<App>(API_URL, {
+  fetcher: fetchWithAuthErrorHandler,
+});
+```
+
+If your project includes `bun-types` transitively (e.g. via Elysia's `.d.ts`
+references), `typeof fetch` carries Bun-specific surface (`preconnect`,
+`BunFetchRequestInit`) that a plain Node/browser wrapper can't satisfy. A
+single `as typeof fetch` cast at declaration is acceptable here — it is
+substantially narrower than `as any` and the inner arrow function still
+enforces a fetch-shaped parameter contract.
 
 ## Debugging Checklist
 
