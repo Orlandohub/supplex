@@ -5,6 +5,7 @@ import { db, documents, suppliers, tenants, users } from "@supplex/db";
 import { eq, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../../lib/db-helpers";
 type App = typeof app;
 const client = treaty<App>("localhost:3001");
 
@@ -16,16 +17,11 @@ describe("DELETE /api/documents/:id", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant - Documents Delete",
-          slug: "test-tenant-docs-delete",
-          settings: {},
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant - Documents Delete",
+      slug: "test-tenant-docs-delete",
+      settings: {},
+    });
     testTenantId = tenant.id;
 
     // Create test user (Admin)
@@ -45,31 +41,26 @@ describe("DELETE /api/documents/:id", () => {
     testToken = "mock-jwt-token";
 
     // Create test supplier
-    const supplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: testTenantId,
-          name: "Test Supplier",
-          taxId: "12345678",
-          category: "manufacturer",
-          status: "approved",
-          contactName: "John Doe",
-          contactEmail: "john@example.com",
-          contactPhone: "+1234567890",
-          address: {
-            street: "123 Main St",
-            city: "Test City",
-            state: "TS",
-            postalCode: "12345",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const supplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: testTenantId,
+      name: "Test Supplier",
+      taxId: "12345678",
+      category: "manufacturer",
+      status: "approved",
+      contactName: "John Doe",
+      contactEmail: "john@example.com",
+      contactPhone: "+1234567890",
+      address: {
+        street: "123 Main St",
+        city: "Test City",
+        state: "TS",
+        postalCode: "12345",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: testUserId,
+    });
     testSupplierId = supplier.id;
   });
 
@@ -83,21 +74,16 @@ describe("DELETE /api/documents/:id", () => {
 
   it("should soft delete document", async () => {
     // Create document to delete
-    const document = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: testTenantId,
-          supplierId: testSupplierId,
-          filename: "to-delete.pdf",
-          documentType: "certificate",
-          storagePath: `${testTenantId}/${testSupplierId}/to-delete.pdf`,
-          fileSize: 1024,
-          mimeType: "application/pdf",
-          uploadedBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const document = await insertOneOrThrow(db, documents, {
+      tenantId: testTenantId,
+      supplierId: testSupplierId,
+      filename: "to-delete.pdf",
+      documentType: "certificate",
+      storagePath: `${testTenantId}/${testSupplierId}/to-delete.pdf`,
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      uploadedBy: testUserId,
+    });
 
     const response = await client.api.documents({ id: document.id }).delete({
       headers: {
@@ -112,13 +98,9 @@ describe("DELETE /api/documents/:id", () => {
     }
 
     // Verify document is soft deleted (has deletedAt timestamp)
-    const deletedDoc = (
-      await db
-        .select()
-        .from(documents)
-        .where(eq(documents.id, document.id))
-        .limit(1)
-    )[0]!;
+    const deletedDoc = await selectFirstOrThrow(
+      db.select().from(documents).where(eq(documents.id, document.id)).limit(1)
+    );
 
     expect(deletedDoc).toBeDefined();
     expect(deletedDoc.deletedAt).not.toBeNull();
@@ -149,21 +131,16 @@ describe("DELETE /api/documents/:id", () => {
   });
 
   it("should require authentication", async () => {
-    const document = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: testTenantId,
-          supplierId: testSupplierId,
-          filename: "auth-test.pdf",
-          documentType: "certificate",
-          storagePath: `${testTenantId}/${testSupplierId}/auth-test.pdf`,
-          fileSize: 1024,
-          mimeType: "application/pdf",
-          uploadedBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const document = await insertOneOrThrow(db, documents, {
+      tenantId: testTenantId,
+      supplierId: testSupplierId,
+      filename: "auth-test.pdf",
+      documentType: "certificate",
+      storagePath: `${testTenantId}/${testSupplierId}/auth-test.pdf`,
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      uploadedBy: testUserId,
+    });
 
     const response = await client.api.documents({ id: document.id }).delete();
 
@@ -176,37 +153,27 @@ describe("DELETE /api/documents/:id", () => {
   it("should enforce RBAC (Admin/Procurement Manager only)", async () => {
     // Create viewer user
     const viewerId = randomUUID();
-    const viewer = (
-      await db
-        .insert(users)
-        .values({
-          id: viewerId,
-          email: "viewer-delete@example.com",
-          fullName: "Test Viewer",
-          role: "viewer",
-          tenantId: testTenantId,
-          isActive: true,
-        })
-        .returning()
-    )[0]!;
+    const viewer = await insertOneOrThrow(db, users, {
+      id: viewerId,
+      email: "viewer-delete@example.com",
+      fullName: "Test Viewer",
+      role: "viewer",
+      tenantId: testTenantId,
+      isActive: true,
+    });
 
     const viewerToken = "mock-viewer-token";
 
-    const document = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: testTenantId,
-          supplierId: testSupplierId,
-          filename: "rbac-test.pdf",
-          documentType: "certificate",
-          storagePath: `${testTenantId}/${testSupplierId}/rbac-test.pdf`,
-          fileSize: 1024,
-          mimeType: "application/pdf",
-          uploadedBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const document = await insertOneOrThrow(db, documents, {
+      tenantId: testTenantId,
+      supplierId: testSupplierId,
+      filename: "rbac-test.pdf",
+      documentType: "certificate",
+      storagePath: `${testTenantId}/${testSupplierId}/rbac-test.pdf`,
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      uploadedBy: testUserId,
+    });
 
     const response = await client.api.documents({ id: document.id }).delete({
       headers: {
@@ -223,73 +190,53 @@ describe("DELETE /api/documents/:id", () => {
 
   it("should enforce tenant isolation", async () => {
     // Create different tenant with document
-    const otherTenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant",
-          slug: "other-tenant-delete",
-          settings: {},
-        })
-        .returning()
-    )[0]!;
+    const otherTenant = await insertOneOrThrow(db, tenants, {
+      name: "Other Tenant",
+      slug: "other-tenant-delete",
+      settings: {},
+    });
 
     const otherUserId = randomUUID();
-    const otherUser = (
-      await db
-        .insert(users)
-        .values({
-          id: otherUserId,
-          email: "other-user-delete@example.com",
-          fullName: "Other Tenant User",
-          role: "admin",
-          tenantId: otherTenant.id,
-          isActive: true,
-        })
-        .returning()
-    )[0]!;
+    const otherUser = await insertOneOrThrow(db, users, {
+      id: otherUserId,
+      email: "other-user-delete@example.com",
+      fullName: "Other Tenant User",
+      role: "admin",
+      tenantId: otherTenant.id,
+      isActive: true,
+    });
 
-    const otherSupplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: otherTenant.id,
-          name: "Other Supplier",
-          taxId: "87654321",
-          category: "distributor",
-          status: "approved",
-          contactName: "Jane Doe",
-          contactEmail: "jane@example.com",
-          contactPhone: "+1234567890",
-          address: {
-            street: "456 Other St",
-            city: "Other City",
-            state: "OT",
-            postalCode: "54321",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: otherUser.id,
-        })
-        .returning()
-    )[0]!;
+    const otherSupplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: otherTenant.id,
+      name: "Other Supplier",
+      taxId: "87654321",
+      category: "distributor",
+      status: "approved",
+      contactName: "Jane Doe",
+      contactEmail: "jane@example.com",
+      contactPhone: "+1234567890",
+      address: {
+        street: "456 Other St",
+        city: "Other City",
+        state: "OT",
+        postalCode: "54321",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: otherUser.id,
+    });
 
-    const otherDocument = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: otherTenant.id,
-          supplierId: otherSupplier.id,
-          filename: "other-doc.pdf",
-          documentType: "certificate",
-          storagePath: `${otherTenant.id}/${otherSupplier.id}/other-doc.pdf`,
-          fileSize: 1024,
-          mimeType: "application/pdf",
-          uploadedBy: otherUser.id,
-        })
-        .returning()
-    )[0]!;
+    const otherDocument = await insertOneOrThrow(db, documents, {
+      tenantId: otherTenant.id,
+      supplierId: otherSupplier.id,
+      filename: "other-doc.pdf",
+      documentType: "certificate",
+      storagePath: `${otherTenant.id}/${otherSupplier.id}/other-doc.pdf`,
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      uploadedBy: otherUser.id,
+    });
 
     // Attempt to delete document from different tenant
     const response = await client.api
@@ -311,22 +258,17 @@ describe("DELETE /api/documents/:id", () => {
 
   it("should return 404 when trying to delete already deleted document", async () => {
     // Create and delete document
-    const document = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: testTenantId,
-          supplierId: testSupplierId,
-          filename: "already-deleted.pdf",
-          documentType: "contract",
-          storagePath: `${testTenantId}/${testSupplierId}/already-deleted.pdf`,
-          fileSize: 2048,
-          mimeType: "application/pdf",
-          uploadedBy: testUserId,
-          deletedAt: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const document = await insertOneOrThrow(db, documents, {
+      tenantId: testTenantId,
+      supplierId: testSupplierId,
+      filename: "already-deleted.pdf",
+      documentType: "contract",
+      storagePath: `${testTenantId}/${testSupplierId}/already-deleted.pdf`,
+      fileSize: 2048,
+      mimeType: "application/pdf",
+      uploadedBy: testUserId,
+      deletedAt: new Date(),
+    });
 
     const response = await client.api.documents({ id: document.id }).delete({
       headers: {

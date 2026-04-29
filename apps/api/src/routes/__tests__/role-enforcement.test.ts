@@ -11,6 +11,7 @@ import { tenants, users, formTemplate, FormTemplateStatus } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { UserRole } from "@supplex/types";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../lib/db-helpers";
 setDefaultTimeout(30000);
 
 /**
@@ -38,78 +39,51 @@ describe("SEC-005: Role Enforcement", () => {
   let inactivePublishedTemplateId: string;
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({ name: "SEC005 Test", slug: `sec005-${Date.now()}` })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "SEC005 Test",
+      slug: `sec005-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    const admin = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `sec005-admin-${Date.now()}@test.com`,
-          fullName: "Admin",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const admin = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `sec005-admin-${Date.now()}@test.com`,
+      fullName: "Admin",
+      role: "admin",
+    });
     _adminUserId = admin.id;
 
-    const draft = (
-      await db
-        .insert(formTemplate)
-        .values({
-          tenantId,
-          name: "Draft Template",
-          status: FormTemplateStatus.DRAFT,
-          isActive: true,
-        })
-        .returning()
-    )[0]!;
+    const draft = await insertOneOrThrow(db, formTemplate, {
+      tenantId,
+      name: "Draft Template",
+      status: FormTemplateStatus.DRAFT,
+      isActive: true,
+    });
     draftTemplateId = draft.id;
 
-    const published = (
-      await db
-        .insert(formTemplate)
-        .values({
-          tenantId,
-          name: "Published Template",
-          status: FormTemplateStatus.PUBLISHED,
-          isActive: true,
-        })
-        .returning()
-    )[0]!;
+    const published = await insertOneOrThrow(db, formTemplate, {
+      tenantId,
+      name: "Published Template",
+      status: FormTemplateStatus.PUBLISHED,
+      isActive: true,
+    });
     publishedTemplateId = published.id;
 
-    const archived = (
-      await db
-        .insert(formTemplate)
-        .values({
-          tenantId,
-          name: "Archived Template",
-          status: FormTemplateStatus.ARCHIVED,
-          isActive: false,
-        })
-        .returning()
-    )[0]!;
+    const archived = await insertOneOrThrow(db, formTemplate, {
+      tenantId,
+      name: "Archived Template",
+      status: FormTemplateStatus.ARCHIVED,
+      isActive: false,
+    });
     archivedTemplateId = archived.id;
 
-    const inactivePub = (
-      await db
-        .insert(formTemplate)
-        .values({
-          tenantId,
-          name: "Inactive Published",
-          status: FormTemplateStatus.PUBLISHED,
-          isActive: false,
-        })
-        .returning()
-    )[0]!;
+    const inactivePub = await insertOneOrThrow(db, formTemplate, {
+      tenantId,
+      name: "Inactive Published",
+      status: FormTemplateStatus.PUBLISHED,
+      isActive: false,
+    });
     inactivePublishedTemplateId = inactivePub.id;
   });
 
@@ -236,8 +210,8 @@ describe("SEC-005: Role Enforcement", () => {
 
   describe("A9/A10: form-templates/get — draft hiding for non-admin", () => {
     test("non-admin accessing draft template gets 404 behavior", async () => {
-      const templateRecord = (
-        await db
+      const templateRecord = await selectFirstOrThrow(
+        db
           .select()
           .from(formTemplate)
           .where(
@@ -247,7 +221,7 @@ describe("SEC-005: Role Enforcement", () => {
               isNull(formTemplate.deletedAt)
             )
           )
-      )[0]!;
+      );
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.SUPPLIER_USER as UserRole;
@@ -257,8 +231,8 @@ describe("SEC-005: Role Enforcement", () => {
     });
 
     test("non-admin accessing published template succeeds", async () => {
-      const templateRecord = (
-        await db
+      const templateRecord = await selectFirstOrThrow(
+        db
           .select()
           .from(formTemplate)
           .where(
@@ -268,7 +242,7 @@ describe("SEC-005: Role Enforcement", () => {
               isNull(formTemplate.deletedAt)
             )
           )
-      )[0]!;
+      );
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.VIEWER as UserRole;
@@ -278,8 +252,8 @@ describe("SEC-005: Role Enforcement", () => {
     });
 
     test("admin accessing draft template succeeds", async () => {
-      const templateRecord = (
-        await db
+      const templateRecord = await selectFirstOrThrow(
+        db
           .select()
           .from(formTemplate)
           .where(
@@ -289,7 +263,7 @@ describe("SEC-005: Role Enforcement", () => {
               isNull(formTemplate.deletedAt)
             )
           )
-      )[0]!;
+      );
 
       expect(templateRecord).toBeDefined();
       const userRole: UserRole = UserRole.ADMIN;
@@ -299,8 +273,8 @@ describe("SEC-005: Role Enforcement", () => {
     });
 
     test("non-admin accessing archived template gets 404 behavior", async () => {
-      const templateRecord = (
-        await db
+      const templateRecord = await selectFirstOrThrow(
+        db
           .select()
           .from(formTemplate)
           .where(
@@ -310,7 +284,7 @@ describe("SEC-005: Role Enforcement", () => {
               isNull(formTemplate.deletedAt)
             )
           )
-      )[0]!;
+      );
 
       expect(templateRecord).toBeDefined();
       const userRole = UserRole.PROCUREMENT_MANAGER as UserRole;

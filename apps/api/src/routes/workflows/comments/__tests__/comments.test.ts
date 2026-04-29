@@ -9,6 +9,7 @@ import {
 } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 
+import { insertOneOrThrow } from "../../../../lib/db-helpers";
 /**
  * Integration Tests: Comment API Routes
  * Story: 2.2.8 - Workflow Execution Engine
@@ -28,123 +29,83 @@ describe("Comment Thread Data Model", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant",
-          slug: `test-tenant-comments-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant",
+      slug: `test-tenant-comments-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
     // Create other tenant for isolation testing
-    const otherTenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant",
-          slug: `other-tenant-comments-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const otherTenant = await insertOneOrThrow(db, tenants, {
+      name: "Other Tenant",
+      slug: `other-tenant-comments-${Date.now()}`,
+    });
     otherTenantId = otherTenant.id;
 
     // Create test user
-    const user = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `user-comments-${Date.now()}@test.com`,
-          fullName: "Test User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const user = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `user-comments-${Date.now()}@test.com`,
+      fullName: "Test User",
+      role: "admin",
+    });
     userId = user.id;
 
     // Create other tenant user
-    const otherUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: otherTenantId,
-          email: `other-user-comments-${Date.now()}@test.com`,
-          fullName: "Other User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const otherUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: otherTenantId,
+      email: `other-user-comments-${Date.now()}@test.com`,
+      fullName: "Other User",
+      role: "admin",
+    });
     otherUserId = otherUser.id;
 
     // Create process instance
-    const process = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "test_process",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const process = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "test_process",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+    });
     processInstanceId = process.id;
 
     // Create step instance
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId,
-          stepOrder: 1,
-          stepName: "Test Step",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId,
+      stepOrder: 1,
+      stepName: "Test Step",
+      stepType: "form",
+      status: "active",
+    });
     stepInstanceId = step.id;
 
     // Create process instance for other tenant
-    const otherProcess = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: otherTenantId,
-          processType: "test_process",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: otherUserId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const otherProcess = await insertOneOrThrow(db, processInstance, {
+      tenantId: otherTenantId,
+      processType: "test_process",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: otherUserId,
+      initiatedDate: new Date(),
+    });
     otherProcessInstanceId = otherProcess.id;
 
     // Create step instance for other tenant
-    const otherStep = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: otherTenantId,
-          processInstanceId: otherProcessInstanceId,
-          stepOrder: 1,
-          stepName: "Test Step",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const otherStep = await insertOneOrThrow(db, stepInstance, {
+      tenantId: otherTenantId,
+      processInstanceId: otherProcessInstanceId,
+      stepOrder: 1,
+      stepName: "Test Step",
+      stepType: "form",
+      status: "active",
+    });
     otherStepInstanceId = otherStep.id;
   });
 
@@ -174,19 +135,14 @@ describe("Comment Thread Data Model", () => {
     test("should create a comment successfully", async () => {
       const commentText = "This is a test comment";
 
-      const comment = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "form",
-            commentText,
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const comment = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "form",
+        commentText,
+        commentedBy: userId,
+      });
 
       expect(comment).toBeDefined();
       expect(comment.commentText).toBe(commentText);
@@ -200,35 +156,25 @@ describe("Comment Thread Data Model", () => {
 
     test("should create a reply comment with parent", async () => {
       // Create parent comment
-      const parentComment = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "form",
-            commentText: "Parent comment",
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const parentComment = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "form",
+        commentText: "Parent comment",
+        commentedBy: userId,
+      });
 
       // Create reply
-      const replyComment = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "form",
-            parentCommentId: parentComment.id,
-            commentText: "Reply to parent",
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const replyComment = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "form",
+        parentCommentId: parentComment.id,
+        commentText: "Reply to parent",
+        commentedBy: userId,
+      });
 
       expect(replyComment).toBeDefined();
       expect(replyComment.parentCommentId).toBe(parentComment.id);
@@ -236,19 +182,14 @@ describe("Comment Thread Data Model", () => {
     });
 
     test("should support document entity type", async () => {
-      const comment = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "document",
-            commentText: "Document comment",
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const comment = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "document",
+        commentText: "Document comment",
+        commentedBy: userId,
+      });
 
       expect(comment.entityType).toBe("document");
     });
@@ -341,36 +282,26 @@ describe("Comment Thread Data Model", () => {
 
     test("should order comments by created_at ascending", async () => {
       // Create comments with slight delay
-      const firstComment = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "form",
-            commentText: "Chronological first",
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const firstComment = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "form",
+        commentText: "Chronological first",
+        commentedBy: userId,
+      });
 
       // Small delay to ensure different timestamps
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const secondComment = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "form",
-            commentText: "Chronological second",
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const secondComment = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "form",
+        commentText: "Chronological second",
+        commentedBy: userId,
+      });
 
       // Query with order
       const comments = await db
@@ -398,19 +329,14 @@ describe("Comment Thread Data Model", () => {
 
     test("should support threaded comment structure", async () => {
       // Create parent
-      const parent = (
-        await db
-          .insert(commentThread)
-          .values({
-            tenantId,
-            processInstanceId,
-            stepInstanceId,
-            entityType: "form",
-            commentText: "Thread parent",
-            commentedBy: userId,
-          })
-          .returning()
-      )[0]!;
+      const parent = await insertOneOrThrow(db, commentThread, {
+        tenantId,
+        processInstanceId,
+        stepInstanceId,
+        entityType: "form",
+        commentText: "Thread parent",
+        commentedBy: userId,
+      });
 
       // Create replies
       await db.insert(commentThread).values([

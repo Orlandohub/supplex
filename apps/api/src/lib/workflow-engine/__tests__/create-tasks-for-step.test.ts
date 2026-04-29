@@ -12,6 +12,7 @@ import {
 import { eq, and, isNull } from "drizzle-orm";
 import { createTasksForStep } from "../create-tasks-for-step";
 
+import { insertOneOrThrow } from "../../db-helpers";
 /**
  * Unit Tests: createTasksForStep Helper
  * Story: 2.2.8 - Workflow Execution Engine
@@ -26,56 +27,36 @@ describe("createTasksForStep Helper", () => {
   let workflowTemplateId: string;
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant",
-          slug: `test-tenant-tasks-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant",
+      slug: `test-tenant-tasks-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    ({ id: userId } = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `user-tasks-${Date.now()}@test.com`,
-          fullName: "Test User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: userId } = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `user-tasks-${Date.now()}@test.com`,
+      fullName: "Test User",
+      role: "admin",
+    }));
 
-    ({ id: processId } = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "supplier_qualification",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!);
+    ({ id: processId } = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "supplier_qualification",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+    }));
 
-    ({ id: workflowTemplateId } = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Test Workflow",
-          status: "draft",
-          createdBy: userId,
-        })
-        .returning()
-    )[0]!);
+    ({ id: workflowTemplateId } = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Test Workflow",
+      status: "draft",
+      createdBy: userId,
+    }));
   });
 
   afterAll(async () => {
@@ -83,37 +64,27 @@ describe("createTasksForStep Helper", () => {
   });
 
   test("creates single task for step with role assignee", async () => {
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 1,
-          stepName: "Submit Form",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 1,
+      stepName: "Submit Form",
+      stepType: "form",
+      status: "active",
+    });
 
-    const stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId,
-          stepOrder: 1,
-          name: "Submit Form",
-          stepType: "form",
-          taskTitle: "Fill out supplier form",
-          taskDescription: "Please complete the supplier information form",
-          dueDays: 7,
-          assigneeType: "role",
-          assigneeRole: "procurement_manager",
-        })
-        .returning()
-    )[0]!;
+    const stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId,
+      workflowTemplateId,
+      stepOrder: 1,
+      name: "Submit Form",
+      stepType: "form",
+      taskTitle: "Fill out supplier form",
+      taskDescription: "Please complete the supplier information form",
+      dueDays: 7,
+      assigneeType: "role",
+      assigneeRole: "procurement_manager",
+    });
 
     const tasks = await createTasksForStep(
       db,
@@ -143,49 +114,34 @@ describe("createTasksForStep Helper", () => {
   });
 
   test("creates task with user assignee instead of role", async () => {
-    const specificUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `specific-user-${Date.now()}@test.com`,
-          fullName: "Specific User",
-          role: "viewer",
-        })
-        .returning()
-    )[0]!;
+    const specificUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `specific-user-${Date.now()}@test.com`,
+      fullName: "Specific User",
+      role: "viewer",
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 3,
-          stepName: "Upload Documents",
-          stepType: "document",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 3,
+      stepName: "Upload Documents",
+      stepType: "document",
+      status: "active",
+    });
 
-    const stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId,
-          stepOrder: 3,
-          name: "Upload Documents",
-          stepType: "document",
-          taskTitle: "Upload required documents",
-          dueDays: 5,
-          assigneeType: "user",
-          assigneeUserId: specificUser.id,
-        })
-        .returning()
-    )[0]!;
+    const stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId,
+      workflowTemplateId,
+      stepOrder: 3,
+      name: "Upload Documents",
+      stepType: "document",
+      taskTitle: "Upload required documents",
+      dueDays: 5,
+      assigneeType: "user",
+      assigneeUserId: specificUser.id,
+    });
 
     const tasks = await createTasksForStep(
       db,
@@ -213,36 +169,26 @@ describe("createTasksForStep Helper", () => {
   test("calculates due date correctly based on dueDays", async () => {
     const beforeCreate = Date.now();
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 4,
-          stepName: "Test Due Date",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 4,
+      stepName: "Test Due Date",
+      stepType: "form",
+      status: "active",
+    });
 
-    const stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId,
-          stepOrder: 4,
-          name: "Test Due Date",
-          stepType: "form",
-          taskTitle: "Test task",
-          dueDays: 10,
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    const stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId,
+      workflowTemplateId,
+      stepOrder: 4,
+      name: "Test Due Date",
+      stepType: "form",
+      taskTitle: "Test task",
+      dueDays: 10,
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
 
     const tasks = await createTasksForStep(
       db,
@@ -272,35 +218,25 @@ describe("createTasksForStep Helper", () => {
   });
 
   test("handles step with no due date (dueDays is null)", async () => {
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 5,
-          stepName: "No Due Date",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 5,
+      stepName: "No Due Date",
+      stepType: "form",
+      status: "active",
+    });
 
-    const stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId,
-          stepOrder: 5,
-          name: "No Due Date",
-          stepType: "form",
-          taskTitle: "Task without deadline",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    const stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId,
+      workflowTemplateId,
+      stepOrder: 5,
+      name: "No Due Date",
+      stepType: "form",
+      taskTitle: "Task without deadline",
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
 
     const tasks = await createTasksForStep(
       db,
@@ -324,19 +260,14 @@ describe("createTasksForStep Helper", () => {
   });
 
   test("throws error if step template not found", async () => {
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 99,
-          stepName: "Error Test",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 99,
+      stepName: "Error Test",
+      stepType: "form",
+      status: "active",
+    });
 
     const fakeStepTemplateId = crypto.randomUUID();
 
@@ -360,45 +291,30 @@ describe("createTasksForStep Helper", () => {
   });
 
   test("respects tenant isolation - cannot access other tenant's template", async () => {
-    const otherTenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant",
-          slug: `other-tenant-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const otherTenant = await insertOneOrThrow(db, tenants, {
+      name: "Other Tenant",
+      slug: `other-tenant-${Date.now()}`,
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 101,
-          stepName: "Tenant Test",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 101,
+      stepName: "Tenant Test",
+      stepType: "form",
+      status: "active",
+    });
 
-    const otherStepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId: otherTenant.id,
-          workflowTemplateId,
-          stepOrder: 101,
-          name: "Other Tenant Template",
-          stepType: "form",
-          taskTitle: "Task from other tenant",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    const otherStepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId: otherTenant.id,
+      workflowTemplateId,
+      stepOrder: 101,
+      name: "Other Tenant Template",
+      stepType: "form",
+      taskTitle: "Task from other tenant",
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
 
     let error: Error | null = null;
     try {
@@ -424,35 +340,25 @@ describe("createTasksForStep Helper", () => {
   });
 
   test("idempotency: returns existing pending task instead of inserting duplicate", async () => {
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 200,
-          stepName: "Idempotency Test",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 200,
+      stepName: "Idempotency Test",
+      stepType: "form",
+      status: "active",
+    });
 
-    const stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId,
-          stepOrder: 200,
-          name: "Idempotency Test",
-          stepType: "form",
-          taskTitle: "Idempotent task",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    const stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId,
+      workflowTemplateId,
+      stepOrder: 200,
+      name: "Idempotency Test",
+      stepType: "form",
+      taskTitle: "Idempotent task",
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
 
     // First call creates a task
     const tasks1 = await createTasksForStep(

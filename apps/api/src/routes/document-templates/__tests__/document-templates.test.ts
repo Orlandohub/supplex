@@ -11,6 +11,7 @@ import { documentTemplate, tenants, users } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { supabaseAdmin } from "../../../lib/supabase";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../../lib/db-helpers";
 // ─── Typed response shapes for `response.json()` parses ─────────────────────
 
 interface DocumentTemplateRecord {
@@ -64,15 +65,10 @@ describe("Document Templates API Tests", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant API",
-          slug: `test-api-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant API",
+      slug: `test-api-${Date.now()}`,
+    });
     testTenantId = tenant.id;
 
     // Create admin user via Supabase
@@ -209,12 +205,12 @@ describe("Document Templates API Tests", () => {
       expect(response2.status).toBe(200);
 
       // Verify first template is no longer default
-      const template1 = (
-        await db
+      const template1 = await selectFirstOrThrow(
+        db
           .select()
           .from(documentTemplate)
           .where(eq(documentTemplate.id, template1Id))
-      )[0]!;
+      );
 
       expect(template1.isDefault).toBe(false);
     });
@@ -379,12 +375,12 @@ describe("Document Templates API Tests", () => {
       expect(deleteData.success).toBe(true);
 
       // Verify soft delete
-      const deletedTemplate = (
-        await db
+      const deletedTemplate = await selectFirstOrThrow(
+        db
           .select()
           .from(documentTemplate)
           .where(eq(documentTemplate.id, templateId))
-      )[0]!;
+      );
 
       expect(deletedTemplate.deletedAt).not.toBeNull();
     });
@@ -399,15 +395,10 @@ describe("Document Templates API Tests", () => {
   describe("Tenant Isolation", () => {
     it("should not allow access to other tenant's templates", async () => {
       // Create another tenant and admin
-      const otherTenant = (
-        await db
-          .insert(tenants)
-          .values({
-            name: "Other Tenant",
-            slug: `other-tenant-${Date.now()}`,
-          })
-          .returning()
-      )[0]!;
+      const otherTenant = await insertOneOrThrow(db, tenants, {
+        name: "Other Tenant",
+        slug: `other-tenant-${Date.now()}`,
+      });
 
       const { data: otherAuthData } = await supabaseAdmin.auth.admin.createUser(
         {

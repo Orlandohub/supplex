@@ -12,6 +12,10 @@ import {
 import { eq } from "drizzle-orm";
 import { completeStep } from "../../../../lib/workflow-engine/complete-step";
 
+import {
+  insertOneOrThrow,
+  selectFirstOrThrow,
+} from "../../../../lib/db-helpers";
 /**
  * Unit Tests: Step Completion
  * Story: 2.2.8 - Workflow Execution Engine
@@ -24,42 +28,27 @@ describe("Step Completion", () => {
   let templateId: string;
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant",
-          slug: `test-tenant-complete-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant",
+      slug: `test-tenant-complete-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    ({ id: userId } = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `user-complete-${Date.now()}@test.com`,
-          fullName: "Test User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: userId } = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `user-complete-${Date.now()}@test.com`,
+      fullName: "Test User",
+      role: "admin",
+    }));
 
-    const template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Test Workflow",
-          status: "published",
-          active: true,
-          createdBy: userId,
-        })
-        .returning()
-    )[0]!;
+    const template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Test Workflow",
+      status: "published",
+      active: true,
+      createdBy: userId,
+    });
     templateId = template.id;
   });
 
@@ -68,51 +57,36 @@ describe("Step Completion", () => {
   });
 
   test("completeStep succeeds for active step", async () => {
-    const process = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-        })
-        .returning()
-    )[0]!;
+    const process = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+    });
 
-    const stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId: templateId,
-          stepOrder: 1,
-          name: "Fill Form",
-          stepType: "form",
-          taskTitle: "Fill form",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    const stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      tenantId,
+      workflowTemplateId: templateId,
+      stepOrder: 1,
+      name: "Fill Form",
+      stepType: "form",
+      taskTitle: "Fill form",
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: process.id,
-          stepOrder: 1,
-          stepName: "Fill Form",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: process.id,
+      stepOrder: 1,
+      stepName: "Fill Form",
+      stepType: "form",
+      status: "active",
+    });
 
     const result = await completeStep(db, {
       tenantId,
@@ -125,9 +99,9 @@ describe("Step Completion", () => {
     expect(result.data?.stepCompleted).toBe(true);
 
     // Verify step was marked completed
-    const updatedStep = (
-      await db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
-    )[0]!;
+    const updatedStep = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
+    );
 
     // Status is completed or awaiting_validation or validated depending on template config
     expect(["completed", "awaiting_validation", "validated"]).toContain(
@@ -141,35 +115,25 @@ describe("Step Completion", () => {
   });
 
   test("atomic CAS rejects step not in active state (blocked)", async () => {
-    const process = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-        })
-        .returning()
-    )[0]!;
+    const process = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: process.id,
-          stepOrder: 2,
-          stepName: "Blocked Step",
-          stepType: "approval",
-          status: "blocked",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: process.id,
+      stepOrder: 2,
+      stepName: "Blocked Step",
+      stepType: "approval",
+      status: "blocked",
+    });
 
     const result = await completeStep(db, {
       tenantId,
@@ -182,46 +146,36 @@ describe("Step Completion", () => {
     expect(result.error).toContain("already processed or not in active state");
 
     // Verify step status unchanged
-    const unchangedStep = (
-      await db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
-    )[0]!;
+    const unchangedStep = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
+    );
     expect(unchangedStep.status).toBe("blocked");
 
     await db.delete(processInstance).where(eq(processInstance.id, process.id));
   });
 
   test("atomic CAS rejects already-completed step (double submit)", async () => {
-    const process = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-        })
-        .returning()
-    )[0]!;
+    const process = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: process.id,
-          stepOrder: 1,
-          stepName: "Already Done",
-          stepType: "form",
-          status: "completed",
-          completedBy: userId,
-          completedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: process.id,
+      stepOrder: 1,
+      stepName: "Already Done",
+      stepType: "form",
+      status: "completed",
+      completedBy: userId,
+      completedDate: new Date(),
+    });
 
     const result = await completeStep(db, {
       tenantId,
@@ -237,35 +191,25 @@ describe("Step Completion", () => {
   });
 
   test("decline outcome creates comment and marks step declined", async () => {
-    const process = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-        })
-        .returning()
-    )[0]!;
+    const process = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: process.id,
-          stepOrder: 1,
-          stepName: "Decline Test",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: process.id,
+      stepOrder: 1,
+      stepName: "Decline Test",
+      stepType: "form",
+      status: "active",
+    });
 
     const result = await completeStep(db, {
       tenantId,
@@ -278,9 +222,9 @@ describe("Step Completion", () => {
     expect(result.success).toBe(true);
     expect(result.data?.stepCompleted).toBe(true);
 
-    const declinedStep = (
-      await db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
-    )[0]!;
+    const declinedStep = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
+    );
     expect(declinedStep.status).toBe("declined");
 
     const comments = await db

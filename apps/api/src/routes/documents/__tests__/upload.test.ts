@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, mock } from "bun:test";
 import { treaty } from "@elysiajs/eden";
 import type app from "../../../index";
 import { db, documents, suppliers, tenants, users } from "@supplex/db";
+import { insertOneOrThrow } from "../../../lib/db-helpers";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -28,16 +29,11 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant - Documents Upload",
-          slug: "test-tenant-docs-upload",
-          settings: {},
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant - Documents Upload",
+      slug: "test-tenant-docs-upload",
+      settings: {},
+    });
     testTenantId = tenant.id;
 
     // Create test user (Admin)
@@ -58,31 +54,26 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
     testToken = "mock-jwt-token";
 
     // Create test supplier
-    const supplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: testTenantId,
-          name: "Test Supplier",
-          taxId: "12345678",
-          category: "manufacturer",
-          status: "approved",
-          contactName: "John Doe",
-          contactEmail: "john@example.com",
-          contactPhone: "+1234567890",
-          address: {
-            street: "123 Main St",
-            city: "Test City",
-            state: "TS",
-            postalCode: "12345",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const supplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: testTenantId,
+      name: "Test Supplier",
+      taxId: "12345678",
+      category: "manufacturer",
+      status: "approved",
+      contactName: "John Doe",
+      contactEmail: "john@example.com",
+      contactPhone: "+1234567890",
+      address: {
+        street: "123 Main St",
+        city: "Test City",
+        state: "TS",
+        postalCode: "12345",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: testUserId,
+    });
     testSupplierId = supplier.id;
   });
 
@@ -186,19 +177,14 @@ describe("POST /api/suppliers/:supplierId/documents", () => {
   it("should enforce RBAC (Admin/Procurement Manager only)", async () => {
     // Create viewer user
     const viewerId = randomUUID();
-    const viewer = (
-      await db
-        .insert(users)
-        .values({
-          id: viewerId,
-          email: "viewer@example.com",
-          fullName: "Test Viewer",
-          role: "viewer",
-          tenantId: testTenantId,
-          isActive: true,
-        })
-        .returning()
-    )[0]!;
+    const viewer = await insertOneOrThrow(db, users, {
+      id: viewerId,
+      email: "viewer@example.com",
+      fullName: "Test Viewer",
+      role: "viewer",
+      tenantId: testTenantId,
+      isActive: true,
+    });
 
     const viewerToken = "mock-viewer-token";
 

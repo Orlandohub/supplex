@@ -12,6 +12,7 @@ import type { App } from "../../index";
 import app from "../../index";
 import { UserRole } from "@supplex/types";
 
+import { insertOneOrThrow } from "../../lib/db-helpers";
 // Create treaty client
 const client = treaty<App>(app);
 
@@ -46,152 +47,112 @@ let otherTenantUserId: string;
 describe("GET /api/suppliers/by-user/:userId", () => {
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant - By User Endpoint",
-          slug: "test-tenant-by-user",
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant - By User Endpoint",
+      slug: "test-tenant-by-user",
+    });
     testTenantId = tenant.id;
 
     // Create another tenant for tenant isolation test
-    const otherTenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant - By User",
-          slug: "other-tenant-by-user",
-        })
-        .returning()
-    )[0]!;
+    const otherTenant = await insertOneOrThrow(db, tenants, {
+      name: "Other Tenant - By User",
+      slug: "other-tenant-by-user",
+    });
     otherTenantId = otherTenant.id;
 
     // Create test admin user
-    const adminUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: testTenantId,
-          email: "admin@test-by-user.com",
-          fullName: "Test Admin",
-          role: UserRole.ADMIN,
-          isActive: true,
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const adminUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: testTenantId,
+      email: "admin@test-by-user.com",
+      fullName: "Test Admin",
+      role: UserRole.ADMIN,
+      isActive: true,
+      status: "active",
+    });
     testUserId = adminUser.id;
 
     // Create supplier_user
-    const supplierUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: testTenantId,
-          email: "supplier@test-by-user.com",
-          fullName: "Test Supplier User",
-          role: UserRole.SUPPLIER_USER,
-          isActive: true,
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const supplierUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: testTenantId,
+      email: "supplier@test-by-user.com",
+      fullName: "Test Supplier User",
+      role: UserRole.SUPPLIER_USER,
+      isActive: true,
+      status: "active",
+    });
     testSupplierUserId = supplierUser.id;
 
     // Create unassociated user
-    const unassociatedUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: testTenantId,
-          email: "unassociated@test-by-user.com",
-          fullName: "Unassociated User",
-          role: UserRole.VIEWER,
-          isActive: true,
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const unassociatedUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: testTenantId,
+      email: "unassociated@test-by-user.com",
+      fullName: "Unassociated User",
+      role: UserRole.VIEWER,
+      isActive: true,
+      status: "active",
+    });
     testUnassociatedUserId = unassociatedUser.id;
 
     // Create supplier associated with supplier_user
-    const supplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: testTenantId,
-          name: "Test Supplier with User",
-          taxId: "TEST-TAX-BY-USER",
-          category: "manufacturer",
-          status: "approved",
-          contactName: "Test Contact",
-          contactEmail: "contact@test-supplier.com",
-          contactPhone: "+1234567890",
-          address: {
-            street: "123 Test St",
-            city: "Test City",
-            state: "TS",
-            postalCode: "12345",
-            country: "Test Country",
-          },
-          certifications: [],
-          metadata: {},
-          supplierUserId: testSupplierUserId, // Link to supplier user
-          createdBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const supplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: testTenantId,
+      name: "Test Supplier with User",
+      taxId: "TEST-TAX-BY-USER",
+      category: "manufacturer",
+      status: "approved",
+      contactName: "Test Contact",
+      contactEmail: "contact@test-supplier.com",
+      contactPhone: "+1234567890",
+      address: {
+        street: "123 Test St",
+        city: "Test City",
+        state: "TS",
+        postalCode: "12345",
+        country: "Test Country",
+      },
+      certifications: [],
+      metadata: {},
+      supplierUserId: testSupplierUserId, // Link to supplier user
+      createdBy: testUserId,
+    });
     testSupplierId = supplier.id;
 
     // Create supplier in other tenant
-    const otherTenantUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: otherTenantId,
-          email: "user@other-tenant.com",
-          fullName: "Other Tenant User",
-          role: UserRole.SUPPLIER_USER,
-          isActive: true,
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const otherTenantUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: otherTenantId,
+      email: "user@other-tenant.com",
+      fullName: "Other Tenant User",
+      role: UserRole.SUPPLIER_USER,
+      isActive: true,
+      status: "active",
+    });
     otherTenantUserId = otherTenantUser.id;
 
-    const otherSupplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: otherTenantId,
-          name: "Other Tenant Supplier",
-          taxId: "OTHER-TAX",
-          category: "distributor",
-          status: "approved",
-          contactName: "Other Contact",
-          contactEmail: "contact@other.com",
-          contactPhone: "+9876543210",
-          address: {
-            street: "456 Other St",
-            city: "Other City",
-            state: "OS",
-            postalCode: "54321",
-            country: "Other Country",
-          },
-          certifications: [],
-          metadata: {},
-          supplierUserId: otherTenantUserId,
-          createdBy: otherTenantUserId,
-        })
-        .returning()
-    )[0]!;
+    const otherSupplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: otherTenantId,
+      name: "Other Tenant Supplier",
+      taxId: "OTHER-TAX",
+      category: "distributor",
+      status: "approved",
+      contactName: "Other Contact",
+      contactEmail: "contact@other.com",
+      contactPhone: "+9876543210",
+      address: {
+        street: "456 Other St",
+        city: "Other City",
+        state: "OS",
+        postalCode: "54321",
+        country: "Other Country",
+      },
+      certifications: [],
+      metadata: {},
+      supplierUserId: otherTenantUserId,
+      createdBy: otherTenantUserId,
+    });
     otherTenantSupplierId = otherSupplier.id;
 
     // Mock auth token (in real tests, you'd get this from Supabase)

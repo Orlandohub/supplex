@@ -5,6 +5,7 @@ import { db, documents, suppliers, tenants, users } from "@supplex/db";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
+import { insertOneOrThrow } from "../../../lib/db-helpers";
 type App = typeof app;
 const client = treaty<App>("localhost:3001");
 
@@ -17,16 +18,11 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant - Documents List",
-          slug: "test-tenant-docs-list",
-          settings: {},
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant - Documents List",
+      slug: "test-tenant-docs-list",
+      settings: {},
+    });
     testTenantId = tenant.id;
 
     // Create test user
@@ -47,51 +43,41 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
     testToken = "mock-jwt-token";
 
     // Create test supplier
-    const supplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: testTenantId,
-          name: "Test Supplier",
-          taxId: "12345678",
-          category: "manufacturer",
-          status: "approved",
-          contactName: "John Doe",
-          contactEmail: "john@example.com",
-          contactPhone: "+1234567890",
-          address: {
-            street: "123 Main St",
-            city: "Test City",
-            state: "TS",
-            postalCode: "12345",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const supplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: testTenantId,
+      name: "Test Supplier",
+      taxId: "12345678",
+      category: "manufacturer",
+      status: "approved",
+      contactName: "John Doe",
+      contactEmail: "john@example.com",
+      contactPhone: "+1234567890",
+      address: {
+        street: "123 Main St",
+        city: "Test City",
+        state: "TS",
+        postalCode: "12345",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: testUserId,
+    });
     testSupplierId = supplier.id;
 
     // Create test document
-    const document = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: testTenantId,
-          supplierId: testSupplierId,
-          filename: "test-document.pdf",
-          documentType: "certificate",
-          storagePath: `${testTenantId}/${testSupplierId}/test.pdf`,
-          fileSize: 1024,
-          mimeType: "application/pdf",
-          description: "Test document",
-          expiryDate: new Date("2025-12-31"),
-          uploadedBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const document = await insertOneOrThrow(db, documents, {
+      tenantId: testTenantId,
+      supplierId: testSupplierId,
+      filename: "test-document.pdf",
+      documentType: "certificate",
+      storagePath: `${testTenantId}/${testSupplierId}/test.pdf`,
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      description: "Test document",
+      expiryDate: new Date("2025-12-31"),
+      uploadedBy: testUserId,
+    });
     testDocumentId = document.id;
   });
 
@@ -123,31 +109,26 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
 
   it("should return empty array when no documents exist", async () => {
     // Create supplier without documents
-    const emptySupplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId: testTenantId,
-          name: "Empty Supplier",
-          taxId: "87654321",
-          category: "distributor",
-          status: "approved",
-          contactName: "Jane Doe",
-          contactEmail: "jane@example.com",
-          contactPhone: "+1234567890",
-          address: {
-            street: "456 Empty St",
-            city: "Test City",
-            state: "TS",
-            postalCode: "12345",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: testUserId,
-        })
-        .returning()
-    )[0]!;
+    const emptySupplier = await insertOneOrThrow(db, suppliers, {
+      tenantId: testTenantId,
+      name: "Empty Supplier",
+      taxId: "87654321",
+      category: "distributor",
+      status: "approved",
+      contactName: "Jane Doe",
+      contactEmail: "jane@example.com",
+      contactPhone: "+1234567890",
+      address: {
+        street: "456 Empty St",
+        city: "Test City",
+        state: "TS",
+        postalCode: "12345",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: testUserId,
+    });
 
     const response = await client.api
       .suppliers({ id: emptySupplier.id })
@@ -189,22 +170,17 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
 
   it("should not return deleted documents", async () => {
     // Create and delete a document
-    const deletedDoc = (
-      await db
-        .insert(documents)
-        .values({
-          tenantId: testTenantId,
-          supplierId: testSupplierId,
-          filename: "deleted-doc.pdf",
-          documentType: "contract",
-          storagePath: `${testTenantId}/${testSupplierId}/deleted.pdf`,
-          fileSize: 2048,
-          mimeType: "application/pdf",
-          uploadedBy: testUserId,
-          deletedAt: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const deletedDoc = await insertOneOrThrow(db, documents, {
+      tenantId: testTenantId,
+      supplierId: testSupplierId,
+      filename: "deleted-doc.pdf",
+      documentType: "contract",
+      storagePath: `${testTenantId}/${testSupplierId}/deleted.pdf`,
+      fileSize: 2048,
+      mimeType: "application/pdf",
+      uploadedBy: testUserId,
+      deletedAt: new Date(),
+    });
 
     const response = await client.api
       .suppliers({ id: testSupplierId })

@@ -14,6 +14,7 @@ import { transitionToNextStep } from "../transition-to-next-step";
 import { returnToPreviousStep } from "../return-to-previous-step";
 import { completeStep } from "../complete-step";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../db-helpers";
 /**
  * Unit Tests: Step Transition Helpers
  * Story: 2.2.8 / 2.2.16 - Workflow Engine Step Transitions
@@ -33,153 +34,115 @@ describe("Step Transition Helpers", () => {
   let _stepTemplate3Id: string;
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant",
-          slug: `test-tenant-transitions-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant",
+      slug: `test-tenant-transitions-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    ({ id: userId } = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `user-transitions-${Date.now()}@test.com`,
-          fullName: "Test User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: userId } = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `user-transitions-${Date.now()}@test.com`,
+      fullName: "Test User",
+      role: "admin",
+    }));
 
-    const template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Test Workflow",
-          status: "published",
-          active: true,
-          createdBy: userId,
-        })
-        .returning()
-    )[0]!;
+    const template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Test Workflow",
+      status: "published",
+      active: true,
+      createdBy: userId,
+    });
     templateId = template.id;
 
-    ({ id: _stepTemplate1Id } = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId: templateId,
-          stepOrder: 1,
-          name: "Step 1",
-          stepType: "form",
-          taskTitle: "Complete Step 1",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: _stepTemplate1Id } = await insertOneOrThrow(
+      db,
+      workflowStepTemplate,
+      {
+        tenantId,
+        workflowTemplateId: templateId,
+        stepOrder: 1,
+        name: "Step 1",
+        stepType: "form",
+        taskTitle: "Complete Step 1",
+        assigneeType: "role",
+        assigneeRole: "admin",
+      }
+    ));
 
-    ({ id: _stepTemplate2Id } = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId: templateId,
-          stepOrder: 2,
-          name: "Step 2",
-          stepType: "approval",
-          taskTitle: "Approve Step 2",
-          assigneeType: "role",
-          assigneeRole: "admin",
-          declineReturnsToStepOffset: 1,
-        })
-        .returning()
-    )[0]!);
+    ({ id: _stepTemplate2Id } = await insertOneOrThrow(
+      db,
+      workflowStepTemplate,
+      {
+        tenantId,
+        workflowTemplateId: templateId,
+        stepOrder: 2,
+        name: "Step 2",
+        stepType: "approval",
+        taskTitle: "Approve Step 2",
+        assigneeType: "role",
+        assigneeRole: "admin",
+        declineReturnsToStepOffset: 1,
+      }
+    ));
 
-    ({ id: _stepTemplate3Id } = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          tenantId,
-          workflowTemplateId: templateId,
-          stepOrder: 3,
-          name: "Step 3",
-          stepType: "form",
-          taskTitle: "Complete Step 3",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: _stepTemplate3Id } = await insertOneOrThrow(
+      db,
+      workflowStepTemplate,
+      {
+        tenantId,
+        workflowTemplateId: templateId,
+        stepOrder: 3,
+        name: "Step 3",
+        stepType: "form",
+        taskTitle: "Complete Step 3",
+        assigneeType: "role",
+        assigneeRole: "admin",
+      }
+    ));
 
-    ({ id: processId } = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-          totalSteps: 3,
-          completedSteps: 0,
-          metadata: {},
-        })
-        .returning()
-    )[0]!);
+    ({ id: processId } = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+      totalSteps: 3,
+      completedSteps: 0,
+      metadata: {},
+    }));
 
-    ({ id: step1Id } = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 1,
-          stepName: "Step 1",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!);
+    ({ id: step1Id } = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 1,
+      stepName: "Step 1",
+      stepType: "form",
+      status: "active",
+    }));
 
-    ({ id: step2Id } = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 2,
-          stepName: "Step 2",
-          stepType: "approval",
-          status: "blocked",
-        })
-        .returning()
-    )[0]!);
+    ({ id: step2Id } = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 2,
+      stepName: "Step 2",
+      stepType: "approval",
+      status: "blocked",
+    }));
 
-    ({ id: step3Id } = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processId,
-          stepOrder: 3,
-          stepName: "Step 3",
-          stepType: "form",
-          status: "blocked",
-        })
-        .returning()
-    )[0]!);
+    ({ id: step3Id } = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processId,
+      stepOrder: 3,
+      stepName: "Step 3",
+      stepType: "form",
+      status: "blocked",
+    }));
   });
 
   afterAll(async () => {
@@ -194,18 +157,15 @@ describe("Step Transition Helpers", () => {
     expect(result.nextStepId).toBe(step2Id);
     expect(result.processCompleted).toBe(false);
 
-    const step2 = (
-      await db.select().from(stepInstance).where(eq(stepInstance.id, step2Id))
-    )[0]!;
+    const step2 = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, step2Id))
+    );
     expect(step2.status).toBe("active");
 
     // Verify completedSteps incremented by 1
-    const proc = (
-      await db
-        .select()
-        .from(processInstance)
-        .where(eq(processInstance.id, processId))
-    )[0]!;
+    const proc = await selectFirstOrThrow(
+      db.select().from(processInstance).where(eq(processInstance.id, processId))
+    );
     expect(proc.completedSteps).toBe(1);
     expect(proc.totalSteps).toBe(3);
 
@@ -226,12 +186,9 @@ describe("Step Transition Helpers", () => {
     expect(result.nextStepActivated).toBe(false);
     expect(result.processCompleted).toBe(true);
 
-    const process = (
-      await db
-        .select()
-        .from(processInstance)
-        .where(eq(processInstance.id, processId))
-    )[0]!;
+    const process = await selectFirstOrThrow(
+      db.select().from(processInstance).where(eq(processInstance.id, processId))
+    );
     expect(process.status as string).toBe("completed");
     expect(process.completedDate).toBeDefined();
 
@@ -240,50 +197,35 @@ describe("Step Transition Helpers", () => {
   });
 
   test("completeStep - resolves step template via process metadata", async () => {
-    const newProcess = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const newProcess = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+      metadata: {},
+    });
 
-    const newStep1 = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 1,
-          stepName: "Step 1",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const newStep1 = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 1,
+      stepName: "Step 1",
+      stepType: "form",
+      status: "active",
+    });
 
-    const newStep2 = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 2,
-          stepName: "Step 2",
-          stepType: "approval",
-          status: "blocked",
-        })
-        .returning()
-    )[0]!;
+    const newStep2 = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 2,
+      stepName: "Step 2",
+      stepType: "approval",
+      status: "blocked",
+    });
 
     const result = await completeStep(db, {
       tenantId,
@@ -296,12 +238,9 @@ describe("Step Transition Helpers", () => {
     expect(result.data?.stepCompleted).toBe(true);
     expect(result.data?.nextStepActivated).toBe(true);
 
-    const updatedStep2 = (
-      await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, newStep2.id))
-    )[0]!;
+    const updatedStep2 = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, newStep2.id))
+    );
     expect(updatedStep2.status).toBe("active");
 
     const tasks = await db
@@ -316,50 +255,35 @@ describe("Step Transition Helpers", () => {
   });
 
   test("returnToPreviousStep - returns to previous step with tasks using workflowTemplateId", async () => {
-    const newProcess = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const newProcess = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+      metadata: {},
+    });
 
-    const newStep1 = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 1,
-          stepName: "Step 1",
-          stepType: "form",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const newStep1 = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 1,
+      stepName: "Step 1",
+      stepType: "form",
+      status: "completed",
+    });
 
-    const newStep2 = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 2,
-          stepName: "Step 2",
-          stepType: "approval",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const newStep2 = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 2,
+      stepName: "Step 2",
+      stepType: "approval",
+      status: "active",
+    });
 
     const result = await returnToPreviousStep(
       db,
@@ -373,20 +297,14 @@ describe("Step Transition Helpers", () => {
     expect(result.targetStepActivated).toBe(true);
     expect(result.targetStepId).toBe(newStep1.id);
 
-    const step2 = (
-      await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, newStep2.id))
-    )[0]!;
+    const step2 = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, newStep2.id))
+    );
     expect(step2.status).toBe("declined");
 
-    const step1 = (
-      await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, newStep1.id))
-    )[0]!;
+    const step1 = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, newStep1.id))
+    );
     expect(step1.status).toBe("active");
 
     const tasks = await db
@@ -401,36 +319,26 @@ describe("Step Transition Helpers", () => {
   });
 
   test("returnToPreviousStep - handles invalid offset (before first step)", async () => {
-    const newProcess = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const newProcess = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+      metadata: {},
+    });
 
-    const newStep1 = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 1,
-          stepName: "Step 1",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const newStep1 = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 1,
+      stepName: "Step 1",
+      stepType: "form",
+      status: "active",
+    });
 
     const result = await returnToPreviousStep(
       db,
@@ -453,36 +361,26 @@ describe("Step Transition Helpers", () => {
     const fakeTenantId = crypto.randomUUID();
 
     // Create a new process for this test since step1Id may have been used
-    const newProcess = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const newProcess = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+      metadata: {},
+    });
 
-    const newStep = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 1,
-          stepName: "Step 1",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const newStep = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 1,
+      stepName: "Step 1",
+      stepType: "form",
+      status: "active",
+    });
 
     let error: Error | null = null;
     try {
@@ -500,36 +398,26 @@ describe("Step Transition Helpers", () => {
   });
 
   test("completeStep - atomic CAS rejects blocked step", async () => {
-    const newProcess = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const newProcess = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+      metadata: {},
+    });
 
-    const blockedStep = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: newProcess.id,
-          stepOrder: 2,
-          stepName: "Blocked Step",
-          stepType: "form",
-          status: "blocked",
-        })
-        .returning()
-    )[0]!;
+    const blockedStep = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: newProcess.id,
+      stepOrder: 2,
+      stepName: "Blocked Step",
+      stepType: "form",
+      status: "blocked",
+    });
 
     const result = await completeStep(db, {
       tenantId,

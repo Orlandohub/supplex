@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { supabaseAdmin } from "../../../lib/supabase";
 import { getErrorMessage } from "../../../lib/error-utils";
 
+import { insertOneOrThrow } from "../../../lib/db-helpers";
 /**
  * Shape of the JSON envelope these tests assert against. The route under
  * test (`/api/document-templates/...`) returns an `ApiResult<T>`-style
@@ -50,15 +51,10 @@ describe("Document Template Integration Tests", () => {
 
   beforeAll(async () => {
     // Create test tenant
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Integration Test Tenant",
-          slug: `integration-test-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Integration Test Tenant",
+      slug: `integration-test-${Date.now()}`,
+    });
     testTenantId = tenant.id;
 
     // Create admin user
@@ -91,25 +87,20 @@ describe("Document Template Integration Tests", () => {
     adminToken = signInData.session?.access_token || "";
 
     // Create document template
-    const template = (
-      await db
-        .insert(documentTemplate)
-        .values({
-          tenantId: testTenantId,
-          templateName: "Integration Test Template",
-          requiredDocuments: [
-            {
-              name: "Test Document",
-              description: "Test description",
-              required: true,
-              type: "other",
-            },
-          ],
-          isDefault: false,
-          status: "published",
-        })
-        .returning()
-    )[0]!;
+    const template = await insertOneOrThrow(db, documentTemplate, {
+      tenantId: testTenantId,
+      templateName: "Integration Test Template",
+      requiredDocuments: [
+        {
+          name: "Test Document",
+          description: "Test description",
+          required: true,
+          type: "other",
+        },
+      ],
+      isDefault: false,
+      status: "published",
+    });
     testTemplateId = template.id;
   });
 
@@ -135,38 +126,28 @@ describe("Document Template Integration Tests", () => {
 
   it("should create workflow step with document_template_id", async () => {
     // Create workflow template
-    const wfTemplate = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId: testTenantId,
-          name: "Test Workflow",
-          description: "Test workflow with document step",
-          active: true,
-          createdBy: adminUserId,
-        })
-        .returning()
-    )[0]!;
+    const wfTemplate = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId: testTenantId,
+      name: "Test Workflow",
+      description: "Test workflow with document step",
+      active: true,
+      createdBy: adminUserId,
+    });
     workflowTemplateId = wfTemplate.id;
 
     // Create workflow step with document template
-    const step = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId,
-          tenantId: testTenantId,
-          stepOrder: 1,
-          name: "Document Upload Step",
-          stepType: "document",
-          documentTemplateId: testTemplateId,
-          documentActionMode: "upload",
-          taskTitle: "Upload Required Documents",
-          assigneeType: "role",
-          assigneeRole: "procurement_manager",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId,
+      tenantId: testTenantId,
+      stepOrder: 1,
+      name: "Document Upload Step",
+      stepType: "document",
+      documentTemplateId: testTemplateId,
+      documentActionMode: "upload",
+      taskTitle: "Upload Required Documents",
+      assigneeType: "role",
+      assigneeRole: "procurement_manager",
+    });
 
     workflowStepId = step.id;
 
@@ -242,29 +223,19 @@ describe("Document Template Integration Tests", () => {
 
   it("should enforce tenant isolation in workflow-template integration", async () => {
     // Create another tenant
-    const otherTenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant",
-          slug: `other-tenant-integration-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const otherTenant = await insertOneOrThrow(db, tenants, {
+      name: "Other Tenant",
+      slug: `other-tenant-integration-${Date.now()}`,
+    });
 
     // Create document template for other tenant
-    const otherTemplate = (
-      await db
-        .insert(documentTemplate)
-        .values({
-          tenantId: otherTenant.id,
-          templateName: "Other Tenant Template",
-          requiredDocuments: [],
-          isDefault: false,
-          status: "published",
-        })
-        .returning()
-    )[0]!;
+    const otherTemplate = await insertOneOrThrow(db, documentTemplate, {
+      tenantId: otherTenant.id,
+      templateName: "Other Tenant Template",
+      requiredDocuments: [],
+      isDefault: false,
+      status: "published",
+    });
 
     // Try to create workflow step using other tenant's template (should fail)
     let _errorOccurred = false;

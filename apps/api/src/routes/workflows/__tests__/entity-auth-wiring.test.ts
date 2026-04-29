@@ -26,6 +26,7 @@ import {
 } from "../../../lib/rbac/entity-authorization";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../../lib/db-helpers";
 /**
  * SEC-004: Entity Authorization Wiring Tests
  *
@@ -72,177 +73,130 @@ describe("SEC-004: Entity Authorization Wiring", () => {
     }) as AuthContext["user"];
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({ name: "SEC004 Test", slug: `sec004-${Date.now()}` })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "SEC004 Test",
+      slug: `sec004-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    const admin = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `sec004-admin-${Date.now()}@test.com`,
-          fullName: "Admin",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const admin = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `sec004-admin-${Date.now()}@test.com`,
+      fullName: "Admin",
+      role: "admin",
+    });
     adminUserId = admin.id;
 
-    const suA = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `sec004-su-a-${Date.now()}@test.com`,
-          fullName: "Supplier A User",
-          role: "supplier_user",
-        })
-        .returning()
-    )[0]!;
+    const suA = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `sec004-su-a-${Date.now()}@test.com`,
+      fullName: "Supplier A User",
+      role: "supplier_user",
+    });
     supplierUserAId = suA.id;
 
-    const supplierA = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId,
-          name: "Supplier A",
-          taxId: "SA1",
-          category: "manufacturer",
-          status: "approved",
-          contactName: "A",
-          contactEmail: "a@test.com",
-          contactPhone: "111",
-          address: {
-            street: "1",
-            city: "C",
-            state: "S",
-            postalCode: "0",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: adminUserId,
-          supplierUserId: supplierUserAId,
-        })
-        .returning()
-    )[0]!;
+    const supplierA = await insertOneOrThrow(db, suppliers, {
+      tenantId,
+      name: "Supplier A",
+      taxId: "SA1",
+      category: "manufacturer",
+      status: "approved",
+      contactName: "A",
+      contactEmail: "a@test.com",
+      contactPhone: "111",
+      address: {
+        street: "1",
+        city: "C",
+        state: "S",
+        postalCode: "0",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: adminUserId,
+      supplierUserId: supplierUserAId,
+    });
     supplierAId = supplierA.id;
 
-    const supplierB = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId,
-          name: "Supplier B",
-          taxId: "SB1",
-          category: "distributor",
-          status: "approved",
-          contactName: "B",
-          contactEmail: "b@test.com",
-          contactPhone: "222",
-          address: {
-            street: "2",
-            city: "D",
-            state: "T",
-            postalCode: "1",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: adminUserId,
-        })
-        .returning()
-    )[0]!;
+    const supplierB = await insertOneOrThrow(db, suppliers, {
+      tenantId,
+      name: "Supplier B",
+      taxId: "SB1",
+      category: "distributor",
+      status: "approved",
+      contactName: "B",
+      contactEmail: "b@test.com",
+      contactPhone: "222",
+      address: {
+        street: "2",
+        city: "D",
+        state: "T",
+        postalCode: "1",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: adminUserId,
+    });
     supplierBId = supplierB.id;
 
-    const template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "SEC004 WF",
-          status: "published",
-          active: true,
-          createdBy: adminUserId,
-        })
-        .returning()
-    )[0]!;
+    const template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "SEC004 WF",
+      status: "published",
+      active: true,
+      createdBy: adminUserId,
+    });
     templateId = template.id;
 
     // Process for Supplier A
-    const procA = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: supplierAId,
-          status: "in_progress",
-          initiatedBy: adminUserId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-        })
-        .returning()
-    )[0]!;
+    const procA = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: supplierAId,
+      status: "in_progress",
+      initiatedBy: adminUserId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+    });
     processAId = procA.id;
 
     // Process for Supplier B
-    const procB = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: supplierBId,
-          status: "in_progress",
-          initiatedBy: adminUserId,
-          initiatedDate: new Date(),
-          workflowTemplateId: templateId,
-        })
-        .returning()
-    )[0]!;
+    const procB = await insertOneOrThrow(db, processInstance, {
+      tenantId,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: supplierBId,
+      status: "in_progress",
+      initiatedBy: adminUserId,
+      initiatedDate: new Date(),
+      workflowTemplateId: templateId,
+    });
     processBId = procB.id;
 
     // Step in Supplier A's process
-    const sA = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processAId,
-          stepOrder: 1,
-          stepName: "Step A",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const sA = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processAId,
+      stepOrder: 1,
+      stepName: "Step A",
+      stepType: "form",
+      status: "active",
+    });
     stepAId = sA.id;
 
     // Step in Supplier B's process
-    const sB = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId,
-          processInstanceId: processBId,
-          stepOrder: 1,
-          stepName: "Step B",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const sB = await insertOneOrThrow(db, stepInstance, {
+      tenantId,
+      processInstanceId: processBId,
+      stepOrder: 1,
+      stepName: "Step B",
+      stepType: "form",
+      status: "active",
+    });
     stepBId = sB.id;
   });
 
@@ -276,45 +230,45 @@ describe("SEC-004: Entity Authorization Wiring", () => {
 
   describe("A2: process events — verifyProcessAccess", () => {
     test("supplier_user denied for Supplier B's process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
           })
           .from(processInstance)
           .where(eq(processInstance.id, processBId))
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(supplierUserA(), process, db);
       expect(result.allowed).toBe(false);
     });
 
     test("supplier_user allowed for own process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
           })
           .from(processInstance)
           .where(eq(processInstance.id, processAId))
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(supplierUserA(), process, db);
       expect(result.allowed).toBe(true);
     });
 
     test("admin allowed for any process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
           })
           .from(processInstance)
           .where(eq(processInstance.id, processBId))
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(adminUser(), process, db);
       expect(result.allowed).toBe(true);
@@ -325,8 +279,8 @@ describe("SEC-004: Entity Authorization Wiring", () => {
 
   describe("A3: comment create — verifyProcessAccess on loaded process", () => {
     test("supplier_user denied for comment on Supplier B's process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
@@ -338,15 +292,15 @@ describe("SEC-004: Entity Authorization Wiring", () => {
               eq(processInstance.tenantId, tenantId)
             )
           )
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(supplierUserA(), process, db);
       expect(result.allowed).toBe(false);
     });
 
     test("supplier_user allowed for comment on own process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
@@ -358,7 +312,7 @@ describe("SEC-004: Entity Authorization Wiring", () => {
               eq(processInstance.tenantId, tenantId)
             )
           )
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(supplierUserA(), process, db);
       expect(result.allowed).toBe(true);
@@ -423,8 +377,8 @@ describe("SEC-004: Entity Authorization Wiring", () => {
 
   describe("A6: form draft create — verifyProcessAccess with processInstanceId", () => {
     test("supplier_user denied for draft linked to Supplier B's process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
@@ -436,15 +390,15 @@ describe("SEC-004: Entity Authorization Wiring", () => {
               eq(processInstance.tenantId, tenantId)
             )
           )
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(supplierUserA(), process, db);
       expect(result.allowed).toBe(false);
     });
 
     test("supplier_user allowed for draft linked to own process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
@@ -456,22 +410,22 @@ describe("SEC-004: Entity Authorization Wiring", () => {
               eq(processInstance.tenantId, tenantId)
             )
           )
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(supplierUserA(), process, db);
       expect(result.allowed).toBe(true);
     });
 
     test("admin allowed for draft linked to any process", async () => {
-      const process = (
-        await db
+      const process = await selectFirstOrThrow(
+        db
           .select({
             entityType: processInstance.entityType,
             entityId: processInstance.entityId,
           })
           .from(processInstance)
           .where(eq(processInstance.id, processBId))
-      )[0]!;
+      );
 
       const result = await verifyProcessAccess(adminUser(), process, db);
       expect(result.allowed).toBe(true);

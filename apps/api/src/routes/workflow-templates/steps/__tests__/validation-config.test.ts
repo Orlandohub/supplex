@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { treaty } from "@elysiajs/eden";
 import type { App } from "../../../../index";
 import { db } from "../../../../lib/db";
+import { insertOneOrThrow } from "../../../../lib/db-helpers";
 import { tenants, users, workflowTemplate } from "@supplex/db";
 import { eq } from "drizzle-orm";
 
@@ -47,43 +48,28 @@ describe("Workflow Step Validation Config API", () => {
   let adminToken: string;
 
   beforeAll(async () => {
-    tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Validation API Test Tenant",
-          slug: `validation-api-tenant-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    tenant = await insertOneOrThrow(db, tenants, {
+      name: "Validation API Test Tenant",
+      slug: `validation-api-tenant-${Date.now()}`,
+    });
 
     const adminEmail = `admin-validation-${Date.now()}@test.com`;
-    adminUser = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: adminEmail,
-          fullName: "Admin User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    adminUser = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: adminEmail,
+      fullName: "Admin User",
+      role: "admin",
+    });
 
     adminToken = `mock-token-admin-${adminUser.id}`;
 
-    template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "Validation Test Template",
-          status: "draft",
-          createdBy: adminUser.id,
-        })
-        .returning()
-    )[0]!;
+    template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId: tenant.id,
+      name: "Validation Test Template",
+      status: "draft",
+      createdBy: adminUser.id,
+    });
   });
 
   afterAll(async () => {

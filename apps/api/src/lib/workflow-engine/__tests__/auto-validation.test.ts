@@ -14,6 +14,7 @@ import { completeStep } from "../complete-step";
 import { createValidationTasks } from "../create-validation-tasks";
 import { approveValidationTask } from "../approve-validation-task";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../db-helpers";
 /**
  * Integration Tests: Auto-Validation Task Creation
  * Story 2.2.15
@@ -26,40 +27,25 @@ describe("Auto-Validation Task Creation", () => {
   let template: { id: string };
 
   beforeAll(async () => {
-    tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Auto-Validation Test Tenant",
-          slug: `auto-validation-tenant-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    tenant = await insertOneOrThrow(db, tenants, {
+      name: "Auto-Validation Test Tenant",
+      slug: `auto-validation-tenant-${Date.now()}`,
+    });
 
-    user = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: `auto-validation-user-${Date.now()}@test.com`,
-          fullName: "Auto Validation User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    user = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: `auto-validation-user-${Date.now()}@test.com`,
+      fullName: "Auto Validation User",
+      role: "admin",
+    });
 
-    template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "Auto-Validation Test Template",
-          status: "published",
-          createdBy: user.id,
-        })
-        .returning()
-    )[0]!;
+    template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId: tenant.id,
+      name: "Auto-Validation Test Template",
+      status: "published",
+      createdBy: user.id,
+    });
   });
 
   afterAll(async () => {
@@ -67,22 +53,17 @@ describe("Auto-Validation Task Creation", () => {
   });
 
   test("complete step with requiresValidation=true creates validation tasks", async () => {
-    const step1 = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 1,
-          name: "Submit Form",
-          stepType: "form",
-          requiresValidation: true,
-          validationConfig: {
-            approverRoles: ["quality_manager", "procurement_manager"],
-          },
-        })
-        .returning()
-    )[0]!;
+    const step1 = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 1,
+      name: "Submit Form",
+      stepType: "form",
+      requiresValidation: true,
+      validationConfig: {
+        approverRoles: ["quality_manager", "procurement_manager"],
+      },
+    });
 
     await db.insert(workflowStepTemplate).values({
       workflowTemplateId: template.id,
@@ -92,36 +73,26 @@ describe("Auto-Validation Task Creation", () => {
       stepType: "approval",
     });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step1.id,
-          stepOrder: 1,
-          stepName: "Submit Form",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step1.id,
+      stepOrder: 1,
+      stepName: "Submit Form",
+      stepType: "form",
+      status: "active",
+    });
 
     const result = await completeStep(db, {
       tenantId: tenant.id,
@@ -155,64 +126,46 @@ describe("Auto-Validation Task Creation", () => {
       validationTasks.some((t) => t.assigneeRole === "procurement_manager")
     ).toBe(true);
 
-    const updatedStep = (
-      await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, stepInst.id))
-    )[0]!;
+    const updatedStep = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, stepInst.id))
+    );
 
     expect(updatedStep.status).toBe("awaiting_validation");
   });
 
   test("validation tasks have correct assignee roles", async () => {
-    const step = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 10,
-          name: "Document Upload",
-          stepType: "document",
-          requiresValidation: true,
-          validationConfig: {
-            approverRoles: ["admin", "quality_manager"],
-          },
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 10,
+      name: "Document Upload",
+      stepType: "document",
+      requiresValidation: true,
+      validationConfig: {
+        approverRoles: ["admin", "quality_manager"],
+      },
+    });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step.id,
-          stepOrder: 10,
-          stepName: "Document Upload",
-          stepType: "document",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step.id,
+      stepOrder: 10,
+      stepName: "Document Upload",
+      stepType: "document",
+      status: "completed",
+    });
 
     await createValidationTasks(db, {
       tenantId: tenant.id,
@@ -232,54 +185,39 @@ describe("Auto-Validation Task Creation", () => {
   });
 
   test("validation tasks receive correct dueAt when validationDueDays is configured", async () => {
-    const step = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 25,
-          name: "Validation Due Days Test",
-          stepType: "form",
-          requiresValidation: true,
-          validationConfig: {
-            approverRoles: ["quality_manager"],
-            validationDueDays: 5,
-          },
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 25,
+      name: "Validation Due Days Test",
+      stepType: "form",
+      requiresValidation: true,
+      validationConfig: {
+        approverRoles: ["quality_manager"],
+        validationDueDays: 5,
+      },
+    });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step.id,
-          stepOrder: 25,
-          stepName: "Validation Due Days Test",
-          stepType: "form",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step.id,
+      stepOrder: 25,
+      stepName: "Validation Due Days Test",
+      stepType: "form",
+      status: "completed",
+    });
 
     const beforeCreate = Date.now();
 
@@ -311,19 +249,14 @@ describe("Auto-Validation Task Creation", () => {
   });
 
   test("complete step with requiresValidation=false activates next step immediately", async () => {
-    const step1 = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 30,
-          name: "No Validation Step",
-          stepType: "form",
-          requiresValidation: false,
-        })
-        .returning()
-    )[0]!;
+    const step1 = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 30,
+      name: "No Validation Step",
+      stepType: "form",
+      requiresValidation: false,
+    });
 
     await db.insert(workflowStepTemplate).values({
       workflowTemplateId: template.id,
@@ -333,36 +266,26 @@ describe("Auto-Validation Task Creation", () => {
       stepType: "approval",
     });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step1.id,
-          stepOrder: 30,
-          stepName: "No Validation Step",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step1.id,
+      stepOrder: 30,
+      stepName: "No Validation Step",
+      stepType: "form",
+      status: "active",
+    });
 
     const result = await completeStep(db, {
       tenantId: tenant.id,
@@ -388,53 +311,38 @@ describe("Auto-Validation Task Creation", () => {
   });
 
   test("role-aware idempotency: calling createValidationTasks twice skips existing roles", async () => {
-    const step = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 40,
-          name: "Idempotency Validation Test",
-          stepType: "form",
-          requiresValidation: true,
-          validationConfig: {
-            approverRoles: ["quality_manager", "admin"],
-          },
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 40,
+      name: "Idempotency Validation Test",
+      stepType: "form",
+      requiresValidation: true,
+      validationConfig: {
+        approverRoles: ["quality_manager", "admin"],
+      },
+    });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step.id,
-          stepOrder: 40,
-          stepName: "Idempotency Validation Test",
-          stepType: "form",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step.id,
+      stepOrder: 40,
+      stepName: "Idempotency Validation Test",
+      stepType: "form",
+      status: "completed",
+    });
 
     // First call creates 2 validation tasks
     await createValidationTasks(db, {
@@ -476,72 +384,52 @@ describe("Auto-Validation Task Creation", () => {
   });
 
   test("concurrent approval: only one triggers transition when all validations complete", async () => {
-    const step1 = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 50,
-          name: "Concurrent Approval Step",
-          stepType: "form",
-          requiresValidation: true,
-          validationConfig: {
-            approverRoles: ["quality_manager", "admin"],
-          },
-          taskTitle: "Fill form",
-          assigneeType: "role",
-          assigneeRole: "procurement_manager",
-        })
-        .returning()
-    )[0]!;
+    const step1 = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 50,
+      name: "Concurrent Approval Step",
+      stepType: "form",
+      requiresValidation: true,
+      validationConfig: {
+        approverRoles: ["quality_manager", "admin"],
+      },
+      taskTitle: "Fill form",
+      assigneeType: "role",
+      assigneeRole: "procurement_manager",
+    });
 
-    const step2 = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 51,
-          name: "After Concurrent Test",
-          stepType: "form",
-          taskTitle: "Next task",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    const step2 = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 51,
+      name: "After Concurrent Test",
+      stepType: "form",
+      taskTitle: "Next task",
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst1 = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step1.id,
-          stepOrder: 50,
-          stepName: "Concurrent Approval Step",
-          stepType: "form",
-          status: "awaiting_validation",
-        })
-        .returning()
-    )[0]!;
+    const stepInst1 = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step1.id,
+      stepOrder: 50,
+      stepName: "Concurrent Approval Step",
+      stepType: "form",
+      status: "awaiting_validation",
+    });
 
     await db.insert(stepInstance).values({
       tenantId: tenant.id,
@@ -554,39 +442,29 @@ describe("Auto-Validation Task Creation", () => {
     });
 
     // Create 2 validation tasks manually (one per role)
-    const task1 = (
-      await db
-        .insert(taskInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          stepInstanceId: stepInst1.id,
-          assigneeType: "role",
-          assigneeRole: "quality_manager",
-          title: "Validate: Concurrent",
-          taskType: "validation",
-          status: "pending",
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const task1 = await insertOneOrThrow(db, taskInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      stepInstanceId: stepInst1.id,
+      assigneeType: "role",
+      assigneeRole: "quality_manager",
+      title: "Validate: Concurrent",
+      taskType: "validation",
+      status: "pending",
+      metadata: {},
+    });
 
-    const task2 = (
-      await db
-        .insert(taskInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          stepInstanceId: stepInst1.id,
-          assigneeType: "role",
-          assigneeRole: "admin",
-          title: "Validate: Concurrent",
-          taskType: "validation",
-          status: "pending",
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const task2 = await insertOneOrThrow(db, taskInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      stepInstanceId: stepInst1.id,
+      assigneeType: "role",
+      assigneeRole: "admin",
+      title: "Validate: Concurrent",
+      taskType: "validation",
+      status: "pending",
+      metadata: {},
+    });
 
     // First approval — should not trigger transition yet (one pending remaining)
     const result1 = await approveValidationTask(db, {
@@ -612,83 +490,60 @@ describe("Auto-Validation Task Creation", () => {
     expect(result2.nextStepActivated).toBe(true);
 
     // Verify step status transitioned to validated
-    const finalStep = (
-      await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, stepInst1.id))
-    )[0]!;
+    const finalStep = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, stepInst1.id))
+    );
     expect(finalStep.status).toBe("validated");
   });
 
   test("approveValidationTask CAS rejects already-processed task", async () => {
-    const step = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 60,
-          name: "CAS Reject Test",
-          stepType: "form",
-          requiresValidation: true,
-          validationConfig: {
-            approverRoles: ["admin"],
-          },
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 60,
+      name: "CAS Reject Test",
+      stepType: "form",
+      requiresValidation: true,
+      validationConfig: {
+        approverRoles: ["admin"],
+      },
+    });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: step.id,
-          stepOrder: 60,
-          stepName: "CAS Reject Test",
-          stepType: "form",
-          status: "awaiting_validation",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: step.id,
+      stepOrder: 60,
+      stepName: "CAS Reject Test",
+      stepType: "form",
+      status: "awaiting_validation",
+    });
 
     // Create a task that's already completed (simulating another request processed it first)
-    const task = (
-      await db
-        .insert(taskInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          stepInstanceId: stepInst.id,
-          assigneeType: "role",
-          assigneeRole: "admin",
-          title: "Validate: CAS Test",
-          taskType: "validation",
-          status: "completed",
-          completedBy: user.id,
-          completedAt: new Date(),
-          metadata: {},
-        })
-        .returning()
-    )[0]!;
+    const task = await insertOneOrThrow(db, taskInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      stepInstanceId: stepInst.id,
+      assigneeType: "role",
+      assigneeRole: "admin",
+      title: "Validate: CAS Test",
+      taskType: "validation",
+      status: "completed",
+      completedBy: user.id,
+      completedAt: new Date(),
+      metadata: {},
+    });
 
     // Attempt to approve already-completed task — CAS should reject
     const result = await approveValidationTask(db, {
