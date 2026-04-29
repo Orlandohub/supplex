@@ -48,6 +48,7 @@ import type { AuthContext } from "../../../lib/rbac/middleware";
 import { logger } from "../../../lib/logger";
 import { asUserRole } from "../../../lib/test-utils";
 
+import { insertOneOrThrow } from "../../../lib/db-helpers";
 interface SubmissionGetSuccess {
   success: true;
   data: {
@@ -83,28 +84,18 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
   let stepTemplate: { id: string };
 
   beforeAll(async () => {
-    tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Get Submission Test Tenant",
-          slug: `getsub-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    tenant = await insertOneOrThrow(db, tenants, {
+      name: "Get Submission Test Tenant",
+      slug: `getsub-${Date.now()}`,
+    });
 
-    const u1 = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: `getsub-pm-${Date.now()}@test.com`,
-          fullName: "Procurement Manager",
-          role: "procurement_manager",
-        })
-        .returning()
-    )[0]!;
+    const u1 = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: `getsub-pm-${Date.now()}@test.com`,
+      fullName: "Procurement Manager",
+      role: "procurement_manager",
+    });
 
     submitterUser = {
       id: u1.id,
@@ -114,18 +105,13 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
       fullName: u1.fullName,
     };
 
-    const u2 = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: `getsub-qm-${Date.now()}@test.com`,
-          fullName: "Quality Manager",
-          role: "quality_manager",
-        })
-        .returning()
-    )[0]!;
+    const u2 = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: `getsub-qm-${Date.now()}@test.com`,
+      fullName: "Quality Manager",
+      role: "quality_manager",
+    });
 
     validatorUser = {
       id: u2.id,
@@ -135,71 +121,46 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
       fullName: u2.fullName,
     };
 
-    fmTemplate = (
-      await db
-        .insert(formTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "Get Submission Form",
-          status: "published",
-        })
-        .returning()
-    )[0]!;
+    fmTemplate = await insertOneOrThrow(db, formTemplate, {
+      tenantId: tenant.id,
+      name: "Get Submission Form",
+      status: "published",
+    });
 
-    section = (
-      await db
-        .insert(formSection)
-        .values({
-          formTemplateId: fmTemplate.id,
-          tenantId: tenant.id,
-          sectionOrder: 1,
-          title: "Section 1",
-        })
-        .returning()
-    )[0]!;
+    section = await insertOneOrThrow(db, formSection, {
+      formTemplateId: fmTemplate.id,
+      tenantId: tenant.id,
+      sectionOrder: 1,
+      title: "Section 1",
+    });
 
-    _field = (
-      await db
-        .insert(formField)
-        .values({
-          formSectionId: section.id,
-          tenantId: tenant.id,
-          fieldOrder: 1,
-          fieldType: "text",
-          label: "Company Name",
-          required: true,
-        })
-        .returning()
-    )[0]!;
+    _field = await insertOneOrThrow(db, formField, {
+      formSectionId: section.id,
+      tenantId: tenant.id,
+      fieldOrder: 1,
+      fieldType: "text",
+      label: "Company Name",
+      required: true,
+    });
 
-    wfTemplate = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "Get Submission Workflow",
-          status: "published",
-          createdBy: submitterUser.id,
-        })
-        .returning()
-    )[0]!;
+    wfTemplate = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId: tenant.id,
+      name: "Get Submission Workflow",
+      status: "published",
+      createdBy: submitterUser.id,
+    });
 
-    stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: wfTemplate.id,
-          tenantId: tenant.id,
-          stepOrder: 1,
-          name: "Submit Form",
-          stepType: "form",
-          requiresValidation: true,
-          taskTitle: "Fill form",
-          assigneeType: "role",
-          assigneeRole: "procurement_manager",
-        })
-        .returning()
-    )[0]!;
+    stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: wfTemplate.id,
+      tenantId: tenant.id,
+      stepOrder: 1,
+      name: "Submit Form",
+      stepType: "form",
+      requiresValidation: true,
+      taskTitle: "Fill form",
+      assigneeType: "role",
+      assigneeRole: "procurement_manager",
+    });
   });
 
   afterAll(async () => {
@@ -215,54 +176,39 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     let procId: string | null = null;
 
     if (params.withStep !== false) {
-      const proc = (
-        await db
-          .insert(processInstance)
-          .values({
-            tenantId: tenant.id,
-            workflowTemplateId: wfTemplate.id,
-            processType: "workflow_execution",
-            entityType: "supplier",
-            entityId: crypto.randomUUID(),
-            status: "in_progress",
-            initiatedBy: submitterUser.id,
-            initiatedDate: new Date(),
-          })
-          .returning()
-      )[0]!;
+      const proc = await insertOneOrThrow(db, processInstance, {
+        tenantId: tenant.id,
+        workflowTemplateId: wfTemplate.id,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        status: "in_progress",
+        initiatedBy: submitterUser.id,
+        initiatedDate: new Date(),
+      });
       procId = proc.id;
 
-      const step = (
-        await db
-          .insert(stepInstance)
-          .values({
-            tenantId: tenant.id,
-            processInstanceId: proc.id,
-            workflowStepTemplateId: stepTemplate.id,
-            stepOrder: 1,
-            stepName: "Submit Form",
-            stepType: "form",
-            status: "awaiting_validation",
-          })
-          .returning()
-      )[0]!;
+      const step = await insertOneOrThrow(db, stepInstance, {
+        tenantId: tenant.id,
+        processInstanceId: proc.id,
+        workflowStepTemplateId: stepTemplate.id,
+        stepOrder: 1,
+        stepName: "Submit Form",
+        stepType: "form",
+        status: "awaiting_validation",
+      });
       stepId = step.id;
     }
 
-    const submission = (
-      await db
-        .insert(formSubmission)
-        .values({
-          tenantId: tenant.id,
-          formTemplateId: fmTemplate.id,
-          processInstanceId: procId,
-          stepInstanceId: stepId,
-          submittedBy: params.submittedBy,
-          status: params.status ?? "submitted",
-          submittedAt: params.status === "draft" ? null : new Date(),
-        })
-        .returning()
-    )[0]!;
+    const submission = await insertOneOrThrow(db, formSubmission, {
+      tenantId: tenant.id,
+      formTemplateId: fmTemplate.id,
+      processInstanceId: procId,
+      stepInstanceId: stepId,
+      submittedBy: params.submittedBy,
+      status: params.status ?? "submitted",
+      submittedAt: params.status === "draft" ? null : new Date(),
+    });
 
     return { submission, stepId, procId };
   }

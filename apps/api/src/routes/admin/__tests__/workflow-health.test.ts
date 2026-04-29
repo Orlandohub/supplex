@@ -9,6 +9,7 @@ import {
 } from "@supplex/db";
 import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 
+import { insertOneOrThrow } from "../../../lib/db-helpers";
 /**
  * Tests for Workflow Health-Check Endpoint
  * Story: 2.2.21 + SEC-002 - Tenant isolation
@@ -31,54 +32,34 @@ describe("Workflow Health-Check Queries", () => {
 
   beforeAll(async () => {
     // Tenant A
-    const tenantA = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Health Check Tenant A",
-          slug: `health-a-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenantA = await insertOneOrThrow(db, tenants, {
+      name: "Health Check Tenant A",
+      slug: `health-a-${Date.now()}`,
+    });
     tenantAId = tenantA.id;
 
-    ({ id: userAId } = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenantAId,
-          email: `health-a-${Date.now()}@test.com`,
-          fullName: "Tenant A Admin",
-          role: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: userAId } = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenantAId,
+      email: `health-a-${Date.now()}@test.com`,
+      fullName: "Tenant A Admin",
+      role: "admin",
+    }));
 
     // Tenant B
-    const tenantB = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Health Check Tenant B",
-          slug: `health-b-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenantB = await insertOneOrThrow(db, tenants, {
+      name: "Health Check Tenant B",
+      slug: `health-b-${Date.now()}`,
+    });
     tenantBId = tenantB.id;
 
-    ({ id: userBId } = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenantBId,
-          email: `health-b-${Date.now()}@test.com`,
-          fullName: "Tenant B Admin",
-          role: "admin",
-        })
-        .returning()
-    )[0]!);
+    ({ id: userBId } = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenantBId,
+      email: `health-b-${Date.now()}@test.com`,
+      fullName: "Tenant B Admin",
+      role: "admin",
+    }));
   });
 
   afterAll(async () => {
@@ -97,21 +78,16 @@ describe("Workflow Health-Check Queries", () => {
   });
 
   test("detects stuck processes (in_progress with no current step)", async () => {
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantAId,
-          processType: "health_test",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          currentStepInstanceId: null,
-          initiatedBy: userAId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantAId,
+      processType: "health_test",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      currentStepInstanceId: null,
+      initiatedBy: userAId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(proc.id);
 
     const stuckProcesses = await db
@@ -124,52 +100,37 @@ describe("Workflow Health-Check Queries", () => {
   });
 
   test("detects orphaned tasks (pending but step is completed)", async () => {
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantAId,
-          processType: "health_test_orphan",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userAId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantAId,
+      processType: "health_test_orphan",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userAId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(proc.id);
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenantAId,
-          processInstanceId: proc.id,
-          stepOrder: 1,
-          stepName: "Completed Step",
-          stepType: "form",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenantAId,
+      processInstanceId: proc.id,
+      stepOrder: 1,
+      stepName: "Completed Step",
+      stepType: "form",
+      status: "completed",
+    });
     createdStepIds.push(step.id);
 
-    const task = (
-      await db
-        .insert(taskInstance)
-        .values({
-          tenantId: tenantAId,
-          processInstanceId: proc.id,
-          stepInstanceId: step.id,
-          title: "Orphaned Task",
-          assigneeType: "role",
-          assigneeRole: "admin",
-          taskType: "action",
-          status: "pending",
-        })
-        .returning()
-    )[0]!;
+    const task = await insertOneOrThrow(db, taskInstance, {
+      tenantId: tenantAId,
+      processInstanceId: proc.id,
+      stepInstanceId: step.id,
+      title: "Orphaned Task",
+      assigneeType: "role",
+      assigneeRole: "admin",
+      taskType: "action",
+      status: "pending",
+    });
     createdTaskIds.push(task.id);
 
     const orphaned = await db
@@ -186,39 +147,29 @@ describe("Workflow Health-Check Queries", () => {
 
   test("Q1 (stuck processes): tenant-scoped query returns only own tenant's data", async () => {
     // Seed a stuck process in Tenant A
-    const procA = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantAId,
-          processType: "iso_stuck_a",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          currentStepInstanceId: null,
-          initiatedBy: userAId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const procA = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantAId,
+      processType: "iso_stuck_a",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      currentStepInstanceId: null,
+      initiatedBy: userAId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(procA.id);
 
     // Seed a stuck process in Tenant B
-    const procB = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantBId,
-          processType: "iso_stuck_b",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          currentStepInstanceId: null,
-          initiatedBy: userBId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const procB = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantBId,
+      processType: "iso_stuck_b",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      currentStepInstanceId: null,
+      initiatedBy: userBId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(procB.id);
 
     // Query scoped to Tenant A (replicates handler query)
@@ -241,101 +192,71 @@ describe("Workflow Health-Check Queries", () => {
 
   test("Q2 (orphaned tasks): tenant-scoped query returns only own tenant's data", async () => {
     // Tenant A: orphaned task
-    const procA = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantAId,
-          processType: "iso_orphan_a",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userAId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const procA = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantAId,
+      processType: "iso_orphan_a",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userAId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(procA.id);
 
-    const stepA = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenantAId,
-          processInstanceId: procA.id,
-          stepOrder: 1,
-          stepName: "Done Step A",
-          stepType: "form",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const stepA = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenantAId,
+      processInstanceId: procA.id,
+      stepOrder: 1,
+      stepName: "Done Step A",
+      stepType: "form",
+      status: "completed",
+    });
     createdStepIds.push(stepA.id);
 
-    const taskA = (
-      await db
-        .insert(taskInstance)
-        .values({
-          tenantId: tenantAId,
-          processInstanceId: procA.id,
-          stepInstanceId: stepA.id,
-          title: "Orphan A",
-          assigneeType: "role",
-          assigneeRole: "admin",
-          taskType: "action",
-          status: "pending",
-        })
-        .returning()
-    )[0]!;
+    const taskA = await insertOneOrThrow(db, taskInstance, {
+      tenantId: tenantAId,
+      processInstanceId: procA.id,
+      stepInstanceId: stepA.id,
+      title: "Orphan A",
+      assigneeType: "role",
+      assigneeRole: "admin",
+      taskType: "action",
+      status: "pending",
+    });
     createdTaskIds.push(taskA.id);
 
     // Tenant B: orphaned task
-    const procB = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantBId,
-          processType: "iso_orphan_b",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userBId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const procB = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantBId,
+      processType: "iso_orphan_b",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userBId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(procB.id);
 
-    const stepB = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenantBId,
-          processInstanceId: procB.id,
-          stepOrder: 1,
-          stepName: "Done Step B",
-          stepType: "form",
-          status: "completed",
-        })
-        .returning()
-    )[0]!;
+    const stepB = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenantBId,
+      processInstanceId: procB.id,
+      stepOrder: 1,
+      stepName: "Done Step B",
+      stepType: "form",
+      status: "completed",
+    });
     createdStepIds.push(stepB.id);
 
-    const taskB = (
-      await db
-        .insert(taskInstance)
-        .values({
-          tenantId: tenantBId,
-          processInstanceId: procB.id,
-          stepInstanceId: stepB.id,
-          title: "Orphan B",
-          assigneeType: "role",
-          assigneeRole: "admin",
-          taskType: "action",
-          status: "pending",
-        })
-        .returning()
-    )[0]!;
+    const taskB = await insertOneOrThrow(db, taskInstance, {
+      tenantId: tenantBId,
+      processInstanceId: procB.id,
+      stepInstanceId: stepB.id,
+      title: "Orphan B",
+      assigneeType: "role",
+      assigneeRole: "admin",
+      taskType: "action",
+      status: "pending",
+    });
     createdTaskIds.push(taskB.id);
 
     // Query scoped to Tenant A
@@ -359,37 +280,27 @@ describe("Workflow Health-Check Queries", () => {
 
   test("Q3 (state mismatches): tenant-scoped query returns only own tenant's data", async () => {
     // Tenant A: mismatch (in_progress, no active steps)
-    const procA = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantAId,
-          processType: "iso_mismatch_a",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userAId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const procA = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantAId,
+      processType: "iso_mismatch_a",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userAId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(procA.id);
 
     // Tenant B: mismatch
-    const procB = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenantBId,
-          processType: "iso_mismatch_b",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: userBId,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const procB = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenantBId,
+      processType: "iso_mismatch_b",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: userBId,
+      initiatedDate: new Date(),
+    });
     createdProcessIds.push(procB.id);
 
     // Query scoped to Tenant A

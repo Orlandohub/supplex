@@ -12,6 +12,7 @@ import {
 import { eq, asc } from "drizzle-orm";
 import { instantiateWorkflow } from "../../../lib/workflow-engine/instantiate-workflow";
 
+import { insertOneOrThrow } from "../../../lib/db-helpers";
 /**
  * Integration Tests: Workflow Instantiation
  * Story: 2.2.8 - Workflow Execution Engine
@@ -24,43 +25,28 @@ describe("Workflow Instantiation", () => {
   let workflowTemplateId: string;
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Test Tenant",
-          slug: `test-tenant-instantiate-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Test Tenant",
+      slug: `test-tenant-instantiate-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    const user = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `user-instantiate-${Date.now()}@test.com`,
-          fullName: "Test User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const user = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `user-instantiate-${Date.now()}@test.com`,
+      fullName: "Test User",
+      role: "admin",
+    });
     userId = user.id;
 
-    const template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Test Workflow",
-          status: "published",
-          active: true,
-          createdBy: userId,
-        })
-        .returning()
-    )[0]!;
+    const template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Test Workflow",
+      status: "published",
+      active: true,
+      createdBy: userId,
+    });
     workflowTemplateId = template.id;
 
     await db.insert(workflowStepTemplate).values([
@@ -145,17 +131,12 @@ describe("Workflow Instantiation", () => {
   });
 
   test("rejects instantiation of unpublished workflow template", async () => {
-    const draftTemplate = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Draft Workflow",
-          status: "draft",
-          createdBy: userId,
-        })
-        .returning()
-    )[0]!;
+    const draftTemplate = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Draft Workflow",
+      status: "draft",
+      createdBy: userId,
+    });
 
     const result = await instantiateWorkflow(db, {
       tenantId,
@@ -174,15 +155,10 @@ describe("Workflow Instantiation", () => {
   });
 
   test("enforces tenant isolation", async () => {
-    const otherTenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Other Tenant",
-          slug: `other-tenant-inst-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    const otherTenant = await insertOneOrThrow(db, tenants, {
+      name: "Other Tenant",
+      slug: `other-tenant-inst-${Date.now()}`,
+    });
 
     const result = await instantiateWorkflow(db, {
       tenantId: otherTenant.id,
@@ -199,18 +175,13 @@ describe("Workflow Instantiation", () => {
   });
 
   test("handles workflow template with no steps (transaction rollback)", async () => {
-    const emptyWorkflow = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Empty Workflow",
-          status: "published",
-          active: true,
-          createdBy: userId,
-        })
-        .returning()
-    )[0]!;
+    const emptyWorkflow = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Empty Workflow",
+      status: "published",
+      active: true,
+      createdBy: userId,
+    });
 
     const result = await instantiateWorkflow(db, {
       tenantId,

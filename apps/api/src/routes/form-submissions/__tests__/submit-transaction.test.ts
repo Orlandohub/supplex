@@ -52,6 +52,7 @@ import type { AuthContext } from "../../../lib/rbac/middleware";
 import { logger } from "../../../lib/logger";
 import { asUserRole } from "../../../lib/test-utils";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../../lib/db-helpers";
 /**
  * Body of `POST /:submissionId/submit` on the success path. The route
  * returns an `ApiResult<{ submission, stepCompleted }>`-shaped envelope;
@@ -92,25 +93,18 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
   let stepTemplate: { id: string };
 
   beforeAll(async () => {
-    tenant = (
-      await db
-        .insert(tenants)
-        .values({ name: "WFH-002 Test Tenant", slug: `wfh002-${Date.now()}` })
-        .returning()
-    )[0]!;
+    tenant = await insertOneOrThrow(db, tenants, {
+      name: "WFH-002 Test Tenant",
+      slug: `wfh002-${Date.now()}`,
+    });
 
-    const user1 = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: `wfh002-user1-${Date.now()}@test.com`,
-          fullName: "WFH-002 User 1",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const user1 = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: `wfh002-user1-${Date.now()}@test.com`,
+      fullName: "WFH-002 User 1",
+      role: "admin",
+    });
 
     testUser = {
       id: user1.id,
@@ -120,18 +114,13 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       fullName: user1.fullName,
     };
 
-    const user2 = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: `wfh002-user2-${Date.now()}@test.com`,
-          fullName: "WFH-002 User 2",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const user2 = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: `wfh002-user2-${Date.now()}@test.com`,
+      fullName: "WFH-002 User 2",
+      role: "admin",
+    });
 
     secondUser = {
       id: user2.id,
@@ -141,71 +130,46 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       fullName: user2.fullName,
     };
 
-    fmTemplate = (
-      await db
-        .insert(formTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "WFH-002 Form",
-          status: "published",
-        })
-        .returning()
-    )[0]!;
+    fmTemplate = await insertOneOrThrow(db, formTemplate, {
+      tenantId: tenant.id,
+      name: "WFH-002 Form",
+      status: "published",
+    });
 
-    section = (
-      await db
-        .insert(formSection)
-        .values({
-          formTemplateId: fmTemplate.id,
-          tenantId: tenant.id,
-          sectionOrder: 1,
-          title: "Section 1",
-        })
-        .returning()
-    )[0]!;
+    section = await insertOneOrThrow(db, formSection, {
+      formTemplateId: fmTemplate.id,
+      tenantId: tenant.id,
+      sectionOrder: 1,
+      title: "Section 1",
+    });
 
-    field = (
-      await db
-        .insert(formField)
-        .values({
-          formSectionId: section.id,
-          tenantId: tenant.id,
-          fieldOrder: 1,
-          fieldType: "text",
-          label: "Company Name",
-          required: true,
-        })
-        .returning()
-    )[0]!;
+    field = await insertOneOrThrow(db, formField, {
+      formSectionId: section.id,
+      tenantId: tenant.id,
+      fieldOrder: 1,
+      fieldType: "text",
+      label: "Company Name",
+      required: true,
+    });
 
-    wfTemplate = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "WFH-002 Workflow",
-          status: "published",
-          createdBy: user1.id,
-        })
-        .returning()
-    )[0]!;
+    wfTemplate = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId: tenant.id,
+      name: "WFH-002 Workflow",
+      status: "published",
+      createdBy: user1.id,
+    });
 
-    stepTemplate = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: wfTemplate.id,
-          tenantId: tenant.id,
-          stepOrder: 1,
-          name: "Submit Form",
-          stepType: "form",
-          requiresValidation: false,
-          taskTitle: "Fill form",
-          assigneeType: "role",
-          assigneeRole: "admin",
-        })
-        .returning()
-    )[0]!;
+    stepTemplate = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: wfTemplate.id,
+      tenantId: tenant.id,
+      stepOrder: 1,
+      name: "Submit Form",
+      stepType: "form",
+      requiresValidation: false,
+      taskTitle: "Fill form",
+      assigneeType: "role",
+      assigneeRole: "admin",
+    });
   });
 
   afterAll(async () => {
@@ -213,36 +177,26 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
   });
 
   async function seedWorkflowSubmission() {
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: wfTemplate.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: testUser.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: wfTemplate.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: testUser.id,
+      initiatedDate: new Date(),
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: stepTemplate.id,
-          stepOrder: 1,
-          stepName: "Submit Form",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: stepTemplate.id,
+      stepOrder: 1,
+      stepName: "Submit Form",
+      stepType: "form",
+      status: "active",
+    });
 
     await db.insert(taskInstance).values({
       tenantId: tenant.id,
@@ -256,19 +210,14 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       metadata: {},
     });
 
-    const submission = (
-      await db
-        .insert(formSubmission)
-        .values({
-          tenantId: tenant.id,
-          formTemplateId: fmTemplate.id,
-          processInstanceId: proc.id,
-          stepInstanceId: step.id,
-          submittedBy: testUser.id,
-          status: "draft",
-        })
-        .returning()
-    )[0]!;
+    const submission = await insertOneOrThrow(db, formSubmission, {
+      tenantId: tenant.id,
+      formTemplateId: fmTemplate.id,
+      processInstanceId: proc.id,
+      stepInstanceId: step.id,
+      submittedBy: testUser.id,
+      status: "draft",
+    });
 
     await db.insert(formAnswer).values({
       formSubmissionId: submission.id,
@@ -300,18 +249,18 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     if (!body.success) return;
     expect(body.data.stepCompleted).toBe(true);
 
-    const dbSubmission = (
-      await db
+    const dbSubmission = await selectFirstOrThrow(
+      db
         .select()
         .from(formSubmission)
         .where(eq(formSubmission.id, submission.id))
-    )[0]!;
+    );
     expect(dbSubmission.status).toBe("submitted");
     expect(dbSubmission.submittedAt).not.toBeNull();
 
-    const dbStep = (
-      await db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
-    )[0]!;
+    const dbStep = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, step.id))
+    );
     expect(["completed", "awaiting_validation"]).toContain(dbStep.status);
   });
 
@@ -344,12 +293,12 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     }
     expect(response.status).toBe(409);
 
-    const dbSubmission = (
-      await db
+    const dbSubmission = await selectFirstOrThrow(
+      db
         .select()
         .from(formSubmission)
         .where(eq(formSubmission.id, submission.id))
-    )[0]!;
+    );
     expect(dbSubmission.status).toBe("draft");
     expect(dbSubmission.submittedAt).toBeNull();
   });
@@ -359,36 +308,26 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
   // ---------------------------------------------------------------
   test("no task assignment → 403, form stays draft", async () => {
     // Submission owned by secondUser, task assigned to testUser (not secondUser)
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: wfTemplate.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: secondUser.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: wfTemplate.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: secondUser.id,
+      initiatedDate: new Date(),
+    });
 
-    const step = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: stepTemplate.id,
-          stepOrder: 1,
-          stepName: "Submit Form",
-          stepType: "form",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const step = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: stepTemplate.id,
+      stepOrder: 1,
+      stepName: "Submit Form",
+      stepType: "form",
+      status: "active",
+    });
 
     await db.insert(taskInstance).values({
       tenantId: tenant.id,
@@ -402,19 +341,14 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       metadata: {},
     });
 
-    const submission = (
-      await db
-        .insert(formSubmission)
-        .values({
-          tenantId: tenant.id,
-          formTemplateId: fmTemplate.id,
-          processInstanceId: proc.id,
-          stepInstanceId: step.id,
-          submittedBy: secondUser.id,
-          status: "draft",
-        })
-        .returning()
-    )[0]!;
+    const submission = await insertOneOrThrow(db, formSubmission, {
+      tenantId: tenant.id,
+      formTemplateId: fmTemplate.id,
+      processInstanceId: proc.id,
+      stepInstanceId: step.id,
+      submittedBy: secondUser.id,
+      status: "draft",
+    });
 
     await db.insert(formAnswer).values({
       formSubmissionId: submission.id,
@@ -440,12 +374,12 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     }
     expect(response.status).toBe(403);
 
-    const dbSubmission = (
-      await db
+    const dbSubmission = await selectFirstOrThrow(
+      db
         .select()
         .from(formSubmission)
         .where(eq(formSubmission.id, submission.id))
-    )[0]!;
+    );
     expect(dbSubmission.status).toBe("draft");
     expect(dbSubmission.submittedAt).toBeNull();
   });
@@ -454,19 +388,14 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
   // 5.5: standalone form (no stepInstanceId) → 200 + form submitted
   // ---------------------------------------------------------------
   test("standalone form (no stepInstanceId) → 200, form submitted", async () => {
-    const standaloneSubmission = (
-      await db
-        .insert(formSubmission)
-        .values({
-          tenantId: tenant.id,
-          formTemplateId: fmTemplate.id,
-          processInstanceId: null,
-          stepInstanceId: null,
-          submittedBy: testUser.id,
-          status: "draft",
-        })
-        .returning()
-    )[0]!;
+    const standaloneSubmission = await insertOneOrThrow(db, formSubmission, {
+      tenantId: tenant.id,
+      formTemplateId: fmTemplate.id,
+      processInstanceId: null,
+      stepInstanceId: null,
+      submittedBy: testUser.id,
+      status: "draft",
+    });
 
     await db.insert(formAnswer).values({
       formSubmissionId: standaloneSubmission.id,
@@ -490,12 +419,12 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     if (!body.success) return;
     expect(body.data.stepCompleted).toBe(false);
 
-    const dbSubmission = (
-      await db
+    const dbSubmission = await selectFirstOrThrow(
+      db
         .select()
         .from(formSubmission)
         .where(eq(formSubmission.id, standaloneSubmission.id))
-    )[0]!;
+    );
     expect(dbSubmission.status).toBe("submitted");
     expect(dbSubmission.submittedAt).not.toBeNull();
   });

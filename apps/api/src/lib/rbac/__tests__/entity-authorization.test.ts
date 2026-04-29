@@ -20,6 +20,7 @@ import {
 } from "../entity-authorization";
 import type { AuthContext } from "../middleware";
 
+import { insertOneOrThrow } from "../../db-helpers";
 describe("Entity-Level Authorization Helpers", () => {
   let tenantId: string;
   let adminUserId: string;
@@ -29,109 +30,82 @@ describe("Entity-Level Authorization Helpers", () => {
   let templateId: string;
 
   beforeAll(async () => {
-    const tenant = (
-      await db
-        .insert(tenants)
-        .values({ name: "Auth Test Tenant", slug: `auth-test-${Date.now()}` })
-        .returning()
-    )[0]!;
+    const tenant = await insertOneOrThrow(db, tenants, {
+      name: "Auth Test Tenant",
+      slug: `auth-test-${Date.now()}`,
+    });
     tenantId = tenant.id;
 
-    const admin = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `admin-auth-${Date.now()}@test.com`,
-          fullName: "Admin User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    const admin = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `admin-auth-${Date.now()}@test.com`,
+      fullName: "Admin User",
+      role: "admin",
+    });
     adminUserId = admin.id;
 
-    const su = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId,
-          email: `supplier-auth-${Date.now()}@test.com`,
-          fullName: "Supplier User",
-          role: "supplier_user",
-        })
-        .returning()
-    )[0]!;
+    const su = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId,
+      email: `supplier-auth-${Date.now()}@test.com`,
+      fullName: "Supplier User",
+      role: "supplier_user",
+    });
     supplierUserId = su.id;
 
-    const supplier = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId,
-          name: "My Supplier",
-          taxId: "111",
-          category: "manufacturer",
-          status: "approved",
-          contactName: "A",
-          contactEmail: "a@test.com",
-          contactPhone: "123",
-          address: {
-            street: "1",
-            city: "C",
-            state: "S",
-            postalCode: "0",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: adminUserId,
-          supplierUserId,
-        })
-        .returning()
-    )[0]!;
+    const supplier = await insertOneOrThrow(db, suppliers, {
+      tenantId,
+      name: "My Supplier",
+      taxId: "111",
+      category: "manufacturer",
+      status: "approved",
+      contactName: "A",
+      contactEmail: "a@test.com",
+      contactPhone: "123",
+      address: {
+        street: "1",
+        city: "C",
+        state: "S",
+        postalCode: "0",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: adminUserId,
+      supplierUserId,
+    });
     supplierId = supplier.id;
 
-    const other = (
-      await db
-        .insert(suppliers)
-        .values({
-          tenantId,
-          name: "Other Supplier",
-          taxId: "222",
-          category: "distributor",
-          status: "approved",
-          contactName: "B",
-          contactEmail: "b@test.com",
-          contactPhone: "456",
-          address: {
-            street: "2",
-            city: "D",
-            state: "T",
-            postalCode: "1",
-            country: "US",
-          },
-          certifications: [],
-          metadata: {},
-          createdBy: adminUserId,
-        })
-        .returning()
-    )[0]!;
+    const other = await insertOneOrThrow(db, suppliers, {
+      tenantId,
+      name: "Other Supplier",
+      taxId: "222",
+      category: "distributor",
+      status: "approved",
+      contactName: "B",
+      contactEmail: "b@test.com",
+      contactPhone: "456",
+      address: {
+        street: "2",
+        city: "D",
+        state: "T",
+        postalCode: "1",
+        country: "US",
+      },
+      certifications: [],
+      metadata: {},
+      createdBy: adminUserId,
+    });
     otherSupplierId = other.id;
 
-    const template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId,
-          name: "Auth WF",
-          status: "published",
-          active: true,
-          createdBy: adminUserId,
-        })
-        .returning()
-    )[0]!;
+    const template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Auth WF",
+      status: "published",
+      active: true,
+      createdBy: adminUserId,
+    });
     templateId = template.id;
   });
 
@@ -263,51 +237,36 @@ describe("Entity-Level Authorization Helpers", () => {
   // ----- verifyTaskAssignment -----
   describe("verifyTaskAssignment", () => {
     test("user with matching pending task is allowed", async () => {
-      const process = (
-        await db
-          .insert(processInstance)
-          .values({
-            tenantId,
-            processType: "workflow_execution",
-            entityType: "supplier",
-            entityId: supplierId,
-            status: "in_progress",
-            initiatedBy: adminUserId,
-            initiatedDate: new Date(),
-            workflowTemplateId: templateId,
-          })
-          .returning()
-      )[0]!;
+      const process = await insertOneOrThrow(db, processInstance, {
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: supplierId,
+        status: "in_progress",
+        initiatedBy: adminUserId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+      });
 
-      const step = (
-        await db
-          .insert(stepInstance)
-          .values({
-            tenantId,
-            processInstanceId: process.id,
-            stepOrder: 1,
-            stepName: "Submit",
-            stepType: "form",
-            status: "active",
-          })
-          .returning()
-      )[0]!;
+      const step = await insertOneOrThrow(db, stepInstance, {
+        tenantId,
+        processInstanceId: process.id,
+        stepOrder: 1,
+        stepName: "Submit",
+        stepType: "form",
+        status: "active",
+      });
 
-      const task = (
-        await db
-          .insert(taskInstance)
-          .values({
-            tenantId,
-            processInstanceId: process.id,
-            stepInstanceId: step.id,
-            title: "Fill form",
-            assigneeType: "user",
-            assigneeUserId: supplierUserId,
-            status: "pending",
-            taskType: "action",
-          })
-          .returning()
-      )[0]!;
+      const task = await insertOneOrThrow(db, taskInstance, {
+        tenantId,
+        processInstanceId: process.id,
+        stepInstanceId: step.id,
+        title: "Fill form",
+        assigneeType: "user",
+        assigneeUserId: supplierUserId,
+        status: "pending",
+        taskType: "action",
+      });
 
       const su: AuthContext["user"] = {
         id: supplierUserId,
@@ -344,35 +303,25 @@ describe("Entity-Level Authorization Helpers", () => {
     });
 
     test("role-based assignment works for validation tasks", async () => {
-      const process = (
-        await db
-          .insert(processInstance)
-          .values({
-            tenantId,
-            processType: "workflow_execution",
-            entityType: "supplier",
-            entityId: supplierId,
-            status: "in_progress",
-            initiatedBy: adminUserId,
-            initiatedDate: new Date(),
-            workflowTemplateId: templateId,
-          })
-          .returning()
-      )[0]!;
+      const process = await insertOneOrThrow(db, processInstance, {
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: supplierId,
+        status: "in_progress",
+        initiatedBy: adminUserId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+      });
 
-      const step = (
-        await db
-          .insert(stepInstance)
-          .values({
-            tenantId,
-            processInstanceId: process.id,
-            stepOrder: 1,
-            stepName: "Validate",
-            stepType: "approval",
-            status: "awaiting_validation",
-          })
-          .returning()
-      )[0]!;
+      const step = await insertOneOrThrow(db, stepInstance, {
+        tenantId,
+        processInstanceId: process.id,
+        stepOrder: 1,
+        stepName: "Validate",
+        stepType: "approval",
+        status: "awaiting_validation",
+      });
 
       await db.insert(taskInstance).values({
         tenantId,
@@ -409,35 +358,25 @@ describe("Entity-Level Authorization Helpers", () => {
   // ----- verifyStepProcessAccess -----
   describe("verifyStepProcessAccess", () => {
     test("supplier_user can access step of own process", async () => {
-      const process = (
-        await db
-          .insert(processInstance)
-          .values({
-            tenantId,
-            processType: "workflow_execution",
-            entityType: "supplier",
-            entityId: supplierId,
-            status: "in_progress",
-            initiatedBy: adminUserId,
-            initiatedDate: new Date(),
-            workflowTemplateId: templateId,
-          })
-          .returning()
-      )[0]!;
+      const process = await insertOneOrThrow(db, processInstance, {
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: supplierId,
+        status: "in_progress",
+        initiatedBy: adminUserId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+      });
 
-      const step = (
-        await db
-          .insert(stepInstance)
-          .values({
-            tenantId,
-            processInstanceId: process.id,
-            stepOrder: 1,
-            stepName: "Step 1",
-            stepType: "form",
-            status: "active",
-          })
-          .returning()
-      )[0]!;
+      const step = await insertOneOrThrow(db, stepInstance, {
+        tenantId,
+        processInstanceId: process.id,
+        stepOrder: 1,
+        stepName: "Step 1",
+        stepType: "form",
+        status: "active",
+      });
 
       const su: AuthContext["user"] = {
         id: supplierUserId,
@@ -455,35 +394,25 @@ describe("Entity-Level Authorization Helpers", () => {
     });
 
     test("supplier_user denied for step of other supplier's process", async () => {
-      const process = (
-        await db
-          .insert(processInstance)
-          .values({
-            tenantId,
-            processType: "workflow_execution",
-            entityType: "supplier",
-            entityId: otherSupplierId,
-            status: "in_progress",
-            initiatedBy: adminUserId,
-            initiatedDate: new Date(),
-            workflowTemplateId: templateId,
-          })
-          .returning()
-      )[0]!;
+      const process = await insertOneOrThrow(db, processInstance, {
+        tenantId,
+        processType: "workflow_execution",
+        entityType: "supplier",
+        entityId: otherSupplierId,
+        status: "in_progress",
+        initiatedBy: adminUserId,
+        initiatedDate: new Date(),
+        workflowTemplateId: templateId,
+      });
 
-      const step = (
-        await db
-          .insert(stepInstance)
-          .values({
-            tenantId,
-            processInstanceId: process.id,
-            stepOrder: 1,
-            stepName: "Other Step",
-            stepType: "form",
-            status: "active",
-          })
-          .returning()
-      )[0]!;
+      const step = await insertOneOrThrow(db, stepInstance, {
+        tenantId,
+        processInstanceId: process.id,
+        stepOrder: 1,
+        stepName: "Other Step",
+        stepType: "form",
+        status: "active",
+      });
 
       const su: AuthContext["user"] = {
         id: supplierUserId,

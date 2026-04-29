@@ -22,6 +22,7 @@ import {
 import { eq } from "drizzle-orm";
 import { completeStep } from "../complete-step";
 
+import { insertOneOrThrow, selectFirstOrThrow } from "../../db-helpers";
 /**
  * Integration Tests: completeStep Transaction Rollback
  * Verifies that document-check failures inside the transaction
@@ -34,40 +35,25 @@ describe("completeStep transaction rollback", () => {
   let template: { id: string };
 
   beforeAll(async () => {
-    tenant = (
-      await db
-        .insert(tenants)
-        .values({
-          name: "Rollback Test Tenant",
-          slug: `rollback-tenant-${Date.now()}`,
-        })
-        .returning()
-    )[0]!;
+    tenant = await insertOneOrThrow(db, tenants, {
+      name: "Rollback Test Tenant",
+      slug: `rollback-tenant-${Date.now()}`,
+    });
 
-    user = (
-      await db
-        .insert(users)
-        .values({
-          id: crypto.randomUUID(),
-          tenantId: tenant.id,
-          email: `rollback-user-${Date.now()}@test.com`,
-          fullName: "Rollback Test User",
-          role: "admin",
-        })
-        .returning()
-    )[0]!;
+    user = await insertOneOrThrow(db, users, {
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      email: `rollback-user-${Date.now()}@test.com`,
+      fullName: "Rollback Test User",
+      role: "admin",
+    });
 
-    template = (
-      await db
-        .insert(workflowTemplate)
-        .values({
-          tenantId: tenant.id,
-          name: "Rollback Test Template",
-          status: "published",
-          createdBy: user.id,
-        })
-        .returning()
-    )[0]!;
+    template = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId: tenant.id,
+      name: "Rollback Test Template",
+      status: "published",
+      createdBy: user.id,
+    });
   });
 
   afterAll(async () => {
@@ -83,64 +69,44 @@ describe("completeStep transaction rollback", () => {
     // `document_template` schema. The actual columns are `templateName`
     // and have no `createdBy`. Using the real schema fields removes the
     // need for the cast and exercises a realistic insert path.
-    const docTmpl = (
-      await db
-        .insert(documentTemplate)
-        .values({
-          tenantId: tenant.id,
-          templateName: "Rollback Doc Template",
-          requiredDocuments: [{ name: "Required Doc", required: true }],
-        })
-        .returning()
-    )[0]!;
+    const docTmpl = await insertOneOrThrow(db, documentTemplate, {
+      tenantId: tenant.id,
+      templateName: "Rollback Doc Template",
+      requiredDocuments: [{ name: "Required Doc", required: true }],
+    });
 
-    const stepTmpl = (
-      await db
-        .insert(workflowStepTemplate)
-        .values({
-          workflowTemplateId: template.id,
-          tenantId: tenant.id,
-          stepOrder: 1,
-          name: "Document Step",
-          stepType: "document",
-          taskTitle: "Upload docs",
-          assigneeType: "role",
-          assigneeRole: "admin",
-          documentTemplateId: docTmpl.id,
-        })
-        .returning()
-    )[0]!;
+    const stepTmpl = await insertOneOrThrow(db, workflowStepTemplate, {
+      workflowTemplateId: template.id,
+      tenantId: tenant.id,
+      stepOrder: 1,
+      name: "Document Step",
+      stepType: "document",
+      taskTitle: "Upload docs",
+      assigneeType: "role",
+      assigneeRole: "admin",
+      documentTemplateId: docTmpl.id,
+    });
 
-    const proc = (
-      await db
-        .insert(processInstance)
-        .values({
-          tenantId: tenant.id,
-          workflowTemplateId: template.id,
-          processType: "workflow_execution",
-          entityType: "supplier",
-          entityId: crypto.randomUUID(),
-          status: "in_progress",
-          initiatedBy: user.id,
-          initiatedDate: new Date(),
-        })
-        .returning()
-    )[0]!;
+    const proc = await insertOneOrThrow(db, processInstance, {
+      tenantId: tenant.id,
+      workflowTemplateId: template.id,
+      processType: "workflow_execution",
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      status: "in_progress",
+      initiatedBy: user.id,
+      initiatedDate: new Date(),
+    });
 
-    const stepInst = (
-      await db
-        .insert(stepInstance)
-        .values({
-          tenantId: tenant.id,
-          processInstanceId: proc.id,
-          workflowStepTemplateId: stepTmpl.id,
-          stepOrder: 1,
-          stepName: "Document Step",
-          stepType: "document",
-          status: "active",
-        })
-        .returning()
-    )[0]!;
+    const stepInst = await insertOneOrThrow(db, stepInstance, {
+      tenantId: tenant.id,
+      processInstanceId: proc.id,
+      workflowStepTemplateId: stepTmpl.id,
+      stepOrder: 1,
+      stepName: "Document Step",
+      stepType: "document",
+      status: "active",
+    });
 
     // Insert a required document in "pending" status (NOT uploaded)
     await db.insert(workflowStepDocument).values({
@@ -165,12 +131,9 @@ describe("completeStep transaction rollback", () => {
     expect(result.error).toContain("required document");
 
     // Verify the step is still "active" (transaction rolled back)
-    const stepAfter = (
-      await db
-        .select()
-        .from(stepInstance)
-        .where(eq(stepInstance.id, stepInst.id))
-    )[0]!;
+    const stepAfter = await selectFirstOrThrow(
+      db.select().from(stepInstance).where(eq(stepInstance.id, stepInst.id))
+    );
     expect(stepAfter.status).toBe("active");
 
     await db
