@@ -74,7 +74,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Fetch supplier from API
   try {
-    const response = await (client.api.suppliers as any)[id].get();
+    const response = await client.api.suppliers({ id }).get();
 
     // Handle API errors
     if (response.error) {
@@ -175,7 +175,7 @@ export async function action(args: ActionFunctionArgs) {
   }
 
   try {
-    const response = await (client.api.suppliers as any)[id].put(supplierData);
+    const response = await client.api.suppliers({ id }).put(supplierData);
 
     // Handle not found (404)
     if (response.error && response.status === 404) {

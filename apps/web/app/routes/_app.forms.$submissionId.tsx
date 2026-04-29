@@ -53,9 +53,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     // Fetch submission with answers and form structure
-    const submissionResponse = await (client.api["form-submissions"] as any)[
-      submissionId
-    ].get();
+    const submissionResponse = await client.api["form-submissions"]({
+      submissionId,
+    }).get();
 
     if (submissionResponse.error) {
       const status = submissionResponse.status || 500;
@@ -93,9 +93,11 @@ export async function loader(args: LoaderFunctionArgs) {
 
     if (submission.processInstanceId) {
       try {
-        const processResponse = await (client.api.workflows.processes as any)[
-          submission.processInstanceId
-        ].get();
+        const processResponse = await client.api.workflows
+          .processes({
+            processInstanceId: submission.processInstanceId,
+          })
+          .get();
         if (!processResponse.error) {
           const processData = (processResponse.data as any)?.data;
           const process = processData?.process;
@@ -211,11 +213,13 @@ export default function FormExecutionPage() {
     setValidationError(null);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api.workflows.steps as any)[
-        submission.stepInstanceId
-      ].complete.post({
-        action: "approve",
-      });
+      const response = await client.api.workflows
+        .steps({
+          stepInstanceId: submission.stepInstanceId,
+        })
+        .complete.post({
+          action: "approve",
+        });
       if (response.error) {
         setValidationError(
           (response.error as any).message || "Failed to approve"
@@ -241,12 +245,14 @@ export default function FormExecutionPage() {
     setValidationError(null);
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api.workflows.steps as any)[
-        submission.stepInstanceId
-      ].complete.post({
-        action: "decline",
-        comment: declineComment.trim(),
-      });
+      const response = await client.api.workflows
+        .steps({
+          stepInstanceId: submission.stepInstanceId,
+        })
+        .complete.post({
+          action: "decline",
+          comment: declineComment.trim(),
+        });
       if (response.error) {
         setValidationError(
           (response.error as any).message || "Failed to decline"

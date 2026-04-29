@@ -90,9 +90,9 @@ export function DocumentsTab({
   ) => {
     try {
       const client = createEdenTreatyClient(token);
-      const response = await (client.api.documents as any)[
-        documentId
-      ].download.get();
+      const response = await client.api
+        .documents({ id: documentId })
+        .download.get();
 
       if (response.error) {
         throw new Error("Failed to generate download URL");
@@ -128,9 +128,9 @@ export function DocumentsTab({
   const handleDeleteConfirm = async () => {
     try {
       const client = createEdenTreatyClient(token);
-      const response = await (client.api.documents as any)[
-        deleteModal.documentId
-      ].delete();
+      const response = await client.api
+        .documents({ id: deleteModal.documentId })
+        .delete();
 
       if (response.error) {
         throw new Error("Failed to delete document");

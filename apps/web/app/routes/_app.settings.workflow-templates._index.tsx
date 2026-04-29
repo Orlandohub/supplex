@@ -13,6 +13,7 @@ import {
   createEdenTreatyClient,
   createClientEdenTreatyClient,
 } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import {
   Plus,
@@ -391,9 +392,13 @@ export default function WorkflowTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["workflow-templates"] as any)[
-        templateId
-      ]["toggle-active"].patch();
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: templateId,
+          templateId,
+        }),
+        "toggle-active"
+      )["toggle-active"].patch();
 
       if (response.error) {
         throw new Error("Failed to toggle template status");
@@ -428,9 +433,13 @@ export default function WorkflowTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await (client.api["workflow-templates"] as any)[
-        deleteTemplateId
-      ].delete();
+      const response = await withTreatyBranch(
+        client.api["workflow-templates"]({
+          workflowId: deleteTemplateId,
+          templateId: deleteTemplateId,
+        }),
+        "delete"
+      ).delete();
 
       if (response.error) {
         throw new Error("Failed to delete template");

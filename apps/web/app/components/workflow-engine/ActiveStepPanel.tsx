@@ -10,6 +10,7 @@ import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import { useNavigate } from "react-router";
 
 interface StepInstance {
@@ -119,14 +120,15 @@ export function ActiveStepPanel({
           ? "submit"
           : "approve";
 
-      const response = await (client.api.workflows.steps as any)[
-        step.id
-      ].complete.post({
-        action,
-      });
+      const response = await client.api.workflows
+        .steps({ stepInstanceId: step.id })
+        .complete.post({
+          action,
+        });
 
       if (response.error) {
-        setError(response.error.message || "Failed to complete step");
+        const errBody = errorBody(response.error);
+        setError(errBody?.error.message || "Failed to complete step");
         setIsCompleting(false);
         return;
       }
@@ -150,15 +152,16 @@ export function ActiveStepPanel({
       setIsCompleting(true);
       setError(null);
 
-      const response = await (client.api.workflows.steps as any)[
-        step.id
-      ].complete.post({
-        action: "decline",
-        comment: declineComment.trim(),
-      });
+      const response = await client.api.workflows
+        .steps({ stepInstanceId: step.id })
+        .complete.post({
+          action: "decline",
+          comment: declineComment.trim(),
+        });
 
       if (response.error) {
-        setError(response.error.message || "Failed to decline step");
+        const errBody = errorBody(response.error);
+        setError(errBody?.error.message || "Failed to decline step");
         setIsCompleting(false);
         return;
       }

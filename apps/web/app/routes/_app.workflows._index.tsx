@@ -378,7 +378,9 @@ export default function WorkflowsIndex() {
   async function handleSendReminder(pid: string) {
     try {
       const c = createEdenTreatyClient(token);
-      await (c.api.workflows.processes as any)[pid]["send-reminder"].post();
+      await c.api.workflows
+        .processes({ processInstanceId: pid })
+        ["send-reminder"].post();
     } catch (err) {
       console.error("Failed to send reminder:", err);
     }

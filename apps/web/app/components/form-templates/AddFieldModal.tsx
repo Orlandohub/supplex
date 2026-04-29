@@ -90,23 +90,23 @@ export function AddFieldModal({
     try {
       const client = createClientEdenTreatyClient(token);
 
-      // Prepare options payload
+      // Prepare options payload — only `dropdown`/`multi_select` carry choices.
       const optionsPayload =
         fieldType === "dropdown" || fieldType === "multi_select"
           ? { choices: options }
-          : {};
+          : undefined;
 
-      const response = await (client.api["form-templates"].sections as any)[
-        sectionId
-      ].fields.post({
-        label: label.trim(),
-        fieldType: fieldType as any,
-        required,
-        placeholder: placeholder.trim() || undefined,
-        fieldOrder: nextOrder,
-        validationRules: {},
-        options: optionsPayload,
-      });
+      const response = await client.api["form-templates"]
+        .sections({ sectionId })
+        .fields.post({
+          label: label.trim(),
+          fieldType: fieldType as any,
+          required,
+          placeholder: placeholder.trim() || undefined,
+          fieldOrder: nextOrder,
+          validationRules: {},
+          options: optionsPayload,
+        });
 
       if (response.error) {
         toast({
