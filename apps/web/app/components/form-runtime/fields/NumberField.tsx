@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import type { FormField } from "@supplex/types";
+import type { FormFieldWithDetails as FormField } from "@supplex/types";
 
 export interface NumberFieldProps {
   field: FormField;
@@ -51,11 +51,7 @@ export const NumberField = memo(function NumberField({
         max={max}
         aria-required={field.required}
         aria-describedby={
-          error
-            ? `${field.id}-error`
-            : hint
-              ? `${field.id}-hint`
-              : undefined
+          error ? `${field.id}-error` : hint ? `${field.id}-hint` : undefined
         }
         className={error ? "border-red-500" : ""}
       />
@@ -72,4 +68,3 @@ export const NumberField = memo(function NumberField({
     </div>
   );
 });
-

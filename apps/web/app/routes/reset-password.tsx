@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
+import { getErrorMessage } from "~/lib/api-helpers";
 // import { getSession } from '~/lib/auth/session.server';
 import { Link } from "react-router";
 
@@ -94,8 +95,8 @@ export default function ResetPassword() {
           result.error || "Failed to reset password. Please try again."
         );
       }
-    } catch (error: any) {
-      setSubmitError(error.message || "An unexpected error occurred.");
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, "An unexpected error occurred."));
     }
   };
 

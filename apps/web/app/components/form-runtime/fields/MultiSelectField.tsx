@@ -1,7 +1,10 @@
 import { memo } from "react";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Label } from "~/components/ui/label";
-import type { FormField, FieldOptions } from "@supplex/types";
+import type {
+  FormFieldWithDetails as FormField,
+  FieldOptions,
+} from "@supplex/types";
 
 export interface MultiSelectFieldProps {
   field: FormField;
@@ -84,4 +87,3 @@ export const MultiSelectField = memo(function MultiSelectField({
     </div>
   );
 });
-

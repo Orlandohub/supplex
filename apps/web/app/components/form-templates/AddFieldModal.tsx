@@ -26,6 +26,7 @@ import {
 import { Checkbox } from "~/components/ui/checkbox";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { FieldType } from "@supplex/types";
 import { FieldOptionsEditor, type FieldOption } from "./FieldOptionsEditor";
 
 interface AddFieldModalProps {
@@ -47,7 +48,13 @@ export function AddFieldModal({
   const { toast } = useToast();
 
   const [label, setLabel] = useState("");
-  const [fieldType, setFieldType] = useState<string>("text");
+  const [fieldType, setFieldType] = useState<FieldType>(FieldType.TEXT);
+  const FIELD_TYPE_VALUES = Object.values(FieldType) as string[];
+  const handleFieldTypeChange = (value: string) => {
+    if (FIELD_TYPE_VALUES.includes(value)) {
+      setFieldType(value as FieldType);
+    }
+  };
   const [required, setRequired] = useState(false);
   const [placeholder, setPlaceholder] = useState("");
   const [options, setOptions] = useState<FieldOption[]>([]);
@@ -100,7 +107,7 @@ export function AddFieldModal({
         .sections({ sectionId })
         .fields.post({
           label: label.trim(),
-          fieldType: fieldType as any,
+          fieldType,
           required,
           placeholder: placeholder.trim() || undefined,
           fieldOrder: nextOrder,
@@ -124,7 +131,7 @@ export function AddFieldModal({
 
       // Reset form and close
       setLabel("");
-      setFieldType("text");
+      setFieldType(FieldType.TEXT);
       setRequired(false);
       setPlaceholder("");
       setOptions([]);
@@ -145,7 +152,7 @@ export function AddFieldModal({
   const handleClose = () => {
     if (!isSubmitting) {
       setLabel("");
-      setFieldType("text");
+      setFieldType(FieldType.TEXT);
       setRequired(false);
       setPlaceholder("");
       setOptions([]);
@@ -182,7 +189,7 @@ export function AddFieldModal({
               <Label htmlFor="fieldType">Field Type *</Label>
               <Select
                 value={fieldType}
-                onValueChange={setFieldType}
+                onValueChange={handleFieldTypeChange}
                 disabled={isSubmitting}
               >
                 <SelectTrigger>

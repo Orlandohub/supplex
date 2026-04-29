@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import type { User } from "@supplex/types";
+import { getErrorMessage } from "~/lib/api-helpers";
 import {
   Dialog,
   DialogContent,
@@ -42,8 +43,8 @@ export function DeactivateUserModal({
       // Toggle the user's active status
       await onConfirm(user.id, !user.isActive);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Failed to update user status");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to update user status"));
     } finally {
       setIsSubmitting(false);
     }
@@ -72,7 +73,8 @@ export function DeactivateUserModal({
             {isDeactivating ? "Deactivate User" : "Reactivate User"}
           </DialogTitle>
           <DialogDescription className="text-center">
-            Are you sure you want to {isDeactivating ? "deactivate" : "reactivate"}{" "}
+            Are you sure you want to{" "}
+            {isDeactivating ? "deactivate" : "reactivate"}{" "}
             <span className="font-medium">{user.fullName}</span> ({user.email})?
           </DialogDescription>
         </DialogHeader>
@@ -90,9 +92,14 @@ export function DeactivateUserModal({
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-yellow-400" />
                 <div className="flex-1">
-                  <h4 className="text-sm font-medium text-yellow-800">Warning</h4>
+                  <h4 className="text-sm font-medium text-yellow-800">
+                    Warning
+                  </h4>
                   <ul className="mt-2 space-y-1 text-sm text-yellow-700 list-disc list-inside">
-                    <li>The user will be immediately logged out and unable to access the system</li>
+                    <li>
+                      The user will be immediately logged out and unable to
+                      access the system
+                    </li>
                     <li>All their data and history will be preserved</li>
                     <li>You can reactivate this user at any time</li>
                   </ul>

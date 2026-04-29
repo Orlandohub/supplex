@@ -14,7 +14,7 @@ import { SupplierUsersTab } from "../components/users/SupplierUsersTab";
 import { PendingInvitationsTab } from "../components/users/PendingInvitationsTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import { useAuth } from "../hooks/useAuth";
-import type { User, UserRole } from "@supplex/types";
+import { UserRole, type User } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
@@ -22,10 +22,34 @@ import { createEdenTreatyClient } from "~/lib/api-client";
 import { InviteUserModal } from "~/components/users/InviteUserModal";
 import { ChangeRoleModal } from "~/components/users/ChangeRoleModal";
 import { DeactivateUserModal } from "~/components/users/DeactivateUserModal";
+import type { SupplierWithUsers } from "~/components/users/SupplierUsersTab";
+import type { PendingInvitation } from "~/components/users/PendingInvitationsTab";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { errorBody } from "~/lib/api-helpers";
+import { errorBody, getErrorMessage } from "~/lib/api-helpers";
 import { hasPermission, PermissionAction } from "@supplex/types";
+
+/**
+ * Roles that admins can assign to other users via invite/role-change.
+ * Mirrors the API's TypeBox unions in `apps/api/src/routes/users/invite.ts`
+ * and `apps/api/src/routes/users/update-role.ts`. `OWNER` and
+ * `SUPPLIER_USER` are intentionally excluded — owner is bootstrap-only,
+ * supplier users are provisioned via the supplier-onboarding flow.
+ */
+type AssignableUserRole =
+  | UserRole.ADMIN
+  | UserRole.PROCUREMENT_MANAGER
+  | UserRole.QUALITY_MANAGER
+  | UserRole.VIEWER;
+
+function isAssignableUserRole(role: UserRole): role is AssignableUserRole {
+  return (
+    role === UserRole.ADMIN ||
+    role === UserRole.PROCUREMENT_MANAGER ||
+    role === UserRole.QUALITY_MANAGER ||
+    role === UserRole.VIEWER
+  );
+}
 
 export async function loader(args: LoaderFunctionArgs) {
   // Require authentication
@@ -158,9 +182,22 @@ export default function UsersSettingsPage() {
       return;
     }
 
+    if (!isAssignableUserRole(data.role)) {
+      toast({
+        title: "Invalid role",
+        description:
+          "Owner and Supplier User roles cannot be assigned via invitation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const client = createClientEdenTreatyClient(token);
-      const response = await client.api.users.invite.post(data as any);
+      const response = await client.api.users.invite.post({
+        ...data,
+        role: data.role,
+      });
 
       if (response.error || !response.data?.success) {
         const errBody = errorBody(response.error);
@@ -175,10 +212,10 @@ export default function UsersSettingsPage() {
       // Refresh the user list
       revalidator.revalidate();
       setIsInviteModalOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send invitation",
+        description: getErrorMessage(error, "Failed to send invitation"),
         variant: "destructive",
       });
       throw error;
@@ -201,10 +238,20 @@ export default function UsersSettingsPage() {
       return;
     }
 
+    if (!isAssignableUserRole(newRole)) {
+      toast({
+        title: "Invalid role",
+        description:
+          "Owner and Supplier User roles cannot be assigned through this UI.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const client = createClientEdenTreatyClient(token);
       const response = await client.api.users({ id: userId }).role.patch({
-        role: newRole as any,
+        role: newRole,
       });
 
       if (response.error || !response.data?.success) {
@@ -221,10 +268,10 @@ export default function UsersSettingsPage() {
       revalidator.revalidate();
       setIsRoleModalOpen(false);
       setSelectedUser(null);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update role",
+        description: getErrorMessage(error, "Failed to update role"),
         variant: "destructive",
       });
       throw error;
@@ -267,10 +314,10 @@ export default function UsersSettingsPage() {
       revalidator.revalidate();
       setIsStatusModalOpen(false);
       setSelectedUser(null);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update status",
+        description: getErrorMessage(error, "Failed to update status"),
         variant: "destructive",
       });
       throw error;
@@ -308,10 +355,10 @@ export default function UsersSettingsPage() {
 
       // Refresh data
       revalidator.revalidate();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to resend invitation",
+        description: getErrorMessage(error, "Failed to resend invitation"),
         variant: "destructive",
       });
     }
@@ -443,7 +490,9 @@ export default function UsersSettingsPage() {
                 </div>
               ) : (
                 <SupplierUsersTab
-                  suppliers={suppliersWithUsers as any[]}
+                  suppliers={
+                    suppliersWithUsers as unknown as SupplierWithUsers[]
+                  }
                   onToggleStatus={handleToggleStatus}
                   currentUserId={user?.id}
                 />
@@ -460,7 +509,9 @@ export default function UsersSettingsPage() {
                 </div>
               ) : (
                 <PendingInvitationsTab
-                  invitations={pendingInvitations as any[]}
+                  invitations={
+                    pendingInvitations as unknown as PendingInvitation[]
+                  }
                   onResendInvitation={handleResendInvitation}
                 />
               )}

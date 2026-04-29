@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { errorBody } from "~/lib/api-helpers";
+import { errorBody, getErrorMessage } from "~/lib/api-helpers";
 import { useToast } from "~/hooks/use-toast";
 
 interface UseFormSubmissionOptions {
@@ -84,8 +84,8 @@ export function useFormSubmission({
       }
 
       return { success: true, submissionId };
-    } catch (error: any) {
-      const errorMessage = error.message || "Failed to save draft";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to save draft");
       toast({
         title: "Error",
         description: errorMessage,
@@ -160,8 +160,8 @@ export function useFormSubmission({
       }
 
       return { success: true, processInstanceId };
-    } catch (error: any) {
-      const errorMessage = error.message || "Failed to submit form";
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to submit form");
       toast({
         title: "Error",
         description: errorMessage,

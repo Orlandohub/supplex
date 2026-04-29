@@ -12,7 +12,11 @@ import { SupplierForm } from "~/components/suppliers/SupplierForm";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { useState, useEffect } from "react";
-import { DuplicateWarningModal } from "~/components/suppliers/DuplicateWarningModal";
+import {
+  DuplicateWarningModal,
+  type DuplicateSupplier,
+  type SupplierFormDraft,
+} from "~/components/suppliers/DuplicateWarningModal";
 import { InvitationLinkModal } from "~/components/suppliers/InvitationLinkModal";
 import { useNavigate } from "react-router";
 
@@ -300,8 +304,10 @@ export default function CreateSupplier() {
         <DuplicateWarningModal
           isOpen={showDuplicateModal}
           onClose={() => setShowDuplicateModal(false)}
-          duplicates={(actionData.duplicates as any[]) || []}
-          formData={actionData.formData as any}
+          duplicates={
+            (actionData.duplicates as unknown as DuplicateSupplier[]) || []
+          }
+          formData={actionData.formData as unknown as SupplierFormDraft}
           onSaveAnyway={() => {
             // The form will be resubmitted with forceSave=true
             setShowDuplicateModal(false);

@@ -9,12 +9,12 @@ import {
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 
-interface Duplicate {
+export interface DuplicateSupplier {
   id: string;
   name: string;
 }
 
-interface FormData {
+export interface SupplierFormDraft {
   name: string;
   taxId: string;
   category: string;
@@ -36,8 +36,8 @@ interface FormData {
 interface DuplicateWarningModalProps {
   isOpen: boolean;
   onClose: () => void;
-  duplicates: Duplicate[];
-  formData: FormData;
+  duplicates: DuplicateSupplier[];
+  formData: SupplierFormDraft;
   onSaveAnyway: () => void;
 }
 

@@ -6,8 +6,24 @@ interface UserMenuProps {
   className?: string;
 }
 
+/**
+ * Optional tenant info that some auth flows attach to the user record
+ * (e.g. registration response, dev-login fixtures). The canonical `User`
+ * type does not include it, so we treat it as a structural extension on
+ * the read side rather than a hard requirement.
+ */
+type UserRecordWithTenant = {
+  tenant?: {
+    id?: string;
+    name?: string;
+  } | null;
+};
+
 export function UserMenu({ className = "" }: UserMenuProps) {
   const { user, userRecord } = useAuthContext();
+  const userRecordWithTenant = userRecord as
+    | (typeof userRecord & UserRecordWithTenant)
+    | null;
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -100,9 +116,9 @@ export function UserMenu({ className = "" }: UserMenuProps) {
               <p className="text-xs text-gray-500 capitalize mt-0.5">
                 {userRecord?.role || "User"}
               </p>
-              {(userRecord as any)?.tenant?.name && (
+              {userRecordWithTenant?.tenant?.name && (
                 <p className="text-xs text-gray-400 mt-1">
-                  {(userRecord as any).tenant.name}
+                  {userRecordWithTenant.tenant.name}
                 </p>
               )}
             </div>

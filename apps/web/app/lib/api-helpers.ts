@@ -105,3 +105,27 @@ export function okBody<T>(data: unknown): ApiResult<T> | null {
   if (data == null) return null;
   return data as ApiResult<T>;
 }
+
+/**
+ * Pull a human-readable message out of a value caught in a `try/catch`.
+ *
+ * `catch` clauses are typed as `unknown` (since TypeScript 4.4 with
+ * `useUnknownInCatchVariables`), and contributors used to widen them to
+ * `any` so they could read `.message`. This helper does the narrowing
+ * once: it returns `err.message` when the value is a real `Error`, the
+ * value itself when it is already a `string`, and `fallback` otherwise.
+ *
+ * Usage:
+ * ```ts
+ * try {
+ *   await doSomething();
+ * } catch (err) {
+ *   toast({ description: getErrorMessage(err, "Something went wrong") });
+ * }
+ * ```
+ */
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string" && err.length > 0) return err;
+  return fallback;
+}

@@ -22,6 +22,8 @@ Use `docs/README.md` for the full documentation map. Keep detailed app setup and
 | `Property 'X' does not exist on type '{ ... } \| { ... }'` after a Treaty function call | Treaty collapses Elysia routes that share the same dynamic-segment position into a union; narrow with `withTreatyBranch(route, "X").X.method()` from `~/lib/api-helpers`. See [Eden Treaty: union narrowing](#eden-treaty-union-narrowing). |
 | `Type 'Date' is not assignable to type 'string'` on a loader-returned object | Remix/React Router serializes `Date → string` over the wire, but the loader-side TypeScript still sees `Date`. Cast the API payload via `as unknown as { ... }` at the loader boundary using post-serialization (`string`-bearing) prop interfaces. See [Eden Treaty: response body typing](#eden-treaty-response-body-typing). |
 | Need to read `response.error.message` / `error.code` / `error.details` from a Treaty error | Use `errorBody(response.error)` from `~/lib/api-helpers`; it narrows `response.error.value` to `ApiErrorBody` and gives you typed access to `error.code`, `error.message`, and `error.details`. |
+| `'err' is of type 'unknown'` after `try/catch` | TypeScript types `catch` clauses as `unknown` (since TS 4.4). Don't widen to `any`; call `getErrorMessage(err, "Default fallback")` from `~/lib/api-helpers`, which returns `err.message` for `Error`s, the value for plain `string`s, or the fallback otherwise. |
+| `Argument of type 'string' is not assignable to parameter of type '"a" \| "b" \| ...'` when posting to a Treaty route | The TypeBox schema in `apps/api` uses a literal union; `formData.get(...)` returns a wider type. Define a `const ALLOWED = [...] as const` array and a `is{Field}` type guard, validate at the action boundary, and only call the Treaty client once narrowed. See `apps/web/app/routes/_app.settings.notifications.tsx` (`isToggleableEventType`). |
 
 ## Recurring Contributor Pitfalls
 
@@ -192,6 +194,67 @@ SUP-9b and that SUP-10c rolled out across the rest of `apps/web`. It
 keeps the loader-to-component contract explicit and confines the
 `unknown` cast to a single trust boundary, instead of leaking `as any`
 into call sites.
+
+### `catch` narrowing without `any`
+
+Under `useUnknownInCatchVariables` (the project default), `catch` clauses
+are typed as `unknown`. Don't widen to `any` — use `getErrorMessage(err,
+fallback)` from `~/lib/api-helpers` to read a safe message string:
+
+```ts
+import { getErrorMessage } from "~/lib/api-helpers";
+
+try {
+  await client.api.users.invite.post({ email, role, message });
+} catch (err) {
+  toast({
+    title: "Error",
+    description: getErrorMessage(err, "Failed to send invitation"),
+    variant: "destructive",
+  });
+}
+```
+
+The helper returns `err.message` when the value is a real `Error`, the
+value itself when it is a non-empty `string`, and `fallback` otherwise.
+
+### Narrowing TypeBox literal-union inputs
+
+Routes that accept a TypeBox `Union(Literal(...))` body or query field
+(role, event-type, status, sort-by, etc.) won't accept a wider type
+without cast. Don't reach for `as any`; define a `const`-tuple of
+allowed values plus a type-guard, validate at the action boundary, and
+let the narrowed value flow into the Treaty call:
+
+```ts
+const TOGGLEABLE_EVENT_TYPES = [
+  EmailEventType.WORKFLOW_SUBMITTED,
+  EmailEventType.STAGE_APPROVED,
+  // …
+] as const;
+
+type ToggleableEmailEventType = (typeof TOGGLEABLE_EVENT_TYPES)[number];
+
+function isToggleableEventType(
+  value: string
+): value is ToggleableEmailEventType {
+  return (TOGGLEABLE_EVENT_TYPES as readonly string[]).includes(value);
+}
+
+const eventTypeRaw = formData.get("eventType");
+if (typeof eventTypeRaw !== "string" || !isToggleableEventType(eventTypeRaw)) {
+  return json({ success: false, error: "Invalid event type" }, { status: 400 });
+}
+
+await client.api.users.me["notification-preferences"].put({
+  eventType: eventTypeRaw, // narrowed to ToggleableEmailEventType
+  emailEnabled,
+});
+```
+
+`isAssignableUserRole` in `apps/web/app/routes/_app.settings.users.tsx`
+follows the same pattern for the invite/role-change flows; use it as a
+template when adding new admin actions.
 
 ## Debugging Checklist
 

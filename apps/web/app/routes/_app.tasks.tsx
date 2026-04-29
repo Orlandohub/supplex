@@ -75,7 +75,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     const response = await client.api.workflows["my-tasks"].get({
-      query: queryParams as any,
+      query: queryParams,
     });
 
     if (response.error) {

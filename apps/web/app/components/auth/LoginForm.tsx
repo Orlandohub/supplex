@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
+import { getErrorMessage } from "~/lib/api-helpers";
 import { Link } from "react-router";
 import { config } from "~/lib/config";
 
@@ -141,8 +142,8 @@ export function LoginForm({
       } else {
         setSubmitError(result.error || "Login failed. Please try again.");
       }
-    } catch (error: any) {
-      setSubmitError(error.message || "An unexpected error occurred.");
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, "An unexpected error occurred."));
     }
   };
 
@@ -186,9 +187,9 @@ export function LoginForm({
       await new Promise((resolve) => setTimeout(resolve, 100));
       const targetUrl = redirectTo ? decodeURIComponent(redirectTo) : "/";
       window.location.href = targetUrl;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Dev login error:", error);
-      setDevError(error.message || "Dev login failed");
+      setDevError(getErrorMessage(error, "Dev login failed"));
       setDevLoading(false);
     }
   };

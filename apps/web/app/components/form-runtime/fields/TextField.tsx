@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import type { FormField } from "@supplex/types";
+import type { FormFieldWithDetails as FormField } from "@supplex/types";
 
 export interface TextFieldProps {
   field: FormField;
@@ -43,4 +43,3 @@ export const TextField = memo(function TextField({
     </div>
   );
 });
-
