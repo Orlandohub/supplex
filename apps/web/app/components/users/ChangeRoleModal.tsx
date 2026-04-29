@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { UserRole, type User } from "@supplex/types";
+import { getErrorMessage } from "~/lib/api-helpers";
 import { getRoleDisplayName } from "../../lib/rbac/permissions";
 import { RoleBadge } from "./RoleBadge";
 import {
@@ -55,8 +56,8 @@ export function ChangeRoleModal({
     try {
       await onConfirm(user.id, selectedRole);
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Failed to update role");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to update role"));
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +76,8 @@ export function ChangeRoleModal({
           </div>
           <DialogTitle className="text-center">Change User Role</DialogTitle>
           <DialogDescription className="text-center">
-            Update the role for <span className="font-medium">{user.fullName}</span> ({user.email})
+            Update the role for{" "}
+            <span className="font-medium">{user.fullName}</span> ({user.email})
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +118,8 @@ export function ChangeRoleModal({
             <div className="flex items-start gap-3 rounded-md bg-yellow-50 p-4">
               <AlertTriangle className="h-5 w-5 text-yellow-400" />
               <p className="text-sm text-yellow-800">
-                This will immediately change the user&apos;s permissions. They may need to log out and back in to see the changes.
+                This will immediately change the user&apos;s permissions. They
+                may need to log out and back in to see the changes.
               </p>
             </div>
           )}

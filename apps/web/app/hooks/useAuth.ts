@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
+import { getErrorMessage } from "~/lib/api-helpers";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { User } from "@supplex/types";
 
@@ -141,9 +142,12 @@ export const useAuth = create<AuthState>()(
 
           set({ isLoading: false });
           return { success: false, error: "Authentication failed" };
-        } catch (error: any) {
+        } catch (error) {
           set({ isLoading: false });
-          return { success: false, error: error.message || "Sign in failed" };
+          return {
+            success: false,
+            error: getErrorMessage(error, "Sign in failed"),
+          };
         }
       },
 
@@ -207,11 +211,11 @@ export const useAuth = create<AuthState>()(
 
           set({ isLoading: false });
           return { success: true };
-        } catch (error: any) {
+        } catch (error) {
           set({ isLoading: false });
           return {
             success: false,
-            error: error.message || "Network error during registration",
+            error: getErrorMessage(error, "Network error during registration"),
           };
         }
       },
@@ -257,11 +261,11 @@ export const useAuth = create<AuthState>()(
           }
 
           return { success: true };
-        } catch (error: any) {
+        } catch (error) {
           set({ isLoading: false });
           return {
             success: false,
-            error: error.message || "Password reset failed",
+            error: getErrorMessage(error, "Password reset failed"),
           };
         }
       },
@@ -290,11 +294,11 @@ export const useAuth = create<AuthState>()(
           }
 
           return { success: false, error: "Password reset failed" };
-        } catch (error: any) {
+        } catch (error) {
           set({ isLoading: false });
           return {
             success: false,
-            error: error.message || "Password reset failed",
+            error: getErrorMessage(error, "Password reset failed"),
           };
         }
       },

@@ -11,7 +11,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { getRoleDisplayName } from "~/lib/rbac/permissions";
 
-interface SupplierWithUsers {
+export interface SupplierWithUsers {
   id: string;
   name: string;
   users: User[];

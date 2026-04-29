@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Label } from "~/components/ui/label";
-import type { FormField } from "@supplex/types";
+import type { FormFieldWithDetails as FormField } from "@supplex/types";
 
 export interface CheckboxFieldProps {
   field: FormField;
@@ -52,4 +52,3 @@ export const CheckboxField = memo(function CheckboxField({
     </div>
   );
 });
-

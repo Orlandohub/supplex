@@ -103,7 +103,7 @@ export async function loader(args: LoaderFunctionArgs) {
 
   try {
     const response = await client.api.workflows.processes.get({
-      query: queryParams as any,
+      query: queryParams,
     });
 
     if (response.error) {

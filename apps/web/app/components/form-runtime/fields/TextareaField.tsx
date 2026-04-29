@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
-import type { FormField } from "@supplex/types";
+import type { FormFieldWithDetails as FormField } from "@supplex/types";
 
 export interface TextareaFieldProps {
   field: FormField;
@@ -39,7 +39,11 @@ export const TextareaField = memo(function TextareaField({
         disabled={disabled}
         aria-required={field.required}
         aria-describedby={
-          error ? `${field.id}-error` : maxLength ? `${field.id}-counter` : undefined
+          error
+            ? `${field.id}-error`
+            : maxLength
+              ? `${field.id}-counter`
+              : undefined
         }
         className={error ? "border-red-500" : ""}
         rows={4}
@@ -62,4 +66,3 @@ export const TextareaField = memo(function TextareaField({
     </div>
   );
 });
-

@@ -7,7 +7,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import type { FormField, FieldOptions } from "@supplex/types";
+import type {
+  FormFieldWithDetails as FormField,
+  FieldOptions,
+} from "@supplex/types";
 
 export interface DropdownFieldProps {
   field: FormField;
@@ -62,4 +65,3 @@ export const DropdownField = memo(function DropdownField({
     </div>
   );
 });
-

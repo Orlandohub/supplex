@@ -13,7 +13,7 @@ import {
   createEdenTreatyClient,
   createClientEdenTreatyClient,
 } from "~/lib/api-client";
-import { withTreatyBranch } from "~/lib/api-helpers";
+import { getErrorMessage, withTreatyBranch } from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import {
   Plus,
@@ -209,10 +209,10 @@ function WorkflowTypesTab({ token }: { token: string }) {
       toast({ title: editingType ? "Type Updated" : "Type Created" });
       setIsDialogOpen(false);
       revalidator.revalidate();
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: "Error",
-        description: err.message,
+        description: getErrorMessage(err, "Failed to save workflow type"),
         variant: "destructive",
       });
     } finally {
@@ -232,10 +232,10 @@ function WorkflowTypesTab({ token }: { token: string }) {
       if (!result.success) throw new Error(result.error);
       toast({ title: "Type Deleted" });
       revalidator.revalidate();
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: "Error",
-        description: err.message,
+        description: getErrorMessage(err, "Failed to delete workflow type"),
         variant: "destructive",
       });
     } finally {

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { useRevalidator } from "react-router";
-import type { FormFieldWithDetails } from "@supplex/types";
+import { FieldType, type FormFieldWithDetails } from "@supplex/types";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,24 @@ import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import { FieldOptionsEditor, type FieldOption } from "./FieldOptionsEditor";
 
+/**
+ * Subset of `FormFieldWithDetails.options` used by `dropdown` /
+ * `multi_select` fields. The canonical type is the open `Record<string,
+ * any>` since the JSON shape varies by field type, so we narrow it here
+ * at the single read site instead of casting `as any` per access.
+ */
+interface FieldOptionsWithChoices {
+  choices?: FieldOption[];
+}
+
+const FIELD_TYPE_VALUES = Object.values(FieldType) as string[];
+
+function asFieldType(value: string): FieldType {
+  return FIELD_TYPE_VALUES.includes(value)
+    ? (value as FieldType)
+    : FieldType.TEXT;
+}
+
 interface EditFieldModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,17 +68,16 @@ export function EditFieldModal({
   const [required, setRequired] = useState(field.required);
   const [placeholder, setPlaceholder] = useState(field.placeholder || "");
   const [options, setOptions] = useState<FieldOption[]>(
-    (field.options as any)?.choices || []
+    (field.options as FieldOptionsWithChoices)?.choices || []
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Update form when field changes
   useEffect(() => {
     setLabel(field.label);
     setFieldType(field.fieldType);
     setRequired(field.required);
     setPlaceholder(field.placeholder || "");
-    setOptions((field.options as any)?.choices || []);
+    setOptions((field.options as FieldOptionsWithChoices)?.choices || []);
   }, [field]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +129,7 @@ export function EditFieldModal({
         })
         .patch({
           label: label.trim(),
-          fieldType: fieldType as any,
+          fieldType,
           required,
           placeholder: placeholder.trim() || undefined,
           options: optionsPayload,
@@ -172,7 +189,7 @@ export function EditFieldModal({
               <Label htmlFor="fieldType">Field Type *</Label>
               <Select
                 value={fieldType}
-                onValueChange={setFieldType as any}
+                onValueChange={(value) => setFieldType(asFieldType(value))}
                 disabled={isSubmitting}
               >
                 <SelectTrigger>

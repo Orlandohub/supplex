@@ -9,6 +9,7 @@ import { useLoaderData, useNavigation, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { EmailEventType } from "@supplex/types";
 import { Card } from "~/components/ui/card";
 import { Switch } from "~/components/ui/switch";
 import { Button } from "~/components/ui/button";
@@ -22,6 +23,27 @@ interface NotificationPreferences {
   stageRejected: boolean;
   stageAdvanced: boolean;
   workflowApproved: boolean;
+}
+
+/**
+ * Email event types the user can toggle from this settings UI.
+ * Mirrors the TypeBox union in
+ * `apps/api/src/routes/users/notification-preferences.ts`.
+ */
+const TOGGLEABLE_EVENT_TYPES = [
+  EmailEventType.WORKFLOW_SUBMITTED,
+  EmailEventType.STAGE_APPROVED,
+  EmailEventType.STAGE_REJECTED,
+  EmailEventType.STAGE_ADVANCED,
+  EmailEventType.WORKFLOW_APPROVED,
+] as const;
+
+type ToggleableEmailEventType = (typeof TOGGLEABLE_EVENT_TYPES)[number];
+
+function isToggleableEventType(
+  value: string
+): value is ToggleableEmailEventType {
+  return (TOGGLEABLE_EVENT_TYPES as readonly string[]).includes(value);
 }
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -71,8 +93,19 @@ export async function action(args: ActionFunctionArgs) {
 
   try {
     const formData = await request.formData();
-    const eventType = formData.get("eventType") as string;
+    const eventTypeRaw = formData.get("eventType");
     const emailEnabled = formData.get("emailEnabled") === "true";
+
+    if (
+      typeof eventTypeRaw !== "string" ||
+      !isToggleableEventType(eventTypeRaw)
+    ) {
+      return json(
+        { success: false, error: "Invalid notification event type" },
+        { status: 400 }
+      );
+    }
+    const eventType = eventTypeRaw;
 
     const token = session?.access_token;
     if (!token) {
@@ -81,7 +114,7 @@ export async function action(args: ActionFunctionArgs) {
 
     const client = createEdenTreatyClient(token);
     const response = await client.api.users.me["notification-preferences"].put({
-      eventType: eventType as any,
+      eventType,
       emailEnabled,
     });
 

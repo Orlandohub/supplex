@@ -11,7 +11,7 @@ import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 
-interface ProcessInstance {
+export interface ProcessInstance {
   id: string;
   processType: string;
   entityType: string;
@@ -22,7 +22,7 @@ interface ProcessInstance {
   completedDate?: string | null;
 }
 
-interface User {
+export interface ProcessListUser {
   id: string;
   email: string;
   fullName: string;
@@ -31,7 +31,7 @@ interface User {
 interface WorkflowProcessListProps {
   processes: ProcessInstance[];
   token: string;
-  user: User;
+  user: ProcessListUser;
 }
 
 export function WorkflowProcessList({

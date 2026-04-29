@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { UserRole } from "@supplex/types";
+import { getErrorMessage } from "~/lib/api-helpers";
 import { getRoleDisplayName } from "../../lib/rbac/permissions";
 import {
   Dialog,
@@ -58,8 +59,8 @@ export function InviteUserModal({
       setRole(UserRole.VIEWER);
       setMessage("");
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Failed to send invitation");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to send invitation"));
     } finally {
       setIsSubmitting(false);
     }
@@ -116,7 +117,8 @@ export function InviteUserModal({
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              The user will be assigned this role when they accept the invitation.
+              The user will be assigned this role when they accept the
+              invitation.
             </p>
           </div>
 

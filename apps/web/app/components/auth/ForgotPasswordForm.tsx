@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
+import { getErrorMessage } from "~/lib/api-helpers";
 import { Link } from "react-router";
 
 // Validation schema
@@ -56,8 +57,8 @@ export function ForgotPasswordForm({
           result.error || "Failed to send reset email. Please try again."
         );
       }
-    } catch (error: any) {
-      setSubmitError(error.message || "An unexpected error occurred.");
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, "An unexpected error occurred."));
     }
   };
 

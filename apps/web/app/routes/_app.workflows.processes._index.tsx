@@ -11,7 +11,10 @@ import { useLoaderData, Link } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { errorBody } from "~/lib/api-helpers";
-import { WorkflowProcessList } from "~/components/workflow-engine/WorkflowProcessList";
+import {
+  WorkflowProcessList,
+  type ProcessInstance,
+} from "~/components/workflow-engine/WorkflowProcessList";
 import { Button } from "~/components/ui/button";
 
 export const meta: MetaFunction = () => {
@@ -55,8 +58,13 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Invalid API response", { status: 500 });
     }
 
+    // Trust-boundary cast: Treaty types `Date` fields as `Date`, but Remix
+    // serializes the loader payload to JSON, so the client receives `string`s.
+    // The component's `ProcessInstance` already models the wire shape.
+    const processes = data.data.processes as unknown as ProcessInstance[];
+
     return json({
-      processes: data.data.processes,
+      processes,
       token,
       user,
     });
@@ -93,11 +101,7 @@ export default function WorkflowProcessesIndex() {
       </div>
 
       {/* Process List */}
-      <WorkflowProcessList
-        processes={processes as any}
-        token={token}
-        user={user}
-      />
+      <WorkflowProcessList processes={processes} token={token} user={user} />
     </div>
   );
 }

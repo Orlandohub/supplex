@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "~/hooks/useAuth";
+import { getErrorMessage } from "~/lib/api-helpers";
 import { Link, useNavigate } from "react-router";
 
 // Password validation schema
@@ -165,8 +166,8 @@ export function SignUpForm({ onSuccess, className = "" }: SignUpFormProps) {
       } else {
         setSubmitError(result.error || "Sign up failed. Please try again.");
       }
-    } catch (error: any) {
-      setSubmitError(error.message || "An unexpected error occurred.");
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, "An unexpected error occurred."));
     }
   };
 

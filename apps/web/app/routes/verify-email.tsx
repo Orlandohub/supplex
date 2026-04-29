@@ -8,6 +8,7 @@ import {
 } from "react-router";
 import { useEffect, useState } from "react";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
+import { getErrorMessage } from "~/lib/api-helpers";
 
 export const meta: MetaFunction = () => {
   return [
@@ -57,9 +58,11 @@ export default function VerifyEmail() {
           } else {
             setVerificationStatus("success");
           }
-        } catch (error: any) {
+        } catch (error) {
           setVerificationStatus("error");
-          setErrorMessage(error.message || "An unexpected error occurred");
+          setErrorMessage(
+            getErrorMessage(error, "An unexpected error occurred")
+          );
         }
       };
 

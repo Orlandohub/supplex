@@ -1,7 +1,14 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
-import type { FormTemplateWithStructureUI, FormAnswer } from "@supplex/types";
+import type {
+  FormTemplateWithStructureUI,
+  FormAnswer,
+  FormFieldWithDetails,
+  ValidationRules,
+  FieldOptions,
+} from "@supplex/types";
 import { validateFieldValue as sharedValidateFieldValue } from "@supplex/types";
+import { getErrorMessage } from "~/lib/api-helpers";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -99,8 +106,8 @@ export function FormRenderer({
       await onSave(answers);
       setSaveSuccess(true);
       saveSuccessTimer.current = setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error: any) {
-      setSubmitError(error.message || "Failed to save draft");
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, "Failed to save draft"));
     } finally {
       setIsSaving(false);
     }
@@ -121,8 +128,8 @@ export function FormRenderer({
       });
 
       await onSubmit(answers);
-    } catch (error: any) {
-      setSubmitError(error.message || "Failed to submit form");
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, "Failed to submit form"));
     } finally {
       setIsSubmitting(false);
     }
@@ -195,7 +202,7 @@ export function FormRenderer({
                           ) {
                             return true;
                           }
-                          return validateFieldValue(value, field as any);
+                          return validateFieldValue(value, field);
                         },
                       }}
                       render={({ field: controllerField }) => {
@@ -204,7 +211,7 @@ export function FormRenderer({
                           | undefined;
 
                         return renderField(
-                          field as any,
+                          field,
                           controllerField.value || "",
                           controllerField.onChange,
                           fieldError || null,
@@ -264,7 +271,7 @@ export function FormRenderer({
 }
 
 function renderField(
-  field: any,
+  field: FormFieldWithDetails,
   value: string,
   onChange: (value: string) => void,
   error: string | null,
@@ -302,8 +309,22 @@ function renderField(
   }
 }
 
-/** Adapts shared validateFieldValue (string | null) to React Hook Form (string | true). */
-function validateFieldValue(value: string, field: any): string | true {
-  const result = sharedValidateFieldValue(value, field);
+/**
+ * Adapts shared `validateFieldValue` (string | null) to React Hook Form
+ * (string | true). The shared validator's `FieldDefinition` shape is a
+ * structural subset of `FormFieldWithDetails`, but the latter widens
+ * `validationRules` / `options` to `Record<string, any>`, so we narrow at
+ * this single call site.
+ */
+function validateFieldValue(
+  value: string,
+  field: FormFieldWithDetails
+): string | true {
+  const result = sharedValidateFieldValue(value, {
+    fieldType: field.fieldType,
+    required: field.required,
+    validationRules: field.validationRules as ValidationRules | null,
+    options: field.options as FieldOptions | Record<string, never> | null,
+  });
   return result === null ? true : result;
 }
