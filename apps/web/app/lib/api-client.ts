@@ -18,11 +18,26 @@ const API_URL = config.apiUrl;
  *
  * Login, registration, and password-recovery flows use their own fetch paths
  * and are exempt — they never go through this wrapper.
+ *
+ * Wired into Eden Treaty via the `fetcher` config slot (custom fetch
+ * implementation), NOT `fetch` (default RequestInit options). Passing this
+ * function to `fetch` was a silent no-op — Eden destructured it as
+ * `let { fetch: _ } = config; ...{ ..._, ...}` and the spread of a function
+ * dropped it, falling back to `globalThis.fetch`. The `as any` previously
+ * required to satisfy that wrong slot was masking a real production bug:
+ * 401/403 redirects never fired. See docs/troubleshooting.md.
+ *
+ * The single `as typeof fetch` cast (NOT `as any`) bridges a TypeScript
+ * platform-typing quirk: `bun-types` leaks transitively via Elysia's `.d.ts`
+ * and augments the global `fetch` with `preconnect()` and `BunFetchRequestInit`,
+ * neither of which Eden uses at runtime. Asserting `typeof fetch` here is
+ * narrower and safer than `as any`: the inner arrow function's parameter
+ * types still enforce a valid fetch-shaped contract.
  */
-async function fetchWithAuthErrorHandler(
+const fetchWithAuthErrorHandler = (async (
   input: globalThis.RequestInfo | URL,
   init?: globalThis.RequestInit
-): Promise<Response> {
+): Promise<Response> => {
   const response = await fetch(input, init);
 
   if (response.status === 401) {
@@ -36,7 +51,7 @@ async function fetchWithAuthErrorHandler(
   }
 
   return response;
-}
+}) as typeof fetch;
 
 function handleUnauthorized(): void {
   if (typeof window === "undefined") return;
@@ -65,27 +80,30 @@ function handleUnauthorized(): void {
 }
 
 /**
- * Create Eden Treaty client for server-side API calls (Remix loaders/actions)
- * Requires authentication token from the request
+ * Create Eden Treaty client for server-side API calls (Remix loaders/actions).
+ * Requires authentication token from the request.
+ *
+ * On the server, `handleUnauthorized()` is a no-op (no `window`), so 401/403
+ * detection still propagates to the loader without browser-only side effects.
  */
 export function createEdenTreatyClient(token: string) {
   return treaty<App>(API_URL, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    fetch: fetchWithAuthErrorHandler as any,
+    fetcher: fetchWithAuthErrorHandler,
   });
 }
 
 /**
- * Create Eden Treaty client for client-side API calls
- * Token should be obtained from the current session
+ * Create Eden Treaty client for client-side API calls.
+ * Token should be obtained from the current session.
  */
 export function createClientEdenTreatyClient(token: string) {
   return treaty<App>(API_URL, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    fetch: fetchWithAuthErrorHandler as any,
+    fetcher: fetchWithAuthErrorHandler,
   });
 }
