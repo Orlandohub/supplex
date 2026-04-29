@@ -85,8 +85,14 @@ export const pendingInvitationsRoute = new Elysia({ prefix: "/users" })
                 // Skip used invitations (shouldn't happen due to query filter, but defensive)
                 return null;
               }
+              // `expiresAt` is non-null whenever `invitationId` is set (DB
+              // schema invariant), but Drizzle types it as nullable; guard
+              // and skip rather than asserting.
+              if (!pendingUser.expiresAt) {
+                return null;
+              }
               invitationStatus =
-                new Date(pendingUser.expiresAt!) < new Date()
+                new Date(pendingUser.expiresAt) < new Date()
                   ? "expired"
                   : "pending";
             }

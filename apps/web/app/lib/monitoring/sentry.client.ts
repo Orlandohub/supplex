@@ -81,7 +81,10 @@ export function initSentryClient(dsn?: string, _environment?: string) {
  * @param error - Error to capture
  * @param context - Additional context
  */
-export function captureException(error: Error, context?: Record<string, any>) {
+export function captureException(
+  error: Error,
+  context?: Record<string, unknown>
+) {
   // NOTE: Uncomment when @sentry/react-router is installed
   /*
   Sentry.captureException(error, {

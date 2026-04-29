@@ -35,7 +35,7 @@ export interface ProcessInstance {
   initiatedDate: string;
   completedDate?: string | null;
   updatedAt?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   workflowName?: string | null;
   supplierName?: string | null;
 }
@@ -51,7 +51,7 @@ export interface StepInstance {
   assignedTo?: string | null;
   completedBy?: string | null;
   completedDate?: string | null;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface TaskInstance {
@@ -72,7 +72,7 @@ export interface TaskInstance {
   updatedAt?: string | null;
   completedBy?: string | null;
   completedAt?: string | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   // User enrichment fields from API
   assignedUserFullName?: string | null;
   assignedUserEmail?: string | null;
@@ -106,13 +106,32 @@ interface ValidationInfo {
   requiresValidation: boolean;
 }
 
+export interface FormSubmissionRecord {
+  id: string;
+  status?: string | null;
+  [key: string]: unknown;
+}
+
+export interface DocumentProgressRecord {
+  total: number;
+  uploaded: number;
+  approved: number;
+  declined: number;
+  pending: number;
+  documents?: Array<{
+    requiredDocumentName: string;
+    status: string;
+    declineComment?: string | null;
+  }>;
+}
+
 interface WorkflowProcessDetailPageProps {
   process: ProcessInstance;
   steps: StepInstance[];
   tasks: TaskInstance[];
   comments: CommentThread[];
-  formSubmissions?: Record<string, any>;
-  documentProgress?: Record<string, any>;
+  formSubmissions?: Record<string, FormSubmissionRecord>;
+  documentProgress?: Record<string, DocumentProgressRecord>;
   validationSteps?: ValidationInfo[];
   activeTab: string;
   token: string;
@@ -248,8 +267,7 @@ export function WorkflowProcessDetailPage({
     : [];
   const earliestDue =
     activeStepPendingTasks
-      .filter((t) => t.dueAt)
-      .map((t) => new Date(t.dueAt!))
+      .flatMap((t) => (t.dueAt ? [new Date(t.dueAt)] : []))
       .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
 
   function stepDueLabel(): { text: string; tone: string } | null {

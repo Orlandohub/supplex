@@ -7,10 +7,21 @@
  */
 
 import { createServerClient } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  SupabaseClient,
+  User as AuthUser,
+  Session,
+} from "@supabase/supabase-js";
 import { createCookieSessionStorage, redirect } from "react-router";
-import { parse, serialize } from "cookie";
+import { parse, serialize, type SerializeOptions } from "cookie";
 import type { Database } from "@supplex/types";
+import { asUserRecord, type UserRecord } from "./user-record";
+
+export {
+  type UserRecord,
+  asUserRecord,
+  userRecordHasRole,
+} from "./user-record";
 
 // Validate environment variables are set (fail loudly if missing)
 if (!process.env.SUPABASE_URL) {
@@ -60,11 +71,11 @@ export function createSupabaseServerClient(
         const cookies = parse(request.headers.get("Cookie") ?? "");
         return cookies[name];
       },
-      set(name: string, value: string, options: any) {
+      set(name: string, value: string, options: SerializeOptions) {
         // Use Remix's serialize utility for proper Set-Cookie header formatting
         response.headers.append("Set-Cookie", serialize(name, value, options));
       },
-      remove(name: string, options: any) {
+      remove(name: string, options: SerializeOptions) {
         // Use Remix's serialize utility to properly expire cookies
         response.headers.append(
           "Set-Cookie",
@@ -83,8 +94,8 @@ export function createSupabaseServerClient(
  * Reference: https://supabase.com/docs/guides/auth/server-side/creating-a-client
  */
 export async function getSession(request: Request): Promise<{
-  session: any;
-  user: any;
+  session: Session | null;
+  user: AuthUser | null;
   supabase: SupabaseClient<Database>;
   response: Response;
 }> {
@@ -124,8 +135,8 @@ export async function getSession(request: Request): Promise<{
  * Require authentication for a route
  */
 export async function requireAuth(request: Request): Promise<{
-  user: any;
-  session: any;
+  user: AuthUser;
+  session: Session;
   supabase: SupabaseClient<Database>;
   response: Response;
 }> {
@@ -152,8 +163,8 @@ export async function requireAuth(request: Request): Promise<{
  *   3. PostgREST also validates the JWT when the Supabase client queries the DB.
  */
 export async function getSessionFast(request: Request): Promise<{
-  session: any;
-  user: any;
+  session: Session | null;
+  user: AuthUser | null;
   supabase: SupabaseClient<Database>;
   response: Response;
 }> {
@@ -177,8 +188,8 @@ export async function getSessionFast(request: Request): Promise<{
  * Uses getSession() (local) instead of getUser() (remote HTTP call).
  */
 export async function requireAuthFast(request: Request): Promise<{
-  user: any;
-  session: any;
+  user: AuthUser;
+  session: Session;
   supabase: SupabaseClient<Database>;
   response: Response;
 }> {
@@ -199,11 +210,11 @@ export async function requireAuthFast(request: Request): Promise<{
  * HTTP call to Supabase Auth that getUser() makes on every invocation.
  */
 export async function getAuthenticatedUserFast(request: Request): Promise<{
-  user: any;
-  session: any;
+  user: AuthUser;
+  session: Session;
   supabase: SupabaseClient<Database>;
   response: Response;
-  userRecord?: any;
+  userRecord: UserRecord;
 }> {
   const { user, session, supabase, response } = await requireAuthFast(request);
 
@@ -220,7 +231,10 @@ export async function getAuthenticatedUserFast(request: Request): Promise<{
     Date.now() - cacheTimestamp < CACHE_TTL;
 
   if (isCacheValid) {
-    return { user, session, supabase, response, userRecord: cachedUserRecord };
+    const cachedRecord = asUserRecord(cachedUserRecord);
+    if (cachedRecord) {
+      return { user, session, supabase, response, userRecord: cachedRecord };
+    }
   }
 
   const { data: userRecord, error } = await supabase
@@ -229,7 +243,7 @@ export async function getAuthenticatedUserFast(request: Request): Promise<{
     .eq("id", user.id)
     .single();
 
-  if (error) {
+  if (error || !userRecord) {
     console.error("Error fetching user record:", error);
     throw new Error("Failed to fetch user data");
   }
@@ -241,7 +255,11 @@ export async function getAuthenticatedUserFast(request: Request): Promise<{
     await sessionStorage.commitSession(remixSession)
   );
 
-  return { user, session, supabase, response, userRecord };
+  const narrowed = asUserRecord(userRecord);
+  if (!narrowed) {
+    throw new Error("User record returned from Supabase was empty");
+  }
+  return { user, session, supabase, response, userRecord: narrowed };
 }
 
 /**
@@ -249,11 +267,11 @@ export async function getAuthenticatedUserFast(request: Request): Promise<{
  * PERFORMANCE: Caches userRecord in session to avoid DB queries on every request
  */
 export async function getAuthenticatedUser(request: Request): Promise<{
-  user: any;
-  session: any;
+  user: AuthUser;
+  session: Session;
   supabase: SupabaseClient<Database>;
   response: Response;
-  userRecord?: any;
+  userRecord: UserRecord;
 }> {
   const { user, session, supabase, response } = await requireAuth(request);
 
@@ -274,7 +292,10 @@ export async function getAuthenticatedUser(request: Request): Promise<{
 
   if (isCacheValid) {
     // Return cached user record (saves ~50-150ms DB query)
-    return { user, session, supabase, response, userRecord: cachedUserRecord };
+    const cachedRecord = asUserRecord(cachedUserRecord);
+    if (cachedRecord) {
+      return { user, session, supabase, response, userRecord: cachedRecord };
+    }
   }
 
   // Cache miss or expired - fetch from database
@@ -284,7 +305,7 @@ export async function getAuthenticatedUser(request: Request): Promise<{
     .eq("id", user.id)
     .single();
 
-  if (error) {
+  if (error || !userRecord) {
     console.error("Error fetching user record:", error);
     throw new Error("Failed to fetch user data");
   }
@@ -299,7 +320,11 @@ export async function getAuthenticatedUser(request: Request): Promise<{
     await sessionStorage.commitSession(remixSession)
   );
 
-  return { user, session, supabase, response, userRecord };
+  const narrowed = asUserRecord(userRecord);
+  if (!narrowed) {
+    throw new Error("User record returned from Supabase was empty");
+  }
+  return { user, session, supabase, response, userRecord: narrowed };
 }
 
 /**
@@ -390,8 +415,8 @@ export async function signOut(request: Request): Promise<Response> {
  * Refresh tokens if needed
  */
 export async function refreshTokens(request: Request): Promise<{
-  session: any;
-  user: any;
+  session: Session | null;
+  user: AuthUser | null;
   supabase: SupabaseClient<Database>;
   response: Response;
 }> {

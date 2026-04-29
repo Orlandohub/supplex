@@ -1,4 +1,5 @@
-﻿import { describe, it, expect, vi } from "vitest";
+﻿import type * as React from "react";
+import { describe, it, expect, vi } from "vitest";
 
 /**
  * Test Suite for My Tasks Route
@@ -22,7 +23,9 @@ vi.mock("react-router", () => ({
     tasks: [],
     token: "test-token",
   }),
-  Link: ({ to, children }: any) => <a href={to}>{children}</a>,
+  Link: ({ to, children }: { to: string; children?: React.ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
 }));
 
 describe("My Tasks Route (_app.tasks.tsx)", () => {
@@ -128,7 +131,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
    */
   describe("Empty state display (AC 2)", () => {
     it("should display empty state when no tasks", () => {
-      const emptyTasks: any[] = [];
+      const emptyTasks: unknown[] = [];
 
       expect(emptyTasks).toHaveLength(0);
       // Should show "No Pending Reviews" message

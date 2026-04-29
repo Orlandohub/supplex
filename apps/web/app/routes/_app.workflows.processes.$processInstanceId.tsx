@@ -26,6 +26,8 @@ import {
   type StepInstance,
   type TaskInstance,
   type CommentThread,
+  type FormSubmissionRecord,
+  type DocumentProgressRecord,
 } from "~/components/workflow-engine/WorkflowProcessDetailPage";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -118,8 +120,8 @@ export async function loader(args: LoaderFunctionArgs) {
         steps: StepInstance[];
         tasks: TaskInstance[];
         comments: CommentThread[];
-        formSubmissions?: Record<string, unknown>;
-        documentProgress?: Record<string, unknown>;
+        formSubmissions?: Record<string, FormSubmissionRecord>;
+        documentProgress?: Record<string, DocumentProgressRecord>;
       };
       error?: string;
     } | null;

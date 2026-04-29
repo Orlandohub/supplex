@@ -80,7 +80,7 @@ describe("User Helpers", () => {
 
     it("should throw on null metadata", () => {
       expect(() =>
-        extractRoleFromMetadata(null as unknown as Record<string, any>)
+        extractRoleFromMetadata(null as unknown as Record<string, unknown>)
       ).toThrow(/Missing role in auth metadata/);
     });
 
@@ -91,9 +91,9 @@ describe("User Helpers", () => {
     });
 
     it("should throw on invalid role string", () => {
-      expect(() =>
-        extractRoleFromMetadata({ role: "super_admin" })
-      ).toThrow(/Invalid role "super_admin"/);
+      expect(() => extractRoleFromMetadata({ role: "super_admin" })).toThrow(
+        /Invalid role "super_admin"/
+      );
     });
 
     it("should return correct role for all valid UserRole values", () => {

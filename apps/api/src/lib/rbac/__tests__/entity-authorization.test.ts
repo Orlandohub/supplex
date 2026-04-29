@@ -282,6 +282,7 @@ describe("Entity-Level Authorization Helpers", () => {
         db
       );
       expect(result.allowed).toBe(true);
+      if (!result.allowed) throw new Error("expected allowed=true");
       expect(result.taskId).toBe(task.id);
 
       await db

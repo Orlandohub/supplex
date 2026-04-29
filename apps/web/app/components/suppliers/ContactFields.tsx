@@ -2,7 +2,11 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 
 interface ContactFieldsProps {
-  formData: any;
+  formData: {
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+  };
   errors: Record<string, string>;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }

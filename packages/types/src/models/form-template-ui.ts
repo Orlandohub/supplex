@@ -7,7 +7,12 @@
  * Updated: Story 2.2.23 — Removed legacy "version" naming
  */
 
-import type { FormTemplateStatus, FieldType } from "./form-template";
+import type {
+  FormTemplateStatus,
+  FieldType,
+  ValidationRules,
+  FieldOptions,
+} from "./form-template";
 
 /**
  * Form Template List Item
@@ -38,8 +43,8 @@ export interface FormFieldWithDetails {
   label: string;
   fieldType: FieldType;
   required: boolean;
-  validationRules: Record<string, any>;
-  options: Record<string, any>;
+  validationRules: ValidationRules | null;
+  options: FieldOptions | Record<string, never> | null;
   fieldOrder: number;
   placeholder: string | null;
   createdAt: Date | string;
@@ -57,7 +62,7 @@ export interface FormSectionWithFieldsUI {
   title: string;
   description: string | null;
   sectionOrder: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   createdAt: Date | string;
   updatedAt: Date | string;
   fields: FormFieldWithDetails[];
@@ -138,8 +143,8 @@ export interface CreateFieldRequest {
   label: string;
   fieldType: FieldType;
   required?: boolean;
-  validationRules?: Record<string, any>;
-  options?: Record<string, any>;
+  validationRules?: Record<string, unknown>;
+  options?: Record<string, unknown>;
   fieldOrder: number;
   placeholder?: string;
 }
@@ -152,8 +157,8 @@ export interface UpdateFieldRequest {
   label?: string;
   fieldType?: FieldType;
   required?: boolean;
-  validationRules?: Record<string, any>;
-  options?: Record<string, any>;
+  validationRules?: Record<string, unknown>;
+  options?: Record<string, unknown>;
   fieldOrder?: number;
   placeholder?: string;
 }

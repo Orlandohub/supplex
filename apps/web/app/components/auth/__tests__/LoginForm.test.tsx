@@ -16,7 +16,14 @@ vi.mock("~/hooks/useAuth", () => ({
 
 // Mock React Router Link
 vi.mock("react-router", () => ({
-  Link: ({ to, children, ...props }: any) => (
+  Link: ({
+    to,
+    children,
+    ...props
+  }: {
+    to: string;
+    children: React.ReactNode;
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a href={to} {...props}>
       {children}
     </a>

@@ -3,12 +3,12 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
 import { getErrorMessage } from "~/lib/api-helpers";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
-import type { User } from "@supplex/types";
+import { asUserRecord, type UserRecord } from "~/lib/auth/user-record";
 
 interface AuthState {
   // Auth State
   user: SupabaseUser | null;
-  userRecord: User | null;
+  userRecord: UserRecord | null;
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -17,7 +17,7 @@ interface AuthState {
   setAuth: (
     user: SupabaseUser | null,
     session: Session | null,
-    userRecord?: User | null
+    userRecord?: UserRecord | null
   ) => void;
   setLoading: (loading: boolean) => void;
   signIn: (
@@ -86,12 +86,32 @@ export const useAuth = create<AuthState>()(
           }
 
           if (data.user && data.session) {
-            // Fetch user record from database
-            const { data: userRecord, error: userError } = (await supabase
+            // Fetch user record from database. The current Supabase JS
+            // version's generic inference resolves the row to `never`
+            // because our hand-written `Database` type in `@supplex/types`
+            // predates the `__InternalSupabase` schema marker the new
+            // client expects. Trust-boundary cast the row to the snake_case
+            // shape we actually read until SUP-7 follow-up regenerates the
+            // types from migrations.
+            type UsersRow = {
+              id: string;
+              email: string;
+              tenant_id: string;
+              full_name: string;
+              role: string;
+              is_active: boolean;
+            };
+
+            const userQuery = (await supabase
               .from("users")
               .select("*")
               .eq("id", data.user.id)
-              .single()) as { data: any; error: any };
+              .single()) as unknown as {
+              data: UsersRow | null;
+              error: { message: string } | null;
+            };
+            const userRecord = userQuery.data;
+            const userError = userQuery.error;
 
             if (userError) {
               console.error("Error fetching user record:", userError);
@@ -104,13 +124,16 @@ export const useAuth = create<AuthState>()(
               );
 
               // Fetch admin contact info
-              const { data: adminUsers } = (await supabase
+              const adminQuery = (await supabase
                 .from("users")
                 .select("full_name, email")
                 .eq("tenant_id", userRecord.tenant_id)
                 .eq("role", "admin")
                 .eq("is_active", true)
-                .limit(1)) as { data: any[] | null };
+                .limit(1)) as unknown as {
+                data: Array<Pick<UsersRow, "full_name" | "email">> | null;
+              };
+              const adminUsers = adminQuery.data;
 
               const adminUser = adminUsers?.[0];
               const adminInfo = adminUser
@@ -128,7 +151,7 @@ export const useAuth = create<AuthState>()(
               };
             }
 
-            get().setAuth(data.user, data.session, userRecord);
+            get().setAuth(data.user, data.session, asUserRecord(userRecord));
 
             // Handle "Remember Me" functionality
             if (rememberMe) {
@@ -176,7 +199,11 @@ export const useAuth = create<AuthState>()(
             }),
           });
 
-          const result = await response.json();
+          const result = (await response.json()) as {
+            success?: boolean;
+            error?: string;
+            data?: { user?: Record<string, unknown> };
+          };
 
           if (!response.ok || !result.success) {
             set({ isLoading: false });
@@ -207,7 +234,11 @@ export const useAuth = create<AuthState>()(
           }
 
           // Set auth state with the signed-in user and user record from API
-          get().setAuth(signInData.user, signInData.session, result.data?.user);
+          get().setAuth(
+            signInData.user,
+            signInData.session,
+            asUserRecord(result.data?.user)
+          );
 
           set({ isLoading: false });
           return { success: true };
@@ -341,7 +372,7 @@ export const useAuth = create<AuthState>()(
               console.error("Error fetching user record:", userError);
             }
 
-            get().setAuth(user, session, userRecord);
+            get().setAuth(user, session, asUserRecord(userRecord));
           } else {
             get().clearAuth();
           }

@@ -119,7 +119,7 @@ export interface WorkflowStepTemplate {
   requiresValidation: boolean; // When true, system auto-creates validation tasks
   validationConfig: ValidationConfig | Record<string, never>; // Approver roles configuration
 
-  metadata: Record<string, any>; // Extensible configuration
+  metadata: Record<string, unknown>; // Extensible configuration
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -132,4 +132,3 @@ export interface WorkflowStepTemplate {
 export interface WorkflowTemplateWithSteps extends WorkflowTemplate {
   steps: WorkflowStepTemplate[];
 }
-

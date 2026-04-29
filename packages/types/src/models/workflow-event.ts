@@ -62,7 +62,7 @@ export interface WorkflowEvent {
   entityType: string | null;
   entityId: string | null;
   comment: string | null;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 

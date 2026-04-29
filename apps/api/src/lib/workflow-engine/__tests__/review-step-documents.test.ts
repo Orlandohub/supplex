@@ -25,8 +25,56 @@ import {
 } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { reviewStepDocuments } from "../review-step-documents";
+import type { ReviewStepDocumentsResult } from "../review-step-documents";
 
 import { insertOneOrThrow, selectFirstOrThrow } from "../../db-helpers";
+
+// SUP-13: assertion helpers to narrow the discriminated union returned by
+// `reviewStepDocuments` so tests can safely access success/failure-only
+// fields without `!` non-null assertions or `as unknown as` casts.
+function assertResultSuccess(
+  result: ReviewStepDocumentsResult
+): asserts result is Extract<ReviewStepDocumentsResult, { success: true }> {
+  expect(result.success).toBe(true);
+  if (!result.success) {
+    throw new Error(`Expected result.success=true, got error: ${result.error}`);
+  }
+}
+
+function assertResultFailure(
+  result: ReviewStepDocumentsResult
+): asserts result is Extract<ReviewStepDocumentsResult, { success: false }> {
+  expect(result.success).toBe(false);
+  if (result.success) {
+    throw new Error("Expected result.success=false, got success result");
+  }
+}
+
+function assertAllApproved(
+  result: ReviewStepDocumentsResult
+): asserts result is Extract<
+  ReviewStepDocumentsResult,
+  { success: true; outcome: "all_approved" }
+> {
+  assertResultSuccess(result);
+  expect(result.outcome).toBe("all_approved");
+  if (result.outcome !== "all_approved") {
+    throw new Error(`Expected outcome=all_approved, got ${result.outcome}`);
+  }
+}
+
+function assertDeclined(
+  result: ReviewStepDocumentsResult
+): asserts result is Extract<
+  ReviewStepDocumentsResult,
+  { success: true; outcome: "declined" }
+> {
+  assertResultSuccess(result);
+  expect(result.outcome).toBe("declined");
+  if (result.outcome !== "declined") {
+    throw new Error(`Expected outcome=declined, got ${result.outcome}`);
+  }
+}
 /**
  * Integration Tests: Document Review Engine Function
  * Revised: Per-reviewer document approval model with explicit validation rounds
@@ -170,8 +218,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result.success).toBe(true);
-    expect(result.outcome).toBe("all_approved");
+    assertAllApproved(result);
     expect(result.allValidationsComplete).toBe(true);
     expect(result.approvedCount).toBe(2);
     expect(result.nextStepActivated).toBe(true);
@@ -312,8 +359,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result.success).toBe(true);
-    expect(result.outcome).toBe("all_approved");
+    assertAllApproved(result);
     expect(result.processCompleted).toBe(true);
 
     const updatedProc = await selectFirstOrThrow(
@@ -409,8 +455,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result.success).toBe(true);
-    expect(result.outcome).toBe("declined");
+    assertDeclined(result);
     expect(result.approvedCount).toBe(1);
     expect(result.declinedCount).toBe(1);
 
@@ -553,8 +598,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result1.success).toBe(true);
-    expect(result1.outcome).toBe("all_approved");
+    assertAllApproved(result1);
 
     // Same task ID again — CAS rejects (task already completed)
     const result2 = await db.transaction(async (tx) => {
@@ -567,7 +611,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result2.success).toBe(false);
+    assertResultFailure(result2);
     expect(result2.conflict).toBe(true);
 
     // Verify no duplicate decision rows (ON CONFLICT DO NOTHING)
@@ -636,7 +680,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result.success).toBe(false);
+    assertResultFailure(result);
     expect(result.error).toContain("not awaiting validation");
 
     await db
@@ -745,9 +789,9 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result1.success).toBe(true);
-    expect(result1.outcome).toBe("all_approved");
+    assertAllApproved(result1);
     expect(result1.allValidationsComplete).toBe(false);
+    if (result1.allValidationsComplete) throw new Error("expected partial");
     expect(result1.remainingApprovals).toBe(1);
     expect(result1.stepCompleted).toBe(false);
     expect(result1.nextStepActivated).toBe(false);
@@ -801,9 +845,9 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(result2.success).toBe(true);
-    expect(result2.outcome).toBe("all_approved");
+    assertAllApproved(result2);
     expect(result2.allValidationsComplete).toBe(true);
+    if (!result2.allValidationsComplete) throw new Error("expected complete");
     expect(result2.stepCompleted).toBe(true);
     expect(result2.nextStepActivated).toBe(true);
 
@@ -938,8 +982,7 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(declineResult.success).toBe(true);
-    expect(declineResult.outcome).toBe("declined");
+    assertDeclined(declineResult);
 
     // Verify round 1 decision persisted for audit
     const round1Decisions = await db
@@ -992,9 +1035,10 @@ describe("reviewStepDocuments", () => {
       });
     });
 
-    expect(approveResult.success).toBe(true);
-    expect(approveResult.outcome).toBe("all_approved");
+    assertAllApproved(approveResult);
     expect(approveResult.allValidationsComplete).toBe(true);
+    if (!approveResult.allValidationsComplete)
+      throw new Error("expected complete");
     expect(approveResult.stepCompleted).toBe(true);
 
     // Verify round 2 decision exists

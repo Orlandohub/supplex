@@ -327,7 +327,7 @@ describe("WorkflowTable Component", () => {
    */
   describe("Empty state", () => {
     it("should show No workflows found when table empty", () => {
-      const emptyWorkflows: any[] = [];
+      const emptyWorkflows: unknown[] = [];
       const message = emptyWorkflows.length === 0 ? "No workflows found" : "";
 
       expect(message).toBe("No workflows found");

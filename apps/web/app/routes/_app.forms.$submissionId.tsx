@@ -236,7 +236,7 @@ export default function FormExecutionPage() {
   };
 
   const handleApprove = async () => {
-    if (!submission.stepInstanceId || isProcessing) return;
+    if (!submission.stepInstanceId || !workflowContext || isProcessing) return;
     setIsProcessing(true);
     setValidationError(null);
     try {
@@ -258,7 +258,7 @@ export default function FormExecutionPage() {
         title: "Approved",
         description: "Form submission has been approved.",
       });
-      navigate(`/workflows/processes/${workflowContext!.processInstanceId}`);
+      navigate(`/workflows/processes/${workflowContext.processInstanceId}`);
     } catch (err) {
       setValidationError("An unexpected error occurred");
       setIsProcessing(false);
@@ -266,7 +266,12 @@ export default function FormExecutionPage() {
   };
 
   const handleDecline = async () => {
-    if (!submission.stepInstanceId || !declineComment.trim() || isProcessing)
+    if (
+      !submission.stepInstanceId ||
+      !workflowContext ||
+      !declineComment.trim() ||
+      isProcessing
+    )
       return;
     setIsProcessing(true);
     setValidationError(null);
@@ -290,7 +295,7 @@ export default function FormExecutionPage() {
         title: "Declined",
         description: "Form submission has been declined.",
       });
-      navigate(`/workflows/processes/${workflowContext!.processInstanceId}`);
+      navigate(`/workflows/processes/${workflowContext.processInstanceId}`);
     } catch (err) {
       setValidationError("An unexpected error occurred");
       setIsProcessing(false);
@@ -309,10 +314,10 @@ export default function FormExecutionPage() {
           size="sm"
           onClick={() =>
             navigate(
-              isSupplierContext
-                ? `/suppliers/${supplierContext!.supplierId}`
-                : isWorkflowContext
-                  ? `/workflows/processes/${workflowContext!.processInstanceId}`
+              supplierContext
+                ? `/suppliers/${supplierContext.supplierId}`
+                : workflowContext && !isSupplierContext
+                  ? `/workflows/processes/${workflowContext.processInstanceId}`
                   : "/forms"
             )
           }
@@ -326,8 +331,8 @@ export default function FormExecutionPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {isSupplierContext
-              ? `${supplierContext!.supplierName} — ${formVersion.name || "Form"}`
+            {supplierContext
+              ? `${supplierContext.supplierName} — ${formVersion.name || "Form"}`
               : isValidator
                 ? "Review Form Submission"
                 : mode === "view"

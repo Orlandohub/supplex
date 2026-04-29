@@ -1,14 +1,20 @@
-﻿import { describe, it, expect, beforeEach, vi } from "vitest";
+﻿import type * as React from "react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SupplierForm } from "../SupplierForm";
 import { SupplierCategory, SupplierStatus } from "@supplex/types";
 import type { SerializedSupplier } from "@supplex/types";
 
-// Mock Remix hooks
+type FormMockProps = React.FormHTMLAttributes<HTMLFormElement> & {
+  children?: React.ReactNode;
+};
+
 const mockNavigate = vi.fn();
 vi.mock("react-router", () => ({
-  Form: ({ children, ...props }: any) => <form {...props}>{children}</form>,
+  Form: ({ children, ...props }: FormMockProps) => (
+    <form {...props}>{children}</form>
+  ),
   useNavigate: () => mockNavigate,
   useBeforeUnload: vi.fn(),
 }));

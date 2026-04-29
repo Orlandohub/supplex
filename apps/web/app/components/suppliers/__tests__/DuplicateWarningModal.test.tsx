@@ -1,17 +1,28 @@
-﻿import { describe, it, expect, vi } from "vitest";
+﻿import type * as React from "react";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DuplicateWarningModal } from "../DuplicateWarningModal";
 import { SupplierCategory, SupplierStatus } from "@supplex/types";
 
+type LinkMockProps = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  to: string;
+  children?: React.ReactNode;
+};
+type FormMockProps = React.FormHTMLAttributes<HTMLFormElement> & {
+  children?: React.ReactNode;
+};
+
 // Mock Remix Link and Form
 vi.mock("react-router", () => ({
-  Link: ({ children, to, ...props }: any) => (
+  Link: ({ children, to, ...props }: LinkMockProps) => (
     <a href={to} {...props}>
       {children}
     </a>
   ),
-  Form: ({ children, ...props }: any) => <form {...props}>{children}</form>,
+  Form: ({ children, ...props }: FormMockProps) => (
+    <form {...props}>{children}</form>
+  ),
 }));
 
 describe("DuplicateWarningModal", () => {

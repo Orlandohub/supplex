@@ -19,10 +19,9 @@ describe("Supabase Client Configuration", () => {
     try {
       await import("../supabase-client");
       expect.fail("Should have thrown an error");
-    } catch (error: any) {
-      expect(error.message).toContain(
-        "Missing SUPABASE_URL environment variable"
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toContain("Missing SUPABASE_URL environment variable");
     }
 
     // Restore env var
@@ -40,8 +39,9 @@ describe("Supabase Client Configuration", () => {
     try {
       await import("../supabase-client");
       expect.fail("Should have thrown an error");
-    } catch (error: any) {
-      expect(error.message).toContain(
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toContain(
         "Missing SUPABASE_ANON_KEY environment variable"
       );
     }

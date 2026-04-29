@@ -170,6 +170,9 @@ export const submitRoute = new Elysia()
         let stepCompletionResult: CompleteStepResult | null = null;
 
         if (submissionRecord.stepInstanceId) {
+          // Capture the narrowed `stepInstanceId` so the transaction callback
+          // (a separate closure) preserves the non-null type without `!`.
+          const stepInstanceIdLocal = submissionRecord.stepInstanceId;
           // Workflow-linked: wrap form update + completeStep + event logging in a single transaction
           try {
             const txResult = await db.transaction(async (tx) => {
@@ -185,7 +188,7 @@ export const submitRoute = new Elysia()
 
               const stepResult = await completeStep(tx, {
                 tenantId,
-                stepInstanceId: submissionRecord.stepInstanceId!,
+                stepInstanceId: stepInstanceIdLocal,
                 completedBy: userId,
                 outcome: "completed",
               });
@@ -201,7 +204,7 @@ export const submitRoute = new Elysia()
                   stepName: stepInstance.stepName,
                 })
                 .from(stepInstance)
-                .where(eq(stepInstance.id, submissionRecord.stepInstanceId!));
+                .where(eq(stepInstance.id, stepInstanceIdLocal));
 
               if (step) {
                 const isResubmission =
@@ -210,7 +213,7 @@ export const submitRoute = new Elysia()
                   tenantId,
                   processInstanceId:
                     submissionRecord.processInstanceId ?? undefined,
-                  stepInstanceId: submissionRecord.stepInstanceId!,
+                  stepInstanceId: stepInstanceIdLocal,
                   eventType: isResubmission
                     ? WorkflowEventType.FORM_RESUBMITTED
                     : WorkflowEventType.FORM_SUBMITTED,
@@ -265,7 +268,7 @@ export const submitRoute = new Elysia()
             const [verifyStep] = await db
               .select({ status: stepInstance.status })
               .from(stepInstance)
-              .where(eq(stepInstance.id, submissionRecord.stepInstanceId!));
+              .where(eq(stepInstance.id, stepInstanceIdLocal));
 
             const [verifyForm] = await db
               .select({ status: formSubmission.status })

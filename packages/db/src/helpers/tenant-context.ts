@@ -84,7 +84,14 @@ export function withTenantIdAndNotDeleted(
   if (!tenantId) {
     throw new TenantContextError("Tenant ID is required");
   }
-  return and(eq(tenantIdColumn, tenantId), isNull(deletedAtColumn))!;
+  // Drizzle's `and()` returns `SQL | undefined` (undefined only when called
+  // with zero conditions). We always pass two non-empty conditions, so the
+  // result is always defined - assert that invariant rather than using `!`.
+  const condition = and(eq(tenantIdColumn, tenantId), isNull(deletedAtColumn));
+  if (!condition) {
+    throw new TenantContextError("Failed to build tenant scope predicate");
+  }
+  return condition;
 }
 
 /**

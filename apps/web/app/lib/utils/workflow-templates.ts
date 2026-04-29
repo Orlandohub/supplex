@@ -3,15 +3,24 @@
  * Story 2.2.9 - Supplier Workflow Integration
  */
 
+import type {
+  createEdenTreatyClient,
+  createClientEdenTreatyClient,
+} from "~/lib/api-client";
+
+type TreatyClient =
+  | ReturnType<typeof createEdenTreatyClient>
+  | ReturnType<typeof createClientEdenTreatyClient>;
+
 /**
  * Fetch Active Published Workflow Templates
  * Only templates with active=true AND status='published' should appear in dropdowns
  * for workflow instantiation
- * 
+ *
  * @param client - Eden Treaty API client
  * @returns Promise with active published templates
  */
-export async function fetchActivePublishedTemplates(client: any) {
+export async function fetchActivePublishedTemplates(client: TreatyClient) {
   const response = await client.api["workflow-templates"].get({
     query: {
       status: "published",
@@ -38,4 +47,3 @@ export function canInstantiateTemplate(template: {
 }): boolean {
   return template.active === true && template.status === "published";
 }
-

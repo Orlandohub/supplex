@@ -65,8 +65,32 @@ export async function action(args: ActionFunctionArgs) {
   const forceSave = formData.get("forceSave") === "true";
   const createPlatformAccess = formData.get("createPlatformAccess") === "on";
 
-  // Build supplier data object
-  const supplierData: any = {
+  interface SupplierCreatePayload {
+    name: string;
+    taxId: string;
+    category: string;
+    status: string;
+    contactName: string;
+    contactEmail: string;
+    contactPhone?: string;
+    address: {
+      street: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
+    website?: string;
+    notes?: string;
+    forceSave: boolean;
+    supplierContact?: {
+      name: string;
+      email: string;
+      phone?: string;
+    };
+  }
+
+  const supplierData: SupplierCreatePayload = {
     name: formData.get("name") as string,
     taxId: formData.get("taxId") as string,
     category: formData.get("category") as string,

@@ -31,12 +31,23 @@ export const meta: MetaFunction = () => {
  * Loader function to fetch all workflow processes
  */
 export async function loader(args: LoaderFunctionArgs) {
-  const { session, user } = await requireAuth(args);
+  const { session, user: supabaseUser, userRecord } = await requireAuth(args);
 
   const token = session?.access_token;
   if (!token) {
     throw new Response("Unauthorized", { status: 401 });
   }
+
+  // Build the `ProcessListUser` shape the component expects. The loader's
+  // raw `user` is Supabase Auth's user (no `fullName`), so we hydrate from
+  // `userRecord` and fall back across the camelCase / snake_case
+  // divergence (see `UserRecord` doc in `session.server.ts`).
+  const user = {
+    id: supabaseUser.id,
+    email: supabaseUser.email || "",
+    fullName:
+      userRecord?.fullName || userRecord?.full_name || supabaseUser.email || "",
+  };
 
   const client = createEdenTreatyClient(token);
 

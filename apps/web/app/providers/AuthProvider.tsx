@@ -3,12 +3,12 @@ import { useAuth } from "~/hooks/useAuth";
 import { useRouteLoaderData, useNavigate } from "react-router";
 import { getBrowserClient } from "~/lib/auth/supabase-client";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
-import type { User } from "@supplex/types";
+import { asUserRecord, type UserRecord } from "~/lib/auth/user-record";
 import type { AppLoaderData } from "~/routes/_app";
 
 interface AuthContextType {
   user: SupabaseUser | null;
-  userRecord: User | null;
+  userRecord: UserRecord | null;
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -45,8 +45,9 @@ export function AuthProvider({
 
   useEffect(() => {
     if (initialUser && initialSession) {
-      const serverUserRecord =
-        (appData?.userRecord as User | undefined) ?? null;
+      const serverUserRecord = appData?.userRecord
+        ? asUserRecord(appData.userRecord)
+        : null;
       setAuth(initialUser, initialSession, serverUserRecord);
     }
 
@@ -64,7 +65,11 @@ export function AuthProvider({
           .select("*, tenant:tenants(*)")
           .eq("id", eventSession.user.id)
           .single();
-        setAuth(eventSession.user, eventSession, fetchedUserRecord);
+        setAuth(
+          eventSession.user,
+          eventSession,
+          fetchedUserRecord ? asUserRecord(fetchedUserRecord) : null
+        );
       } else if (event === "SIGNED_OUT") {
         clearAuth();
         navigate("/login", { replace: true });
@@ -79,7 +84,11 @@ export function AuthProvider({
           .select("*, tenant:tenants(*)")
           .eq("id", eventSession.user.id)
           .single();
-        setAuth(eventSession.user, eventSession, freshUserRecord);
+        setAuth(
+          eventSession.user,
+          eventSession,
+          freshUserRecord ? asUserRecord(freshUserRecord) : null
+        );
       }
     });
 

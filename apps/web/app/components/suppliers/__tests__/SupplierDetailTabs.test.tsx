@@ -11,9 +11,11 @@ vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
   const React = await import("react");
   const ReactRouterDOM = await import("react-router");
-  const MockForm = React.forwardRef<HTMLFormElement, any>(
-    ({ children, ...props }, ref) =>
-      React.createElement("form", { ...props, ref }, children)
+  const MockForm = React.forwardRef<
+    HTMLFormElement,
+    React.HTMLAttributes<HTMLFormElement> & { children?: React.ReactNode }
+  >(({ children, ...props }, ref) =>
+    React.createElement("form", { ...props, ref }, children)
   );
   MockForm.displayName = "Form";
 
