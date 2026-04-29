@@ -19,7 +19,14 @@ import {
 } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { WorkflowProcessDetailPage } from "~/components/workflow-engine/WorkflowProcessDetailPage";
+import { errorBody } from "~/lib/api-helpers";
+import {
+  WorkflowProcessDetailPage,
+  type ProcessInstance,
+  type StepInstance,
+  type TaskInstance,
+  type CommentThread,
+} from "~/components/workflow-engine/WorkflowProcessDetailPage";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   if (!data || !data.process) {
@@ -72,14 +79,11 @@ export async function loader(args: LoaderFunctionArgs) {
   const client = createEdenTreatyClient(token);
 
   try {
-    // Fetch process details
-    // NOTE: dynamic-path migration deferred to PR 10c — coupled with the
-    // SerializeFrom prop-typing fix (Date → string) for ProcessInstance,
-    // StepInstance[], TaskInstance[], CommentThread[]. See SUP-10c plan.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const processResponse = await (client.api.workflows.processes as any)[
-      processInstanceId
-    ].get();
+    const processResponse = await client.api.workflows
+      .processes({
+        processInstanceId,
+      })
+      .get();
 
     // Handle API errors
     if (processResponse.error) {
@@ -93,16 +97,36 @@ export async function loader(args: LoaderFunctionArgs) {
         throw new Response("Workflow process not found", { status: 404 });
       }
       console.error("Process API Error:", processResponse.error);
-      throw new Response(
-        processResponse.error.message || "Failed to load process",
-        { status }
-      );
+      const errBody = errorBody(processResponse.error);
+      throw new Response(errBody?.error.message || "Failed to load process", {
+        status,
+      });
     }
 
-    const data = processResponse.data;
-    if (!data?.success || !data.data) {
+    // Trust-boundary cast: Treaty types `data.data.*` with `Date` fields,
+    // but Remix/React-Router serializes them to ISO strings before reaching
+    // the consumer. The component's prop interfaces (`ProcessInstance`,
+    // `StepInstance[]`, etc.) reflect the post-serialization runtime shape.
+    // Asserting via `unknown` here, at the loader boundary, is the same
+    // pattern used in `_app.suppliers.$id_.edit.tsx`. TypeScript flags the
+    // direct cast as non-overlapping (Date vs string fields), which is
+    // accurate at compile time but reconciled by JSON-encoding at runtime.
+    const apiPayload = processResponse.data as unknown as {
+      success: boolean;
+      data: {
+        process: ProcessInstance;
+        steps: StepInstance[];
+        tasks: TaskInstance[];
+        comments: CommentThread[];
+        formSubmissions?: Record<string, unknown>;
+        documentProgress?: Record<string, unknown>;
+      };
+      error?: string;
+    } | null;
+
+    if (!apiPayload?.success || !apiPayload.data) {
       // Check if the body itself carries an authorization error (belt-and-suspenders)
-      const bodyError = (data as any)?.error;
+      const bodyError = apiPayload?.error;
       if (
         typeof bodyError === "string" &&
         bodyError.toLowerCase().includes("access denied")
@@ -112,29 +136,23 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Invalid API response", { status: 500 });
     }
 
-    const steps = data.data.steps;
-
-    // Form submissions are now included in the process API response,
-    // already keyed by stepInstanceId — no extra HTTP calls needed.
-    const formSubmissionsMap: Record<string, any> =
-      (data.data as any).formSubmissions || {};
+    const payload = apiPayload.data;
 
     // Build validation info from the enriched step data returned by the API
-    const validationSteps = steps.map((step: any) => ({
+    const validationSteps = payload.steps.map((step) => ({
       stepId: step.id,
-      requiresValidation: step.requiresValidation ?? false,
+      requiresValidation:
+        (step as StepInstance & { requiresValidation?: boolean })
+          .requiresValidation ?? false,
     }));
 
-    const documentProgress: Record<string, any> =
-      (data.data as any).documentProgress || {};
-
     return json({
-      process: data.data.process,
-      steps: data.data.steps,
-      tasks: data.data.tasks,
-      comments: data.data.comments,
-      formSubmissions: formSubmissionsMap,
-      documentProgress,
+      process: payload.process,
+      steps: payload.steps,
+      tasks: payload.tasks,
+      comments: payload.comments,
+      formSubmissions: payload.formSubmissions ?? {},
+      documentProgress: payload.documentProgress ?? {},
       validationSteps,
       token,
       user: {

@@ -83,13 +83,19 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to load tasks", { status: 500 });
     }
 
-    const data = response.data as any;
-    if (!data?.success || !data.data)
+    // Trust-boundary cast via `unknown`: the API types `Date` fields, but
+    // Remix/React-Router serializes them to ISO strings before reaching
+    // the consumer; `TaskItem` uses `string`.
+    const payload = response.data as unknown as {
+      success: boolean;
+      data?: { tasks: TaskItem[]; counts: Counts };
+    } | null;
+    if (!payload?.success || !payload.data)
       throw new Response("Invalid API response", { status: 500 });
 
     return json({
-      tasks: data.data.tasks as TaskItem[],
-      counts: data.data.counts as Counts,
+      tasks: payload.data.tasks,
+      counts: payload.data.counts,
       token,
     });
   } catch (error) {

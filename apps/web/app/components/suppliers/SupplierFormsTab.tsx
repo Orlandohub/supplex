@@ -9,7 +9,12 @@ import { useNavigate } from "react-router";
 import { Badge } from "~/components/ui/badge";
 import { FileText } from "lucide-react";
 
-interface SupplierFormSubmission {
+/**
+ * Post-serialization shape for a supplier-linked form submission. Exported
+ * so the loader can declare the same contract when narrowing the API
+ * response.
+ */
+export interface SupplierFormSubmission {
   id: string;
   status: string;
   submittedAt: string | null;

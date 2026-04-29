@@ -303,43 +303,47 @@ export function WorkflowStepBuilder({
 
     const client = createClientEdenTreatyClient(token);
 
-    // Auto-set action modes based on step type
-    const formActionMode = data.formTemplateId ? "fill_out" : null;
-    const documentActionMode = data.documentTemplateId ? "upload" : null;
+    // Auto-set action modes based on step type. Annotate with the API's
+    // literal-union types so the body matches the route's TypeBox schema.
+    const formActionMode: "fill_out" | "validate" | null = data.formTemplateId
+      ? "fill_out"
+      : null;
+    const documentActionMode: "upload" | "validate" | null =
+      data.documentTemplateId ? "upload" : null;
 
-    // Force assigneeType to 'role' and assigneeUserId to null
-    // Transform validationApproverRoles into validationConfig
+    // Build the API body explicitly. Form-only fields (`validationApproverRoles`,
+    // `validationDueDays`) are folded into `validationConfig` rather than
+    // shipped raw, which keeps the payload aligned with the route's TypeBox
+    // schema and removes the need for `delete (stepData as any).X` casts.
+    const { validationApproverRoles, validationDueDays, ...rest } = data;
     const stepData = {
-      ...data,
+      ...rest,
       assigneeType: "role" as const,
       assigneeUserId: null,
       formActionMode,
       documentActionMode,
       validationConfig:
-        data.requiresValidation && data.validationApproverRoles
+        data.requiresValidation &&
+        validationApproverRoles &&
+        validationApproverRoles.length > 0
           ? {
-              approverRoles: data.validationApproverRoles,
-              ...(data.validationDueDays
-                ? { validationDueDays: data.validationDueDays }
-                : {}),
+              approverRoles: validationApproverRoles,
+              ...(validationDueDays ? { validationDueDays } : {}),
             }
           : undefined,
     };
 
-    // Remove the temporary fields used for the form
-    delete (stepData as any).validationApproverRoles;
-    delete (stepData as any).validationDueDays;
-
     try {
       if (editingStep) {
-        // NOTE: dynamic-path migration deferred to PR 10c — `stepData` retains
-        // form-only fields (`validationApproverRoles`, `validationDueDays`)
-        // that don't match the API's body type. Cleaning the payload shape is
-        // body-typing work for SUP-10c.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await (client.api["workflow-templates"] as any)[
-          templateId
-        ].steps[editingStep.id].put(stepData);
+        const response = await withTreatyBranch(
+          client.api["workflow-templates"]({
+            workflowId: templateId,
+            templateId,
+          }),
+          "steps"
+        )
+          .steps({ stepId: editingStep.id })
+          .put(stepData);
 
         if (response.error) {
           throw new Error("Failed to update step");
@@ -350,11 +354,13 @@ export function WorkflowStepBuilder({
           description: "Workflow step updated successfully",
         });
       } else {
-        // NOTE: dynamic-path migration deferred to PR 10c — see PUT branch above.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await (client.api["workflow-templates"] as any)[
-          templateId
-        ].steps.post(stepData);
+        const response = await withTreatyBranch(
+          client.api["workflow-templates"]({
+            workflowId: templateId,
+            templateId,
+          }),
+          "steps"
+        ).steps.post(stepData);
 
         if (response.error) {
           throw new Error("Failed to create step");

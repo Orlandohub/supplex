@@ -100,12 +100,22 @@ export async function loader(args: LoaderFunctionArgs) {
     if (dateTo) query.dateTo = dateTo;
     if (actor) query.actor = actor;
 
-    const response = await (client as any).api.workflows["audit-log"].get({
+    const response = await client.api.workflows["audit-log"].get({
       query,
     });
 
-    const data = response.data;
-    if (!data?.success || !data.data) {
+    // Trust-boundary cast via `unknown`: the audit-log payload carries
+    // `Date` fields that JSON-serialize to ISO strings before reaching
+    // the consumer.
+    const auditPayload = response.data as unknown as {
+      success: boolean;
+      data?: {
+        events: Array<Record<string, unknown>>;
+        total: number;
+      };
+    } | null;
+
+    if (!auditPayload?.success || !auditPayload.data) {
       return json({
         events: [],
         total: 0,
@@ -115,8 +125,8 @@ export async function loader(args: LoaderFunctionArgs) {
     }
 
     return json({
-      events: data.data.events,
-      total: data.data.total,
+      events: auditPayload.data.events,
+      total: auditPayload.data.total,
       page,
       filters: { eventType, dateFrom, dateTo, actor },
     });

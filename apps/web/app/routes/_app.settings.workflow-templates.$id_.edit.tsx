@@ -8,27 +8,30 @@ import { useLoaderData, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { withTreatyBranch } from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
-import { WorkflowTemplateEditor } from "~/components/workflow-builder/WorkflowTemplateEditor";
+import {
+  WorkflowTemplateEditor,
+  type WorkflowTemplate as WorkflowTemplateProp,
+  type User as WorkflowUserProp,
+  type WorkflowTypeOption,
+} from "~/components/workflow-builder/WorkflowTemplateEditor";
 
-interface WorkflowTemplate {
-  id: string;
-  name: string;
-  description: string | null;
-  processType: string;
-  status: string;
-  workflowTypeId: string | null;
-  versions: WorkflowVersion[];
-}
-
-interface WorkflowVersion {
-  id: string;
-  version: number;
-  status: string;
-  isPublished: boolean;
-  createdAt: Date;
-}
+/**
+ * Loader-shape: the API returns a richer template (with versions, steps),
+ * but the editor consumes only the metadata fields. Reflect the runtime
+ * (post-serialization) shape with `string` dates.
+ */
+type LoaderTemplate = WorkflowTemplateProp & {
+  versions: Array<{
+    id: string;
+    version: number;
+    status: string;
+    isPublished: boolean;
+    createdAt: string;
+  }>;
+};
 
 export async function loader(args: LoaderFunctionArgs) {
   const { params } = args;
@@ -56,13 +59,10 @@ export async function loader(args: LoaderFunctionArgs) {
   const client = createEdenTreatyClient(token);
 
   try {
-    // Fetch template with versions
-    // NOTE: dynamic-path migration deferred to PR 10c — coupled with the
-    // SerializeFrom prop-typing fix for `WorkflowTemplate` (Date → string).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templateResponse = await (client.api["workflow-templates"] as any)[
-      id
-    ].get();
+    const templateResponse = await withTreatyBranch(
+      client.api["workflow-templates"]({ workflowId: id, templateId: id }),
+      "get"
+    ).get();
 
     if (templateResponse.error) {
       const status = templateResponse.status || 500;
@@ -75,7 +75,18 @@ export async function loader(args: LoaderFunctionArgs) {
       throw new Response("Failed to load template", { status });
     }
 
-    const template = templateResponse.data?.data as WorkflowTemplate;
+    // Trust-boundary cast: Treaty types `data.data` with `Date` fields,
+    // but Remix/React-Router JSON-encodes them to ISO strings before the
+    // consumer. Asserting via `unknown` mirrors the
+    // `_app.suppliers.$id_.edit.tsx` pattern.
+    const templatePayload = templateResponse.data as unknown as {
+      success: boolean;
+      data: LoaderTemplate;
+    } | null;
+    const template = templatePayload?.data;
+    if (!template) {
+      throw new Response("Template not found", { status: 404 });
+    }
 
     // Fetch users and workflow types in parallel
     const [usersResponse, workflowTypesResponse] = await Promise.all([
@@ -83,8 +94,21 @@ export async function loader(args: LoaderFunctionArgs) {
       client.api.admin["workflow-types"].get(),
     ]);
 
-    const users = usersResponse.data?.data?.users || [];
-    const workflowTypes = (workflowTypesResponse.data as any)?.data || [];
+    // Map the API user shape (`fullName`) to the editor's prop shape (`name`).
+    const users: WorkflowUserProp[] = (
+      usersResponse.data?.data?.users ?? []
+    ).map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.fullName,
+      role: u.role,
+    }));
+    const workflowTypesPayload = workflowTypesResponse.data as {
+      success: boolean;
+      data: WorkflowTypeOption[];
+    } | null;
+    const workflowTypes: WorkflowTypeOption[] =
+      workflowTypesPayload?.data || [];
 
     return json({
       template,
@@ -140,8 +164,8 @@ export default function WorkflowTemplateEditPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Workflow Template Editor */}
         <WorkflowTemplateEditor
-          template={template as any}
-          users={users as any}
+          template={template}
+          users={users}
           workflowTypes={workflowTypes}
           token={token}
         />

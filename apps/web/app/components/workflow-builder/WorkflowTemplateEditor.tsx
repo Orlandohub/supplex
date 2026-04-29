@@ -15,7 +15,13 @@ import { WorkflowMetadataEditor } from "./WorkflowMetadataEditor";
 import { WorkflowStepBuilder } from "./WorkflowStepBuilder";
 import { Badge } from "~/components/ui/badge";
 
-interface WorkflowTemplate {
+/**
+ * Prop types reflect the *post-serialization* runtime shape (Date → ISO
+ * string after Remix/React-Router JSON-encodes the loader return).
+ * Exported so loaders can cast Treaty's typed response to a single
+ * trust-boundary type before returning JSON.
+ */
+export interface WorkflowTemplate {
   id: string;
   name: string;
   description: string | null;
@@ -25,14 +31,14 @@ interface WorkflowTemplate {
   workflowTypeId?: string | null;
 }
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string | null;
   role: string;
 }
 
-interface WorkflowTypeOption {
+export interface WorkflowTypeOption {
   id: string;
   name: string;
   supplierStatusId: string | null;

@@ -20,6 +20,7 @@ import {
 } from "react-router";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import type { AppLoaderData } from "~/routes/_app";
 import { Button } from "~/components/ui/button";
 import { DebouncedSearchInput } from "~/components/ui/debounced-search-input";
@@ -107,24 +108,38 @@ export async function loader(args: LoaderFunctionArgs) {
 
     if (response.error) {
       console.error("Processes API Error:", response.error);
-      throw new Response(
-        (response.error as any).message || "Failed to load processes",
-        {
-          status: response.status || 500,
-        }
-      );
+      const errBody = errorBody(response.error);
+      throw new Response(errBody?.error.message || "Failed to load processes", {
+        status: response.status || 500,
+      });
     }
 
-    const data = response.data as any;
-    if (!data?.success || !data.data)
+    // Trust-boundary cast: the API returns the post-serialization shape
+    // (Date → ISO string) that the local `ProcessInstance` interface
+    // already encodes. Asserting the `data.data` shape here keeps the
+    // loader-to-component contract explicit without leaking `any`.
+    // Trust-boundary cast via `unknown`: the API types `Date` fields, but
+    // Remix/React-Router serializes them to ISO strings before the
+    // consumer; the local `ProcessInstance` interface uses `string`.
+    const payload = response.data as unknown as {
+      success: boolean;
+      data?: {
+        processes: ProcessInstance[];
+        total: number;
+        page: number;
+        pageSize: number;
+        counts: Counts;
+      };
+    } | null;
+    if (!payload?.success || !payload.data)
       throw new Response("Invalid API response", { status: 500 });
 
     return json({
-      processes: data.data.processes as ProcessInstance[],
-      total: data.data.total as number,
-      page: data.data.page as number,
-      pageSize: data.data.pageSize as number,
-      counts: data.data.counts as Counts,
+      processes: payload.data.processes,
+      total: payload.data.total,
+      page: payload.data.page,
+      pageSize: payload.data.pageSize,
+      counts: payload.data.counts,
       token,
       user,
     });

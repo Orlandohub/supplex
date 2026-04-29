@@ -24,6 +24,7 @@ import { ChangeRoleModal } from "~/components/users/ChangeRoleModal";
 import { DeactivateUserModal } from "~/components/users/DeactivateUserModal";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 import { hasPermission, PermissionAction } from "@supplex/types";
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -162,9 +163,8 @@ export default function UsersSettingsPage() {
       const response = await client.api.users.invite.post(data as any);
 
       if (response.error || !response.data?.success) {
-        throw new Error(
-          (response.error as any)?.message || "Failed to send invitation"
-        );
+        const errBody = errorBody(response.error);
+        throw new Error(errBody?.error.message || "Failed to send invitation");
       }
 
       toast({
@@ -208,9 +208,8 @@ export default function UsersSettingsPage() {
       });
 
       if (response.error || !response.data?.success) {
-        throw new Error(
-          (response.error as any)?.message || "Failed to update role"
-        );
+        const errBody = errorBody(response.error);
+        throw new Error(errBody?.error.message || "Failed to update role");
       }
 
       toast({
@@ -255,9 +254,8 @@ export default function UsersSettingsPage() {
       });
 
       if (response.error || !response.data?.success) {
-        throw new Error(
-          (response.error as any)?.message || "Failed to update status"
-        );
+        const errBody = errorBody(response.error);
+        throw new Error(errBody?.error.message || "Failed to update status");
       }
 
       toast({
@@ -297,8 +295,9 @@ export default function UsersSettingsPage() {
       });
 
       if (response.error || !response.data?.success) {
+        const errBody = errorBody(response.error);
         throw new Error(
-          (response.error as any)?.message || "Failed to resend invitation"
+          errBody?.error.message || "Failed to resend invitation"
         );
       }
 

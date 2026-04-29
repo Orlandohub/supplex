@@ -15,6 +15,7 @@ import { useRevalidator } from "react-router";
 import { useEffect, useState } from "react";
 import { useToast } from "~/hooks/use-toast";
 import { createEdenTreatyClient } from "~/lib/api-client";
+import { errorBody } from "~/lib/api-helpers";
 
 const editContactSchema = z.object({
   fullName: z.string().min(1, "Name is required").max(200),
@@ -109,12 +110,16 @@ export function EditSupplierContactModal({
         });
 
       if (response.error) {
-        const errorData = response.data as any;
+        // NOTE: Treaty places the error envelope on `response.error.value`,
+        // not `response.data` (which is `null` on error). Earlier code read
+        // from `response.data` and silently lost the structured error.
+        // `errorBody()` narrows `response.error.value` to `ApiErrorBody`.
+        const errBody = errorBody(response.error);
 
         // Handle duplicate email error (409)
         if (
           response.status === 409 ||
-          errorData?.error?.code === "USER_EMAIL_EXISTS"
+          errBody?.error.code === "USER_EMAIL_EXISTS"
         ) {
           setError("email", {
             type: "manual",
@@ -129,8 +134,7 @@ export function EditSupplierContactModal({
           toast({
             title: "Update failed",
             description:
-              errorData?.error?.message ||
-              "Failed to update contact information",
+              errBody?.error.message || "Failed to update contact information",
             variant: "destructive",
           });
         }

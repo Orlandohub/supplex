@@ -12,7 +12,7 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { withTreatyBranch } from "~/lib/api-helpers";
+import { errorBody, withTreatyBranch } from "~/lib/api-helpers";
 import { Plus, CheckCircle, Copy } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 import { AddSectionModal } from "./AddSectionModal";
@@ -97,10 +97,11 @@ export function FormTemplateBuilder({
       ).publish.patch();
 
       if (response.error) {
-        const errorData = response.error as any;
+        const errBody = errorBody(response.error);
         toast({
           title: "Error",
-          description: errorData?.message || "Failed to toggle publish status",
+          description:
+            errBody?.error.message || "Failed to toggle publish status",
           variant: "destructive",
         });
         return;

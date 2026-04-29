@@ -117,12 +117,22 @@ export async function loader(args: LoaderFunctionArgs) {
         client.api.admin["supplier-statuses"].get(),
       ]);
 
+    // The list-templates payload carries `Date` fields; the `unknown` cast
+    // sidesteps the structural mismatch and is reconciled by JSON
+    // serialization at the loader boundary.
     const templates = (templatesResponse.data?.data ||
       []) as unknown as WorkflowTemplateListItem[];
-    const workflowTypes = ((typesResponse.data as any)?.data ||
-      []) as WorkflowTypeItem[];
-    const supplierStatuses = ((supplierStatusesResponse.data as any)?.data ||
-      []) as SupplierStatusItem[];
+    const typesPayload = typesResponse.data as {
+      success: boolean;
+      data?: WorkflowTypeItem[];
+    } | null;
+    const workflowTypes: WorkflowTypeItem[] = typesPayload?.data ?? [];
+    const supplierStatusesPayload = supplierStatusesResponse.data as {
+      success: boolean;
+      data?: SupplierStatusItem[];
+    } | null;
+    const supplierStatuses: SupplierStatusItem[] =
+      supplierStatusesPayload?.data ?? [];
 
     return json({
       templates,

@@ -12,7 +12,8 @@ interface ProcessInstance {
   completedDate?: string | null;
   entityType: string;
   entityId: string;
-  metadata?: Record<string, any>;
+  workflowName?: string | null;
+  metadata?: Record<string, unknown>;
   activeStep?: {
     id: string;
     stepName?: string;
@@ -139,7 +140,7 @@ export function WorkflowsTab({
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {(workflow as any).workflowName ||
+                        {workflow.workflowName ||
                           workflow.processType ||
                           "Workflow"}
                       </td>
@@ -196,7 +197,7 @@ export function WorkflowsTab({
               <div className="space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="font-medium text-gray-900">
-                    {(workflow as any).workflowName ||
+                    {workflow.workflowName ||
                       workflow.processType ||
                       "Workflow"}
                   </div>

@@ -22,6 +22,7 @@ type QualificationWorkflow = any;
 import { UserRole } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
+import type { SupplierFormSubmission } from "~/components/suppliers/SupplierFormsTab";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/hooks/use-toast";
@@ -194,14 +195,21 @@ export async function loader(args: LoaderFunctionArgs) {
     }
 
     // Fetch supplier form submissions (non-fatal)
-    let formSubmissions: any[] = [];
+    let formSubmissions: SupplierFormSubmission[] = [];
     try {
-      const formsResponse = await (
-        client.api["form-submissions"]["by-supplier"] as any
-      )[id].get();
+      const formsResponse = await client.api["form-submissions"]
+        ["by-supplier"]({ supplierId: id })
+        .get();
       if (!formsResponse.error && formsResponse.data) {
-        const formsData = formsResponse.data as any;
-        formSubmissions = formsData?.data?.submissions || [];
+        // Trust-boundary cast via `unknown`: the API types `Date` fields,
+        // but Remix/React-Router serializes them to strings before reaching
+        // the consumer. The local `SupplierFormSubmission` shape uses
+        // post-serialization strings.
+        const formsPayload = formsResponse.data as unknown as {
+          success: boolean;
+          data?: { submissions?: SupplierFormSubmission[] };
+        } | null;
+        formSubmissions = formsPayload?.data?.submissions ?? [];
       }
     } catch (err) {
       console.error("Form submissions API Error:", err);
@@ -209,8 +217,11 @@ export async function loader(args: LoaderFunctionArgs) {
 
     let supplierStatuses: { id: string; name: string }[] = [];
     if (!supplierStatusesResponse.error && supplierStatusesResponse.data) {
-      supplierStatuses = ((supplierStatusesResponse.data as any)?.data ||
-        []) as { id: string; name: string }[];
+      const statusesPayload = supplierStatusesResponse.data as {
+        success: boolean;
+        data?: Array<{ id: string; name: string }>;
+      } | null;
+      supplierStatuses = statusesPayload?.data ?? [];
     }
 
     return json({

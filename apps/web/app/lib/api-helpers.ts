@@ -24,7 +24,17 @@ import type { ApiResult } from "@supplex/types";
  */
 export interface ApiErrorBody {
   success: false;
-  error: { code: string; message?: string };
+  error: {
+    code: string;
+    message?: string;
+    /**
+     * Optional route-specific structured payload (e.g. validation errors
+     * carrying `missingFields: string[]`). The API's `Errors.foo()`
+     * helpers in `apps/api/src/lib/errors.ts` accept arbitrary `details`,
+     * so this is intentionally typed as a free-form record.
+     */
+    details?: Record<string, unknown>;
+  };
 }
 
 /**
