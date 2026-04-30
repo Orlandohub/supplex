@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { BrowserRouter } from "react-router";
+import { screen, fireEvent } from "@testing-library/react";
 import { MobileNavigation } from "../MobileNavigation";
+import { renderWithRouter } from "~/lib/render-with-router";
 
 // Mock the permissions hook
 vi.mock("~/hooks/usePermissions", () => ({
@@ -19,6 +19,28 @@ vi.mock("~/hooks/usePermissions", () => ({
   })),
 }));
 
+const APP_LOADER_DATA = {
+  user: { id: "123", email: "test@example.com" },
+  userRecord: { role: "admin", fullName: "Test User" },
+  supplierInfo: null,
+  permissions: {
+    isAdmin: true,
+    isSupplierUser: false,
+    isViewer: false,
+    isProcurementManager: false,
+    isQualityManager: false,
+    canManageUsers: true,
+    canCreateSuppliers: true,
+    canEditSuppliers: true,
+    canDeleteSuppliers: true,
+    canViewAnalytics: true,
+    canAccessSettings: true,
+    canCreateQualifications: true,
+    canUploadDocuments: true,
+    canDeleteDocuments: true,
+  },
+};
+
 describe("MobileNavigation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -26,11 +48,9 @@ describe("MobileNavigation", () => {
   });
 
   const renderMobileNav = () => {
-    return render(
-      <BrowserRouter>
-        <MobileNavigation />
-      </BrowserRouter>
-    );
+    return renderWithRouter(<MobileNavigation />, {
+      appLoaderData: APP_LOADER_DATA,
+    });
   };
 
   it("renders bottom tab bar", () => {
@@ -69,7 +89,7 @@ describe("MobileNavigation", () => {
     fireEvent.click(moreButton);
 
     // Should show items not in bottom tab bar
-    expect(screen.getByText("Qualifications")).toBeInTheDocument();
+    expect(screen.getByText("Workflows")).toBeInTheDocument();
     expect(screen.getByText("Evaluations")).toBeInTheDocument();
     expect(screen.getByText("Complaints")).toBeInTheDocument();
     expect(screen.getByText("Analytics")).toBeInTheDocument();

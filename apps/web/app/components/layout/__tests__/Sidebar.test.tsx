@@ -3,10 +3,32 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { BrowserRouter } from "react-router";
+import { screen, fireEvent } from "@testing-library/react";
 import { Sidebar } from "../Sidebar";
 import { useNavigationStore } from "~/stores/navigationStore";
+import { renderWithRouter } from "~/lib/render-with-router";
+
+const APP_LOADER_DATA = {
+  user: { id: "123", email: "test@example.com" },
+  userRecord: { role: "admin", fullName: "Test User" },
+  supplierInfo: null,
+  permissions: {
+    isAdmin: true,
+    isSupplierUser: false,
+    isViewer: false,
+    isProcurementManager: false,
+    isQualityManager: false,
+    canManageUsers: true,
+    canCreateSuppliers: true,
+    canEditSuppliers: true,
+    canDeleteSuppliers: true,
+    canViewAnalytics: true,
+    canAccessSettings: true,
+    canCreateQualifications: true,
+    canUploadDocuments: true,
+    canDeleteDocuments: true,
+  },
+};
 
 // Mock the navigation store
 vi.mock("~/stores/navigationStore", () => ({
@@ -37,11 +59,7 @@ describe("Sidebar", () => {
   });
 
   const renderSidebar = () => {
-    return render(
-      <BrowserRouter>
-        <Sidebar />
-      </BrowserRouter>
-    );
+    return renderWithRouter(<Sidebar />, { appLoaderData: APP_LOADER_DATA });
   };
 
   it("renders sidebar with navigation items", () => {
@@ -52,7 +70,8 @@ describe("Sidebar", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Suppliers")).toBeInTheDocument();
-    expect(screen.getByText("Qualifications")).toBeInTheDocument();
+    expect(screen.getByText("My Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Workflows")).toBeInTheDocument();
     expect(screen.getByText("Evaluations")).toBeInTheDocument();
     expect(screen.getByText("Complaints")).toBeInTheDocument();
     expect(screen.getByText("Analytics")).toBeInTheDocument();
@@ -105,7 +124,7 @@ describe("Sidebar", () => {
   it("has proper ARIA attributes", () => {
     renderSidebar();
 
-    const nav = screen.getByRole("navigation");
+    const nav = screen.getByRole("navigation", { name: /main navigation/i });
     expect(nav).toHaveAttribute("aria-label", "Main navigation");
 
     const toggleButton = screen.getByRole("button", {
@@ -147,13 +166,7 @@ describe("Sidebar", () => {
   });
 
   it("applies correct CSS classes for expanded state", () => {
-    renderSidebar();
-
-    const { container } = render(
-      <BrowserRouter>
-        <Sidebar />
-      </BrowserRouter>
-    );
+    const { container } = renderSidebar();
 
     const sidebar = container.querySelector("aside");
     expect(sidebar).toHaveClass("w-64");

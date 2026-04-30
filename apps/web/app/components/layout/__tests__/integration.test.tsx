@@ -4,10 +4,36 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { AppShell } from "../AppShell";
 import { useNavigationStore } from "~/stores/navigationStore";
+import { renderWithRouter } from "~/lib/render-with-router";
+
+const APP_LOADER_DATA = {
+  user: { id: "123", email: "test@example.com" },
+  userRecord: {
+    role: "admin",
+    fullName: "Test User",
+    tenant: { name: "Test Company" },
+  },
+  supplierInfo: null,
+  permissions: {
+    isAdmin: true,
+    isSupplierUser: false,
+    isViewer: false,
+    isProcurementManager: false,
+    isQualityManager: false,
+    canManageUsers: true,
+    canCreateSuppliers: true,
+    canEditSuppliers: true,
+    canDeleteSuppliers: true,
+    canViewAnalytics: true,
+    canAccessSettings: true,
+    canCreateQualifications: true,
+    canUploadDocuments: true,
+    canDeleteDocuments: true,
+  },
+};
 
 // Mock dependencies
 vi.mock("~/stores/navigationStore", () => ({
@@ -57,29 +83,29 @@ describe("App Shell Integration Tests", () => {
   const SuppliersPage = () => <div>Suppliers Content</div>;
 
   const renderWithRoutes = (initialRoute = "/") => {
-    window.history.pushState({}, "Test page", initialRoute);
-
-    return render(
-      <BrowserRouter>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <AppShell>
-                <DashboardPage />
-              </AppShell>
-            }
-          />
-          <Route
-            path="/suppliers"
-            element={
+    return renderWithRouter(
+      <AppShell>
+        <DashboardPage />
+      </AppShell>,
+      {
+        initialEntries: [initialRoute],
+        appLoaderData: APP_LOADER_DATA,
+        // Mount dashboard at index ("/") and suppliers as a sibling under
+        // the same `routes/_app` parent so navigation between them keeps
+        // the shared layout data.
+        path: "",
+        extraRoutes: [
+          {
+            id: "suppliers-test-route",
+            path: "suppliers",
+            element: (
               <AppShell>
                 <SuppliersPage />
               </AppShell>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+            ),
+          },
+        ],
+      }
     );
   };
 
@@ -88,13 +114,17 @@ describe("App Shell Integration Tests", () => {
       renderWithRoutes("/");
 
       // Verify app shell is present
-      expect(
-        screen.getByRole("navigation", { name: /main navigation/i })
-      ).toBeInTheDocument();
+      const sidebarNav = screen.getByRole("navigation", {
+        name: /main navigation/i,
+      });
+      expect(sidebarNav).toBeInTheDocument();
       expect(screen.getByText("Dashboard Content")).toBeInTheDocument();
 
-      // Navigate to suppliers
-      const suppliersLink = screen.getByRole("link", { name: /suppliers/i });
+      // Sidebar and mobile nav both render a "Suppliers" link, so scope
+      // the click to the desktop sidebar.
+      const suppliersLink = within(sidebarNav).getByRole("link", {
+        name: /suppliers/i,
+      });
       fireEvent.click(suppliersLink);
 
       await waitFor(() => {
@@ -107,33 +137,28 @@ describe("App Shell Integration Tests", () => {
       ).toBeInTheDocument();
     });
 
-    it("does not remount sidebar when navigating between routes", () => {
-      const { rerender } = renderWithRoutes("/");
+    it("does not remount sidebar when navigating between routes", async () => {
+      renderWithRoutes("/");
 
-      const sidebar = screen.getByRole("navigation", {
+      const sidebarBefore = screen.getByRole("navigation", {
         name: /main navigation/i,
       });
-      const sidebarElement = sidebar;
 
-      rerender(
-        <BrowserRouter>
-          <Routes>
-            <Route
-              path="/suppliers"
-              element={
-                <AppShell>
-                  <SuppliersPage />
-                </AppShell>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-      );
+      // Navigating via the data router keeps the layout route mounted, so
+      // the sidebar's DOM node should be the same element before and after.
+      const suppliersLink = within(sidebarBefore).getByRole("link", {
+        name: /suppliers/i,
+      });
+      fireEvent.click(suppliersLink);
 
-      // Sidebar should be the same element (not remounted)
-      expect(screen.getByRole("navigation", { name: /main navigation/i })).toBe(
-        sidebarElement
-      );
+      await waitFor(() => {
+        expect(screen.getByText("Suppliers Content")).toBeInTheDocument();
+      });
+
+      const sidebarAfter = screen.getByRole("navigation", {
+        name: /main navigation/i,
+      });
+      expect(sidebarAfter).toBe(sidebarBefore);
     });
   });
 
@@ -145,45 +170,29 @@ describe("App Shell Integration Tests", () => {
         setSidebarCollapsed: mockSetSidebarCollapsed,
       });
 
-      renderWithRoutes("/");
-
-      // Verify collapsed state is applied
-      const { container } = render(
-        <BrowserRouter>
-          <AppShell>
-            <DashboardPage />
-          </AppShell>
-        </BrowserRouter>
-      );
+      const { container } = renderWithRoutes("/");
 
       const sidebar = container.querySelector("aside");
       expect(sidebar).toHaveClass("w-16");
     });
 
-    it("updates layout padding when sidebar is toggled", () => {
-      const { container, rerender } = renderWithRoutes("/");
+    it("renders expanded layout padding when sidebar is open", () => {
+      const { container } = renderWithRoutes("/");
 
-      // Initially expanded
-      let mainWrapper = container.querySelector(".lg\\:pl-64");
+      const mainWrapper = container.querySelector(".lg\\:pl-64");
       expect(mainWrapper).toBeInTheDocument();
+    });
 
-      // Toggle sidebar
+    it("renders collapsed layout padding when sidebar is closed", () => {
       vi.mocked(useNavigationStore).mockReturnValue({
         isSidebarCollapsed: true,
         toggleSidebar: mockToggleSidebar,
         setSidebarCollapsed: mockSetSidebarCollapsed,
       });
 
-      rerender(
-        <BrowserRouter>
-          <AppShell>
-            <DashboardPage />
-          </AppShell>
-        </BrowserRouter>
-      );
+      const { container } = renderWithRoutes("/");
 
-      // Should now be collapsed
-      mainWrapper = container.querySelector(".lg\\:pl-16");
+      const mainWrapper = container.querySelector(".lg\\:pl-16");
       expect(mainWrapper).toBeInTheDocument();
     });
   });
@@ -221,14 +230,24 @@ describe("App Shell Integration Tests", () => {
     it("highlights active route in sidebar", () => {
       renderWithRoutes("/");
 
-      const dashboardLink = screen.getByRole("link", { name: /dashboard/i });
+      const sidebarNav = screen.getByRole("navigation", {
+        name: /main navigation/i,
+      });
+      const dashboardLink = within(sidebarNav).getByRole("link", {
+        name: /dashboard/i,
+      });
       expect(dashboardLink).toHaveAttribute("aria-current", "page");
     });
 
     it("updates active state when route changes", async () => {
       renderWithRoutes("/");
 
-      const suppliersLink = screen.getByRole("link", { name: /suppliers/i });
+      const sidebarNav = screen.getByRole("navigation", {
+        name: /main navigation/i,
+      });
+      const suppliersLink = within(sidebarNav).getByRole("link", {
+        name: /suppliers/i,
+      });
       expect(suppliersLink).not.toHaveAttribute("aria-current");
 
       fireEvent.click(suppliersLink);
