@@ -86,49 +86,52 @@ function handleTestError({
  * Use instead of `new Elysia()` in tests.
  */
 export function createTestApp() {
-  // SUP-21 (9a-4): see `withApiErrorHandler` below — Elysia's default
-  // `onError` scope is `"local"`, which won't catch errors thrown
-  // inside plugins this app later `.use()`s. Use `"global"` so the
-  // handler covers the entire descendant tree.
+  // SUP-21 (9a-4): see `withApiErrorHandler` below for why `onError`
+  // must be registered before any `.use(...)`.
   return new Elysia().onError({ as: "global" }, handleTestError);
 }
 
 /**
- * Minimal contract describing the only Elysia method this helper actually
- * touches. Defining the constraint structurally lets callers pass test apps
- * that have been enriched via `.derive(...)` / `.use(...)` without leaking
- * Elysia's full generics into the helper signature.
+ * Wrap an existing test Elysia tree so the standard ApiError handler runs
+ * for every error thrown anywhere inside it.
  *
- * SUP-21 (9a-4): Elysia hooks are scoped — `onError(handler)` defaults to
- * `as: "local"`, which means the handler only catches errors thrown by
- * routes registered on THIS instance, not by plugins that the instance
- * `.use()`s. Route tests in this repo follow the pattern
- *   withApiErrorHandler(new Elysia().derive(...).use(routePlugin))
- * so the auth/authorization errors thrown from inside `routePlugin`'s
- * own `derive` (`authenticate` throws `Errors.unauthorized` for missing
- * tokens) bypass the outer handler with the default scope and Elysia
- * returns 500 with no body — making every "should return 401/403"
- * assertion fail with `Received: 500`. Pass `as: "global"` so the
- * handler catches errors from every plugin in the tree.
+ * SUP-21 (9a-4): The previous implementation called
+ *   `app.onError(handleTestError)`
+ * (or even `app.onError({ as: "global" }, handleTestError)`) on the
+ * already-built `app`. In Elysia 1.4, `onError` only catches errors from
+ * routes/plugins added AFTER the registration — registering it last means
+ * errors thrown by `derive`/`use` plugins added earlier in the chain (most
+ * importantly the `authenticate` plugin's `derive({ as: "global" }, ...)`
+ * which throws `Errors.unauthorized(...)` for missing tokens) bypass the
+ * handler entirely. Elysia's default fallback then serialises the
+ * ApiError as `text/plain` with status 500, which makes every
+ * "should return 401 / 403 / 422" assertion fail with `Received: 500`.
+ *
+ * The fix is to mount the inner app inside a fresh outer Elysia where
+ * `onError` is the FIRST hook registered. The outer instance acts purely
+ * as an error-handling boundary; its `Elysia.handle` still dispatches to
+ * the inner tree's routes via `.use(app)`.
+ *
+ * The structural `AppLike` constraint keeps the helper Elysia-generic-
+ * agnostic so callers can pass test apps enriched via `.derive(...)` /
+ * `.use(...)` without leaking the full generics here.
  */
-type ErrorScope = "local" | "scoped" | "global";
-type AppWithOnError = {
-  onError: (
-    options: { as: ErrorScope },
-    handler: typeof handleTestError
-  ) => unknown;
-};
+type AppLike = Parameters<Elysia["use"]>[0];
 
 /**
- * Adds the standard ApiError handler to an existing Elysia instance.
- *
- * Callers may pass test apps that have been enriched via `.derive(...)` /
- * `.use(...)`; the structural `AppWithOnError` constraint ensures we only
- * touch `.onError(...)` and don't leak richer Elysia generics here.
+ * Minimal handle-able interface that all `withApiErrorHandler` callers
+ * need: just `.handle(Request) → Promise<Response>`. Keeping the return
+ * type narrow lets us avoid leaking Elysia's deeply parameterised
+ * generics across the test suite.
  */
-export function withApiErrorHandler<T extends AppWithOnError>(app: T): T {
-  app.onError({ as: "global" }, handleTestError);
-  return app;
+interface HandleableApp {
+  handle: (request: Request) => Promise<Response>;
+}
+
+export function withApiErrorHandler(app: AppLike): HandleableApp {
+  return new Elysia()
+    .onError({ as: "global" }, handleTestError)
+    .use(app) as unknown as HandleableApp;
 }
 
 /**
