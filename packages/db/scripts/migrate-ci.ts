@@ -128,6 +128,89 @@ const POST_MIGRATION_PATCHES: Record<string, string> = {
   `,
 };
 
+/**
+ * Ad-hoc schema overlay applied AFTER every recorded migration runs.
+ *
+ * The Drizzle schema (`packages/db/src/schema/*.ts`) drifted from the
+ * SQL migration set over time — a few columns and helper structures
+ * were added directly on the production Supabase instance via the
+ * dashboard / `supabase migration` and never round-tripped back into
+ * the `migrations/` folder. The API code reads / writes those columns,
+ * and so does Drizzle (the `users` `$inferInsert` type carries them),
+ * so the test suite blows up on a fresh `postgres:15-alpine` container
+ * unless we recreate the missing pieces.
+ *
+ * Each block here documents the exact symptom that drove its
+ * inclusion. When the canonical SQL migration finally lands in
+ * `migrations/`, drop the matching block from this overlay (the SQL is
+ * idempotent — re-applying is a no-op).
+ */
+const SCHEMA_OVERLAYS: { description: string; sql: string }[] = [
+  {
+    // `apps/api/src/routes/users/pending-invitations.ts` filters on
+    // `users.status = 'pending_activation'`, and the Drizzle schema in
+    // `packages/db/src/schema/users.ts` declares
+    //   `status: varchar("status", { length: 50 }).notNull().default("active")`
+    // which means every `insertOneOrThrow(db, users, …)` builds an
+    // INSERT that lists `status` in its column list. None of the
+    // `migrations/` SQL files create the column, so on a fresh CI DB
+    // every `users` insert dies with
+    //   `column "status" of relation "users" does not exist`
+    // and the connection-level error cascades into "insert into
+    // tenants returned no rows" for the next test file's beforeAll.
+    description: "users.status column (Drizzle schema vs DDL drift)",
+    sql: `
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS status varchar(50) NOT NULL DEFAULT 'active';
+    `,
+  },
+  {
+    // SUP-21 (9a-4): `packages/db/src/schema/suppliers.ts` declares both
+    //   `supplierUserId: uuid("supplier_user_id").references(() => users.id, { onDelete: "set null" })`
+    // and an `idx_suppliers_supplier_user_id` index, but no migration in
+    // `packages/db/migrations/` ever creates either. Production has the
+    // column (added out-of-band on Supabase), so the live API works; a
+    // fresh `postgres:15-alpine` CI database does not, and every
+    // `db.insert(suppliers)...returning()` call dies with
+    //   `column "supplier_user_id" of relation "suppliers" does not exist`
+    // because Drizzle always emits the column from the schema, plus
+    // `apps/api/src/lib/rbac/__tests__/entity-auth.test.ts` directly
+    // queries `suppliers.supplier_user_id` via the relational query API.
+    // Mirror the Drizzle schema until a canonical SQL migration lands.
+    description:
+      "suppliers.supplier_user_id column + index (Drizzle schema vs DDL drift)",
+    sql: `
+      ALTER TABLE suppliers
+        ADD COLUMN IF NOT EXISTS supplier_user_id uuid REFERENCES users(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS idx_suppliers_supplier_user_id
+        ON suppliers(supplier_user_id);
+    `,
+  },
+  {
+    // SUP-21 (9a-4): `packages/db/migrations/0015_add_comment_thread_table.sql`
+    // creates `comment_thread.entity_type` with
+    //   `CHECK (entity_type IN ('form', 'document'))`
+    // but `apps/api/src/lib/workflow-engine/complete-step.ts` inserts rows
+    // with `entity_type = 'step_instance'` (the workflow-engine commit added
+    // the third type without updating the constraint). Production presumably
+    // had the constraint widened out-of-band on Supabase, so the live API
+    // works; CI dies with
+    //   `new row for relation "comment_thread" violates check constraint
+    //    "comment_thread_entity_type_check"`
+    // when the Step Completion test exercises the decline-outcome path.
+    // Drop and recreate the constraint to mirror the runtime contract.
+    description:
+      "comment_thread.entity_type CHECK widened to include 'step_instance' (Drizzle schema vs DDL drift)",
+    sql: `
+      ALTER TABLE comment_thread
+        DROP CONSTRAINT IF EXISTS comment_thread_entity_type_check;
+      ALTER TABLE comment_thread
+        ADD CONSTRAINT comment_thread_entity_type_check
+        CHECK (entity_type IN ('form', 'document', 'step_instance'));
+    `,
+  },
+];
+
 interface MigrationRow {
   hash: string;
 }
@@ -243,6 +326,23 @@ async function main() {
     console.log(
       `✓ Applied ${appliedCount} new migration(s) (${skippedAlreadyAppliedCount} already-applied skipped, ${skipped.length} explicitly skipped)`
     );
+
+    if (SCHEMA_OVERLAYS.length > 0) {
+      console.log(
+        `→ Applying ${SCHEMA_OVERLAYS.length} schema overlay(s) for Drizzle/SQL drift`
+      );
+      for (const overlay of SCHEMA_OVERLAYS) {
+        console.log(`  • overlay: ${overlay.description}`);
+        try {
+          await client.unsafe(overlay.sql);
+        } catch (error) {
+          console.error(`✗ Schema overlay failed: ${overlay.description}`);
+          console.error(error);
+          process.exit(1);
+        }
+      }
+      console.log(`✓ Schema overlays applied`);
+    }
   } finally {
     await client.end();
   }

@@ -10,6 +10,7 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
+    "test:ci": "bun run scripts/test-ci.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "type-check": "tsc --noEmit",

@@ -1,17 +1,26 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { sendEmail, isResendConfigured } from "../resend-email.service";
 
-// The Resend API returns either `{ data: { id }, error: null }` or
-// `{ data: null, error: { message } }`. Modelling both branches up front
-// avoids `as any` on `mockResolvedValueOnce(...)` calls below.
-interface ResendSendResponse {
-  data: { id?: string } | null;
-  error: { message: string } | null;
+// SUP-20 (9a-4): The repo pins `resend@^1.0.0`. The v1 SDK's
+// `client.emails.send(...)` resolves to the parsed Resend HTTP body
+// directly — `{ id }` on success or `{ name, message, statusCode }` on
+// failure — NOT the `{ data, error }` envelope introduced in v6+.
+// `apps/api/src/services/resend-email.service.ts` reads `response.id`
+// against that v1 contract, so the mock has to mirror the same shape
+// or every branch falls through to "No message ID returned".
+interface ResendV1SuccessResponse {
+  id: string;
 }
+interface ResendV1ErrorResponse {
+  name: string;
+  message: string;
+  statusCode: number;
+}
+type ResendV1Response = ResendV1SuccessResponse | ResendV1ErrorResponse;
 
 const mockResendSend = mock(
-  (..._args: readonly unknown[]): Promise<ResendSendResponse> =>
-    Promise.resolve({ data: { id: "test-message-id" }, error: null })
+  (..._args: readonly unknown[]): Promise<ResendV1Response> =>
+    Promise.resolve({ id: "test-message-id" })
 );
 
 mock.module("resend", () => ({
@@ -29,10 +38,7 @@ describe("Resend Email Service", () => {
 
   describe("sendEmail", () => {
     it("should send email successfully with valid input", async () => {
-      mockResendSend.mockResolvedValueOnce({
-        data: { id: "msg_123" },
-        error: null,
-      });
+      mockResendSend.mockResolvedValueOnce({ id: "msg_123" });
 
       const result = await sendEmail(
         "test@example.com",
@@ -59,8 +65,9 @@ describe("Resend Email Service", () => {
 
     it("should handle Resend API errors", async () => {
       mockResendSend.mockResolvedValueOnce({
-        data: null,
-        error: { message: "API rate limit exceeded" },
+        name: "rate_limit_exceeded",
+        message: "API rate limit exceeded",
+        statusCode: 429,
       });
 
       const result = await sendEmail(
@@ -74,10 +81,10 @@ describe("Resend Email Service", () => {
     });
 
     it("should handle missing message ID", async () => {
-      mockResendSend.mockResolvedValueOnce({
-        data: {},
-        error: null,
-      });
+      // Service treats a body with neither `id` nor `message` as the
+      // generic "no message ID" branch. Cast the empty body to the union
+      // so TypeScript still type-checks the mock shape.
+      mockResendSend.mockResolvedValueOnce({} as unknown as ResendV1Response);
 
       const result = await sendEmail(
         "test@example.com",

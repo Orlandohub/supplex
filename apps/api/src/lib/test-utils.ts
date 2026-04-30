@@ -86,29 +86,52 @@ function handleTestError({
  * Use instead of `new Elysia()` in tests.
  */
 export function createTestApp() {
-  return new Elysia().onError(handleTestError);
+  // SUP-21 (9a-4): see `withApiErrorHandler` below for why `onError`
+  // must be registered before any `.use(...)`.
+  return new Elysia().onError({ as: "global" }, handleTestError);
 }
 
 /**
- * Minimal contract describing the only Elysia method this helper actually
- * touches. Defining the constraint structurally lets callers pass test apps
- * that have been enriched via `.derive(...)` / `.use(...)` without leaking
- * Elysia's full generics into the helper signature.
+ * Wrap an existing test Elysia tree so the standard ApiError handler runs
+ * for every error thrown anywhere inside it.
+ *
+ * SUP-21 (9a-4): The previous implementation called
+ *   `app.onError(handleTestError)`
+ * (or even `app.onError({ as: "global" }, handleTestError)`) on the
+ * already-built `app`. In Elysia 1.4, `onError` only catches errors from
+ * routes/plugins added AFTER the registration — registering it last means
+ * errors thrown by `derive`/`use` plugins added earlier in the chain (most
+ * importantly the `authenticate` plugin's `derive({ as: "global" }, ...)`
+ * which throws `Errors.unauthorized(...)` for missing tokens) bypass the
+ * handler entirely. Elysia's default fallback then serialises the
+ * ApiError as `text/plain` with status 500, which makes every
+ * "should return 401 / 403 / 422" assertion fail with `Received: 500`.
+ *
+ * The fix is to mount the inner app inside a fresh outer Elysia where
+ * `onError` is the FIRST hook registered. The outer instance acts purely
+ * as an error-handling boundary; its `Elysia.handle` still dispatches to
+ * the inner tree's routes via `.use(app)`.
+ *
+ * The structural `AppLike` constraint keeps the helper Elysia-generic-
+ * agnostic so callers can pass test apps enriched via `.derive(...)` /
+ * `.use(...)` without leaking the full generics here.
  */
-type AppWithOnError = {
-  onError: (handler: typeof handleTestError) => unknown;
-};
+type AppLike = Parameters<Elysia["use"]>[0];
 
 /**
- * Adds the standard ApiError handler to an existing Elysia instance.
- *
- * Callers may pass test apps that have been enriched via `.derive(...)` /
- * `.use(...)`; the structural `AppWithOnError` constraint ensures we only
- * touch `.onError(...)` and don't leak richer Elysia generics here.
+ * Minimal handle-able interface that all `withApiErrorHandler` callers
+ * need: just `.handle(Request) → Promise<Response>`. Keeping the return
+ * type narrow lets us avoid leaking Elysia's deeply parameterised
+ * generics across the test suite.
  */
-export function withApiErrorHandler<T extends AppWithOnError>(app: T): T {
-  app.onError(handleTestError);
-  return app;
+interface HandleableApp {
+  handle: (request: Request) => Promise<Response>;
+}
+
+export function withApiErrorHandler(app: AppLike): HandleableApp {
+  return new Elysia()
+    .onError({ as: "global" }, handleTestError)
+    .use(app) as unknown as HandleableApp;
 }
 
 /**

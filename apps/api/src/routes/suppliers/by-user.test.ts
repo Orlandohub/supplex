@@ -68,7 +68,6 @@ describe("GET /api/suppliers/by-user/:userId", () => {
       fullName: "Test Admin",
       role: UserRole.ADMIN,
       isActive: true,
-      status: "active",
     });
     testUserId = adminUser.id;
 
@@ -80,7 +79,6 @@ describe("GET /api/suppliers/by-user/:userId", () => {
       fullName: "Test Supplier User",
       role: UserRole.SUPPLIER_USER,
       isActive: true,
-      status: "active",
     });
     testSupplierUserId = supplierUser.id;
 
@@ -92,7 +90,6 @@ describe("GET /api/suppliers/by-user/:userId", () => {
       fullName: "Unassociated User",
       role: UserRole.VIEWER,
       isActive: true,
-      status: "active",
     });
     testUnassociatedUserId = unassociatedUser.id;
 
@@ -128,7 +125,6 @@ describe("GET /api/suppliers/by-user/:userId", () => {
       fullName: "Other Tenant User",
       role: UserRole.SUPPLIER_USER,
       isActive: true,
-      status: "active",
     });
     otherTenantUserId = otherTenantUser.id;
 
