@@ -22,7 +22,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: 1.1.0
+          bun-version: 1.2.21
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -84,7 +84,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: 1.1.0
+          bun-version: 1.2.21
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -170,6 +170,14 @@ jobs:
       SUPABASE_URL: http://localhost:54321
       SUPABASE_ANON_KEY: ci-anon-key-placeholder
       SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-placeholder
+      # Resend SDK is initialised at module-load (`new Resend(API_KEY)`),
+      # so when the key is missing the test mock is bypassed and `sendEmail`
+      # short-circuits with "Email service not configured". A placeholder
+      # is enough — `mock.module("resend", ...)` replaces the SDK class.
+      RESEND_API_KEY: ci-resend-placeholder
+      # SUP-13 backend tests depend on logger metadata stability; align the
+      # NODE_ENV that bunfig.toml otherwise hard-codes to "development" so
+      # `apps/api/src/config.ts` parses the test branch.
       NODE_ENV: test
 
     steps:
@@ -179,7 +187,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: 1.1.0
+          bun-version: 1.2.21
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
