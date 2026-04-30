@@ -205,8 +205,17 @@ jobs:
         # (`auth.*`, `storage.*`, `supabase_auth_admin`, etc.).
         run: pnpm --filter @supplex/db db:migrate:ci
 
-      - name: Run backend tests with coverage
-        run: pnpm --filter @supplex/api test:coverage
+      # SUP-21 (9a-4): Run each spec file in its own Bun process so
+      # `mock.module()` registrations declared by unit-test files (e.g.
+      # `apps/api/src/lib/rbac/middleware.test.ts` mocking `../db`,
+      # `../logger`, `../jwt-verifier`, `../supabase`, `../auth-cache`
+      # to isolate the auth middleware) cannot leak into the
+      # integration tests that follow. Bun's `mock.module()` is
+      # process-wide and persists across test files; until the
+      # experimental `bun test --isolate` (oven-sh/bun#29354) lands as
+      # stable, per-file process isolation is the portable fix.
+      - name: Run backend tests (per-file isolation)
+        run: pnpm --filter @supplex/api test:ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

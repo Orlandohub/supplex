@@ -193,14 +193,38 @@ mock.module("../db", () => ({
   db: mockDb,
 }));
 
+// SUP-21 (9a-4): Bun's `mock.module()` is process-wide (resolved by
+// absolute path) so this mock leaks to every other test file that
+// imports `apps/api/src/lib/logger.ts`. The previous shape only stubbed
+// `default.child` and dropped the root-level `info`/`warn`/`error` plus
+// the named exports (`logger`, `createChildLogger`), which crashed the
+// global Elysia error handler in `apps/api/src/index.ts:54` (`logger.warn
+// is undefined`) and every consumer of `import { logger } from`. Provide
+// a fully-shaped stub that mirrors `pino`'s public surface AND
+// `lib/logger.ts`'s named exports so any leaked importer stays alive.
+const stubLogger = {
+  trace: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  fatal: () => {},
+  silent: () => {},
+  bindings: () => ({}),
+  child: () => stubLogger,
+};
+
 mock.module("../logger", () => ({
-  default: {
-    child: () => ({
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    }),
+  default: stubLogger,
+  logger: stubLogger,
+  createChildLogger: () => stubLogger,
+  getClientIp: (request: Request) => {
+    const xff = request.headers.get("x-forwarded-for");
+    if (xff) {
+      const first = xff.split(",")[0];
+      if (first) return first.trim();
+    }
+    return request.headers.get("x-real-ip");
   },
 }));
 
