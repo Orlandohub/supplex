@@ -41,8 +41,8 @@ export const commentThread = pgTable(
     // documented Drizzle workaround for this case (see drizzle-orm#1903) and is
     // the single sanctioned `any` in `packages/db/src/**` non-test code.
     // Re-evaluate on the next Drizzle minor.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parentCommentId: uuid("parent_comment_id").references(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle self-reference workaround, see comment above
       (): any => commentThread.id,
       { onDelete: "cascade" }
     ),

@@ -36,7 +36,9 @@ function sanitizeFilename(filename: string): string {
 /**
  * Validate file type and size
  */
-function validateFile(file: File): { valid: boolean; error?: string } {
+type FileValidationResult = { valid: true } | { valid: false; error: string };
+
+function validateFile(file: File): FileValidationResult {
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     return {
       valid: false,
@@ -93,7 +95,7 @@ export const uploadDocument = new Elysia({ prefix: "/api" })
       // Validate file (header-based)
       const validation = validateFile(file);
       if (!validation.valid) {
-        throw Errors.badRequest(validation.error!);
+        throw Errors.badRequest(validation.error);
       }
 
       // Magic-byte validation (server-side content inspection)

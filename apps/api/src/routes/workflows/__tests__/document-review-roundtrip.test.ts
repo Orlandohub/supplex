@@ -22,8 +22,25 @@ import {
 } from "@supplex/db";
 import { eq, and } from "drizzle-orm";
 import { reviewStepDocuments } from "../../../lib/workflow-engine/review-step-documents";
+import type { ReviewStepDocumentsResult } from "../../../lib/workflow-engine/review-step-documents";
 
 import { insertOneOrThrow, selectFirstOrThrow } from "../../../lib/db-helpers";
+
+// SUP-13: narrow the discriminated union returned by reviewStepDocuments
+// before reading variant-specific fields, removing the need for `!` casts.
+function assertAllApproved(
+  result: ReviewStepDocumentsResult
+): asserts result is Extract<
+  ReviewStepDocumentsResult,
+  { success: true; outcome: "all_approved" }
+> {
+  expect(result.success).toBe(true);
+  if (!result.success || result.outcome !== "all_approved") {
+    throw new Error(
+      `Expected all_approved, got ${result.success ? result.outcome : "failure"}`
+    );
+  }
+}
 /**
  * Route-Level Tests: Document Review Roundtrip
  * Verifies API response shapes for multi-approver review,
@@ -172,9 +189,9 @@ describe("Document Review Roundtrip", () => {
       });
     });
 
-    expect(partial.success).toBe(true);
-    expect(partial.outcome).toBe("all_approved");
+    assertAllApproved(partial);
     expect(partial.allValidationsComplete).toBe(false);
+    if (partial.allValidationsComplete) throw new Error("expected partial");
     expect(partial.stepCompleted).toBe(false);
     expect(partial.remainingApprovals).toBe(1);
     expect(partial.processCompleted).toBe(false);
@@ -194,9 +211,9 @@ describe("Document Review Roundtrip", () => {
       });
     });
 
-    expect(final.success).toBe(true);
-    expect(final.outcome).toBe("all_approved");
+    assertAllApproved(final);
     expect(final.allValidationsComplete).toBe(true);
+    if (!final.allValidationsComplete) throw new Error("expected complete");
     expect(final.stepCompleted).toBe(true);
     expect(final.nextStepActivated).toBe(true);
     expect(final.nextStepId).toBeTruthy();

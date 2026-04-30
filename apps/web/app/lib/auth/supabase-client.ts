@@ -84,10 +84,7 @@ export function getBrowserClient(): SupabaseClient<Database> {
   if (!browserClient) {
     // Use createBrowserClient from @supabase/ssr
     // This automatically handles cookies for SSR compatibility
-    browserClient = createBrowserClient<Database>(
-      supabaseUrl!,
-      supabaseAnonKey!
-    );
+    browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
   }
 
   return browserClient;

@@ -13,7 +13,11 @@ import {
   processInstance,
   stepInstance,
 } from "@supplex/db";
-import type { DbOrTx, SelectProcessInstance, SelectDocument } from "@supplex/db";
+import type {
+  DbOrTx,
+  SelectProcessInstance,
+  SelectDocument,
+} from "@supplex/db";
 import type { AuthContext } from "./middleware";
 import { UserRole } from "@supplex/types";
 
@@ -51,11 +55,17 @@ export async function verifyProcessAccess(
 
   const supplier = await getSupplierForUser(user.id, user.tenantId, db);
   if (!supplier) {
-    return { allowed: false, reason: "Supplier user is not associated with a supplier" };
+    return {
+      allowed: false,
+      reason: "Supplier user is not associated with a supplier",
+    };
   }
 
   if (process.entityType !== "supplier" || process.entityId !== supplier.id) {
-    return { allowed: false, reason: "Access denied: process does not belong to your supplier" };
+    return {
+      allowed: false,
+      reason: "Access denied: process does not belong to your supplier",
+    };
   }
 
   return { allowed: true };
@@ -76,11 +86,17 @@ export async function verifyDocumentAccess(
 
   const supplier = await getSupplierForUser(user.id, user.tenantId, db);
   if (!supplier) {
-    return { allowed: false, reason: "Supplier user is not associated with a supplier" };
+    return {
+      allowed: false,
+      reason: "Supplier user is not associated with a supplier",
+    };
   }
 
   if (document.supplierId !== supplier.id) {
-    return { allowed: false, reason: "Access denied: document does not belong to your supplier" };
+    return {
+      allowed: false,
+      reason: "Access denied: document does not belong to your supplier",
+    };
   }
 
   return { allowed: true };
@@ -95,7 +111,7 @@ export async function verifyTaskAssignment(
   stepInstanceId: string,
   requiredTaskTypes: string[],
   db: DbOrTx
-): Promise<{ allowed: boolean; taskId?: string }> {
+): Promise<{ allowed: false } | { allowed: true; taskId: string }> {
   const matchingTasks = await db
     .select({ id: taskInstance.id, taskType: taskInstance.taskType })
     .from(taskInstance)
@@ -115,7 +131,9 @@ export async function verifyTaskAssignment(
       )
     );
 
-  const task = matchingTasks.find((t) => requiredTaskTypes.includes(t.taskType));
+  const task = matchingTasks.find((t) =>
+    requiredTaskTypes.includes(t.taskType)
+  );
 
   if (!task) {
     return { allowed: false };
@@ -152,7 +170,10 @@ export async function verifyStepProcessAccess(
   }
 
   const [process] = await db
-    .select({ entityType: processInstance.entityType, entityId: processInstance.entityId })
+    .select({
+      entityType: processInstance.entityType,
+      entityId: processInstance.entityId,
+    })
     .from(processInstance)
     .where(eq(processInstance.id, step.processInstanceId));
 

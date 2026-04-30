@@ -58,7 +58,7 @@ export interface Permissions {
  *
  * ⚠️ IMPORTANT: For SSR routes (loaders/components), prefer using permissions
  * from the parent _app loader to avoid flash of unauthorized content (FOUC).
- * 
+ *
  * This hook is best for:
  * - Client-side only logic (event handlers, effects)
  * - Non-SSR components (modals, dialogs)
@@ -69,7 +69,7 @@ export interface Permissions {
  * // In your component
  * const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
  * const permissions = appData?.permissions;
- * 
+ *
  * return (
  *   <>
  *     {permissions?.canEditSupplier && <EditButton />}
@@ -92,15 +92,20 @@ export interface Permissions {
 export function usePermissions(): Permissions {
   const { userRecord } = useAuth();
 
-  // Transform User to UserContext (they have the same shape)
-  const userContext = userRecord
-    ? {
-        id: userRecord.id,
-        email: userRecord.email,
-        role: userRecord.role,
-        tenantId: userRecord.tenantId,
-      }
-    : null;
+  // Transform UserRecord to UserContext. The runtime data is mixed
+  // camelCase / snake_case (see UserRecord doc), so fall back across both
+  // for `email` and `tenantId` and drop the user if neither shape resolves.
+  const tenantId = userRecord?.tenantId || userRecord?.tenant_id;
+  const email = userRecord?.email;
+  const userContext =
+    userRecord && email && tenantId
+      ? {
+          id: userRecord.id,
+          email,
+          role: userRecord.role,
+          tenantId,
+        }
+      : null;
 
   return {
     // User Management

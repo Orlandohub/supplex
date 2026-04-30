@@ -18,7 +18,10 @@ import { useAuth } from "~/hooks/useAuth";
 import { useToast } from "~/hooks/use-toast";
 import { Plus, ArrowLeft } from "lucide-react";
 import { DocumentTemplatesTable } from "~/components/document-templates/DocumentTemplatesTable";
-import { DocumentTemplateDialog } from "~/components/document-templates/DocumentTemplateDialog";
+import {
+  DocumentTemplateDialog,
+  type DocumentTemplateDialogSubmitData,
+} from "~/components/document-templates/DocumentTemplateDialog";
 import { DeleteTemplateDialog } from "~/components/document-templates/DeleteTemplateDialog";
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -99,7 +102,7 @@ export default function DocumentTemplatesPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleCreateSubmit = async (data: any) => {
+  const handleCreateSubmit = async (data: DocumentTemplateDialogSubmitData) => {
     const currentToken = session?.access_token;
     if (!currentToken) {
       toast({
@@ -112,7 +115,23 @@ export default function DocumentTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
-      const response = await client.api["document-templates"].post(data);
+      // Trust boundary: the dialog uses the broader RequiredDocumentItem.type
+      // (RequiredDocumentType | string), while the API expects a narrow
+      // union of literals. The API performs runtime TypeBox validation, so
+      // narrow `requiredDocuments` here before sending.
+      const payload = {
+        ...data,
+        requiredDocuments: data.requiredDocuments.map((doc) => ({
+          ...doc,
+          type: doc.type as
+            | "other"
+            | "certification"
+            | "tax"
+            | "financial"
+            | "legal",
+        })),
+      };
+      const response = await client.api["document-templates"].post(payload);
 
       if (response.error) {
         toast({
@@ -140,7 +159,7 @@ export default function DocumentTemplatesPage() {
     }
   };
 
-  const handleEditSubmit = async (data: any) => {
+  const handleEditSubmit = async (data: DocumentTemplateDialogSubmitData) => {
     const currentToken = session?.access_token;
     if (!currentToken || !selectedTemplate) {
       toast({
@@ -153,9 +172,23 @@ export default function DocumentTemplatesPage() {
 
     try {
       const client = createClientEdenTreatyClient(currentToken);
+      // See note in handleCreateSubmit: narrow `requiredDocuments.type` to the
+      // API's literal union before calling the typed Treaty client.
+      const payload = {
+        ...data,
+        requiredDocuments: data.requiredDocuments.map((doc) => ({
+          ...doc,
+          type: doc.type as
+            | "other"
+            | "certification"
+            | "tax"
+            | "financial"
+            | "legal",
+        })),
+      };
       const response = await client.api["document-templates"]({
         id: selectedTemplate.id,
-      }).put(data);
+      }).put(payload);
 
       if (response.error) {
         toast({

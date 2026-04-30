@@ -72,15 +72,18 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
         // Exclude soft-deleted suppliers
         conditions.push(isNull(suppliers.deletedAt));
 
-        // Search filter
+        // Search filter. Drizzle's `or()` returns `SQL | undefined`, but it
+        // is only undefined when called with zero conditions; we always pass
+        // three, so the result is always defined.
         if (search) {
-          conditions.push(
-            or(
-              ilike(suppliers.name, `%${search}%`),
-              ilike(suppliers.taxId, `%${search}%`),
-              sql`${suppliers.address}::text ILIKE ${`%${search}%`}`
-            )!
+          const searchCondition = or(
+            ilike(suppliers.name, `%${search}%`),
+            ilike(suppliers.taxId, `%${search}%`),
+            sql`${suppliers.address}::text ILIKE ${`%${search}%`}`
           );
+          if (searchCondition) {
+            conditions.push(searchCondition);
+          }
         }
 
         // Status filter

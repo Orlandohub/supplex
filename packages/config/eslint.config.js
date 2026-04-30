@@ -32,7 +32,7 @@ export default [
         fetch: "readonly",
         Headers: "readonly",
         HeadersInit: "readonly",
-        Request: "readonly", 
+        Request: "readonly",
         Response: "readonly",
         URL: "readonly",
         URLSearchParams: "readonly",
@@ -70,7 +70,7 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         { prefer: "type-imports" },
@@ -88,12 +88,6 @@ export default [
       react: {
         version: "detect",
       },
-    },
-  },
-  {
-    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ];

@@ -44,10 +44,10 @@ export function RequiredDocumentsList({
     onChange(documents.filter((_, i) => i !== index));
   };
 
-  const updateDocument = (
+  const updateDocument = <K extends keyof RequiredDocumentItem>(
     index: number,
-    field: keyof RequiredDocumentItem,
-    value: any
+    field: K,
+    value: RequiredDocumentItem[K]
   ) => {
     const updated = documents.map((doc, i) => {
       if (i === index) {
@@ -136,7 +136,7 @@ export function RequiredDocumentsList({
                   id={`doc-required-${index}`}
                   checked={doc.required}
                   onCheckedChange={(checked) =>
-                    updateDocument(index, "required", checked)
+                    updateDocument(index, "required", checked === true)
                   }
                 />
                 <Label

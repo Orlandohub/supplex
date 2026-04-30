@@ -88,24 +88,28 @@ export async function loader(args: LoaderFunctionArgs) {
 
     // Group users by supplier
     // Only include suppliers that have platform access (supplierUserId is not null)
-    const suppliersWithPlatformAccess = allSuppliers.filter(
-      (s: any) => s.supplierUserId !== null
+    type SupplierForGrouping = {
+      id: string;
+      name: string;
+      supplierUserId: string | null;
+    };
+    const supplierList = allSuppliers as SupplierForGrouping[];
+    const suppliersWithPlatformAccess = supplierList.filter(
+      (s) => s.supplierUserId !== null
     );
 
-    const suppliersWithUsers = suppliersWithPlatformAccess.map(
-      (supplier: any) => {
-        const supplierUsers = allUsers.filter(
-          (user) =>
-            user.role === "supplier_user" && supplier.supplierUserId === user.id
-        );
-        return {
-          id: supplier.id,
-          name: supplier.name,
-          supplierUserId: supplier.supplierUserId,
-          users: supplierUsers,
-        };
-      }
-    );
+    const suppliersWithUsers = suppliersWithPlatformAccess.map((supplier) => {
+      const supplierUsers = allUsers.filter(
+        (user) =>
+          user.role === "supplier_user" && supplier.supplierUserId === user.id
+      );
+      return {
+        id: supplier.id,
+        name: supplier.name,
+        supplierUserId: supplier.supplierUserId,
+        users: supplierUsers,
+      };
+    });
 
     // Filter internal users (not supplier users)
     const internalUsers = allUsers.filter(

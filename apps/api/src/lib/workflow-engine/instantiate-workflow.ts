@@ -32,14 +32,18 @@ interface InstantiateWorkflowParams {
   metadata?: Record<string, unknown>;
 }
 
-interface InstantiateWorkflowResult {
-  success: boolean;
-  data?: {
-    processInstance: typeof processInstance.$inferSelect;
-    steps: (typeof stepInstance.$inferSelect)[];
-  };
-  error?: string;
-}
+type InstantiateWorkflowResult =
+  | {
+      success: true;
+      data: {
+        processInstance: typeof processInstance.$inferSelect;
+        steps: (typeof stepInstance.$inferSelect)[];
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
 export async function instantiateWorkflow(
   outerDb: DbOrTx,

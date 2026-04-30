@@ -98,13 +98,16 @@ export const listProcessesRoute = new Elysia().use(authenticatedRoute).get(
 
       if (search) {
         const searchPattern = `%${search}%`;
-        baseConditions.push(
-          or(
-            ilike(processInstance.workflowName, searchPattern),
-            ilike(suppliers.name, searchPattern),
-            ilike(processInstance.processType, searchPattern)
-          )!
+        // Drizzle's `or()` returns `SQL | undefined` (undefined only with
+        // zero conditions); we always pass three, so the result is defined.
+        const searchCondition = or(
+          ilike(processInstance.workflowName, searchPattern),
+          ilike(suppliers.name, searchPattern),
+          ilike(processInstance.processType, searchPattern)
         );
+        if (searchCondition) {
+          baseConditions.push(searchCondition);
+        }
       }
 
       if (view === "my_work") {

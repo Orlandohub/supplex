@@ -18,7 +18,23 @@ import { useEffect } from "react";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import type { Supplier, Document } from "@supplex/types";
-type QualificationWorkflow = any;
+// Post-serialization shape of a qualification workflow. Matches the
+// `ProcessInstance` type accepted by `SupplierDetailTabs`. The Treaty types
+// for this endpoint collapse `Date` to ISO strings after Remix serialization,
+// and only this subset is consumed downstream.
+interface QualificationWorkflow {
+  id: string;
+  processType: string;
+  status: string;
+  initiatedDate: string;
+  completedDate?: string | null;
+  entityType: string;
+  entityId: string;
+  activeStep?: {
+    id: string;
+    assignedTo?: string | null;
+  } | null;
+}
 import { UserRole } from "@supplex/types";
 import { SupplierDetailTabs } from "~/components/suppliers/SupplierDetailTabs";
 import { SupplierDetailSkeleton } from "~/components/suppliers/SupplierDetailSkeleton";
@@ -188,7 +204,10 @@ export async function loader(args: LoaderFunctionArgs) {
       workflowsResponse.data &&
       typeof workflowsResponse.data === "object"
     ) {
-      const workflowsData = workflowsResponse.data as {
+      // Trust-boundary cast via `unknown`: the Treaty response carries
+      // `Date` fields that JSON-serialize to ISO strings before reaching
+      // `QualificationWorkflow`, so the structural shapes do not overlap.
+      const workflowsData = workflowsResponse.data as unknown as {
         data?: { processes?: QualificationWorkflow[] };
       };
       workflows = workflowsData.data?.processes || [];
@@ -410,7 +429,7 @@ export default function SupplierDetail() {
     } | null;
     documents: Document[];
     workflows: QualificationWorkflow[];
-    formSubmissions: any[];
+    formSubmissions: SupplierFormSubmission[];
     supplierStatuses: { id: string; name: string }[];
     token: string;
   };

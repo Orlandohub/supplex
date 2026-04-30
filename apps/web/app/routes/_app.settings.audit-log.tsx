@@ -25,6 +25,17 @@ import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { hasPermission, PermissionAction } from "@supplex/types";
 
+interface AuditLogEvent {
+  id: string;
+  createdAt: string;
+  eventType: string;
+  eventDescription: string;
+  actorName: string;
+  actorRole: string;
+  comment?: string | null;
+  processInstanceId?: string | null;
+}
+
 const EVENT_TYPE_OPTIONS = [
   { value: "", label: "All Event Types" },
   { value: "process_instantiated", label: "Process Instantiated" },
@@ -110,7 +121,7 @@ export async function loader(args: LoaderFunctionArgs) {
     const auditPayload = response.data as unknown as {
       success: boolean;
       data?: {
-        events: Array<Record<string, unknown>>;
+        events: AuditLogEvent[];
         total: number;
       };
     } | null;
@@ -274,7 +285,7 @@ export default function AuditLogPage() {
                   </td>
                 </tr>
               ) : (
-                events.map((event: any) => (
+                events.map((event: AuditLogEvent) => (
                   <tr key={event.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                       {new Date(event.createdAt).toLocaleString()}

@@ -19,7 +19,7 @@ interface StepInstance {
   stepName: string;
   stepType: string;
   status: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 interface TaskInstance {
@@ -52,12 +52,17 @@ interface RejectionComment {
   entityType: string;
 }
 
+interface FormSubmissionSummary {
+  id: string;
+  status?: string | null;
+}
+
 interface ActiveStepPanelProps {
   step: StepInstance;
   userTasks: TaskInstance[];
   processId: string;
   token: string;
-  formSubmission?: any;
+  formSubmission?: FormSubmissionSummary | null;
   documentProgress?: DocumentProgress | null;
   processStatus?: string;
   stepComments?: RejectionComment[];

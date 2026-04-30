@@ -93,11 +93,12 @@ describe("Workflow Instantiation", () => {
     });
 
     expect(result.success).toBe(true);
+    if (!result.success) throw new Error("expected success");
     expect(result.data).toBeDefined();
-    expect(result.data!.processInstance).toBeDefined();
-    expect(result.data!.steps).toBeDefined();
+    expect(result.data.processInstance).toBeDefined();
+    expect(result.data.steps).toBeDefined();
 
-    const process = result.data!.processInstance;
+    const process = result.data.processInstance;
     expect(process.tenantId).toBe(tenantId);
     expect(process.status).toBe("in_progress");
     expect(process.initiatedBy).toBe(userId);
@@ -107,7 +108,7 @@ describe("Workflow Instantiation", () => {
     expect(process.completedSteps).toBe(0);
 
     // All steps created in a single batch
-    const steps = result.data!.steps;
+    const steps = result.data.steps;
     expect(steps.length).toBe(2);
 
     const firstStep = steps.find((s) => s.stepOrder === 1);
@@ -147,6 +148,7 @@ describe("Workflow Instantiation", () => {
     });
 
     expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected failure");
     expect(result.error).toContain("not published");
 
     await db
@@ -169,6 +171,7 @@ describe("Workflow Instantiation", () => {
     });
 
     expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected failure");
     expect(result.error).toContain("not found");
 
     await db.delete(tenants).where(eq(tenants.id, otherTenant.id));
@@ -192,6 +195,7 @@ describe("Workflow Instantiation", () => {
     });
 
     expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected failure");
     expect(result.error).toContain("no steps");
 
     // Transaction should have rolled back — no orphaned process instances
@@ -218,13 +222,12 @@ describe("Workflow Instantiation", () => {
     });
 
     expect(result.success).toBe(true);
+    if (!result.success) throw new Error("expected success");
 
     const steps = await db
       .select()
       .from(stepInstance)
-      .where(
-        eq(stepInstance.processInstanceId, result.data!.processInstance.id)
-      )
+      .where(eq(stepInstance.processInstanceId, result.data.processInstance.id))
       .orderBy(asc(stepInstance.stepOrder));
 
     expect(steps.length).toBe(2);
@@ -235,6 +238,6 @@ describe("Workflow Instantiation", () => {
 
     await db
       .delete(processInstance)
-      .where(eq(processInstance.id, result.data!.processInstance.id));
+      .where(eq(processInstance.id, result.data.processInstance.id));
   });
 });

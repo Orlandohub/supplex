@@ -1,9 +1,15 @@
 ﻿import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
+import type {
+  SupabaseClient,
+  User as AuthUser,
+  Session,
+} from "@supabase/supabase-js";
 import {
   getAuthenticatedUser,
   getAuthenticatedUserFast,
+  type UserRecord,
 } from "./session.server";
-import type { UserRole } from "@supplex/types";
+import type { Database, UserRole } from "@supplex/types";
 
 /**
  * Require authentication for a loader function (fast path).
@@ -38,10 +44,10 @@ export async function requireRole(
   request: Request,
   requiredRole: UserRole | UserRole[]
 ): Promise<{
-  user: any;
-  session: any;
-  userRecord: any;
-  supabase: any;
+  user: AuthUser;
+  session: Session;
+  userRecord: UserRecord;
+  supabase: SupabaseClient<Database>;
   response: Response;
 }> {
   const { user, session, supabase, response, userRecord } =
@@ -51,7 +57,10 @@ export async function requireRole(
     ? requiredRole
     : [requiredRole];
 
-  if (!userRecord || !allowedRoles.includes(userRecord.role)) {
+  if (
+    !userRecord ||
+    !(allowedRoles as readonly string[]).includes(userRecord.role)
+  ) {
     throw new Response("Forbidden: Insufficient permissions", {
       status: 403,
       statusText: "Forbidden",
@@ -104,10 +113,10 @@ export async function requireTenantAccess(
   request: Request,
   resourceTenantId?: string
 ): Promise<{
-  user: any;
-  session: any;
-  userRecord: any;
-  supabase: any;
+  user: AuthUser;
+  session: Session;
+  userRecord: UserRecord;
+  supabase: SupabaseClient<Database>;
   response: Response;
 }> {
   const { user, session, userRecord, supabase, response } =
@@ -133,7 +142,7 @@ export async function requireTenantAccess(
  * Utility type for auth-protected loader data
  */
 export type AuthenticatedLoaderData = {
-  user: any;
-  session: any;
-  userRecord: any;
+  user: AuthUser;
+  session: Session;
+  userRecord: UserRecord;
 };

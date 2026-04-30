@@ -23,10 +23,17 @@ import { AlertCircle } from "lucide-react";
 import { RequiredDocumentsList } from "./RequiredDocumentsList";
 import type { DocumentTemplate, RequiredDocumentItem } from "@supplex/types";
 
+export interface DocumentTemplateDialogSubmitData {
+  templateName: string;
+  requiredDocuments: RequiredDocumentItem[];
+  isDefault: boolean;
+  status: "draft" | "published" | "archived";
+}
+
 interface DocumentTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: DocumentTemplateDialogSubmitData) => Promise<void>;
   mode: "create" | "edit";
   initialData?: DocumentTemplate;
 }
@@ -177,7 +184,9 @@ export function DocumentTemplateDialog({
             <Label>Status *</Label>
             <RadioGroup
               value={status}
-              onValueChange={(value: any) => setStatus(value)}
+              onValueChange={(value: string) =>
+                setStatus(value as "draft" | "published" | "archived")
+              }
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="draft" id="status-draft" />

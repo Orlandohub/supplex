@@ -12,6 +12,7 @@
  */
 
 import type { ReactNode } from "react";
+import type { User as AuthUser } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -49,17 +50,11 @@ interface Supplier {
   name: string;
 }
 
-interface User {
-  id: string;
-  email: string;
-  [key: string]: any;
-}
-
 // Props for trigger-based usage (new pattern for global workflows page)
 interface TriggerBasedProps {
   children: ReactNode;
   token: string;
-  user: User;
+  user: AuthUser;
   supplier?: never;
   open?: never;
   onOpenChange?: never;

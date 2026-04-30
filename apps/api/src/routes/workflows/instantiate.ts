@@ -65,7 +65,7 @@ export const instantiateRoute = new Elysia()
           );
         }
 
-        const { processInstance: process, steps } = result.data!;
+        const { processInstance: process, steps } = result.data;
         const firstStep = steps.find((s) => s.stepOrder === 1);
 
         // Event logging OUTSIDE the transaction (fire-and-forget)

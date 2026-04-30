@@ -90,7 +90,7 @@ export function createUserMetadata(
  * Throws on missing or invalid role — silent downgrade to VIEWER is a security risk.
  */
 export function extractRoleFromMetadata(
-  metadata: Record<string, any> | undefined
+  metadata: Record<string, unknown> | undefined
 ): UserRole {
   if (!metadata || !metadata.role) {
     throw new Error(
@@ -98,13 +98,16 @@ export function extractRoleFromMetadata(
     );
   }
 
-  const role = metadata.role as string;
-  if (Object.values(UserRole).includes(role as UserRole)) {
+  const role = metadata.role;
+  if (
+    typeof role === "string" &&
+    Object.values(UserRole).includes(role as UserRole)
+  ) {
     return role as UserRole;
   }
 
   throw new Error(
-    `Invalid role "${role}" in auth metadata. Valid roles: ${Object.values(UserRole).join(", ")}`
+    `Invalid role "${String(role)}" in auth metadata. Valid roles: ${Object.values(UserRole).join(", ")}`
   );
 }
 

@@ -493,7 +493,9 @@ export default function WorkflowStepDocumentsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleViewDocument(doc.documentId!)}
+                      onClick={() => {
+                        if (doc.documentId) handleViewDocument(doc.documentId);
+                      }}
                     >
                       <Eye className="w-4 h-4" />
                     </Button>

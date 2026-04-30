@@ -43,24 +43,48 @@ export interface ReviewStepDocumentsParams {
   decisions: ReviewDocumentDecision[];
 }
 
-export interface ReviewStepDocumentsResult {
-  success: boolean;
-  conflict?: boolean;
-  outcome?: "all_approved" | "declined";
-  approvedCount?: number;
-  declinedCount?: number;
-  declinedDocumentNames?: string[];
-  allValidationsComplete?: boolean;
-  remainingApprovals?: number;
-  stepCompleted?: boolean;
-  nextStepActivated?: boolean;
-  nextStepId?: string;
-  nextStepName?: string;
-  processCompleted?: boolean;
-  processInstanceId?: string;
-  stepName?: string;
-  error?: string;
-}
+export type ReviewStepDocumentsResult =
+  | {
+      success: false;
+      conflict?: boolean;
+      error: string;
+    }
+  | {
+      success: true;
+      outcome: "all_approved";
+      approvedCount: number;
+      declinedCount: 0;
+      allValidationsComplete: false;
+      remainingApprovals: number;
+      stepCompleted: false;
+      nextStepActivated: false;
+      processCompleted: false;
+      processInstanceId: string;
+      stepName: string;
+    }
+  | {
+      success: true;
+      outcome: "all_approved";
+      approvedCount: number;
+      declinedCount: 0;
+      allValidationsComplete: true;
+      stepCompleted: true;
+      nextStepActivated: boolean;
+      nextStepId?: string;
+      nextStepName?: string;
+      processCompleted: boolean;
+      processInstanceId: string;
+      stepName: string;
+    }
+  | {
+      success: true;
+      outcome: "declined";
+      approvedCount: number;
+      declinedCount: number;
+      declinedDocumentNames: string[];
+      stepName: string;
+      processInstanceId: string;
+    };
 
 export async function reviewStepDocuments(
   tx: DbOrTx,
@@ -125,6 +149,19 @@ export async function reviewStepDocuments(
     }
   }
 
+  // After the pre-validation loop above, every `decision.requiredDocumentName`
+  // is guaranteed to exist in `docMap`. This helper centralizes that
+  // invariant so call sites can avoid `!` and document the contract.
+  const requireDoc = (name: string) => {
+    const doc = docMap.get(name);
+    if (!doc) {
+      throw new Error(
+        `Invariant violation: document '${name}' missing from docMap after pre-validation`
+      );
+    }
+    return doc;
+  };
+
   const hasDeclines = decisions.some((d) => d.action === "decline");
   const now = new Date();
 
@@ -165,7 +202,7 @@ export async function reviewStepDocuments(
     // Record per-reviewer decisions (idempotent ON CONFLICT)
     const decisionRows = decisions.map((d) => ({
       tenantId,
-      workflowStepDocumentId: docMap.get(d.requiredDocumentName)!.id,
+      workflowStepDocumentId: requireDoc(d.requiredDocumentName).id,
       stepInstanceId,
       taskInstanceId: taskId,
       reviewerUserId: reviewedBy,
@@ -251,10 +288,15 @@ export async function reviewStepDocuments(
     const docApprovalMap = new Map<string, Set<string>>();
     for (const d of allDecisions) {
       if (d.decision !== "approved") continue;
-      if (!docApprovalMap.has(d.workflowStepDocumentId)) {
-        docApprovalMap.set(d.workflowStepDocumentId, new Set());
+      const existing = docApprovalMap.get(d.workflowStepDocumentId);
+      if (existing) {
+        existing.add(d.taskInstanceId);
+      } else {
+        docApprovalMap.set(
+          d.workflowStepDocumentId,
+          new Set([d.taskInstanceId])
+        );
       }
-      docApprovalMap.get(d.workflowStepDocumentId)!.add(d.taskInstanceId);
     }
 
     const requiredDocs = existingDocs.filter(
@@ -295,7 +337,9 @@ export async function reviewStepDocuments(
 
     if (!transitioned) {
       // Concurrent request already transitioned — our task approval stands
-      reviewLog.info("step CAS lost to concurrent request, task approval stands");
+      reviewLog.info(
+        "step CAS lost to concurrent request, task approval stands"
+      );
       return {
         success: true,
         outcome: "all_approved",
@@ -391,13 +435,14 @@ export async function reviewStepDocuments(
   // Record per-reviewer decisions (audit trail, idempotent ON CONFLICT)
   const allDecisionRows = decisions.map((d) => ({
     tenantId,
-    workflowStepDocumentId: docMap.get(d.requiredDocumentName)!.id,
+    workflowStepDocumentId: requireDoc(d.requiredDocumentName).id,
     stepInstanceId,
     taskInstanceId: taskId,
     reviewerUserId: reviewedBy,
     validationRound: currentRound,
-    decision: d.action === "approve" ? ("approved" as const) : ("declined" as const),
-    comment: d.action === "decline" ? (d.comment || null) : null,
+    decision:
+      d.action === "approve" ? ("approved" as const) : ("declined" as const),
+    comment: d.action === "decline" ? d.comment || null : null,
     decidedAt: now,
     createdAt: now,
   }));
@@ -416,13 +461,13 @@ export async function reviewStepDocuments(
 
   // Reset declined documents to pending
   const declinedDocIds = declinedDecisions
-    .map((d) => docMap.get(d.requiredDocumentName)!.id)
+    .map((d) => requireDoc(d.requiredDocumentName).id)
     .filter(Boolean);
 
   if (declinedDocIds.length > 0) {
     const declineCommentMap = new Map(
       declinedDecisions.map((d) => [
-        docMap.get(d.requiredDocumentName)!.id,
+        requireDoc(d.requiredDocumentName).id,
         d.comment || null,
       ])
     );
@@ -430,10 +475,12 @@ export async function reviewStepDocuments(
     const commentGroups = new Map<string | null, string[]>();
     for (const [docId, comment] of declineCommentMap) {
       const key = comment ?? null;
-      if (!commentGroups.has(key)) {
-        commentGroups.set(key, []);
+      const existing = commentGroups.get(key);
+      if (existing) {
+        existing.push(docId);
+      } else {
+        commentGroups.set(key, [docId]);
       }
-      commentGroups.get(key)!.push(docId);
     }
 
     for (const [comment, ids] of commentGroups) {

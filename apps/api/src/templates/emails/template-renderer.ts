@@ -21,8 +21,9 @@ const templateCache = new Map<string, string>();
  * Caches template after first load
  */
 function loadTemplate(templatePath: string): string {
-  if (templateCache.has(templatePath)) {
-    return templateCache.get(templatePath)!;
+  const cached = templateCache.get(templatePath);
+  if (cached !== undefined) {
+    return cached;
   }
 
   const absolutePath = path.join(__dirname, templatePath);
@@ -89,7 +90,10 @@ export function renderEmailTemplate(
 
     return finalHtml;
   } catch (error) {
-    templateLogger.error({ err: error, templateName }, "Error rendering email template");
+    templateLogger.error(
+      { err: error, templateName },
+      "Error rendering email template"
+    );
     throw new Error(`Failed to render email template: ${templateName}`);
   }
 }

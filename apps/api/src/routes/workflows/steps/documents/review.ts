@@ -48,7 +48,7 @@ export const reviewStepDocumentsRoute = new Elysia()
               tenantId: user.tenantId,
               stepInstanceId: stepId,
               reviewedBy: user.id,
-              taskId: taskCheck.taskId!,
+              taskId: taskCheck.taskId,
               decisions,
             });
 
@@ -63,10 +63,10 @@ export const reviewStepDocumentsRoute = new Elysia()
             if (engineResult.allValidationsComplete) {
               await logWorkflowEventTx(tx, {
                 tenantId: user.tenantId,
-                processInstanceId: engineResult.processInstanceId!,
+                processInstanceId: engineResult.processInstanceId,
                 stepInstanceId: stepId,
                 eventType: WorkflowEventType.DOCUMENT_APPROVED,
-                eventDescription: `Validation approved - Step ${engineResult.stepName} Approved (${engineResult.approvedCount} document${engineResult.approvedCount! > 1 ? "s" : ""})`,
+                eventDescription: `Validation approved - Step ${engineResult.stepName} Approved (${engineResult.approvedCount} document${engineResult.approvedCount > 1 ? "s" : ""})`,
                 actorUserId: user.id,
                 actorName: user.fullName,
                 actorRole: user.role,
@@ -76,7 +76,7 @@ export const reviewStepDocumentsRoute = new Elysia()
               if (engineResult.processCompleted) {
                 await logWorkflowEventTx(tx, {
                   tenantId: user.tenantId,
-                  processInstanceId: engineResult.processInstanceId!,
+                  processInstanceId: engineResult.processInstanceId,
                   eventType: WorkflowEventType.PROCESS_COMPLETED,
                   eventDescription: "Workflow completed",
                   actorUserId: user.id,
@@ -90,7 +90,7 @@ export const reviewStepDocumentsRoute = new Elysia()
               ) {
                 await logWorkflowEventTx(tx, {
                   tenantId: user.tenantId,
-                  processInstanceId: engineResult.processInstanceId!,
+                  processInstanceId: engineResult.processInstanceId,
                   stepInstanceId: engineResult.nextStepId,
                   eventType: WorkflowEventType.STEP_ACTIVATED,
                   eventDescription: `Step - ${engineResult.nextStepName ?? "Unknown"} Active`,
@@ -103,10 +103,10 @@ export const reviewStepDocumentsRoute = new Elysia()
             } else {
               await logWorkflowEventTx(tx, {
                 tenantId: user.tenantId,
-                processInstanceId: engineResult.processInstanceId!,
+                processInstanceId: engineResult.processInstanceId,
                 stepInstanceId: stepId,
                 eventType: WorkflowEventType.VALIDATION_APPROVED,
-                eventDescription: `Validation approved - ${engineResult.remainingApprovals} more approval${(engineResult.remainingApprovals ?? 0) > 1 ? "s" : ""} required for this step`,
+                eventDescription: `Validation approved - ${engineResult.remainingApprovals} more approval${engineResult.remainingApprovals > 1 ? "s" : ""} required for this step`,
                 actorUserId: user.id,
                 actorName: user.fullName,
                 actorRole: user.role,
@@ -116,10 +116,10 @@ export const reviewStepDocumentsRoute = new Elysia()
           } else if (engineResult.outcome === "declined") {
             await logWorkflowEventTx(tx, {
               tenantId: user.tenantId,
-              processInstanceId: engineResult.processInstanceId!,
+              processInstanceId: engineResult.processInstanceId,
               stepInstanceId: stepId,
               eventType: WorkflowEventType.DOCUMENT_DECLINED,
-              eventDescription: `Validation declined - Step ${engineResult.stepName} returned for revision (${engineResult.declinedCount} document${engineResult.declinedCount! > 1 ? "s" : ""} declined)`,
+              eventDescription: `Validation declined - Step ${engineResult.stepName} returned for revision (${engineResult.declinedCount} document${engineResult.declinedCount > 1 ? "s" : ""} declined)`,
               actorUserId: user.id,
               actorName: user.fullName,
               actorRole: user.role,
@@ -158,12 +158,16 @@ export const reviewStepDocumentsRoute = new Elysia()
             data: {
               action: "all_approved",
               approvedCount: engineResult.approvedCount,
-              stepCompleted: engineResult.allValidationsComplete ?? false,
-              nextStepActivated: engineResult.nextStepActivated ?? false,
-              processCompleted: engineResult.processCompleted ?? false,
-              ...(engineResult.remainingApprovals != null && {
-                remainingApprovals: engineResult.remainingApprovals,
-              }),
+              stepCompleted: engineResult.allValidationsComplete,
+              nextStepActivated: engineResult.allValidationsComplete
+                ? engineResult.nextStepActivated
+                : false,
+              processCompleted: engineResult.allValidationsComplete
+                ? engineResult.processCompleted
+                : false,
+              ...(engineResult.allValidationsComplete
+                ? {}
+                : { remainingApprovals: engineResult.remainingApprovals }),
             },
           };
         }
