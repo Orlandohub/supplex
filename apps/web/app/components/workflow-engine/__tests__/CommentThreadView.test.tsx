@@ -101,7 +101,10 @@ describe("CommentThreadView", () => {
   it("should render submit button", () => {
     renderWithRouter(<CommentThreadView {...defaultProps} />);
 
-    const submitButton = screen.getByRole("button", { name: /add comment/i });
+    // The button copy is "Post Comment" (matches "Posting..." while
+    // submitting). The earlier "Add Comment" name referred to the
+    // section heading; queries should target the button's actual label.
+    const submitButton = screen.getByRole("button", { name: /post comment/i });
     expect(submitButton).toBeInTheDocument();
   });
 
@@ -195,29 +198,34 @@ describe("CommentThreadView", () => {
   it("should disable submit when comment is empty", () => {
     renderWithRouter(<CommentThreadView {...defaultProps} />);
 
-    const _submitButton = screen.getByRole("button", { name: /add comment/i });
+    const submitButton = screen.getByRole("button", {
+      name: /post comment/i,
+    });
     const textarea = screen.getByPlaceholderText(
       /Write your comment/i
     ) as HTMLTextAreaElement;
 
-    // Empty textarea
     expect(textarea.value).toBe("");
-
-    // Submit button should be disabled or show validation
-    // (Implementation may vary, this tests the current state)
+    // Production gates the button on `!newComment.trim()` so an empty
+    // textarea must keep the button disabled. This anchors the contract
+    // the previous test only commented about.
+    expect(submitButton).toBeDisabled();
   });
 
   /**
    * Test: Comment chronology
    */
-  it("should display comments in chronological order", () => {
+  it("should display comments newest-first within a step", () => {
     renderWithRouter(<CommentThreadView {...defaultProps} />);
 
+    // Production sorts each step's comments newest-first
+    // (see `CommentThreadView.tsx` — `b.createdAt - a.createdAt`).
+    // The fixture has the "updated" comment after the "revision"
+    // comment by `createdAt`, so it must appear first in the DOM.
     const commentTexts = screen
-      .getAllByText(/form|updated/i)
+      .getAllByText(/revision|updated/i)
       .map((el) => el.textContent);
 
-    // Earlier comment should appear before later comment
     const revisionIndex = commentTexts.findIndex((text) =>
       text?.includes("revision")
     );
@@ -225,9 +233,9 @@ describe("CommentThreadView", () => {
       text?.includes("updated")
     );
 
-    if (revisionIndex !== -1 && updatedIndex !== -1) {
-      expect(revisionIndex).toBeLessThan(updatedIndex);
-    }
+    expect(revisionIndex).toBeGreaterThan(-1);
+    expect(updatedIndex).toBeGreaterThan(-1);
+    expect(updatedIndex).toBeLessThan(revisionIndex);
   });
 
   /**

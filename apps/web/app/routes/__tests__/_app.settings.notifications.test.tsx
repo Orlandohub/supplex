@@ -6,35 +6,22 @@ import NotificationPreferencesPage, {
   action,
 } from "../_app.settings.notifications";
 import { createActionArgs, createLoaderArgs } from "~/lib/test-utils";
+import { createEdenTreatyClient } from "~/lib/api-client";
 
-// Mock API client
+// Stable per-method mocks let individual tests change behaviour without
+// re-declaring `vi.mock` (which Vitest hoists to the top of the file and
+// causes cross-test pollution when redeclared inside `it`).
+const mockGetPreferences = vi.fn();
+const mockPutPreferences = vi.fn();
+
 vi.mock("~/lib/api-client", () => ({
   createEdenTreatyClient: vi.fn(() => ({
     api: {
       users: {
         me: {
           "notification-preferences": {
-            get: vi.fn(() =>
-              Promise.resolve({
-                data: {
-                  success: true,
-                  data: {
-                    workflowSubmitted: true,
-                    stageApproved: true,
-                    stageRejected: false,
-                    stageAdvanced: true,
-                    workflowApproved: true,
-                  },
-                },
-                error: null,
-              })
-            ),
-            put: vi.fn(() =>
-              Promise.resolve({
-                data: { success: true },
-                error: null,
-              })
-            ),
+            get: mockGetPreferences,
+            put: mockPutPreferences,
           },
         },
       },
@@ -42,7 +29,6 @@ vi.mock("~/lib/api-client", () => ({
   })),
 }));
 
-// Mock auth
 vi.mock("~/lib/auth/require-auth", () => ({
   requireAuth: vi.fn(() =>
     Promise.resolve({
@@ -53,16 +39,52 @@ vi.mock("~/lib/auth/require-auth", () => ({
   ),
 }));
 
-// Mock hooks
 vi.mock("~/hooks/use-toast", () => ({
   useToast: () => ({
     toast: vi.fn(),
   }),
 }));
 
+const successPreferencesResponse = {
+  data: {
+    success: true,
+    data: {
+      workflowSubmitted: true,
+      stageApproved: true,
+      stageRejected: false,
+      stageAdvanced: true,
+      workflowApproved: true,
+    },
+  },
+  error: null,
+};
+
 describe("Notification Preferences Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetPreferences.mockResolvedValue(successPreferencesResponse);
+    mockPutPreferences.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    });
+    // `createEdenTreatyClient` is recreated per call site; reattach the
+    // stable inner mocks each time so resets don't leave it returning
+    // an empty client.
+    vi.mocked(createEdenTreatyClient).mockImplementation(
+      () =>
+        ({
+          api: {
+            users: {
+              me: {
+                "notification-preferences": {
+                  get: mockGetPreferences,
+                  put: mockPutPreferences,
+                },
+              },
+            },
+          },
+        }) as unknown as ReturnType<typeof createEdenTreatyClient>
+    );
   });
 
   it("should render notification preferences", async () => {
@@ -149,8 +171,14 @@ describe("Notification Preferences Page", () => {
 
     render(<RemixStub initialEntries={["/settings/notifications"]} />);
 
+    // Production renders both a "Back to Settings" link at the top and a
+    // standalone "Back" button at the bottom. Match the bottom-of-page
+    // exact-name button so the assertion stays unambiguous even after
+    // both affordances ship.
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /back/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^back$/i })
+      ).toBeInTheDocument();
     });
   });
 
@@ -169,19 +197,9 @@ describe("Notification Preferences Page", () => {
     });
 
     it("should return defaults on error", async () => {
-      vi.mock("~/lib/api-client", () => ({
-        createEdenTreatyClient: vi.fn(() => ({
-          api: {
-            users: {
-              me: {
-                "notification-preferences": {
-                  get: vi.fn(() => Promise.reject(new Error("API error"))),
-                },
-              },
-            },
-          },
-        })),
-      }));
+      // Override the per-test `get` resolver instead of redeclaring
+      // `vi.mock` (which Vitest hoists and would clobber other tests).
+      mockGetPreferences.mockRejectedValueOnce(new Error("API error"));
 
       const request = new Request("http://localhost/settings/notifications");
       const result = await loader(createLoaderArgs(request));
@@ -190,7 +208,7 @@ describe("Notification Preferences Page", () => {
         result as unknown as { data: { error?: string; preferences: unknown } }
       ).data;
       expect(data.error).toBeDefined();
-      expect(data.preferences).toBeDefined(); // Should have defaults
+      expect(data.preferences).toBeDefined();
     });
   });
 

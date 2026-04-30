@@ -104,17 +104,26 @@ describe("ActiveStepPanel", () => {
 
     renderWithRouter(<ActiveStepPanel {...propsWithNoTasks} />);
 
-    expect(screen.getByText(/No tasks assigned/i)).toBeInTheDocument();
+    // Production shows "This step is assigned to another user or role"
+    // when the current viewer has no assigned tasks. The previous
+    // "/No tasks assigned/i" copy never existed in this component.
+    expect(
+      screen.getByText(/assigned to another user or role/i)
+    ).toBeInTheDocument();
   });
 
   /**
    * Test: Renders action buttons based on step type
    */
-  it("should render complete button for approval steps", () => {
+  it("should render approve button for approval steps", () => {
     renderWithRouter(<ActiveStepPanel {...defaultProps} />);
 
-    const completeButton = screen.getByRole("button", { name: /complete/i });
-    expect(completeButton).toBeInTheDocument();
+    // Approval steps render "Approve & Continue" (not just "Complete");
+    // anchor on the visible label production actually ships.
+    const approveButton = screen.getByRole("button", {
+      name: /approve & continue/i,
+    });
+    expect(approveButton).toBeInTheDocument();
   });
 
   it("should render decline button for approval steps", () => {
@@ -186,10 +195,25 @@ describe("ActiveStepPanel", () => {
   });
 
   /**
-   * Test: Shows loading state during actions
+   * Test: Initial idle render keeps action buttons enabled.
+   *
+   * The Approve button in production gates on
+   * `isCompleting || !allTasksCompleted`. The default fixture's task
+   * has status "open", which forces the gate to fire even without any
+   * in-flight submission, so we mark the task complete to exercise the
+   * idle path the test name implies (approve & decline both enabled).
    */
-  it("should disable buttons when step is being completed", () => {
-    renderWithRouter(<ActiveStepPanel {...defaultProps} />);
+  it("does not disable action buttons before a submission starts", () => {
+    const baseTask = mockTasks[0];
+    if (!baseTask) {
+      throw new Error("expected a baseline mock task");
+    }
+    const completedTaskProps = {
+      ...defaultProps,
+      userTasks: [{ ...baseTask, status: "completed" }],
+    };
+
+    renderWithRouter(<ActiveStepPanel {...completedTaskProps} />);
 
     const buttons = screen.getAllByRole("button");
     buttons.forEach((button) => {

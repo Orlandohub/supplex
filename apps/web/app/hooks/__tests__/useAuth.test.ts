@@ -4,7 +4,12 @@ import { useAuth } from "../useAuth";
 import { UserRole } from "@supplex/types";
 import { createMockSession, createMockSupabaseUser } from "~/lib/test-utils";
 
-// Mock Supabase client
+// Mock Supabase client.
+// `getUser` was added to production `useAuth.refreshAuth` so the session
+// is validated against Supabase Auth before we read row-level data;
+// missing it from the mock made `auth.getUser is not a function` fall
+// through into `clearAuth()`, leaving the test seeing `isAuthenticated:
+// false`. Keep parity with the production surface.
 const mockSupabaseClient = {
   auth: {
     signInWithPassword: vi.fn(),
@@ -12,6 +17,7 @@ const mockSupabaseClient = {
     resetPasswordForEmail: vi.fn(),
     updateUser: vi.fn(),
     getSession: vi.fn(),
+    getUser: vi.fn(),
     refreshSession: vi.fn(),
     onAuthStateChange: vi.fn(() => ({
       data: { subscription: { unsubscribe: vi.fn() } },
@@ -72,6 +78,11 @@ describe("useAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLocation.href = "";
+    // `useAuth` is a Zustand store with module-level state, so success
+    // paths from earlier tests (e.g. "should sign in user successfully")
+    // leave `isAuthenticated: true` for subsequent tests. Reset to a
+    // logged-out baseline before each test.
+    useAuth.getState().clearAuth();
   });
 
   afterEach(() => {
@@ -85,11 +96,16 @@ describe("useAuth", () => {
     it("should sign in user successfully", async () => {
       const mockUser = { id: "123", email: "test@example.com" };
       const mockSession = { access_token: "token", user: mockUser };
+      // Production's `signIn` reads `is_active` from the snake_case row
+      // returned by Supabase and treats a missing/falsy value as a
+      // deactivated user (forcing a sign-out). The fixture must
+      // therefore expose `is_active: true` to exercise the success path.
       const mockUserRecord = {
         id: "123",
         email: "test@example.com",
         fullName: "Test User",
         role: "admin",
+        is_active: true,
       };
 
       mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
@@ -163,7 +179,9 @@ describe("useAuth", () => {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
-              data: { id: "123", email: "test@example.com" },
+              // `is_active: true` is required for the successful-sign-in
+              // branch (see "should sign in user successfully" above).
+              data: { id: "123", email: "test@example.com", is_active: true },
               error: null,
             }),
           }),
@@ -353,6 +371,13 @@ describe("useAuth", () => {
       const mockSession = { access_token: "token", user: mockUser };
       const mockUserRecord = { id: "123", email: "test@example.com" };
 
+      // Production's `refreshAuth` calls `getUser()` first to validate
+      // the session against the Auth server, then `getSession()` to
+      // grab the token. Both must be stubbed for this test.
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
       mockSupabaseClient.auth.getSession.mockResolvedValue({
         data: { session: mockSession },
         error: null,
@@ -380,6 +405,14 @@ describe("useAuth", () => {
     });
 
     it("should clear auth on session error", async () => {
+      // Production's `refreshAuth` validates with `getUser()` first; an
+      // error there short-circuits to `clearAuth()` without consulting
+      // `getSession`. Stub the new entry point as well so the test
+      // exercises the failure branch we actually take in production.
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: "Auth session missing!" },
+      });
       mockSupabaseClient.auth.getSession.mockResolvedValue({
         data: { session: null },
         error: { message: "Session expired" },
