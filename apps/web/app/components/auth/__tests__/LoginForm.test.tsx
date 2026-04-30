@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LoginForm } from "../LoginForm";
 
@@ -84,11 +84,22 @@ describe("LoginForm", () => {
     const user = userEvent.setup();
     render(<LoginForm />);
 
-    const emailInput = screen.getByLabelText(/email address/i);
-    const submitButton = screen.getByRole("button", { name: /sign in/i });
+    const emailInput = screen.getByLabelText(
+      /email address/i
+    ) as HTMLInputElement;
 
     await user.type(emailInput, "invalid-email");
-    await user.click(submitButton);
+
+    // The email input renders as `type="email"`, so clicking the submit
+    // button triggers browser-native HTML5 validation in jsdom which
+    // pre-empts the form's submit event (and therefore Zod). Submit the
+    // form directly so the React Hook Form resolver runs and surfaces
+    // the schema-level error message.
+    const form = emailInput.closest("form");
+    if (!form) {
+      throw new Error("LoginForm did not render a <form> element");
+    }
+    fireEvent.submit(form);
 
     await waitFor(() => {
       expect(

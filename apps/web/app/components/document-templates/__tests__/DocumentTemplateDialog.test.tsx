@@ -4,7 +4,7 @@
  * Tests form validation, submission, and user interactions
  */
 
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 
 describe("DocumentTemplateDialog Component", () => {
   it("should validate required fields", () => {
@@ -54,4 +54,3 @@ describe("DocumentTemplateDialog Component", () => {
     expect(true).toBe(true); // Placeholder
   });
 });
-

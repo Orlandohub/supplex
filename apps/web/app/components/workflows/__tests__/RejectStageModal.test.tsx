@@ -114,9 +114,13 @@ describe("RejectStageModal", () => {
     });
 
     it("should trim whitespace before validation", () => {
-      const comments = "   Short text   ";
+      // The trimmed value must be strictly below the 10-char minimum so
+      // the validation assertion exercises the "trim then compare" path.
+      // "Short text" is exactly 10 chars, which silently passed validation
+      // and made `toBeLessThan(10)` always false; use a shorter literal.
+      const comments = "   Short   ";
 
-      expect(comments.trim()).toBe("Short text");
+      expect(comments.trim()).toBe("Short");
       expect(comments.trim().length).toBeLessThan(10);
     });
 
@@ -166,7 +170,9 @@ describe("RejectStageModal", () => {
     it("should show placeholder text", () => {
       const placeholder = "Explain what needs to be corrected or improved...";
 
-      expect(placeholder).toContain("explain");
+      // Match case-insensitively so the assertion documents intent
+      // ("ask the reviewer to explain") rather than exact casing.
+      expect(placeholder).toMatch(/explain/i);
       expect(placeholder).toContain("corrected");
     });
 

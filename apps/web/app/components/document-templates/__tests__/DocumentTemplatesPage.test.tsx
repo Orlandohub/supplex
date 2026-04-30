@@ -4,7 +4,7 @@
  * Tests page rendering, CRUD operations, and user interactions
  */
 
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 
 describe("DocumentTemplatesPage Component", () => {
   it("should render page with template list", () => {
@@ -45,4 +45,3 @@ describe("DocumentTemplatesPage Component", () => {
     expect(true).toBe(true); // Placeholder
   });
 });
-
