@@ -93,6 +93,7 @@ describe("Document Templates API Tests", () => {
     await db.insert(users).values({
       id: adminUserId,
       tenantId: testTenantId,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       email: authData.user.email!,
       fullName: "Admin User",
       role: "admin",
@@ -102,11 +103,13 @@ describe("Document Templates API Tests", () => {
     // Get session token
     const { data: _sessionData } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       email: authData.user.email!,
     });
 
     // Create session to get token
     const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       email: authData.user.email!,
       password: "testpassword123",
     });
@@ -413,8 +416,10 @@ describe("Document Templates API Tests", () => {
       );
 
       await db.insert(users).values({
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
         id: otherAuthData.user!.id,
         tenantId: otherTenant.id,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
         email: otherAuthData.user!.email!,
         fullName: "Other Admin",
         role: "admin",
@@ -423,6 +428,7 @@ describe("Document Templates API Tests", () => {
 
       const { data: otherSignInData } =
         await supabaseAdmin.auth.signInWithPassword({
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
           email: otherAuthData.user!.email!,
           password: "testpassword123",
         });
@@ -448,8 +454,10 @@ describe("Document Templates API Tests", () => {
       expect(data.data.templates.length).toBe(0);
 
       // Cleanup
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       await db.delete(users).where(eq(users.id, otherAuthData.user!.id));
       await db.delete(tenants).where(eq(tenants.id, otherTenant.id));
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       await supabaseAdmin.auth.admin.deleteUser(otherAuthData.user!.id);
     });
   });

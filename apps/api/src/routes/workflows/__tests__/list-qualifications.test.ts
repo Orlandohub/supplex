@@ -97,6 +97,7 @@ describe("GET /api/workflows/qualifications", () => {
     });
 
     it("should calculate days in progress correctly (AC 2)", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       const expectedDays = Math.floor(
         (Date.now() - new Date(workflow.initiatedDate).getTime()) /
@@ -129,12 +130,14 @@ describe("GET /api/workflows/qualifications", () => {
     it("should filter by Draft status", () => {
       const filtered = mockWorkflows.filter((w) => w.status === "Draft");
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.status).toBe("Draft");
     });
 
     it("should filter by Approved status", () => {
       const filtered = mockWorkflows.filter((w) => w.status === "Approved");
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.status).toBe("Approved");
     });
 
@@ -143,6 +146,7 @@ describe("GET /api/workflows/qualifications", () => {
         ["Stage1", "Stage2", "Stage3"].includes(w.status)
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.status).toBe("Stage1");
     });
 
@@ -160,6 +164,7 @@ describe("GET /api/workflows/qualifications", () => {
     it("should filter by Stage 1", () => {
       const filtered = mockWorkflows.filter((w) => w.currentStage === 1);
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.currentStage).toBe(1);
     });
 
@@ -184,6 +189,7 @@ describe("GET /api/workflows/qualifications", () => {
         (w) => w.riskScore !== null && w.riskScore < 3.0
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.riskScore).toBe(2.3);
     });
 
@@ -192,6 +198,7 @@ describe("GET /api/workflows/qualifications", () => {
         (w) => w.riskScore !== null && w.riskScore >= 3.0 && w.riskScore <= 6.0
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.riskScore).toBe(4.5);
     });
 
@@ -200,6 +207,7 @@ describe("GET /api/workflows/qualifications", () => {
         (w) => w.riskScore !== null && w.riskScore > 6.0
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.riskScore).toBe(7.2);
     });
 
@@ -220,6 +228,7 @@ describe("GET /api/workflows/qualifications", () => {
         w.supplierName.toLowerCase().includes(searchTerm.toLowerCase())
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.supplierName).toBe("Acme Corp");
     });
 
@@ -251,7 +260,9 @@ describe("GET /api/workflows/qualifications", () => {
           new Date(b.initiatedDate).getTime() -
           new Date(a.initiatedDate).getTime()
       );
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.supplierName).toBe("Global Materials");
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.supplierName).toBe("TechSupply Inc");
     });
 
@@ -261,7 +272,9 @@ describe("GET /api/workflows/qualifications", () => {
           new Date(a.initiatedDate).getTime() -
           new Date(b.initiatedDate).getTime()
       );
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.supplierName).toBe("TechSupply Inc");
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.supplierName).toBe("Global Materials");
     });
 
@@ -269,7 +282,9 @@ describe("GET /api/workflows/qualifications", () => {
       const sorted = [...mockWorkflows].sort(
         (a, b) => b.daysInProgress - a.daysInProgress
       );
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.daysInProgress).toBe(36);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.daysInProgress).toBe(1);
     });
 
@@ -277,7 +292,9 @@ describe("GET /api/workflows/qualifications", () => {
       const sorted = [...mockWorkflows].sort(
         (a, b) => a.daysInProgress - b.daysInProgress
       );
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.daysInProgress).toBe(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.daysInProgress).toBe(36);
     });
 
@@ -287,7 +304,9 @@ describe("GET /api/workflows/qualifications", () => {
         if (b.riskScore === null) return -1;
         return b.riskScore - a.riskScore;
       });
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.riskScore).toBe(7.2);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.riskScore).toBe(2.3);
     });
 
@@ -297,7 +316,9 @@ describe("GET /api/workflows/qualifications", () => {
         if (b.riskScore === null) return -1;
         return a.riskScore - b.riskScore;
       });
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.riskScore).toBe(2.3);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.riskScore).toBe(7.2);
     });
   });
@@ -406,7 +427,9 @@ describe("GET /api/workflows/qualifications", () => {
           w.riskScore <= 6.0
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.status).toBe("Stage1");
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.riskScore).toBe(4.5);
     });
 
@@ -418,6 +441,7 @@ describe("GET /api/workflows/qualifications", () => {
           w.currentStage === 1
       );
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.supplierName).toBe("Acme Corp");
     });
   });

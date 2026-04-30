@@ -123,8 +123,10 @@ describe("Workflow Instantiation", () => {
     const tasks = await db
       .select()
       .from(taskInstance)
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       .where(eq(taskInstance.stepInstanceId, firstStep!.id));
     expect(tasks.length).toBeGreaterThan(0);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.status).toBe("pending");
 
     // Cleanup
@@ -231,9 +233,13 @@ describe("Workflow Instantiation", () => {
       .orderBy(asc(stepInstance.stepOrder));
 
     expect(steps.length).toBe(2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(steps[0]!.stepOrder).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(steps[0]!.status).toBe("active");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(steps[1]!.stepOrder).toBe(2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(steps[1]!.status).toBe("blocked");
 
     await db

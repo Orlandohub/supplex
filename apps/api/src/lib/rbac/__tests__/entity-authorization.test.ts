@@ -118,6 +118,7 @@ describe("Entity-Level Authorization Helpers", () => {
     test("returns supplier for linked supplier_user", async () => {
       const result = await getSupplierForUser(supplierUserId, tenantId, db);
       expect(result).not.toBeNull();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(result!.id).toBe(supplierId);
     });
 

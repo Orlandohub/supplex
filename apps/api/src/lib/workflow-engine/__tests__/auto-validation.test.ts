@@ -236,12 +236,16 @@ describe("Auto-Validation Task Creation", () => {
       .where(eq(taskInstance.stepInstanceId, stepInst.id));
 
     expect(tasks.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.dueAt).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.dueAt).not.toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.completionTimeDays).toBe(5);
 
     const expectedMinDue = beforeCreate + 5 * 24 * 60 * 60 * 1000;
     const expectedMaxDue = afterCreate + 5 * 24 * 60 * 60 * 1000;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     const taskDueTime = tasks[0]!.dueAt!.getTime();
 
     expect(taskDueTime).toBeGreaterThanOrEqual(expectedMinDue);

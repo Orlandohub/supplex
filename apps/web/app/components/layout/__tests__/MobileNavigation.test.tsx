@@ -98,6 +98,7 @@ describe("MobileNavigation", () => {
     const backdrop = document.querySelector(".bg-black\\/50");
     expect(backdrop).toBeInTheDocument();
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     fireEvent.click(backdrop!);
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

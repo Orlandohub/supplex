@@ -103,6 +103,7 @@ describe("GET /api/suppliers/:supplierId/documents", () => {
     if (response.data && "documents" in response.data) {
       expect(Array.isArray(response.data.documents)).toBe(true);
       expect(response.data.documents.length).toBeGreaterThan(0);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(response.data.documents[0]!.id).toBe(testDocumentId);
     }
   });

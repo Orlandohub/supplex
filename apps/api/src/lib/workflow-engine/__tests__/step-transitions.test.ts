@@ -174,6 +174,7 @@ describe("Step Transition Helpers", () => {
       .from(taskInstance)
       .where(eq(taskInstance.stepInstanceId, step2Id));
     expect(tasks.length).toBeGreaterThan(0);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.status).toBe("pending");
   });
 

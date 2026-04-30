@@ -95,13 +95,19 @@ describe("createTasksForStep Helper", () => {
     );
 
     expect(tasks.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.title).toBe("Fill out supplier form");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.description).toBe(
       "Please complete the supplier information form"
     );
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.assigneeType).toBe("role");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.assigneeRole).toBe("procurement_manager");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.completionTimeDays).toBe(7);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.dueAt).toBeDefined();
 
     await db
@@ -152,8 +158,11 @@ describe("createTasksForStep Helper", () => {
     );
 
     expect(tasks.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.assigneeType).toBe("user");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.assigneeUserId).toBe(specificUser.id);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.assigneeRole).toBeNull();
 
     await db
@@ -200,8 +209,10 @@ describe("createTasksForStep Helper", () => {
 
     const afterCreate = Date.now();
     const expectedDueTime = beforeCreate + 10 * 24 * 60 * 60 * 1000;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     const taskDueTime = tasks[0]!.dueAt!.getTime();
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.dueAt).toBeDefined();
     expect(taskDueTime).toBeGreaterThanOrEqual(expectedDueTime);
     expect(taskDueTime).toBeLessThanOrEqual(
@@ -247,7 +258,9 @@ describe("createTasksForStep Helper", () => {
     );
 
     expect(tasks.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.dueAt).toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks[0]!.completionTimeDays).toBeNull();
 
     await db
@@ -379,6 +392,7 @@ describe("createTasksForStep Helper", () => {
       tenantId
     );
     expect(tasks2.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(tasks2[0]!.id).toBe(tasks1[0]!.id);
 
     // Verify only one task exists in DB

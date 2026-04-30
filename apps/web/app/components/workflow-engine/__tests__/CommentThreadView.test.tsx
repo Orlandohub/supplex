@@ -168,11 +168,13 @@ describe("CommentThreadView", () => {
   it("should distinguish between form and document comments", () => {
     const mixedEntityComments = [
       {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
         ...mockComments[0]!,
         entityType: "form",
         commentText: "Form comment",
       },
       {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
         ...mockComments[1]!,
         entityType: "document",
         commentText: "Document comment",
@@ -259,6 +261,7 @@ describe("CommentThreadView", () => {
     const longCommentText = "A".repeat(1000);
     const commentsWithLongText = [
       {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
         ...mockComments[0]!,
         commentText: longCommentText,
       },

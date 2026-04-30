@@ -275,6 +275,7 @@ describe("Comment Thread Data Model", () => {
         );
 
       expect(comments.length).toBeGreaterThan(0);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const lastComment = comments[comments.length - 1]!;
       expect(lastComment.user).toBeDefined();
       expect(lastComment.user?.id).toBe(userId);

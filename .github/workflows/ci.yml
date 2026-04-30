@@ -41,6 +41,39 @@ jobs:
       - name: Run linting
         run: pnpm lint
 
+  # SUP-13 type-safety bar audits. Run as peer jobs (not steps in `lint`)
+  # so they show up as distinct required checks in branch protection,
+  # which is what SUP-7 sub-task 9 needs to gate.
+  check-tsconfig-bar:
+    name: Check Tsconfig Bar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit tsconfig type-safety bar
+        run: node scripts/check-tsconfig-bar.mjs
+
+  lint-no-ts-bypass:
+    name: Lint No TS Bypass
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit @ts-* directive policy
+        run: node scripts/lint-no-ts-bypass.mjs
+
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
@@ -137,7 +170,15 @@ jobs:
   ci-status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, type-check, test-frontend, test-backend]
+    needs:
+      [
+        lint,
+        check-tsconfig-bar,
+        lint-no-ts-bypass,
+        type-check,
+        test-frontend,
+        test-backend,
+      ]
     if: always()
     steps:
       - name: Check all jobs succeeded
