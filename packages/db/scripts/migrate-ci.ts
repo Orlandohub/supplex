@@ -70,6 +70,48 @@ const SKIPPED_MIGRATIONS = new Set<string>([
   "0040_custom_access_token_hook_test.sql",
 ]);
 
+/**
+ * SQL to inject _before_ a specific migration file is applied. Used to
+ * smooth over migrations that work against the production Supabase
+ * instance (where prior state happens to be compatible) but break on a
+ * fresh `postgres:15-alpine` image. Each entry documents the exact
+ * failure observed in CI.
+ *
+ * Production DDL is never modified — the patch only runs in this
+ * CI-specific runner.
+ */
+const PRE_MIGRATION_PATCHES: Record<string, string> = {
+  // `0008_add_form_template_enums.sql` runs
+  //   `ALTER TABLE form_template ALTER COLUMN status TYPE form_template_status …`
+  // without first dropping the existing `DEFAULT 'draft'` text default
+  // that `0007` set up. Postgres refuses to auto-cast the default to
+  // the new enum type and aborts with
+  //   `default for column "status" cannot be cast automatically to type form_template_status`.
+  // The canonical safe pattern is "drop default → change type → set
+  // new default" (see `0035_step_instance_status_enum.sql` for an
+  // example). Drop the defaults up front; the migration's `USING`
+  // clauses then succeed on the data, and we restore typed defaults
+  // immediately after.
+  "0008_add_form_template_enums.sql": `
+    ALTER TABLE form_template ALTER COLUMN status DROP DEFAULT;
+    ALTER TABLE form_template_version ALTER COLUMN status DROP DEFAULT;
+  `,
+};
+
+/**
+ * SQL to inject _after_ a specific migration file is applied —
+ * counterpart of `PRE_MIGRATION_PATCHES`. Used to restore defaults or
+ * other column attributes that the pre-patch had to remove.
+ */
+const POST_MIGRATION_PATCHES: Record<string, string> = {
+  "0008_add_form_template_enums.sql": `
+    ALTER TABLE form_template
+      ALTER COLUMN status SET DEFAULT 'draft'::form_template_status;
+    ALTER TABLE form_template_version
+      ALTER COLUMN status SET DEFAULT 'draft'::form_template_status;
+  `,
+};
+
 interface MigrationRow {
   hash: string;
 }
@@ -146,7 +188,20 @@ async function main() {
 
       console.log(`  • applying ${name}`);
       try {
+        const prePatch = PRE_MIGRATION_PATCHES[name];
+        if (prePatch) {
+          console.log(`    ↳ pre-patch (CI-only)`);
+          await client.unsafe(prePatch);
+        }
+
         await client.unsafe(sql);
+
+        const postPatch = POST_MIGRATION_PATCHES[name];
+        if (postPatch) {
+          console.log(`    ↳ post-patch (CI-only)`);
+          await client.unsafe(postPatch);
+        }
+
         await client.unsafe(
           `INSERT INTO supplex_ci_migrations.applied (name) VALUES ($1)`,
           [name]
