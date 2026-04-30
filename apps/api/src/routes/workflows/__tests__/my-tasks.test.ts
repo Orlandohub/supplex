@@ -74,6 +74,7 @@ describe("GET /api/workflows/my-tasks", () => {
       );
 
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.id).toBe("stage-123");
     });
 
@@ -148,8 +149,11 @@ describe("GET /api/workflows/my-tasks", () => {
         (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.id).toBe("stage-2"); // 5 days old = oldest = most days pending
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[1]!.id).toBe("stage-3"); // 3 days old
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[2]!.id).toBe("stage-1"); // 1 day old = newest = least days pending
     });
   });
@@ -168,6 +172,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockWorkflows.filter((w) => w.deletedAt === null);
 
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.id).toBe("wf-1");
     });
 
@@ -182,6 +187,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockStages.filter((s) => s.status === "Pending");
 
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.id).toBe("stage-1");
     });
 
@@ -195,6 +201,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockStages.filter((s) => s.deletedAt === null);
 
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.id).toBe("stage-1");
     });
   });
@@ -214,6 +221,7 @@ describe("GET /api/workflows/my-tasks", () => {
       const filtered = mockWorkflows.filter((w) => w.tenantId === userTenantId);
 
       expect(filtered).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filtered[0]!.id).toBe("wf-1");
     });
 

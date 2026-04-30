@@ -241,7 +241,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     // Role-based validation task for the same step, matching submitter's role.
     await db.insert(taskInstance).values({
       tenantId: tenant.id,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       processInstanceId: procId!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       stepInstanceId: stepId!,
       assigneeType: "role",
       assigneeRole: submitterUser.role,
@@ -276,7 +278,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
 
     await db.insert(taskInstance).values({
       tenantId: tenant.id,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       processInstanceId: procId!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       stepInstanceId: stepId!,
       assigneeType: "user",
       assigneeUserId: submitterUser.id,
@@ -307,7 +311,9 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
 
     await db.insert(taskInstance).values({
       tenantId: tenant.id,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       processInstanceId: procId!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       stepInstanceId: stepId!,
       assigneeType: "user",
       assigneeUserId: validatorUser.id,

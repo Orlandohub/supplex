@@ -232,6 +232,7 @@ describe("Step Completion", () => {
       .from(commentThread)
       .where(eq(commentThread.stepInstanceId, step.id));
     expect(comments.length).toBeGreaterThan(0);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(comments[0]!.commentText).toBe("Needs revision");
 
     await db.delete(processInstance).where(eq(processInstance.id, process.id));

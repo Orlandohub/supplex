@@ -99,7 +99,9 @@ describe("GET /api/workflows/:workflowId/history", () => {
     expect(expectedResponse.data.workflowId).toBe("workflow-123");
     expect(expectedResponse.data.supplierName).toBe("Test Supplier Co.");
     expect(expectedResponse.data.stages).toHaveLength(2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(expectedResponse.data.stages[0]!.stageNumber).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(expectedResponse.data.stages[1]!.stageNumber).toBe(2);
   });
 
@@ -187,7 +189,9 @@ describe("GET /api/workflows/:workflowId/history", () => {
     });
 
     expect(stages).toHaveLength(2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(stages[0]!.stageNumber).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(stages[1]!.stageNumber).toBe(2);
   });
 
@@ -244,8 +248,11 @@ describe("GET /api/workflows/:workflowId/history", () => {
       (a, b) => a.stageNumber - b.stageNumber
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(sortedStages[0]!.stageNumber).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(sortedStages[1]!.stageNumber).toBe(2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(sortedStages[2]!.stageNumber).toBe(3);
   });
 

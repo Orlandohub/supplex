@@ -68,11 +68,13 @@ describe("Document Template Integration Tests", () => {
       },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     adminUserId = authData.user!.id;
 
     await db.insert(users).values({
       id: adminUserId,
       tenantId: testTenantId,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       email: authData.user!.email!,
       fullName: "Integration Test Admin",
       role: "admin",
@@ -80,6 +82,7 @@ describe("Document Template Integration Tests", () => {
     });
 
     const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       email: authData.user!.email!,
       password: "testpassword123",
     });

@@ -16,6 +16,8 @@
     "lint": "pnpm --recursive run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "type-check": "pnpm --recursive run type-check",
+    "check:tsconfig-bar": "node scripts/check-tsconfig-bar.mjs",
+    "lint:no-ts-bypass": "node scripts/lint-no-ts-bypass.mjs",
     "prepare": "husky",
     "db:generate": "pnpm --filter @supplex/db db:generate",
     "db:migrate": "pnpm --filter @supplex/db db:migrate",

@@ -306,8 +306,11 @@ describe("Document Review Roundtrip", () => {
       );
 
     expect(round1Decisions.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round1Decisions[0]!.decision).toBe("approved");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round1Decisions[0]!.reviewerUserId).toBe(user1.id);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round1Decisions[0]!.validationRound).toBe(1);
 
     // Verify validationRound from step
@@ -422,6 +425,7 @@ describe("Document Review Roundtrip", () => {
       );
 
     expect(round1Decisions.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round1Decisions[0]!.decision).toBe("declined");
 
     // Now add a round 2 task and decision
@@ -459,7 +463,9 @@ describe("Document Review Roundtrip", () => {
       );
 
     expect(round2DecisionsAfter.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round2DecisionsAfter[0]!.decision).toBe("approved");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round2DecisionsAfter[0]!.validationRound).toBe(2);
 
     // Total decisions = 2 (one per round, for audit)

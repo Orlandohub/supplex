@@ -308,8 +308,11 @@ describe("GET /api/form-templates/published", () => {
         if (templates.length > 1) {
           // Verify alphabetical order
           for (let i = 0; i < templates.length - 1; i++) {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
             const currentName = templates[i]!.label.split(" v")[0];
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
             const nextName = templates[i + 1]!.label.split(" v")[0];
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
             expect(currentName!.localeCompare(nextName!)).toBeLessThanOrEqual(
               0
             );

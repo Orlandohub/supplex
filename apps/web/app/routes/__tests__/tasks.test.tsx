@@ -72,24 +72,28 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should display supplier name", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const supplierName = mockTasks[0]!.supplierName;
 
       expect(supplierName).toBe("ABC Supplier");
     });
 
     it("should display submitted by (initiator)", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const initiatedBy = mockTasks[0]!.initiatedBy;
 
       expect(initiatedBy).toBe("John Doe");
     });
 
     it("should display submitted date", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const initiatedDate = mockTasks[0]!.initiatedDate;
 
       expect(initiatedDate).toBeInstanceOf(Date);
     });
 
     it("should display risk score with badge", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const riskScore = mockTasks[0]!.riskScore;
       const variant =
         riskScore >= 7
@@ -103,6 +107,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should display days pending", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const daysPending = mockTasks[0]!.daysPending;
 
       expect(daysPending).toBe(7);
@@ -110,6 +115,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should warn for overdue tasks (> 7 days)", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const daysPending = mockTasks[0]!.daysPending;
       const isOverdue = daysPending > 7;
 
@@ -162,6 +168,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
         : mockTasks;
 
       expect(filteredTasks).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(filteredTasks[0]!.supplierName).toBe("ABC Supplier");
     });
 
@@ -191,6 +198,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
    */
   describe("Navigation to review page (AC 3)", () => {
     it("should link to workflow review page", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflowId = mockTasks[0]!.workflowId;
       const reviewUrl = `/workflows/${workflowId}/review`;
 
@@ -344,6 +352,7 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
     });
 
     it("should display all task info in mobile cards", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const task = mockTasks[0]!;
 
       // Card should include all fields
@@ -364,7 +373,9 @@ describe("My Tasks Route (_app.tasks.tsx)", () => {
         (a, b) => b.daysPending - a.daysPending
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[0]!.daysPending).toBe(7); // Oldest first
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(sorted[1]!.daysPending).toBe(2); // Newest last
     });
   });

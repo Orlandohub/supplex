@@ -102,6 +102,80 @@ When standards and code differ, prefer the live implementation and update this d
 - Use consistent parameter naming like `workflowId`, `supplierId`, and `processId`
 - Remove obsolete routes instead of leaving old path variants behind
 
+## Type-Safety Bar
+
+The SUP-13 type-safety bar is enforced repo-wide. CI runs three checks
+that gate every PR: `pnpm lint`, `pnpm check:tsconfig-bar`, and
+`pnpm lint:no-ts-bypass`.
+
+### Always banned
+
+These never appear in the codebase. Lint or one of the audit scripts
+will fail the PR.
+
+- `as any`
+- `: any` (parameter, variable, or return annotation)
+- `@ts-ignore`
+- `@ts-nocheck`
+- `!` (non-null assertion) in production code
+- A workspace `tsconfig.json` that weakens any of `strict`,
+  `noUncheckedIndexedAccess`, `noImplicitOverride`, or
+  `noFallthroughCasesInSwitch`.
+
+### Allowed with justification
+
+Lint will not flag these patterns, but each one has a narrow,
+documented use.
+
+- `@ts-expect-error` in **test files only**, with a same-line comment
+  explaining the invariant being tested. `scripts/lint-no-ts-bypass.mjs`
+  fails the build if either rule is violated. `@ts-expect-error`
+  self-cleans (it errors out once the line becomes type-correct), so
+  it is preferable to `@ts-ignore` even where both would compile.
+- `// eslint-disable-next-line @typescript-eslint/no-explicit-any` for
+  the documented Drizzle self-reference workaround in
+  `packages/db/src/schema/comment-thread.ts`. Reuse this pattern only
+  when a similar Drizzle self-reference is unavoidable, and reference
+  the comment-thread example.
+- `!` in test files only, with a same-line or line-above
+  `// eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- <reason>`.
+  Use this only when the value's existence is asserted earlier in the
+  same test (typically `expect(arr.length).toBeGreaterThan(0)` or an
+  `expect(value).toBeTruthy()` immediately preceding the access). The
+  reason after `--` should describe what was asserted.
+
+### Preferred alternatives
+
+When you reach for one of the banned constructs, prefer one of these
+patterns instead.
+
+- `unknown` plus narrowing in `catch` blocks (`useUnknownInCatchVariables`
+  is on via `strict`).
+- Typed DB helpers from `apps/api/src/lib/db-helpers.ts`:
+  `insertOneOrThrow`, `selectFirstOrThrow`, `selectFirst`. These
+  retire the `[0]!` Drizzle returning unwrap pattern.
+- Discriminated-union response shapes for API/Treaty calls (see the
+  `ApiResult` / `assertResultSuccess` / `assertAllApproved` /
+  `assertDeclined` helpers used in
+  `apps/api/src/lib/workflow-engine/__tests__/review-step-documents.test.ts`
+  and `apps/api/src/routes/workflows/__tests__/document-review-roundtrip.test.ts`).
+- Typed Elysia route plugins for backend handlers; do not reach for
+  `as any` at the route boundary.
+- For loaders/actions, return a typed shape and let
+  `useLoaderData<typeof loader>()` (or the generated `Route.LoaderArgs`
+  / `Route.ComponentProps` types) narrow at the call site.
+
+### Future work
+
+The `@typescript-eslint/no-unsafe-*` family
+(`no-unsafe-assignment`, `no-unsafe-member-access`, `no-unsafe-call`,
+`no-unsafe-return`, `no-unsafe-argument`) is **not yet enabled**. A
+measurement on the SUP-16 branch counted 128 violations across the
+repo plus 15 `parserOptions.project` parsing errors caused by
+workspace tsconfigs that exclude `**/*.test.ts(x)`. Enabling the rules
+requires a `parserOptions.project` refactor that is tracked in
+SUP-13.2 (`SUP-17`).
+
 ## Logging
 
 - Prefer structured logs over ad hoc `console.log`

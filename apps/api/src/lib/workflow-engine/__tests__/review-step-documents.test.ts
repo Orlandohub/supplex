@@ -478,6 +478,7 @@ describe("reviewStepDocuments", () => {
     );
     expect(approvedDecision).toBeTruthy();
     expect(declinedDecision).toBeTruthy();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(declinedDecision!.comment).toBe("Document is expired");
 
     // Verify doc statuses
@@ -492,9 +493,13 @@ describe("reviewStepDocuments", () => {
       (d) => d.requiredDocumentName === "Insurance Policy"
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(taxDoc!.status).toBe("uploaded"); // not changed to approved on decline path
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(insDoc!.status).toBe("pending");
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(insDoc!.documentId).toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(insDoc!.declineComment).toBe("Document is expired");
 
     const updatedStep = await selectFirstOrThrow(
@@ -832,6 +837,7 @@ describe("reviewStepDocuments", () => {
         )
       );
     expect(decisionsAfterFirst.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(decisionsAfterFirst[0]!.reviewerUserId).toBe(user2.id);
 
     // --- Second reviewer approves → final with transition ---
@@ -995,6 +1001,7 @@ describe("reviewStepDocuments", () => {
         )
       );
     expect(round1Decisions.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round1Decisions[0]!.decision).toBe("declined");
 
     // Simulate resubmission: step is now active, validation round would be incremented
@@ -1052,6 +1059,7 @@ describe("reviewStepDocuments", () => {
         )
       );
     expect(round2Decisions.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(round2Decisions[0]!.decision).toBe("approved");
 
     // Round 1 decisions still exist (audit)

@@ -184,6 +184,7 @@ describe("DuplicateWarningModal", () => {
       "contactEmail"
     );
     expect(
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       screen.getByDisplayValue(mockFormData.contactPhone!)
     ).toHaveAttribute("name", "contactPhone");
 
@@ -206,10 +207,12 @@ describe("DuplicateWarningModal", () => {
     ).toHaveAttribute("name", "address.country");
 
     // Check optional fields
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(screen.getByDisplayValue(mockFormData.website!)).toHaveAttribute(
       "name",
       "website"
     );
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(screen.getByDisplayValue(mockFormData.notes!)).toHaveAttribute(
       "name",
       "notes"

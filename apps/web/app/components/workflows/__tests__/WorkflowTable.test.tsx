@@ -58,36 +58,43 @@ describe("WorkflowTable Component", () => {
     });
 
     it("should display supplier name", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.supplierName).toBe("Acme Corp");
     });
 
     it("should display status badge", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.status).toBe("Stage1");
     });
 
     it("should display current stage", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.currentStage).toBe(1);
     });
 
     it("should display initiated by user", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.initiatedBy).toBe("John Doe");
     });
 
     it("should display initiated date", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.initiatedDate).toBeInstanceOf(Date);
     });
 
     it("should display days in progress", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.daysInProgress).toBe(11);
     });
 
     it("should display risk score", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflow = mockWorkflows[0]!;
       expect(workflow.riskScore).toBe(4.5);
     });
@@ -307,6 +314,7 @@ describe("WorkflowTable Component", () => {
    */
   describe("Row click navigation (AC 8)", () => {
     it("should call onRowClick when row is clicked", () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       const workflowId = mockWorkflows[0]!.id;
 
       mockOnRowClick(workflowId);

@@ -210,6 +210,7 @@ describe("Task Instance Runtime Creation", () => {
 
       // Check due date is approximately correct (within 1 minute tolerance)
       const timeDiff = Math.abs(
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
         task.dueAt!.getTime() - expectedDueDate.getTime()
       );
       expect(timeDiff).toBeLessThan(60000); // Less than 1 minute

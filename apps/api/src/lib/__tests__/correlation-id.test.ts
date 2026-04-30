@@ -17,6 +17,7 @@ describe("Correlation ID Middleware", () => {
 
     expect(header).toBeTruthy();
     expect(body.correlationId).toBeTruthy();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(body.correlationId).toBe(header!);
     expect(body.correlationId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i

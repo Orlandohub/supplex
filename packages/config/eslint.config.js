@@ -71,6 +71,7 @@ export default [
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         { prefer: "type-imports" },

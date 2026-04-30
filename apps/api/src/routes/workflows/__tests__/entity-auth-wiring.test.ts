@@ -210,12 +210,14 @@ describe("SEC-004: Entity Authorization Wiring", () => {
     test("supplier_user denied for another supplier's ID", async () => {
       const supplier = await getSupplierForUser(supplierUserAId, tenantId, db);
       expect(supplier).not.toBeNull();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(supplier!.id).not.toBe(supplierBId);
     });
 
     test("supplier_user allowed for own supplier's ID", async () => {
       const supplier = await getSupplierForUser(supplierUserAId, tenantId, db);
       expect(supplier).not.toBeNull();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
       expect(supplier!.id).toBe(supplierAId);
     });
 

@@ -140,6 +140,7 @@ describe("Workflow Health-Check Queries", () => {
       .where(eq(taskInstance.id, task.id));
 
     expect(orphaned.length).toBe(1);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- existence asserted above
     expect(orphaned[0]!.stepStatus).toBe("completed");
   });
 
