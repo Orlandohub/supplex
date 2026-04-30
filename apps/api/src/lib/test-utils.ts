@@ -86,7 +86,11 @@ function handleTestError({
  * Use instead of `new Elysia()` in tests.
  */
 export function createTestApp() {
-  return new Elysia().onError(handleTestError);
+  // SUP-21 (9a-4): see `withApiErrorHandler` below — Elysia's default
+  // `onError` scope is `"local"`, which won't catch errors thrown
+  // inside plugins this app later `.use()`s. Use `"global"` so the
+  // handler covers the entire descendant tree.
+  return new Elysia().onError({ as: "global" }, handleTestError);
 }
 
 /**
@@ -94,9 +98,25 @@ export function createTestApp() {
  * touches. Defining the constraint structurally lets callers pass test apps
  * that have been enriched via `.derive(...)` / `.use(...)` without leaking
  * Elysia's full generics into the helper signature.
+ *
+ * SUP-21 (9a-4): Elysia hooks are scoped — `onError(handler)` defaults to
+ * `as: "local"`, which means the handler only catches errors thrown by
+ * routes registered on THIS instance, not by plugins that the instance
+ * `.use()`s. Route tests in this repo follow the pattern
+ *   withApiErrorHandler(new Elysia().derive(...).use(routePlugin))
+ * so the auth/authorization errors thrown from inside `routePlugin`'s
+ * own `derive` (`authenticate` throws `Errors.unauthorized` for missing
+ * tokens) bypass the outer handler with the default scope and Elysia
+ * returns 500 with no body — making every "should return 401/403"
+ * assertion fail with `Received: 500`. Pass `as: "global"` so the
+ * handler catches errors from every plugin in the tree.
  */
+type ErrorScope = "local" | "scoped" | "global";
 type AppWithOnError = {
-  onError: (handler: typeof handleTestError) => unknown;
+  onError: (
+    options: { as: ErrorScope },
+    handler: typeof handleTestError
+  ) => unknown;
 };
 
 /**
@@ -107,7 +127,7 @@ type AppWithOnError = {
  * touch `.onError(...)` and don't leak richer Elysia generics here.
  */
 export function withApiErrorHandler<T extends AppWithOnError>(app: T): T {
-  app.onError(handleTestError);
+  app.onError({ as: "global" }, handleTestError);
   return app;
 }
 
