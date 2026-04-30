@@ -1,0 +1,162 @@
+#!/usr/bin/env bun
+
+/**
+ * CI Migration Script
+ *
+ * Applies the SQL migrations under `packages/db/migrations/` to a vanilla
+ * PostgreSQL database (e.g. the GitHub Actions `postgres:15` service
+ * container). It exists alongside `migrate-production.ts` because:
+ *
+ * 1. drizzle-kit's migrator only knows about migrations recorded in the
+ *    `meta/_journal.json` file (currently 0000-0013). All the post-2024
+ *    migrations were applied directly via `apply-migration.ts` against
+ *    Supabase and never made it back into the journal — but they ARE
+ *    required for the schema the API tests exercise.
+ *
+ * 2. A handful of those migrations (`0033`, `0036`-`0040`) bind to
+ *    Supabase-managed schemas (`auth.*`, `storage.*`) and roles
+ *    (`authenticated`, `supabase_auth_admin`) that don't exist on a
+ *    vanilla Postgres image. Tests in CI connect as the superuser and
+ *    don't need RLS to be active, so we skip those migrations.
+ *
+ * 3. The custom `0040_custom_access_token_hook_test.sql` file is a SQL
+ *    smoke test (not a real migration) that asserts on real user data;
+ *    it lives in the migrations folder for convenience but should never
+ *    run as part of the migration pipeline.
+ *
+ * The script tracks applied migrations in the `__drizzle_migrations`
+ * table so re-runs are idempotent — just like Drizzle's runtime
+ * migrator.
+ *
+ * Usage (typically from CI):
+ *   DATABASE_URL=postgres://... bun run packages/db/scripts/migrate-ci.ts
+ */
+
+import { readdirSync, readFileSync, statSync } from "fs";
+import { resolve } from "path";
+import postgres from "postgres";
+
+const MIGRATIONS_DIR = resolve(import.meta.dir, "../migrations");
+
+/**
+ * Migrations that depend on Supabase-managed schemas (`auth.*`,
+ * `storage.*`) or roles (`authenticated`, `supabase_auth_admin`,
+ * `service_role`). They are required in production (against Supabase)
+ * but cannot run on a vanilla Postgres image and are not required for
+ * the API integration tests, which connect as the superuser and bypass
+ * RLS by design.
+ */
+const SUPABASE_ONLY_MIGRATIONS = new Set<string>([
+  "0033_enable_storage_rls.sql",
+  "0036_backfill_app_metadata.sql",
+  "0037_rls_users_tenants.sql",
+  "0038_fix_storage_rls_claim_path.sql",
+  "0039_rls_business_tables.sql",
+  "0040_custom_access_token_hook.sql",
+  // Smoke test, not a migration; included in the folder for operator
+  // convenience but never executed by automation.
+  "0040_custom_access_token_hook_test.sql",
+]);
+
+interface MigrationRow {
+  hash: string;
+}
+
+async function main() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("✗ DATABASE_URL is not set");
+    process.exit(1);
+  }
+
+  const allFiles = readdirSync(MIGRATIONS_DIR)
+    .filter((name) => name.endsWith(".sql"))
+    .filter((name) => {
+      const fullPath = resolve(MIGRATIONS_DIR, name);
+      return statSync(fullPath).isFile();
+    })
+    .sort();
+
+  if (allFiles.length === 0) {
+    console.error("✗ No migration files found");
+    process.exit(1);
+  }
+
+  const skipped: string[] = [];
+  const candidates: string[] = [];
+  for (const name of allFiles) {
+    if (SUPABASE_ONLY_MIGRATIONS.has(name)) {
+      skipped.push(name);
+    } else {
+      candidates.push(name);
+    }
+  }
+
+  console.log(`→ Found ${allFiles.length} migration files`);
+  console.log(
+    `→ Skipping ${skipped.length} Supabase-only migrations: ${
+      skipped.join(", ") || "(none)"
+    }`
+  );
+  console.log(`→ Will attempt to apply ${candidates.length} migrations`);
+
+  const client = postgres(databaseUrl, { max: 1 });
+
+  try {
+    // Drizzle's runtime migrator stores applied hashes in
+    // `drizzle.__drizzle_migrations`. We store ours under a different
+    // table to avoid colliding with that bookkeeping if the same DB is
+    // also targeted by drizzle-kit later.
+    await client.unsafe(`
+      CREATE SCHEMA IF NOT EXISTS supplex_ci_migrations;
+      CREATE TABLE IF NOT EXISTS supplex_ci_migrations.applied (
+        id serial PRIMARY KEY,
+        name text NOT NULL UNIQUE,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+
+    const appliedRows = (await client.unsafe(
+      `SELECT name AS hash FROM supplex_ci_migrations.applied`
+    )) as unknown as MigrationRow[];
+    const applied = new Set(appliedRows.map((r) => r.hash));
+
+    let appliedCount = 0;
+    let skippedAlreadyAppliedCount = 0;
+    for (const name of candidates) {
+      if (applied.has(name)) {
+        skippedAlreadyAppliedCount++;
+        continue;
+      }
+
+      const fullPath = resolve(MIGRATIONS_DIR, name);
+      const sql = readFileSync(fullPath, "utf-8");
+
+      console.log(`  • applying ${name}`);
+      try {
+        await client.unsafe(sql);
+        await client.unsafe(
+          `INSERT INTO supplex_ci_migrations.applied (name) VALUES ($1)`,
+          [name]
+        );
+        appliedCount++;
+      } catch (error) {
+        console.error(`✗ Migration ${name} failed:`);
+        console.error(error);
+        process.exit(1);
+      }
+    }
+
+    console.log(
+      `✓ Applied ${appliedCount} new migration(s) (${skippedAlreadyAppliedCount} already-applied skipped, ${skipped.length} Supabase-only skipped)`
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+main().catch((error) => {
+  console.error("✗ Unexpected error:");
+  console.error(error);
+  process.exit(1);
+});

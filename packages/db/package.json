@@ -14,6 +14,7 @@
     "type-check": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:ci": "bun run scripts/migrate-ci.ts",
     "db:migrate:prod": "bun run scripts/migrate-production.ts",
     "db:rollback": "bun run scripts/rollback-migration.ts",
     "db:push": "drizzle-kit push",

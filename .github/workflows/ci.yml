@@ -138,6 +138,40 @@ jobs:
   test-backend:
     name: Test Backend
     runs-on: ubuntu-latest
+
+    # Spin up a vanilla Postgres alongside the job so the API integration
+    # tests (which call into `@supplex/db` and exercise real SQL via
+    # `insertOneOrThrow`, `selectFirstOrThrow`, etc.) have a database to
+    # talk to. SUP-7 sub-task 9a-3.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: supplex_test
+          POSTGRES_PASSWORD: supplex_test
+          POSTGRES_DB: supplex_test
+        ports:
+          - 5432:5432
+        # Wait until Postgres is accepting connections before any step
+        # that depends on it runs.
+        options: >-
+          --health-cmd "pg_isready -U supplex_test -d supplex_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Backend tests load `apps/api/src/config.ts`, which validates the
+      # full Supabase + database env contract via Zod at module init.
+      # Tests don't actually call out to Supabase, so stub URLs/keys
+      # satisfy the schema while the real DB connection points at the
+      # service container above.
+      DATABASE_URL: postgres://supplex_test:supplex_test@localhost:5432/supplex_test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: ci-anon-key-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-placeholder
+      NODE_ENV: test
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -154,6 +188,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        # Custom CI migration runner — the Drizzle journal only tracks
+        # 0000-0013, while the real schema lives in 0000-0041. The
+        # script applies every `*.sql` migration in lexical order and
+        # skips the handful that bind to Supabase-only schemas/roles
+        # (`auth.*`, `storage.*`, `supabase_auth_admin`, etc.).
+        run: pnpm --filter @supplex/db db:migrate:ci
 
       - name: Run backend tests with coverage
         run: pnpm --filter @supplex/api test:coverage
