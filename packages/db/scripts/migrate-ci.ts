@@ -96,6 +96,22 @@ const PRE_MIGRATION_PATCHES: Record<string, string> = {
     ALTER TABLE form_template ALTER COLUMN status DROP DEFAULT;
     ALTER TABLE form_template_version ALTER COLUMN status DROP DEFAULT;
   `,
+
+  // `0020_remove_template_versioning.sql` step 7 contains
+  //   ALTER TABLE workflow_step_template DROP COLUMN form_template_version_id;
+  // (no IF EXISTS). On a fresh CI database the same column was
+  // already dropped a few seconds earlier by
+  // `0020_fix_workflow_step_form_template.sql` (which shares the
+  // 0020_ prefix and ran first lexically), so the drop now raises
+  //   column "form_template_version_id" of relation "workflow_step_template" does not exist.
+  // Re-add an empty-data column so the subsequent unconditional
+  // DROP COLUMN succeeds. The intermediate UPDATE that references
+  // this column is a no-op on a fresh DB (no rows) — the column just
+  // needs to exist for the SQL to parse and the DROP to find it.
+  "0020_remove_template_versioning.sql": `
+    ALTER TABLE workflow_step_template
+      ADD COLUMN IF NOT EXISTS form_template_version_id UUID;
+  `,
 };
 
 /**
