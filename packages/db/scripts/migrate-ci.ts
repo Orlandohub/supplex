@@ -39,14 +39,26 @@ import postgres from "postgres";
 const MIGRATIONS_DIR = resolve(import.meta.dir, "../migrations");
 
 /**
- * Migrations that depend on Supabase-managed schemas (`auth.*`,
- * `storage.*`) or roles (`authenticated`, `supabase_auth_admin`,
- * `service_role`). They are required in production (against Supabase)
- * but cannot run on a vanilla Postgres image and are not required for
- * the API integration tests, which connect as the superuser and bypass
- * RLS by design.
+ * Migrations to skip in CI for one of two reasons:
+ *
+ * 1. **Supabase-only**: depend on Supabase-managed schemas (`auth.*`,
+ *    `storage.*`) or roles (`authenticated`, `supabase_auth_admin`,
+ *    `service_role`) that don't exist on a vanilla Postgres image.
+ *    Tests connect as superuser and don't need RLS to be active.
+ * 2. **Duplicate / overlay**: an out-of-band manual fix that was
+ *    applied to the production DB before the canonical Drizzle
+ *    migration was generated, so both files contain the same DDL.
+ *    Re-applying the fix on a fresh CI database makes the canonical
+ *    migration crash because its prerequisite (the typo column) no
+ *    longer exists.
  */
-const SUPABASE_ONLY_MIGRATIONS = new Set<string>([
+const SKIPPED_MIGRATIONS = new Set<string>([
+  // Duplicate of the rename in `0002_warm_absorbing_man.sql`. Was
+  // hand-applied to production before drizzle-kit captured the same
+  // change in the warm migration. Running both on a fresh DB raises
+  // `column "snapshoted_checklist" does not exist`.
+  "0002_fix_snapshotted_checklist_typo.sql",
+  // Supabase-only (RLS / auth.* / storage.*).
   "0033_enable_storage_rls.sql",
   "0036_backfill_app_metadata.sql",
   "0037_rls_users_tenants.sql",
@@ -85,7 +97,7 @@ async function main() {
   const skipped: string[] = [];
   const candidates: string[] = [];
   for (const name of allFiles) {
-    if (SUPABASE_ONLY_MIGRATIONS.has(name)) {
+    if (SKIPPED_MIGRATIONS.has(name)) {
       skipped.push(name);
     } else {
       candidates.push(name);
@@ -94,7 +106,7 @@ async function main() {
 
   console.log(`→ Found ${allFiles.length} migration files`);
   console.log(
-    `→ Skipping ${skipped.length} Supabase-only migrations: ${
+    `→ Skipping ${skipped.length} migration(s): ${
       skipped.join(", ") || "(none)"
     }`
   );
@@ -148,7 +160,7 @@ async function main() {
     }
 
     console.log(
-      `✓ Applied ${appliedCount} new migration(s) (${skippedAlreadyAppliedCount} already-applied skipped, ${skipped.length} Supabase-only skipped)`
+      `✓ Applied ${appliedCount} new migration(s) (${skippedAlreadyAppliedCount} already-applied skipped, ${skipped.length} explicitly skipped)`
     );
   } finally {
     await client.end();
