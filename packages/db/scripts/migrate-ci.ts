@@ -200,7 +200,17 @@ async function main() {
       }
 
       const fullPath = resolve(MIGRATIONS_DIR, name);
-      const sql = readFileSync(fullPath, "utf-8");
+      let sql = readFileSync(fullPath, "utf-8");
+
+      // `CREATE INDEX CONCURRENTLY` cannot run inside a transaction
+      // block, but `postgres-js` wraps multi-statement queries in an
+      // implicit transaction. The concurrency itself is irrelevant on
+      // a fresh CI database (no concurrent writers to wait on), so
+      // strip the keyword to keep these migrations runnable here. The
+      // resulting index is functionally identical for tests.
+      if (/CREATE\s+INDEX\s+CONCURRENTLY/i.test(sql)) {
+        sql = sql.replace(/CREATE\s+INDEX\s+CONCURRENTLY/gi, "CREATE INDEX");
+      }
 
       console.log(`  • applying ${name}`);
       try {
