@@ -10,7 +10,24 @@ if (!resendApiKey) {
   emailLogger.warn("RESEND_API_KEY not configured — email delivery disabled");
 }
 
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
+// SUP-21 (9a-4): Lazy-instantiate the Resend client on first call
+// instead of at module-load time. Bun's `mock.module("resend", ...)`
+// hoisting (`apps/api/src/services/__tests__/resend-email.service.test.ts`)
+// runs after the service file is parsed but before any function inside
+// it executes, so deferring `new Resend(resendApiKey)` until the first
+// `sendEmail()` call lets the test substitute its `MockResend` class
+// without touching production behaviour. Production semantics are
+// preserved because the cached singleton still ensures one Resend
+// client is reused across all calls.
+let resendClient: Resend | null | undefined;
+
+function getResendClient(): Resend | null {
+  if (resendClient !== undefined) {
+    return resendClient;
+  }
+  resendClient = resendApiKey ? new Resend(resendApiKey) : null;
+  return resendClient;
+}
 
 /**
  * Email send result interface
@@ -34,7 +51,7 @@ export async function sendEmail(
   subject: string,
   html: string
 ): Promise<EmailSendResult> {
-  // Check if Resend is configured
+  const resend = getResendClient();
   if (!resend) {
     emailLogger.error("Resend client not initialized");
     return {
@@ -133,5 +150,5 @@ export async function sendEmail(
  * @returns True if API key is configured
  */
 export function isResendConfigured(): boolean {
-  return resend !== null;
+  return getResendClient() !== null;
 }
