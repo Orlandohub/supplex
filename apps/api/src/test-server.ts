@@ -51,7 +51,20 @@ import { mock } from "bun:test";
  * `correlationId` is similarly stubbed for the small number of route
  * tests that mount it directly.
  */
-const stubLogger = {
+interface StubLogger {
+  trace: () => void;
+  debug: () => void;
+  info: () => void;
+  warn: () => void;
+  error: () => void;
+  fatal: () => void;
+  silent: () => void;
+  bindings: () => Record<string, unknown>;
+  level: string;
+  child: () => StubLogger;
+}
+
+const stubLogger: StubLogger = {
   trace: () => {},
   debug: () => {},
   info: () => {},
@@ -61,9 +74,7 @@ const stubLogger = {
   silent: () => {},
   bindings: () => ({}),
   level: "silent",
-  child(): typeof stubLogger {
-    return stubLogger;
-  },
+  child: () => stubLogger,
 };
 
 const stubAuthenticatedRoute = new Elysia({
@@ -73,21 +84,17 @@ const stubAuthenticatedRoute = new Elysia({
   correlationId: "test-correlation-id",
 }));
 
-const stubCorrelationId = new Elysia({ name: "correlation-id" }).derive(
-  { as: "global" },
-  () => ({
-    requestLogger: stubLogger,
-    correlationId: "test-correlation-id",
-    _requestStart: Date.now(),
-  })
-);
-
+// SUP-21 (9a-4): Mock only `route-plugins`, NOT `correlation-id`.
+// The correlation-id plugin handles `x-correlation-id` headers and is
+// exercised directly by `apps/api/src/lib/__tests__/correlation-id.test.ts`,
+// which expects the real onAfterHandle to populate
+// `set.headers["x-correlation-id"]`. Routes that go through the
+// stubbed `authenticatedRoute` instead get the noop derive above —
+// they still receive `requestLogger` and `correlationId` so handler
+// destructures continue to work, just without onAfterHandle's
+// header propagation (which integration tests don't assert on).
 mock.module("./lib/route-plugins", () => ({
   authenticatedRoute: stubAuthenticatedRoute,
-}));
-
-mock.module("./lib/correlation-id", () => ({
-  correlationId: stubCorrelationId,
 }));
 
 const app = new Elysia()
