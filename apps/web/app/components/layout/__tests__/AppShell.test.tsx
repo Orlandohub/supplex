@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { BrowserRouter } from "react-router";
+import { screen } from "@testing-library/react";
 import { AppShell } from "../AppShell";
 import { useNavigationStore } from "~/stores/navigationStore";
+import { renderWithRouter } from "~/lib/render-with-router";
 
 // Mock the navigation store
 vi.mock("~/stores/navigationStore", () => ({
@@ -55,11 +55,29 @@ describe("AppShell", () => {
   const renderAppShell = (
     children: React.ReactNode = <div>Test Content</div>
   ) => {
-    return render(
-      <BrowserRouter>
-        <AppShell>{children}</AppShell>
-      </BrowserRouter>
-    );
+    return renderWithRouter(<AppShell>{children}</AppShell>, {
+      appLoaderData: {
+        user: { id: "123", email: "test@example.com" },
+        userRecord: { role: "admin", fullName: "Test User" },
+        supplierInfo: null,
+        permissions: {
+          isAdmin: true,
+          isSupplierUser: false,
+          isViewer: false,
+          isProcurementManager: false,
+          isQualityManager: false,
+          canManageUsers: true,
+          canCreateSuppliers: true,
+          canEditSuppliers: true,
+          canDeleteSuppliers: true,
+          canViewAnalytics: true,
+          canAccessSettings: true,
+          canCreateQualifications: true,
+          canUploadDocuments: true,
+          canDeleteDocuments: true,
+        },
+      },
+    });
   };
 
   it("renders children content", () => {

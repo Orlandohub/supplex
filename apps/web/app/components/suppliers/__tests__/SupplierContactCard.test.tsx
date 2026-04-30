@@ -1,9 +1,13 @@
 ﻿import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { SupplierContactCard } from "../SupplierContactCard";
 import * as RemixReact from "react-router";
+import { renderWithRouter } from "~/lib/render-with-router";
 
-// Mock Remix hooks
+// Mock the two react-router hooks the production component reads. The
+// data router itself is supplied by `renderWithRouter`, so `useFetcher`
+// (used by AddSupplierContactModal child) resolves to the real
+// implementation against that router.
 vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
   return {
@@ -15,6 +19,10 @@ vi.mock("react-router", async () => {
     })),
   };
 });
+
+function render(ui: React.ReactElement) {
+  return renderWithRouter(ui);
+}
 
 // Mock API client
 vi.mock("~/lib/api-client", () => ({

@@ -1,7 +1,37 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { SupplierOverview } from "../SupplierOverview";
 import { SupplierStatus, SupplierCategory } from "@supplex/types";
+import { renderWithRouter } from "~/lib/render-with-router";
+
+// SupplierOverview transitively renders SupplierContactCard which calls
+// `useRouteLoaderData("routes/_app")`. Provide a minimal app loader stub so
+// tests run inside a data router and resolve permissions consistently.
+const APP_LOADER_DATA = {
+  user: { id: "test", email: "test@example.com" },
+  userRecord: { role: "admin", fullName: "Test User" },
+  supplierInfo: null,
+  permissions: {
+    isAdmin: true,
+    isSupplierUser: false,
+    isViewer: false,
+    isProcurementManager: false,
+    isQualityManager: false,
+    canManageUsers: true,
+    canCreateSuppliers: true,
+    canEditSuppliers: true,
+    canDeleteSuppliers: true,
+    canViewAnalytics: true,
+    canAccessSettings: true,
+    canCreateQualifications: true,
+    canUploadDocuments: true,
+    canDeleteDocuments: true,
+  },
+};
+
+function render(ui: React.ReactElement) {
+  return renderWithRouter(ui, { appLoaderData: APP_LOADER_DATA });
+}
 
 const mockSupplier = {
   id: "550e8400-e29b-41d4-a716-446655440000",
