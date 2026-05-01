@@ -131,11 +131,6 @@ const SKIPPED_FILES: { path: string; reason: string; followUp: string }[] = [
     followUp: "SUP-7 sub-task 9a-5",
   },
   {
-    path: "src/routes/suppliers/__tests__/list.test.ts",
-    reason: "route + un-mocked db; placeholder UUID fixtures",
-    followUp: "SUP-7 sub-task 9a-5",
-  },
-  {
     path: "src/routes/suppliers/__tests__/update-contact.test.ts",
     reason: "route + un-mocked db; placeholder UUID fixtures",
     followUp: "SUP-7 sub-task 9a-5",

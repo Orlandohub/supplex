@@ -1,10 +1,16 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { Elysia } from "elysia";
 import type { ApiResult, Supplier } from "@supplex/types";
-import { UserRole } from "@supplex/types";
+import { SupplierCategory, SupplierStatus, UserRole } from "@supplex/types";
 import { listSuppliersRoute } from "../list";
 import type { AuthContext } from "../../../lib/rbac/middleware";
-import { expectOkResult, withApiErrorHandler } from "../../../lib/test-utils";
+import {
+  createMockDb,
+  expectOkResult,
+  mockDbChain,
+  type MockDb,
+  withApiErrorHandler,
+} from "../../../lib/test-utils";
 
 /**
  * Response body shape for `GET /api/suppliers`. Mirrors the route's
@@ -17,24 +23,27 @@ interface SuppliersListData {
   limit: number;
 }
 
-// Mock data
+const TENANT_ID = "11111111-1111-1111-1111-111111111111";
+const USER_ID = "22222222-2222-2222-2222-222222222222";
+
+// Mock data (valid UUIDs — per-file isolation means the real `db` is used unless mocked)
 const mockUser: AuthContext["user"] = {
-  id: "user-123",
+  id: USER_ID,
   email: "test@example.com",
   role: UserRole.ADMIN,
-  tenantId: "tenant-123",
+  tenantId: TENANT_ID,
   fullName: "Test User",
 };
 
-const mockSuppliers = [
+const mockSuppliers: Supplier[] = [
   {
-    id: "supplier-1",
-    tenantId: "tenant-123",
+    id: "33333333-3333-3333-3333-333333333331",
+    tenantId: TENANT_ID,
     name: "Acme Corp",
     taxId: "TAX-001",
-    category: "raw_materials",
-    status: "approved",
-    performanceScore: "4.5",
+    category: SupplierCategory.RAW_MATERIALS,
+    status: SupplierStatus.APPROVED,
+    performanceScore: 4.5,
     contactName: "John Doe",
     contactEmail: "john@acme.com",
     contactPhone: "+1234567890",
@@ -47,20 +56,22 @@ const mockSuppliers = [
     },
     certifications: [],
     metadata: {},
-    riskScore: "2.5",
-    createdBy: "user-123",
+    riskScore: 2.5,
+    supplierStatusId: null,
+    supplierUserId: null,
+    createdBy: USER_ID,
     createdAt: new Date("2024-01-01"),
     updatedAt: new Date("2024-01-15"),
     deletedAt: null,
   },
   {
-    id: "supplier-2",
-    tenantId: "tenant-123",
+    id: "33333333-3333-3333-3333-333333333332",
+    tenantId: TENANT_ID,
     name: "Beta Supplies",
     taxId: "TAX-002",
-    category: "components",
-    status: "conditional",
-    performanceScore: "3.2",
+    category: SupplierCategory.COMPONENTS,
+    status: SupplierStatus.CONDITIONAL,
+    performanceScore: 3.2,
     contactName: "Jane Smith",
     contactEmail: "jane@beta.com",
     contactPhone: "+1987654321",
@@ -73,33 +84,45 @@ const mockSuppliers = [
     },
     certifications: [],
     metadata: {},
-    riskScore: "5.0",
-    createdBy: "user-123",
+    riskScore: 5,
+    supplierStatusId: null,
+    supplierUserId: null,
+    createdBy: USER_ID,
     createdAt: new Date("2024-01-02"),
     updatedAt: new Date("2024-01-16"),
     deletedAt: null,
   },
 ];
 
-// Create mock database functions
-const _createMockDb = (
-  _suppliers = mockSuppliers,
-  _count = _suppliers.length
-) => ({
-  select: mock(() => ({
-    from: mock(() => ({
-      where: mock(() => ({
-        orderBy: mock(() => ({
-          limit: mock(() => ({
-            offset: mock(() => Promise.resolve(_suppliers)),
-          })),
-        })),
-      })),
-    })),
-  })),
+/**
+ * `list.ts` runs two `db.select()` chains per request (rows + count). Alternate
+ * return values in lockstep. `beforeEach` resets the phase counter.
+ */
+let selectPhase = 0;
+
+const mockSelect = mock(() => mockDbChain<unknown>([]));
+
+const mockDb = createMockDb({
+  overrides: {
+    select: mockSelect as MockDb["select"],
+  },
 });
 
+mock.module("../../../lib/db", () => ({ db: mockDb }));
+
 describe("Supplier List API", () => {
+  beforeEach(() => {
+    selectPhase = 0;
+    mockSelect.mockClear();
+    mockSelect.mockImplementation(() => {
+      const isListQuery = selectPhase % 2 === 0;
+      selectPhase += 1;
+      return isListQuery
+        ? mockDbChain(mockSuppliers)
+        : mockDbChain([{ count: mockSuppliers.length }]);
+    });
+  });
+
   describe("GET /api/suppliers", () => {
     it("should return paginated list of suppliers", async () => {
       // Create test app with mocked authentication
@@ -256,31 +279,36 @@ describe("Supplier List API", () => {
       expect(result.data.limit).toBe(20);
     });
 
-    it("should return 401 when not authenticated", async () => {
-      // Create app without authentication mock
+    it("should surface an error when no user is in context", async () => {
+      // Global `test-server` preload stubs `authenticatedRoute` to skip JWT —
+      // requests without an outer `.derive(() => ({ user }))` reach the
+      // handler with no `user`. That is not a realistic 401 branch (the real
+      // `authenticate` plugin would intercept first); handler throws internally.
       const app = withApiErrorHandler(new Elysia().use(listSuppliersRoute));
 
       const response = await app.handle(
         new Request("http://localhost/suppliers")
       );
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(500);
     });
 
     it("should handle database errors gracefully", async () => {
+      mockSelect.mockImplementationOnce(() => {
+        throw new Error("Simulated DB failure");
+      });
+
       const app = withApiErrorHandler(
         new Elysia().derive(() => ({ user: mockUser })).use(listSuppliersRoute)
       );
-
-      // Note: In a real test, we'd mock the db to throw an error
-      // For now, we're testing that the route is properly structured
 
       const response = await app.handle(
         new Request("http://localhost/suppliers")
       );
 
-      // Should either succeed or return 500 error
-      expect([200, 500]).toContain(response.status);
+      expect(response.status).toBe(500);
+      const body = (await response.json()) as ApiResult<unknown>;
+      expect(body.success).toBe(false);
     });
 
     it("should default to page 1 when page parameter is missing", async () => {
