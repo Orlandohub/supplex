@@ -157,7 +157,10 @@ export const listSuppliersRoute = new Elysia({ prefix: "/suppliers" })
         status: t.Optional(t.Array(t.String())),
         category: t.Optional(t.Array(t.String())),
         page: t.Optional(t.Numeric({ minimum: 1 })),
-        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+        // Cap is enforced below via `limitNum`; the schema intentionally allows
+        // values > 100 so clients receive 200 + `limit: 100` instead of 422 when
+        // they overshoot (see suppliers list acceptance tests).
+        limit: t.Optional(t.Numeric({ minimum: 1 })),
         sort: t.Optional(t.String()),
       }),
       detail: {
