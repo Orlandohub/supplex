@@ -1,7 +1,7 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { Elysia } from "elysia";
 import type { ApiResult, Supplier } from "@supplex/types";
-import { UserRole } from "@supplex/types";
+import { SupplierCategory, SupplierStatus, UserRole } from "@supplex/types";
 import { listSuppliersRoute } from "../list";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import {
@@ -41,9 +41,9 @@ const mockSuppliers: Supplier[] = [
     tenantId: TENANT_ID,
     name: "Acme Corp",
     taxId: "TAX-001",
-    category: "raw_materials",
-    status: "approved",
-    performanceScore: "4.5",
+    category: SupplierCategory.RAW_MATERIALS,
+    status: SupplierStatus.APPROVED,
+    performanceScore: 4.5,
     contactName: "John Doe",
     contactEmail: "john@acme.com",
     contactPhone: "+1234567890",
@@ -56,7 +56,9 @@ const mockSuppliers: Supplier[] = [
     },
     certifications: [],
     metadata: {},
-    riskScore: "2.5",
+    riskScore: 2.5,
+    supplierStatusId: null,
+    supplierUserId: null,
     createdBy: USER_ID,
     createdAt: new Date("2024-01-01"),
     updatedAt: new Date("2024-01-15"),
@@ -67,9 +69,9 @@ const mockSuppliers: Supplier[] = [
     tenantId: TENANT_ID,
     name: "Beta Supplies",
     taxId: "TAX-002",
-    category: "components",
-    status: "conditional",
-    performanceScore: "3.2",
+    category: SupplierCategory.COMPONENTS,
+    status: SupplierStatus.CONDITIONAL,
+    performanceScore: 3.2,
     contactName: "Jane Smith",
     contactEmail: "jane@beta.com",
     contactPhone: "+1987654321",
@@ -82,7 +84,9 @@ const mockSuppliers: Supplier[] = [
     },
     certifications: [],
     metadata: {},
-    riskScore: "5.0",
+    riskScore: 5,
+    supplierStatusId: null,
+    supplierUserId: null,
     createdBy: USER_ID,
     createdAt: new Date("2024-01-02"),
     updatedAt: new Date("2024-01-16"),
