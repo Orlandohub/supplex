@@ -121,24 +121,10 @@ const SKIPPED_FILES: { path: string; reason: string; followUp: string }[] = [
     followUp: "SUP-7 sub-task 9a-5",
   },
   {
-    path: "src/routes/suppliers/__tests__/create.test.ts",
-    reason: "route + un-mocked db; placeholder UUID fixtures",
-    followUp: "SUP-7 sub-task 9a-5",
-  },
-  {
-    path: "src/routes/suppliers/__tests__/detail.test.ts",
-    reason: "route + un-mocked db; placeholder UUID fixtures",
-    followUp: "SUP-7 sub-task 9a-5",
-  },
-  {
-    path: "src/routes/suppliers/__tests__/update-contact.test.ts",
-    reason: "route + un-mocked db; placeholder UUID fixtures",
-    followUp: "SUP-7 sub-task 9a-5",
-  },
-  {
     path: "src/routes/suppliers/by-user.test.ts",
-    reason: "route + un-mocked db; placeholder UUID fixtures",
-    followUp: "SUP-7 sub-task 9a-5",
+    reason:
+      "full-app Treaty + JWT + error contract mismatch; needs rework before CI",
+    followUp: "SUP-22",
   },
   {
     path: "src/routes/workflow-templates/__tests__/document-template-integration.test.ts",

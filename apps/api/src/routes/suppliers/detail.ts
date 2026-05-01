@@ -129,6 +129,15 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
     "/:id/status",
     async ({ params, body, user, requestLogger }) => {
       try {
+        if (
+          !user?.role ||
+          ![UserRole.ADMIN, UserRole.PROCUREMENT_MANAGER].includes(user.role)
+        ) {
+          throw Errors.forbidden(
+            "Access denied. Required role: Admin or Procurement Manager"
+          );
+        }
+
         const { id } = params;
         const { status } = body;
         const tenantId = user.tenantId;
@@ -220,6 +229,10 @@ export const supplierDetailRoutes = new Elysia({ prefix: "/suppliers" })
     "/:id",
     async ({ params, user, requestLogger }) => {
       try {
+        if (!user?.role || user.role !== UserRole.ADMIN) {
+          throw Errors.forbidden("Access denied. Required role: Admin");
+        }
+
         const { id } = params;
         const tenantId = user.tenantId;
 

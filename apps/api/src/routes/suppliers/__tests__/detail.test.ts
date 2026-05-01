@@ -1,19 +1,22 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { Elysia } from "elysia";
-import { supplierDetailRoutes } from "../detail";
 import type { AuthContext } from "../../../lib/rbac/middleware";
 import type { ApiResult, Supplier } from "@supplex/types";
 import { UserRole } from "@supplex/types";
+import type { SelectSupplier } from "@supplex/db";
+import type { CachedUserAuth } from "../../../lib/auth-cache";
 import {
+  createMockDb,
   expectErrResult,
   expectOkResult,
+  mockDbChain,
+  type MockDb,
   withApiErrorHandler,
 } from "../../../lib/test-utils";
 
 /**
  * Response body shape for `GET /api/suppliers/:id`. The route returns the
- * supplier row joined with creator metadata (see
- * `apps/api/src/routes/suppliers/detail.ts`).
+ * supplier row joined with creator metadata (see `detail.ts`).
  */
 interface SupplierDetailData {
   supplier: Supplier & {
@@ -27,12 +30,14 @@ interface SupplierDeleteData {
   message: string;
 }
 
-// Mock data
+const TENANT_ID = "650e8400-e29b-41d4-a716-446655440000";
+const SUPPLIER_ID = "880e8400-e29b-41d4-a716-446655440050";
+
 const mockAdminUser: AuthContext["user"] = {
   id: "550e8400-e29b-41d4-a716-446655440001",
   email: "admin@example.com",
   role: UserRole.ADMIN,
-  tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  tenantId: TENANT_ID,
   fullName: "Test User",
 };
 
@@ -40,7 +45,7 @@ const mockProcurementUser: AuthContext["user"] = {
   id: "550e8400-e29b-41d4-a716-446655440002",
   email: "procurement@example.com",
   role: UserRole.PROCUREMENT_MANAGER,
-  tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  tenantId: TENANT_ID,
   fullName: "Test User",
 };
 
@@ -48,54 +53,200 @@ const mockViewerUser: AuthContext["user"] = {
   id: "550e8400-e29b-41d4-a716-446655440003",
   email: "viewer@example.com",
   role: UserRole.VIEWER,
-  tenantId: "650e8400-e29b-41d4-a716-446655440000",
+  tenantId: TENANT_ID,
   fullName: "Test User",
 };
 
-const mockSupplier = {
-  id: "550e8400-e29b-41d4-a716-446655440000",
-  tenantId: "650e8400-e29b-41d4-a716-446655440000",
-  name: "Acme Corp",
-  taxId: "TAX-001",
-  category: "raw_materials",
-  status: "approved",
-  performanceScore: "4.5",
-  contactName: "John Doe",
-  contactEmail: "john@acme.com",
-  contactPhone: "+1234567890",
-  address: {
-    street: "123 Main St",
-    city: "New York",
-    state: "NY",
-    postalCode: "10001",
-    country: "USA",
-  },
-  certifications: [
-    {
-      type: "ISO 9001",
-      issueDate: new Date("2023-01-01"),
-      expiryDate: new Date("2026-01-01"),
-      documentId: "750e8400-e29b-41d4-a716-446655440000",
-    },
-  ],
-  metadata: { notes: "Primary supplier for raw materials" },
-  riskScore: "2.5",
-  createdBy: "550e8400-e29b-41d4-a716-446655440001",
-  createdAt: new Date("2024-01-01"),
-  updatedAt: new Date("2024-01-15"),
-  deletedAt: null,
+/** Admin user in another tenant (GET/DELETE isolation). */
+const OTHER_TENANT_ADMIN: AuthContext["user"] = {
+  id: "550e8400-e29b-41d4-a716-446655440099",
+  email: "other@example.com",
+  role: UserRole.ADMIN,
+  tenantId: "650e8400-e29b-41d4-a716-446655440099",
+  fullName: "Test User",
 };
 
-// const mockCreatedByUser = {
-//   id: "550e8400-e29b-41d4-a716-446655440001",
-//   email: "admin@example.com",
-//   firstName: "Admin",
-//   lastName: "User",
-// };
+const TENANT22_ADMIN: AuthContext["user"] = {
+  id: "550e8400-e29b-41d4-a716-446655440022",
+  email: "user2@example.com",
+  role: UserRole.ADMIN,
+  tenantId: "650e8400-e29b-41d4-a716-446655440022",
+  fullName: "Test User",
+};
+
+class JWTVerificationErrorDetail extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "JWTVerificationError";
+    this.code = code;
+  }
+}
+
+/** Synthetic bearer values — `requireRole` chains run the real `authenticate` plugin. */
+const DETAIL_AUTH_TOKEN_TO_USER: Record<string, AuthContext["user"]> = {
+  "detail-jwt-admin": mockAdminUser,
+  "detail-jwt-procurement": mockProcurementUser,
+  "detail-jwt-viewer": mockViewerUser,
+  "detail-jwt-other-tenant": OTHER_TENANT_ADMIN,
+  "detail-jwt-tenant22": TENANT22_ADMIN,
+};
+
+const USER_BY_ID: Record<string, AuthContext["user"]> = Object.fromEntries(
+  Object.values(DETAIL_AUTH_TOKEN_TO_USER).map((u) => [u.id, u])
+);
+
+mock.module("../../../lib/jwt-verifier", () => ({
+  JWTVerificationError: JWTVerificationErrorDetail,
+  verifyJWT: mock(async (token: string) => {
+    const user = DETAIL_AUTH_TOKEN_TO_USER[token];
+    if (!user) {
+      throw new JWTVerificationErrorDetail(
+        "JWT token is invalid or malformed",
+        "INVALID_TOKEN"
+      );
+    }
+    return {
+      sub: user.id,
+      email: user.email,
+      role: "authenticated",
+      aud: "authenticated",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iat: Math.floor(Date.now() / 1000),
+      app_metadata: { role: user.role, tenant_id: user.tenantId },
+      user_metadata: { full_name: user.fullName },
+    };
+  }),
+}));
+
+mock.module("../../../lib/auth-cache", () => ({
+  authCache: {
+    get: mock(async (userId: string): Promise<CachedUserAuth | null> => {
+      const user = USER_BY_ID[userId];
+      if (!user) return null;
+      return {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+        fullName: user.fullName,
+        isActive: true,
+        cachedAt: Date.now(),
+      };
+    }),
+    set: mock(async () => {}),
+    invalidate: mock(async () => {}),
+  },
+}));
+
+function baseSupplierRow(): SelectSupplier {
+  return {
+    id: SUPPLIER_ID,
+    tenantId: TENANT_ID,
+    name: "Acme Corp",
+    taxId: "TAX-001",
+    category: "raw_materials",
+    status: "approved",
+    performanceScore: "4.5",
+    contactName: "John Doe",
+    contactEmail: "john@acme.com",
+    contactPhone: "+1234567890",
+    address: {
+      street: "123 Main St",
+      city: "New York",
+      state: "NY",
+      postalCode: "10001",
+      country: "USA",
+    },
+    certifications: [
+      {
+        type: "ISO 9001",
+        issueDate: new Date("2023-01-01"),
+        expiryDate: new Date("2026-01-01"),
+        documentId: "750e8400-e29b-41d4-a716-446655440000",
+      },
+    ],
+    metadata: { notes: "Primary supplier for raw materials" },
+    riskScore: "2.5",
+    supplierStatusId: null,
+    supplierUserId: null,
+    createdBy: mockAdminUser.id,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-15"),
+    deletedAt: null,
+  };
+}
+
+/** GET path: `{ supplier, createdByUser }` join row. */
+function joinDetailRow(row: SelectSupplier = baseSupplierRow()) {
+  return {
+    supplier: row,
+    createdByUser: {
+      id: mockAdminUser.id,
+      email: mockAdminUser.email,
+      fullName: mockAdminUser.fullName,
+    },
+  };
+}
+
+const mockSupplier = joinDetailRow().supplier;
+
+const mockSelect = mock(() => mockDbChain<unknown>([]));
+const mockUpdate = mock(() => mockDbChain<unknown>([]));
+
+let selectQueue: unknown[][] = [];
+let updateQueue: unknown[][] = [];
+
+const mockDb = createMockDb({
+  overrides: {
+    select: mockSelect as MockDb["select"],
+    update: mockUpdate as MockDb["update"],
+  },
+  queryTables: ["users"],
+});
+
+mockSelect.mockImplementation(() => mockDbChain(selectQueue.shift() ?? []));
+mockUpdate.mockImplementation(() => mockDbChain(updateQueue.shift() ?? []));
+
+mock.module("../../../lib/db", () => ({ db: mockDb }));
+
+import { supplierDetailRoutes } from "../detail";
+
+/**
+ * `requireRole` mounts the real {@link authenticate} plugin. It reads
+ * `Authorization: Bearer <token>` rather than the outer `.derive` user.
+ */
+function bearerForMutatingRoutes(
+  user: AuthContext["user"]
+): Record<string, string> {
+  const entry = Object.entries(DETAIL_AUTH_TOKEN_TO_USER).find(
+    ([, u]) => u.id === user.id
+  );
+  const token = entry?.[0];
+  if (!token)
+    throw new Error(`No JWT bearer stub mapped for user.id=${user.id}`);
+  return { Authorization: `Bearer ${token}` };
+}
+
+function jsonMutationHeaders(user: AuthContext["user"]) {
+  return {
+    ...bearerForMutatingRoutes(user),
+    "Content-Type": "application/json",
+  };
+}
 
 describe("Supplier Detail API", () => {
+  beforeEach(() => {
+    selectQueue = [];
+    updateQueue = [];
+    mockSelect.mockClear();
+    mockUpdate.mockClear();
+  });
+
   describe("GET /api/suppliers/:id", () => {
     it("should return supplier details for valid ID", async () => {
+      selectQueue.push([joinDetailRow()]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -133,6 +284,8 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for non-existent supplier ID", async () => {
+      selectQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -153,38 +306,29 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for soft-deleted supplier", async () => {
-      // Test that soft-deleted suppliers are not accessible
+      selectQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
           .use(supplierDetailRoutes)
       );
 
-      // In a real test, we'd mock a soft-deleted supplier
-      // For now, we're testing the structure handles this case
       const response = await app.handle(
         new Request(
-          "http://localhost/suppliers/550e8400-e29b-41d4-a716-446655440001"
+          `http://localhost/suppliers/550e8400-e29b-41d4-a716-446655440001`
         )
       );
 
-      // Should return 404 for soft-deleted suppliers
-      expect([404, 200]).toContain(response.status);
+      expect(response.status).toBe(404);
     });
 
     it("should return 404 when accessing different tenant's supplier", async () => {
-      // User from different tenant trying to access our mock supplier
-      const differentTenantUser: AuthContext["user"] = {
-        id: "550e8400-e29b-41d4-a716-446655440099",
-        email: "other@example.com",
-        role: UserRole.ADMIN,
-        tenantId: "650e8400-e29b-41d4-a716-446655440099",
-        fullName: "Test User",
-      };
+      selectQueue.push([]);
 
       const app = withApiErrorHandler(
         new Elysia()
-          .derive(() => ({ user: differentTenantUser }))
+          .derive(() => ({ user: OTHER_TENANT_ADMIN }))
           .use(supplierDetailRoutes)
       );
 
@@ -201,6 +345,8 @@ describe("Supplier Detail API", () => {
     });
 
     it("should include created_by user information", async () => {
+      selectQueue.push([joinDetailRow()]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -211,17 +357,17 @@ describe("Supplier Detail API", () => {
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
-      if (response.status === 200) {
-        const result = (await response.json()) as ApiResult<SupplierDetailData>;
-        expectOkResult(result);
-        expect(result.data.supplier).toBeDefined();
-        // The response should include created_by user information
-        // This is verified by the join in the query
-      }
+      expect(response.status).toBe(200);
+      const result = (await response.json()) as ApiResult<SupplierDetailData>;
+      expectOkResult(result);
+      expect(result.data.supplier).toBeDefined();
+      expect(result.data.supplier.createdByName).toBeDefined();
+      expect(result.data.supplier.createdByEmail).toBeDefined();
     });
 
     it("should allow any authenticated user to view supplier details", async () => {
-      // Test that Viewer role can also access supplier details
+      selectQueue.push([joinDetailRow()]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockViewerUser }))
@@ -232,21 +378,26 @@ describe("Supplier Detail API", () => {
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
-      // Should succeed for Viewer role (read-only access)
-      expect([200, 404]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
-    it("should return 401 when not authenticated", async () => {
+    it("should surface an error when no user is in context", async () => {
+      // Global `test-server` preload stubs `authenticatedRoute` to skip JWT —
+      // requests without an outer `.derive(() => ({ user }))` reach the
+      // handler with no `user`. That is not a realistic 401 branch (the real
+      // `authenticate` plugin would intercept first); handler throws internally.
       const app = withApiErrorHandler(new Elysia().use(supplierDetailRoutes));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(500);
     });
 
     it("should handle database errors gracefully", async () => {
+      selectQueue.push([joinDetailRow()]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -257,11 +408,12 @@ describe("Supplier Detail API", () => {
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
 
-      // Should either succeed or return proper error
-      expect([200, 404, 500]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     it("should respond in less than 500ms (performance requirement)", async () => {
+      selectQueue.push([joinDetailRow()]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -277,16 +429,18 @@ describe("Supplier Detail API", () => {
       const endTime = performance.now();
       const executionTime = endTime - startTime;
 
-      // Logging disabled for tests
-      // console.log(`Detail endpoint execution time: ${executionTime.toFixed(2)}ms`);
-
-      // Relaxed for unit test environment, production should be < 500ms
       expect(executionTime).toBeLessThan(2000);
     });
   });
 
   describe("PATCH /api/suppliers/:id/status", () => {
     it("should allow Admin to update supplier status", async () => {
+      const row = baseSupplierRow();
+      selectQueue.push([row]);
+      updateQueue.push([
+        { ...row, status: "qualified", updatedAt: new Date() },
+      ]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -296,16 +450,21 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonMutationHeaders(mockAdminUser),
           body: JSON.stringify({ status: "qualified" }),
         })
       );
 
-      // Should succeed or return 404 if supplier doesn't exist in test DB
-      expect([200, 404]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     it("should allow Procurement Manager to update supplier status", async () => {
+      const row = baseSupplierRow();
+      selectQueue.push([row]);
+      updateQueue.push([
+        { ...row, status: "conditional", updatedAt: new Date() },
+      ]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockProcurementUser }))
@@ -315,26 +474,21 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonMutationHeaders(mockProcurementUser),
           body: JSON.stringify({ status: "conditional" }),
         })
       );
 
-      // Should succeed or return 404 if supplier doesn't exist
-      expect([200, 404]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     it("should return 403 for Viewer role", async () => {
-      const app = withApiErrorHandler(
-        new Elysia()
-          .derive(() => ({ user: mockViewerUser }))
-          .use(supplierDetailRoutes)
-      );
+      const app = withApiErrorHandler(new Elysia().use(supplierDetailRoutes));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonMutationHeaders(mockViewerUser),
           body: JSON.stringify({ status: "qualified" }),
         })
       );
@@ -355,7 +509,7 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonMutationHeaders(mockAdminUser),
           body: JSON.stringify({ status: "invalid_status" }),
         })
       );
@@ -376,7 +530,7 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request("http://localhost/suppliers/invalid-uuid/status", {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonMutationHeaders(mockAdminUser),
           body: JSON.stringify({ status: "qualified" }),
         })
       );
@@ -388,6 +542,8 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for non-existent supplier", async () => {
+      selectQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -399,7 +555,7 @@ describe("Supplier Detail API", () => {
           "http://localhost/suppliers/550e8400-e29b-41d4-a716-446655440099/status",
           {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: jsonMutationHeaders(mockAdminUser),
             body: JSON.stringify({ status: "qualified" }),
           }
         )
@@ -412,6 +568,12 @@ describe("Supplier Detail API", () => {
     });
 
     it("should accept optional note parameter", async () => {
+      const row = baseSupplierRow();
+      selectQueue.push([row]);
+      updateQueue.push([
+        { ...row, status: "qualified", updatedAt: new Date() },
+      ]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -421,7 +583,7 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonMutationHeaders(mockAdminUser),
           body: JSON.stringify({
             status: "qualified",
             note: "Passed initial quality assessment",
@@ -429,17 +591,11 @@ describe("Supplier Detail API", () => {
         })
       );
 
-      // Should succeed or return 404
-      expect([200, 404]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     it("should validate all status enum values", async () => {
-      const app = withApiErrorHandler(
-        new Elysia()
-          .derive(() => ({ user: mockAdminUser }))
-          .use(supplierDetailRoutes)
-      );
-
+      const row = baseSupplierRow();
       const validStatuses = [
         "prospect",
         "qualified",
@@ -448,17 +604,25 @@ describe("Supplier Detail API", () => {
         "blocked",
       ];
 
+      const app = withApiErrorHandler(
+        new Elysia()
+          .derive(() => ({ user: mockAdminUser }))
+          .use(supplierDetailRoutes)
+      );
+
       for (const status of validStatuses) {
+        selectQueue.push([row]);
+        updateQueue.push([{ ...row, status, updatedAt: new Date() }]);
+
         const response = await app.handle(
           new Request(`http://localhost/suppliers/${mockSupplier.id}/status`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: jsonMutationHeaders(mockAdminUser),
             body: JSON.stringify({ status }),
           })
         );
 
-        // Should accept all valid status values
-        expect([200, 404]).toContain(response.status);
+        expect(response.status).toBe(200);
       }
     });
 
@@ -479,6 +643,10 @@ describe("Supplier Detail API", () => {
 
   describe("DELETE /api/suppliers/:id", () => {
     it("should allow Admin to delete supplier", async () => {
+      const row = baseSupplierRow();
+      selectQueue.push([row]);
+      updateQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -488,23 +656,20 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(mockAdminUser),
         })
       );
 
-      // Should succeed or return 404 if supplier doesn't exist
-      expect([200, 404]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     it("should return 403 for Procurement Manager role", async () => {
-      const app = withApiErrorHandler(
-        new Elysia()
-          .derive(() => ({ user: mockProcurementUser }))
-          .use(supplierDetailRoutes)
-      );
+      const app = withApiErrorHandler(new Elysia().use(supplierDetailRoutes));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(mockProcurementUser),
         })
       );
 
@@ -515,15 +680,12 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 403 for Viewer role", async () => {
-      const app = withApiErrorHandler(
-        new Elysia()
-          .derive(() => ({ user: mockViewerUser }))
-          .use(supplierDetailRoutes)
-      );
+      const app = withApiErrorHandler(new Elysia().use(supplierDetailRoutes));
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(mockViewerUser),
         })
       );
 
@@ -543,6 +705,7 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request("http://localhost/suppliers/invalid-uuid", {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(mockAdminUser),
         })
       );
 
@@ -553,6 +716,8 @@ describe("Supplier Detail API", () => {
     });
 
     it("should return 404 for non-existent supplier", async () => {
+      selectQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -564,6 +729,7 @@ describe("Supplier Detail API", () => {
           "http://localhost/suppliers/550e8400-e29b-41d4-a716-446655440099",
           {
             method: "DELETE",
+            headers: bearerForMutatingRoutes(mockAdminUser),
           }
         )
       );
@@ -575,8 +741,10 @@ describe("Supplier Detail API", () => {
     });
 
     it("should perform soft delete (not physical delete)", async () => {
-      // This test verifies that the delete operation sets deleted_at
-      // In a real test with database access, we'd verify deleted_at is set
+      const row = baseSupplierRow();
+      selectQueue.push([row]);
+      updateQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -586,14 +754,18 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(mockAdminUser),
         })
       );
 
-      // The implementation should set deleted_at timestamp, not physically delete
-      expect([200, 404]).toContain(response.status);
+      expect(response.status).toBe(200);
     });
 
     it("should return success message on successful delete", async () => {
+      const row = baseSupplierRow();
+      selectQueue.push([row]);
+      updateQueue.push([]);
+
       const app = withApiErrorHandler(
         new Elysia()
           .derive(() => ({ user: mockAdminUser }))
@@ -603,14 +775,14 @@ describe("Supplier Detail API", () => {
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(mockAdminUser),
         })
       );
 
-      if (response.status === 200) {
-        const result = (await response.json()) as ApiResult<SupplierDeleteData>;
-        expectOkResult(result);
-        expect(result.data.message).toContain("deleted successfully");
-      }
+      expect(response.status).toBe(200);
+      const result = (await response.json()) as ApiResult<SupplierDeleteData>;
+      expectOkResult(result);
+      expect(result.data.message).toContain("deleted successfully");
     });
 
     it("should return 401 when not authenticated", async () => {
@@ -626,23 +798,18 @@ describe("Supplier Detail API", () => {
     });
 
     it("should enforce tenant isolation on delete", async () => {
-      const differentTenantUser: AuthContext["user"] = {
-        id: "550e8400-e29b-41d4-a716-446655440099",
-        email: "other@example.com",
-        role: UserRole.ADMIN,
-        tenantId: "650e8400-e29b-41d4-a716-446655440099",
-        fullName: "Test User",
-      };
+      selectQueue.push([]);
 
       const app = withApiErrorHandler(
         new Elysia()
-          .derive(() => ({ user: differentTenantUser }))
+          .derive(() => ({ user: OTHER_TENANT_ADMIN }))
           .use(supplierDetailRoutes)
       );
 
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`, {
           method: "DELETE",
+          headers: bearerForMutatingRoutes(OTHER_TENANT_ADMIN),
         })
       );
 
@@ -655,21 +822,14 @@ describe("Supplier Detail API", () => {
 
   describe("Tenant Isolation Tests", () => {
     it("should enforce tenant isolation across all endpoints", async () => {
-      const tenant2User: AuthContext["user"] = {
-        id: "550e8400-e29b-41d4-a716-446655440022",
-        email: "user2@example.com",
-        role: UserRole.ADMIN,
-        tenantId: "650e8400-e29b-41d4-a716-446655440022",
-        fullName: "Test User",
-      };
+      selectQueue.push([]);
 
       const app = withApiErrorHandler(
         new Elysia()
-          .derive(() => ({ user: tenant2User }))
+          .derive(() => ({ user: TENANT22_ADMIN }))
           .use(supplierDetailRoutes)
       );
 
-      // Supplier belongs to mockSupplier.tenantId, user is from different tenant
       const response = await app.handle(
         new Request(`http://localhost/suppliers/${mockSupplier.id}`)
       );
