@@ -11,7 +11,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
- * PUT /api/workflow-templates/:workflowId
+ * PUT /api/workflow-templates/:templateId
  * Update workflow template metadata (name, description only)
  *
  * Auth: Requires Admin role
@@ -23,17 +23,17 @@ export const updateWorkflowTemplateRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .put(
-    "/:workflowId",
+    "/:templateId",
     async ({ params, body, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId } = params;
+        const { templateId } = params;
         const { name, description, active, workflowTypeId } = body;
 
         // Check if template exists and belongs to tenant
         const existing = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -68,7 +68,7 @@ export const updateWorkflowTemplateRoute = new Elysia()
         const [updated] = await db
           .update(workflowTemplate)
           .set(updates)
-          .where(eq(workflowTemplate.id, workflowId))
+          .where(eq(workflowTemplate.id, templateId))
           .returning();
 
         if (!updated) throw new Error("Failed to update workflow template");
@@ -96,7 +96,7 @@ export const updateWorkflowTemplateRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
       }),
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 255 })),

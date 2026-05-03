@@ -7,7 +7,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
- * DELETE /api/workflow-templates/:workflowId/steps/:stepId
+ * DELETE /api/workflow-templates/:templateId/steps/:stepId
  * Delete a workflow step
  *
  * Auth: Requires Admin role
@@ -20,16 +20,16 @@ export const deleteStepRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .delete(
-    "/:workflowId/steps/:stepId",
+    "/:templateId/steps/:stepId",
     async ({ params, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId, stepId } = params;
+        const { templateId, stepId } = params;
 
         // Verify template and step exist
         const template = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -50,7 +50,7 @@ export const deleteStepRoute = new Elysia()
         const step = await db.query.workflowStepTemplate.findFirst({
           where: and(
             eq(workflowStepTemplate.id, stepId),
-            eq(workflowStepTemplate.workflowTemplateId, workflowId),
+            eq(workflowStepTemplate.workflowTemplateId, templateId),
             eq(workflowStepTemplate.tenantId, tenantId),
             isNull(workflowStepTemplate.deletedAt)
           ),
@@ -81,7 +81,7 @@ export const deleteStepRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
         stepId: t.String(),
       }),
     }

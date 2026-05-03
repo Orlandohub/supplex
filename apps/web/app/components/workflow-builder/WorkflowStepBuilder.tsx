@@ -238,7 +238,6 @@ export function WorkflowStepBuilder({
     try {
       const response = await withTreatyBranch(
         client.api["workflow-templates"]({
-          workflowId: templateId,
           templateId,
         }),
         "steps"
@@ -337,7 +336,6 @@ export function WorkflowStepBuilder({
       if (editingStep) {
         const response = await withTreatyBranch(
           client.api["workflow-templates"]({
-            workflowId: templateId,
             templateId,
           }),
           "steps"
@@ -356,7 +354,6 @@ export function WorkflowStepBuilder({
       } else {
         const response = await withTreatyBranch(
           client.api["workflow-templates"]({
-            workflowId: templateId,
             templateId,
           }),
           "steps"
@@ -395,7 +392,6 @@ export function WorkflowStepBuilder({
     try {
       const response = await withTreatyBranch(
         client.api["workflow-templates"]({
-          workflowId: templateId,
           templateId,
         }),
         "steps"
@@ -470,7 +466,6 @@ export function WorkflowStepBuilder({
     try {
       const response = await withTreatyBranch(
         client.api["workflow-templates"]({
-          workflowId: templateId,
           templateId,
         }),
         "steps"

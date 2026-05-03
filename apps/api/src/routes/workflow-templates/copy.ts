@@ -2,7 +2,7 @@
  * Copy Workflow Template Endpoint
  * Story: 2.2.14 - Remove Template Versioning, Add Copy Functionality
  *
- * POST /api/workflow-templates/:id/copy
+ * POST /api/workflow-templates/:templateId/copy
  * Creates a deep copy of a workflow template with all steps and approvers
  */
 
@@ -18,9 +18,9 @@ import {
 import { Errors } from "../../lib/errors";
 
 export const copyWorkflowTemplate = new Elysia().use(requireAdmin).post(
-  "/workflow-templates/:id/copy",
+  "/:templateId/copy",
   async ({ params, body, user }) => {
-    const { id } = params;
+    const { templateId } = params;
 
     // Fetch original template with tenant isolation
     const [originalTemplate] = await db
@@ -28,7 +28,7 @@ export const copyWorkflowTemplate = new Elysia().use(requireAdmin).post(
       .from(workflowTemplate)
       .where(
         and(
-          eq(workflowTemplate.id, id),
+          eq(workflowTemplate.id, templateId),
           eq(workflowTemplate.tenantId, user.tenantId),
           isNull(workflowTemplate.deletedAt)
         )
@@ -130,7 +130,7 @@ export const copyWorkflowTemplate = new Elysia().use(requireAdmin).post(
   },
   {
     params: t.Object({
-      id: t.String(),
+      templateId: t.String(),
     }),
     body: t.Object({
       name: t.Optional(t.String()),

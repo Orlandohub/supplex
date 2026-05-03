@@ -71,7 +71,6 @@ export function WorkflowTemplateEditor({
       const client = createClientEdenTreatyClient(token);
       const response = await withTreatyBranch(
         client.api["workflow-templates"]({
-          workflowId: template.id,
           templateId: template.id,
         }),
         "publish"

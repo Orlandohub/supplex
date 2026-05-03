@@ -7,7 +7,7 @@ import { eq, and, isNull, inArray } from "drizzle-orm";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
- * PUT /api/workflow-templates/:workflowId/steps/reorder
+ * PUT /api/workflow-templates/:templateId/steps/reorder
  * Reorder workflow steps
  *
  * Auth: Requires Admin role
@@ -20,17 +20,17 @@ export const reorderStepsRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .put(
-    "/:workflowId/steps/reorder",
+    "/:templateId/steps/reorder",
     async ({ params, body, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId } = params;
+        const { templateId } = params;
         const { stepOrders } = body; // Array of { stepId, order }
 
         // Verify template exists
         const template = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -60,7 +60,7 @@ export const reorderStepsRoute = new Elysia()
               .where(
                 and(
                   eq(workflowStepTemplate.id, stepId),
-                  eq(workflowStepTemplate.workflowTemplateId, workflowId),
+                  eq(workflowStepTemplate.workflowTemplateId, templateId),
                   eq(workflowStepTemplate.tenantId, tenantId),
                   isNull(workflowStepTemplate.deletedAt)
                 )
@@ -90,7 +90,7 @@ export const reorderStepsRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
       }),
       body: t.Object({
         stepOrders: t.Array(

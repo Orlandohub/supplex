@@ -11,7 +11,7 @@ import { eq, and, isNull, desc } from "drizzle-orm";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
- * POST /api/workflow-templates/:workflowId/steps
+ * POST /api/workflow-templates/:templateId/steps
  * Create a new step in a workflow template
  *
  * Auth: Requires Admin role
@@ -24,16 +24,16 @@ export const createStepRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .post(
-    "/:workflowId/steps",
+    "/:templateId/steps",
     async ({ params, body, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId } = params;
+        const { templateId } = params;
 
         // Verify template exists
         const template = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -107,7 +107,7 @@ export const createStepRoute = new Elysia()
         // Get max step_order
         const maxStepOrder = await db.query.workflowStepTemplate.findFirst({
           where: and(
-            eq(workflowStepTemplate.workflowTemplateId, workflowId),
+            eq(workflowStepTemplate.workflowTemplateId, templateId),
             eq(workflowStepTemplate.tenantId, tenantId),
             isNull(workflowStepTemplate.deletedAt)
           ),
@@ -120,7 +120,7 @@ export const createStepRoute = new Elysia()
         const [newStep] = await db
           .insert(workflowStepTemplate)
           .values({
-            workflowTemplateId: workflowId,
+            workflowTemplateId: templateId,
             tenantId,
             stepOrder: nextOrder,
             name: body.name,
@@ -156,7 +156,7 @@ export const createStepRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
       }),
       body: t.Object({
         name: t.String({ minLength: 1, maxLength: 255 }),
