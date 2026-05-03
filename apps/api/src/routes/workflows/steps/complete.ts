@@ -30,6 +30,11 @@ import {
   logWorkflowEventTx,
   WorkflowEventType,
 } from "../../../services/workflow-event-logger";
+import {
+  SUPPLIER_SUBMIT_INVARIANT_ERROR_PREFIX,
+  assertSupplierSubmitInvariantInTx,
+} from "../../../lib/workflow-engine/assert-supplier-submit-invariants";
+import { tryGetErrorMessage } from "../../../lib/error-utils";
 
 export const completeStepRoute = new Elysia().use(authenticatedRoute).post(
   "/steps/:stepInstanceId/complete",
@@ -56,6 +61,28 @@ export const completeStepRoute = new Elysia().use(authenticatedRoute).post(
           );
         }
 
+        let preSubmitStepStatus: string | null = null;
+        const [preSubmitStepRow] = await db
+          .select({ status: stepInstance.status })
+          .from(stepInstance)
+          .where(
+            and(
+              eq(stepInstance.id, stepInstanceId),
+              eq(stepInstance.tenantId, user.tenantId)
+            )
+          )
+          .limit(1);
+        preSubmitStepStatus = preSubmitStepRow?.status ?? null;
+        requestLogger.debug(
+          {
+            event: "workflow_step_submit_pre_snapshot",
+            correlationId: corrId,
+            stepInstanceId,
+            actorUserId: user.id,
+            preStepStatus: preSubmitStepStatus,
+          },
+          "workflow step submit pre-transaction snapshot"
+        );
         // Wrap engine mutation + event logging in a single transaction
         const result = await db.transaction(async (tx) => {
           const stepResult = await completeStep(tx, {
@@ -68,12 +95,26 @@ export const completeStepRoute = new Elysia().use(authenticatedRoute).post(
           if (!stepResult.success) {
             throw new Error(stepResult.error || "Step completion failed");
           }
+          await assertSupplierSubmitInvariantInTx(tx, {
+            tenantId: user.tenantId,
+            stepInstanceId,
+            stepResult,
+            correlationId: corrId,
+            actorUserId: user.id,
+            log: requestLogger,
+            preStepStatus: preSubmitStepStatus,
+          });
 
           // Read step + process + template inside tx for event context
           const [stepForLog] = await tx
             .select()
             .from(stepInstance)
-            .where(eq(stepInstance.id, stepInstanceId));
+            .where(
+              and(
+                eq(stepInstance.id, stepInstanceId),
+                eq(stepInstance.tenantId, user.tenantId)
+              )
+            );
 
           const [processForLog] = stepForLog
             ? await tx
@@ -155,23 +196,6 @@ export const completeStepRoute = new Elysia().use(authenticatedRoute).post(
 
           return stepResult;
         });
-
-        // Post-commit verification
-        const [verifyStep] = await db
-          .select({ status: stepInstance.status })
-          .from(stepInstance)
-          .where(eq(stepInstance.id, stepInstanceId));
-
-        if (verifyStep?.status === "active") {
-          requestLogger.error(
-            {
-              stepInstanceId,
-              verifiedStepStatus: verifyStep?.status,
-            },
-            "PHANTOM COMMIT DETECTED: transaction reported success but step still active"
-          );
-          throw Errors.internal("Step completion failed — please try again");
-        }
 
         return {
           success: true,
@@ -537,6 +561,19 @@ export const completeStepRoute = new Elysia().use(authenticatedRoute).post(
       }
     } catch (error) {
       if (error instanceof ApiError) throw error;
+      const invMsg = tryGetErrorMessage(error) ?? "";
+      if (invMsg.includes(SUPPLIER_SUBMIT_INVARIANT_ERROR_PREFIX)) {
+        requestLogger.error(
+          {
+            event: "workflow_step_submit_invariant_failed",
+            correlationId: corrId,
+            stepInstanceId,
+            actorUserId: user?.id,
+          },
+          "workflow step submit invariant failed — transaction rolled back"
+        );
+        throw Errors.internal("Step completion inconsistent — please retry");
+      }
       requestLogger.error({ err: error }, "error completing step");
       throw Errors.internal("Failed to complete step");
     }
