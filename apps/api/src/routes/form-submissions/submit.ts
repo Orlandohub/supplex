@@ -6,6 +6,7 @@ import {
   formSection,
   formField,
   stepInstance,
+  SubmissionStatus,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -25,6 +26,10 @@ import {
   tryGetErrorMessage,
   getErrorName,
 } from "../../lib/error-utils";
+import {
+  SUPPLIER_SUBMIT_INVARIANT_ERROR_PREFIX,
+  assertSupplierSubmitInvariantInTx,
+} from "../../lib/workflow-engine/assert-supplier-submit-invariants";
 
 /**
  * POST /api/form-submissions/:submissionId/submit
@@ -38,6 +43,7 @@ import {
  * - Validates ALL required fields have answers
  * - Validates all answer formats
  * - For workflow-linked forms: wraps form status update + completeStep in a single transaction
+ * - In-txn invariant verifies form submitted + terminal step status before event logging returns
  * - For standalone forms: updates form status directly
  * Returns: Updated submission
  */
@@ -45,7 +51,7 @@ export const submitRoute = new Elysia()
   .use(authenticatedRoute)
   .post(
     "/:submissionId/submit",
-    async ({ params, user, set, requestLogger }) => {
+    async ({ params, user, set, requestLogger, correlationId }) => {
       try {
         const tenantId = user.tenantId;
         const userId = user.id;
@@ -173,6 +179,33 @@ export const submitRoute = new Elysia()
           // Capture the narrowed `stepInstanceId` so the transaction callback
           // (a separate closure) preserves the non-null type without `!`.
           const stepInstanceIdLocal = submissionRecord.stepInstanceId;
+          let preStepStatusForInvariant: string | null = null;
+          const [preStepRow] = await db
+            .select({ status: stepInstance.status })
+            .from(stepInstance)
+            .where(
+              and(
+                eq(stepInstance.id, stepInstanceIdLocal),
+                eq(stepInstance.tenantId, tenantId)
+              )
+            )
+            .limit(1);
+          preStepStatusForInvariant = preStepRow?.status ?? null;
+          requestLogger.debug(
+            {
+              event: "form_submit_pre_tx_snapshot",
+              correlationId,
+              submissionId,
+              stepInstanceId: stepInstanceIdLocal,
+              actorUserId: userId,
+              preFormStatus: submissionRecord.status,
+              preStepStatus: preStepStatusForInvariant,
+              sameSubmissionIdRetryCandidate:
+                submissionRecord.status === "draft",
+            },
+            "form submit pre-transaction snapshot"
+          );
+
           // Workflow-linked: wrap form update + completeStep + event logging in a single transaction
           try {
             const txResult = await db.transaction(async (tx) => {
@@ -183,8 +216,19 @@ export const submitRoute = new Elysia()
                   submittedAt: new Date(),
                   updatedAt: new Date(),
                 })
-                .where(eq(formSubmission.id, submissionId))
+                .where(
+                  and(
+                    eq(formSubmission.id, submissionId),
+                    eq(formSubmission.tenantId, tenantId),
+                    isNull(formSubmission.deletedAt),
+                    eq(formSubmission.status, SubmissionStatus.DRAFT)
+                  )
+                )
                 .returning();
+
+              if (!txSubmission) {
+                throw new Error("FORM_SUBMIT_DRAFT_ROW_MISSING_OR_CONFLICT");
+              }
 
               const stepResult = await completeStep(tx, {
                 tenantId,
@@ -197,6 +241,18 @@ export const submitRoute = new Elysia()
                 throw new Error(stepResult.error || "Step completion failed");
               }
 
+              await assertSupplierSubmitInvariantInTx(tx, {
+                tenantId,
+                stepInstanceId: stepInstanceIdLocal,
+                submissionId,
+                stepResult,
+                correlationId,
+                actorUserId: userId,
+                log: requestLogger,
+                preFormStatus: submissionRecord.status,
+                preStepStatus: preStepStatusForInvariant,
+              });
+
               // Event logging — atomic with state changes
               const [step] = await tx
                 .select({
@@ -204,7 +260,12 @@ export const submitRoute = new Elysia()
                   stepName: stepInstance.stepName,
                 })
                 .from(stepInstance)
-                .where(eq(stepInstance.id, stepInstanceIdLocal));
+                .where(
+                  and(
+                    eq(stepInstance.id, stepInstanceIdLocal),
+                    eq(stepInstance.tenantId, tenantId)
+                  )
+                );
 
               if (step) {
                 const isResubmission =
@@ -243,7 +304,12 @@ export const submitRoute = new Elysia()
                   const [nextStep] = await tx
                     .select({ stepName: stepInstance.stepName })
                     .from(stepInstance)
-                    .where(eq(stepInstance.id, stepResult.data.nextStepId));
+                    .where(
+                      and(
+                        eq(stepInstance.id, stepResult.data.nextStepId),
+                        eq(stepInstance.tenantId, tenantId)
+                      )
+                    );
                   await logWorkflowEventTx(tx, {
                     tenantId,
                     processInstanceId:
@@ -263,33 +329,6 @@ export const submitRoute = new Elysia()
 
             updatedSubmission = txResult.updatedSubmission;
             stepCompletionResult = txResult.stepResult;
-
-            // Post-commit verification: read back step + form status to detect phantom commits
-            const [verifyStep] = await db
-              .select({ status: stepInstance.status })
-              .from(stepInstance)
-              .where(eq(stepInstance.id, stepInstanceIdLocal));
-
-            const [verifyForm] = await db
-              .select({ status: formSubmission.status })
-              .from(formSubmission)
-              .where(eq(formSubmission.id, submissionId));
-
-            if (
-              verifyStep?.status === "active" ||
-              verifyForm?.status !== "submitted"
-            ) {
-              requestLogger.error(
-                {
-                  submissionId,
-                  stepId: submissionRecord.stepInstanceId,
-                  verifiedStepStatus: verifyStep?.status,
-                  verifiedFormStatus: verifyForm?.status,
-                },
-                "PHANTOM COMMIT DETECTED: transaction reported success but state unchanged"
-              );
-              throw Errors.internal("Submission failed — please try again");
-            }
           } catch (txError: unknown) {
             if (txError instanceof ApiError || isApiErrorLike(txError))
               throw txError;
@@ -303,6 +342,28 @@ export const submitRoute = new Elysia()
               "form submit transaction failed"
             );
             const msg = tryGetErrorMessage(txError) ?? "";
+
+            if (msg.includes(SUPPLIER_SUBMIT_INVARIANT_ERROR_PREFIX)) {
+              requestLogger.error(
+                {
+                  event: "form_submit_invariant_violation",
+                  correlationId,
+                  submissionId,
+                  stepInstanceId: stepInstanceIdLocal,
+                  actorUserId: userId,
+                  inferredRetrySameSubmissionId: submissionId,
+                },
+                "form submit invariant failed — transaction rolled back"
+              );
+              throw Errors.internal(
+                "Submission failed due to inconsistent state — please retry"
+              );
+            }
+            if (msg.includes("FORM_SUBMIT_DRAFT_ROW_MISSING_OR_CONFLICT")) {
+              throw Errors.conflict(
+                "Submission changed while saving — refresh and try again"
+              );
+            }
             if (
               msg.includes("not in active state") ||
               msg.includes("already processed")
