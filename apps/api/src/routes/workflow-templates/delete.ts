@@ -9,7 +9,7 @@ import { logAuditEvent } from "../../lib/audit/logger";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
- * DELETE /api/workflow-templates/:workflowId
+ * DELETE /api/workflow-templates/:templateId
  * Soft delete workflow template
  *
  * Auth: Requires Admin role
@@ -21,16 +21,16 @@ export const deleteWorkflowTemplateRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .delete(
-    "/:workflowId",
+    "/:templateId",
     async ({ params, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId } = params;
+        const { templateId } = params;
 
         // Check if template exists and belongs to tenant
         const existing = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -46,14 +46,14 @@ export const deleteWorkflowTemplateRoute = new Elysia()
             deletedAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(workflowTemplate.id, workflowId));
+          .where(eq(workflowTemplate.id, templateId));
 
         await logAuditEvent({
           tenantId,
           userId: user.id,
           action: AuditAction.WORKFLOW_TEMPLATE_DELETED,
           details: {
-            templateId: workflowId,
+            templateId,
             templateName: existing.name,
             templateStatus: existing.status,
           },
@@ -71,7 +71,7 @@ export const deleteWorkflowTemplateRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
       }),
     }
   );

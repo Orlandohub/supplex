@@ -11,7 +11,7 @@ import {
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
- * PATCH /api/workflow-templates/:id/publish
+ * PATCH /api/workflow-templates/:templateId/publish
  * Toggle workflow template publish status (Admin only)
  *
  * Auth: Requires Admin role

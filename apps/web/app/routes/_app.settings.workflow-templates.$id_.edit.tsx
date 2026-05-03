@@ -8,7 +8,6 @@ import { useLoaderData, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { withTreatyBranch } from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -59,10 +58,9 @@ export async function loader(args: LoaderFunctionArgs) {
   const client = createEdenTreatyClient(token);
 
   try {
-    const templateResponse = await withTreatyBranch(
-      client.api["workflow-templates"]({ workflowId: id, templateId: id }),
-      "get"
-    ).get();
+    const templateResponse = await client.api["workflow-templates"]({
+      templateId: id,
+    }).get();
 
     if (templateResponse.error) {
       const status = templateResponse.status || 500;

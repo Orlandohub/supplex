@@ -404,7 +404,6 @@ export default function WorkflowTemplatesPage() {
       const client = createClientEdenTreatyClient(token);
       const response = await withTreatyBranch(
         client.api["workflow-templates"]({
-          workflowId: templateId,
           templateId,
         }),
         "toggle-active"
@@ -445,7 +444,6 @@ export default function WorkflowTemplatesPage() {
       const client = createClientEdenTreatyClient(token);
       const response = await withTreatyBranch(
         client.api["workflow-templates"]({
-          workflowId: deleteTemplateId,
           templateId: deleteTemplateId,
         }),
         "delete"

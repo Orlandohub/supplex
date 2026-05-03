@@ -7,7 +7,7 @@ import { eq, and, isNull, asc } from "drizzle-orm";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
- * GET /api/workflow-templates/:workflowId/steps
+ * GET /api/workflow-templates/:templateId/steps
  * Get ordered list of steps for a workflow template
  *
  * Auth: Requires Admin role
@@ -18,16 +18,16 @@ export const listStepsRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .get(
-    "/:workflowId/steps",
+    "/:templateId/steps",
     async ({ params, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId } = params;
+        const { templateId } = params;
 
         // Verify template exists
         const template = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -39,7 +39,7 @@ export const listStepsRoute = new Elysia()
 
         const steps = await db.query.workflowStepTemplate.findMany({
           where: and(
-            eq(workflowStepTemplate.workflowTemplateId, workflowId),
+            eq(workflowStepTemplate.workflowTemplateId, templateId),
             eq(workflowStepTemplate.tenantId, tenantId),
             isNull(workflowStepTemplate.deletedAt)
           ),
@@ -58,7 +58,7 @@ export const listStepsRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
       }),
     }
   );

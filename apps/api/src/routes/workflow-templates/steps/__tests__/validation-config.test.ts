@@ -76,20 +76,12 @@ describe("Workflow Step Validation Config API", () => {
     await db.delete(tenants).where(eq(tenants.id, tenant.id));
   });
 
-  // Treaty's typed dynamic-path syntax: `client.api["workflow-templates"]
-  // ({ workflowId, templateId })...`. Both keys must be supplied because
-  // the workflow-templates router mounts step routes (`:workflowId`)
-  // alongside publish / toggle-active routes (`:templateId`); Treaty's
-  // path inference collapses the two into a single union so callers fill
-  // both. Bracket indexing previously hid the issue behind `as any` — the
-  // function-call form keeps body/response types end-to-end inferred.
-  //
-  // The result of `client.api["workflow-templates"]({...})` is a Treaty
-  // union of the two siblings (publish/toggle-active vs. steps/get/post/
-  // put/delete) — both runtime paths are identical, but TypeScript can't
-  // tell them apart structurally. We pick the steps-bearing branch via
-  // `Extract` to preserve full body/response inference for `steps.post`,
-  // `steps.put`, etc., without resorting to `as any`.
+  // Treaty's dynamic-path call `client.api["workflow-templates"]({ templateId })`
+  // nests step routes (`:templateId/steps/...`), publish (`:templateId/publish`),
+  // etc., under one segment name (`templateId` = workflow_template.id).
+  // TypeScript merges branches into a union; `StepsBranch` narrow keeps
+  // `steps.post|put...` inferred without resorting to `as any`.
+
   type WorkflowTemplateBranches = ReturnType<
     (typeof client.api)["workflow-templates"]
   >;
@@ -98,17 +90,9 @@ describe("Workflow Step Validation Config API", () => {
   function stepsRoot(id: string): StepsBranch["steps"] {
     return (
       client.api["workflow-templates"]({
-        workflowId: id,
         templateId: id,
       }) as StepsBranch
     ).steps;
-  }
-
-  function templateRoot(id: string): StepsBranch {
-    return client.api["workflow-templates"]({
-      workflowId: id,
-      templateId: id,
-    }) as StepsBranch;
   }
 
   const authHeaders = () => ({
@@ -282,7 +266,9 @@ describe("Workflow Step Validation Config API", () => {
     const created = createResponse.data.data as WorkflowStepFixture;
     const stepId = created.id;
 
-    const getResponse = await templateRoot(template.id).get(authHeaders());
+    const getResponse = await client.api["workflow-templates"]({
+      templateId: template.id,
+    }).get(authHeaders());
 
     expect(getResponse.status).toBe(200);
     if (!getResponse.data?.success) {

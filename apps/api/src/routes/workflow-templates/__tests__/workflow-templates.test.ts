@@ -185,7 +185,7 @@ describe("Workflow Template API", () => {
     });
   });
 
-  describe("GET /api/workflow-templates/:workflowId - Get Single Template", () => {
+  describe("GET /api/workflow-templates/:templateId - Get Single Template", () => {
     const testId = "550e8400-e29b-41d4-a716-446655440099";
 
     it("should get template for Admin user", async () => {
@@ -222,7 +222,7 @@ describe("Workflow Template API", () => {
     });
   });
 
-  describe("PUT /api/workflow-templates/:workflowId - Update Template", () => {
+  describe("PUT /api/workflow-templates/:templateId - Update Template", () => {
     const testId = "550e8400-e29b-41d4-a716-446655440099";
 
     it("should update template for Admin user", async () => {
@@ -272,7 +272,7 @@ describe("Workflow Template API", () => {
     });
   });
 
-  describe("DELETE /api/workflow-templates/:workflowId - Delete Template", () => {
+  describe("DELETE /api/workflow-templates/:templateId - Delete Template", () => {
     const testId = "550e8400-e29b-41d4-a716-446655440099";
 
     it("should delete template for Admin user", async () => {

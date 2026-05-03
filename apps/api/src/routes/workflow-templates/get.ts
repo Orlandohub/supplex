@@ -7,7 +7,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
- * GET /api/workflow-templates/:workflowId
+ * GET /api/workflow-templates/:templateId
  * Get a single workflow template by ID
  *
  * Auth: Requires Admin role
@@ -18,16 +18,16 @@ export const getWorkflowTemplateRoute = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .get(
-    "/:workflowId",
+    "/:templateId",
     async ({ params, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
-        const { workflowId } = params;
+        const { templateId } = params;
 
         // Fetch template with its steps and approvers
         const template = await db.query.workflowTemplate.findFirst({
           where: and(
-            eq(workflowTemplate.id, workflowId),
+            eq(workflowTemplate.id, templateId),
             eq(workflowTemplate.tenantId, tenantId),
             isNull(workflowTemplate.deletedAt)
           ),
@@ -52,7 +52,7 @@ export const getWorkflowTemplateRoute = new Elysia()
     },
     {
       params: t.Object({
-        workflowId: t.String(),
+        templateId: t.String(),
       }),
     }
   );
