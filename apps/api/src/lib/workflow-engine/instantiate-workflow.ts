@@ -135,6 +135,14 @@ export async function instantiateWorkflow(
         throw new Error("Workflow template has no steps");
       }
 
+      // Treat the lowest-ordered template row as the canonical first step,
+      // so templates with non-contiguous step_order values (e.g. legacy data
+      // where step 1 was deleted without compaction) still instantiate cleanly.
+      const firstStepTemplate = stepTemplates[0];
+      if (!firstStepTemplate) {
+        throw new Error("Workflow template has no steps");
+      }
+
       // Batch insert all step instances at once
       const createdSteps = await tx
         .insert(stepInstance)
@@ -147,16 +155,19 @@ export async function instantiateWorkflow(
             stepType: st.stepType,
             workflowStepTemplateId: st.id,
             status:
-              st.stepOrder === 1 ? ("active" as const) : ("blocked" as const),
+              st.id === firstStepTemplate.id
+                ? ("active" as const)
+                : ("blocked" as const),
             metadata: {},
           }))
         )
         .returning();
 
-      const firstStep = createdSteps.find((s) => s.stepOrder === 1);
-      const firstStepTemplate = stepTemplates.find((st) => st.stepOrder === 1);
+      const firstStep = createdSteps.find(
+        (s) => s.workflowStepTemplateId === firstStepTemplate.id
+      );
 
-      if (firstStep && firstStepTemplate) {
+      if (firstStep) {
         await createTasksForStep(
           tx,
           firstStep.id,

@@ -66,7 +66,8 @@ export const instantiateRoute = new Elysia()
         }
 
         const { processInstance: process, steps } = result.data;
-        const firstStep = steps.find((s) => s.stepOrder === 1);
+        const firstStep =
+          steps.find((s) => s.id === process.currentStepInstanceId) ?? steps[0];
 
         // Event logging OUTSIDE the transaction (fire-and-forget)
         logWorkflowEvent({

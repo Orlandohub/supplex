@@ -212,6 +212,70 @@ describe("Workflow Instantiation", () => {
       .where(eq(workflowTemplate.id, emptyWorkflow.id));
   });
 
+  test("activates lowest-ordered step when step_order has gaps (legacy delete data)", async () => {
+    // Simulates a published template that was edited before delete-time
+    // compaction, so the surviving step still has step_order = 2.
+    const gappedTemplate = await insertOneOrThrow(db, workflowTemplate, {
+      tenantId,
+      name: "Gapped Workflow",
+      status: "published",
+      active: true,
+      createdBy: userId,
+    });
+
+    await db.insert(workflowStepTemplate).values([
+      {
+        tenantId,
+        workflowTemplateId: gappedTemplate.id,
+        stepOrder: 2,
+        name: "Originally Step 2",
+        stepType: "form",
+        taskTitle: "Fill out form",
+        dueDays: 7,
+        assigneeType: "role",
+        assigneeRole: "admin",
+      },
+    ]);
+
+    const result = await instantiateWorkflow(db, {
+      tenantId,
+      workflowTemplateId: gappedTemplate.id,
+      entityType: "supplier",
+      entityId: crypto.randomUUID(),
+      initiatedBy: userId,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("expected success");
+
+    const { processInstance: process, steps } = result.data;
+    expect(steps.length).toBe(1);
+    const onlyStep = steps[0];
+    if (!onlyStep) throw new Error("expected step");
+    expect(onlyStep.stepOrder).toBe(2);
+    expect(onlyStep.status).toBe("active");
+    expect(process.currentStepInstanceId).toBe(onlyStep.id);
+
+    const tasks = await db
+      .select()
+      .from(taskInstance)
+      .where(eq(taskInstance.stepInstanceId, onlyStep.id));
+    expect(tasks.length).toBeGreaterThan(0);
+
+    // Cleanup order matters: workflow_step_template -> workflow_template FK is
+    // ON DELETE RESTRICT (migration 0020) to preserve process history, so step
+    // template rows must be removed before the parent template can be deleted.
+    // step_instance.workflow_step_template_id is ON DELETE SET NULL, so the
+    // CASCADE from process_instance deletion already releases that reference.
+    await db.delete(processInstance).where(eq(processInstance.id, process.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.workflowTemplateId, gappedTemplate.id));
+    await db
+      .delete(workflowTemplate)
+      .where(eq(workflowTemplate.id, gappedTemplate.id));
+  });
+
   test("batch insert creates all steps in correct order", async () => {
     const entityId = crypto.randomUUID();
 

@@ -5,6 +5,7 @@ import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { eq, and, isNull } from "drizzle-orm";
 import { ApiError, Errors } from "../../../lib/errors";
+import { compactWorkflowTemplateStepOrders } from "./compact-step-orders";
 
 /**
  * DELETE /api/workflow-templates/:templateId/steps/:stepId
@@ -60,14 +61,26 @@ export const deleteStepRoute = new Elysia()
           throw Errors.notFound("Step not found");
         }
 
-        // Soft delete step
-        await db
-          .update(workflowStepTemplate)
-          .set({
-            deletedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(workflowStepTemplate.id, stepId));
+        // Soft delete step and compact remaining step_order values to 1..n
+        // so downstream consumers (instantiation, transitions) keep working.
+        await db.transaction(async (tx) => {
+          const now = new Date();
+
+          await tx
+            .update(workflowStepTemplate)
+            .set({
+              deletedAt: now,
+              updatedAt: now,
+            })
+            .where(eq(workflowStepTemplate.id, stepId));
+
+          await compactWorkflowTemplateStepOrders(
+            tx,
+            templateId,
+            tenantId,
+            now
+          );
+        });
 
         return {
           success: true,
