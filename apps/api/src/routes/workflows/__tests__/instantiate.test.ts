@@ -262,7 +262,15 @@ describe("Workflow Instantiation", () => {
       .where(eq(taskInstance.stepInstanceId, onlyStep.id));
     expect(tasks.length).toBeGreaterThan(0);
 
+    // Cleanup order matters: workflow_step_template -> workflow_template FK is
+    // ON DELETE RESTRICT (migration 0020) to preserve process history, so step
+    // template rows must be removed before the parent template can be deleted.
+    // step_instance.workflow_step_template_id is ON DELETE SET NULL, so the
+    // CASCADE from process_instance deletion already releases that reference.
     await db.delete(processInstance).where(eq(processInstance.id, process.id));
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.workflowTemplateId, gappedTemplate.id));
     await db
       .delete(workflowTemplate)
       .where(eq(workflowTemplate.id, gappedTemplate.id));
