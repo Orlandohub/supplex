@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
-import { formTemplate } from "@supplex/db";
+import { formTemplate, insertDraftFormTemplateVersion } from "@supplex/db";
 import { requireAdmin } from "../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
@@ -39,6 +39,11 @@ export const createFormTemplateRoute = new Elysia()
         if (!newTemplate) {
           throw Errors.internal("Failed to create form template");
         }
+
+        await insertDraftFormTemplateVersion(db, {
+          formTemplateId: newTemplate.id,
+          tenantId,
+        });
 
         set.status = 201;
         return {

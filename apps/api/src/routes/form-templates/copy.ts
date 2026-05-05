@@ -7,12 +7,13 @@
  */
 
 import { Elysia, t } from "elysia";
-import { db } from "@supplex/db";
+import { db } from "../../lib/db";
 import {
   formTemplate,
   formSection,
   formField,
   FormTemplateStatus,
+  insertDraftFormTemplateVersion,
 } from "@supplex/db";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
@@ -62,6 +63,11 @@ export const copyFormTemplate = new Elysia()
           if (!newTemplate)
             throw new Error("Failed to create form template copy");
 
+          const draftVersion = await insertDraftFormTemplateVersion(tx, {
+            formTemplateId: newTemplate.id,
+            tenantId: user.tenantId,
+          });
+
           const sections = await tx
             .select()
             .from(formSection)
@@ -79,6 +85,7 @@ export const copyFormTemplate = new Elysia()
               .insert(formSection)
               .values({
                 formTemplateId: newTemplate.id,
+                formTemplateVersionId: draftVersion.id,
                 tenantId: user.tenantId,
                 sectionOrder: section.sectionOrder,
                 title: section.title,
@@ -106,6 +113,7 @@ export const copyFormTemplate = new Elysia()
               await tx.insert(formField).values(
                 fields.map((field) => ({
                   formSectionId: newSection.id,
+                  formTemplateVersionId: draftVersion.id,
                   tenantId: user.tenantId,
                   fieldOrder: field.fieldOrder,
                   fieldType: field.fieldType,

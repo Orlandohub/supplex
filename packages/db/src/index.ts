@@ -81,6 +81,11 @@ export {
   formTemplateStatusEnum,
   FormTemplateStatus,
 } from "./schema/form-template";
+export {
+  formTemplateVersion,
+  formTemplateVersionStatusEnum,
+  FormTemplateVersionStatus,
+} from "./schema/form-template-version";
 export { formSection } from "./schema/form-section";
 export { formField, fieldTypeEnum, FieldType } from "./schema/form-field";
 export {
@@ -156,10 +161,10 @@ export type {
   InsertFormTemplate,
   SelectFormTemplate,
 } from "./schema/form-template";
-// export type {
-//   InsertFormTemplateVersion,
-//   SelectFormTemplateVersion,
-// } from "./schema/form-template-version"; // REMOVED - Story 2.2.14
+export type {
+  InsertFormTemplateVersion,
+  SelectFormTemplateVersion,
+} from "./schema/form-template-version";
 export type {
   InsertFormSection,
   SelectFormSection,
@@ -209,3 +214,4 @@ export type {
  * Export tenant context helpers
  */
 export * from "./helpers/tenant-context";
+export * from "./helpers/form-template-version";

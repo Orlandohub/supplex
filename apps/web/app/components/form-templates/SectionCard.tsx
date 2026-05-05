@@ -21,7 +21,10 @@ import {
 } from "~/components/ui/alert-dialog";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { withTreatyBranch } from "~/lib/api-helpers";
+import {
+  formTemplatesIndexParamsForTemplateId,
+  withTreatyBranch,
+} from "~/lib/api-helpers";
 import { Plus, Edit, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { FieldCard } from "./FieldCard";
 import { EditSectionModal } from "./EditSectionModal";
@@ -117,10 +120,9 @@ export function SectionCard({
 
       const client = createClientEdenTreatyClient(token);
       const response = await withTreatyBranch(
-        client.api["form-templates"]({
-          id: templateId,
-          templateId,
-        }),
+        client.api["form-templates"](
+          formTemplatesIndexParamsForTemplateId(templateId)
+        ),
         "sections"
       ).sections.reorder.post({
         sectionIds,
