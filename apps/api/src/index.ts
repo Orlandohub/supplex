@@ -124,14 +124,14 @@ const app = new Elysia()
   // API routes - Auth
   .group("/api", (app) => {
     // Always register standard auth routes
-    app = app.use(registerRoute).use(acceptInvitationRoute);
+    const authRoutes = app.use(registerRoute).use(acceptInvitationRoute);
 
     if (config.nodeEnv === "development") {
       logger.info("development quick login enabled");
-      app = app.use(devListUsersRoute).use(devLoginRoute);
+      return authRoutes.use(devListUsersRoute).use(devLoginRoute);
     }
 
-    return app;
+    return authRoutes;
   })
   // Other API routes (each has its own /api prefix)
   .use(usersRoutes)

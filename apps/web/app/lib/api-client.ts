@@ -9,6 +9,7 @@ import { toast } from "sonner";
  */
 
 const API_URL = config.apiUrl;
+type EdenClient = ReturnType<typeof treaty<App>>;
 
 /**
  * Custom fetch wrapper that handles auth-related HTTP errors centrally.
@@ -86,7 +87,7 @@ function handleUnauthorized(): void {
  * On the server, `handleUnauthorized()` is a no-op (no `window`), so 401/403
  * detection still propagates to the loader without browser-only side effects.
  */
-export function createEdenTreatyClient(token: string) {
+export function createEdenTreatyClient(token: string): EdenClient {
   return treaty<App>(API_URL, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -99,7 +100,7 @@ export function createEdenTreatyClient(token: string) {
  * Create Eden Treaty client for client-side API calls.
  * Token should be obtained from the current session.
  */
-export function createClientEdenTreatyClient(token: string) {
+export function createClientEdenTreatyClient(token: string): EdenClient {
   return treaty<App>(API_URL, {
     headers: {
       Authorization: `Bearer ${token}`,
