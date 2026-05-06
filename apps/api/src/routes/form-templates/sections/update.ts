@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formSection, formTemplate } from "@supplex/db";
+import { formSection, formTemplateVersion } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
@@ -28,12 +28,15 @@ export const updateSectionRoute = new Elysia()
         const [section] = await db
           .select({
             section: formSection,
-            templateStatus: formTemplate.status,
+            versionNumber: formTemplateVersion.versionNumber,
           })
           .from(formSection)
           .innerJoin(
-            formTemplate,
-            eq(formSection.formTemplateId, formTemplate.id)
+            formTemplateVersion,
+            and(
+              eq(formSection.formTemplateVersionId, formTemplateVersion.id),
+              eq(formTemplateVersion.tenantId, tenantId)
+            )
           )
           .where(
             and(
@@ -51,10 +54,10 @@ export const updateSectionRoute = new Elysia()
           );
         }
 
-        if (section.templateStatus !== "draft") {
+        if (section.versionNumber !== null) {
           throw Errors.badRequest(
-            "Cannot modify section in published template. Please copy the template to make changes.",
-            "TEMPLATE_PUBLISHED"
+            "Cannot modify section in an immutable published version snapshot.",
+            "IMMUTABLE_FORM_VERSION"
           );
         }
 

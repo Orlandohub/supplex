@@ -1,6 +1,12 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formField, formSection, formTemplate } from "@supplex/db";
+import {
+  formField,
+  formSection,
+  formTemplate,
+  formTemplateVersion,
+  getDraftFormTemplateVersionForTemplate,
+} from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
@@ -27,12 +33,20 @@ export const reorderFieldsRoute = new Elysia()
         const { sectionId } = params;
         const { fieldIds } = body;
 
-        const [section] = await db
+        const [row] = await db
           .select({
             section: formSection,
+            versionNumber: formTemplateVersion.versionNumber,
             templateStatus: formTemplate.status,
           })
           .from(formSection)
+          .innerJoin(
+            formTemplateVersion,
+            and(
+              eq(formSection.formTemplateVersionId, formTemplateVersion.id),
+              eq(formTemplateVersion.tenantId, tenantId)
+            )
+          )
           .innerJoin(
             formTemplate,
             eq(formSection.formTemplateId, formTemplate.id)
@@ -46,17 +60,39 @@ export const reorderFieldsRoute = new Elysia()
           )
           .limit(1);
 
-        if (!section) {
+        if (!row) {
           throw Errors.notFound(
             "Section not found or you don't have access to it",
             "SECTION_NOT_FOUND"
           );
         }
 
-        if (section.templateStatus !== "draft") {
+        if (row.templateStatus === "archived") {
           throw Errors.badRequest(
-            "Cannot reorder fields in published template. Please copy the template to make changes.",
-            "TEMPLATE_PUBLISHED"
+            "Cannot reorder fields in an archived template",
+            "TEMPLATE_ARCHIVED"
+          );
+        }
+
+        const draftVersion = await getDraftFormTemplateVersionForTemplate(db, {
+          formTemplateId: row.section.formTemplateId,
+          tenantId,
+        });
+
+        if (!draftVersion) {
+          throw Errors.badRequest(
+            "Cannot reorder fields without an active draft structure",
+            "NO_DRAFT_STRUCTURE"
+          );
+        }
+
+        if (
+          row.section.formTemplateVersionId !== draftVersion.id ||
+          row.versionNumber !== null
+        ) {
+          throw Errors.badRequest(
+            "Can only reorder fields on the mutable draft structure",
+            "IMMUTABLE_FORM_VERSION"
           );
         }
 
@@ -66,6 +102,7 @@ export const reorderFieldsRoute = new Elysia()
           .where(
             and(
               eq(formField.formSectionId, sectionId),
+              eq(formField.formTemplateVersionId, draftVersion.id),
               eq(formField.tenantId, tenantId),
               inArray(formField.id, fieldIds),
               isNull(formField.deletedAt)

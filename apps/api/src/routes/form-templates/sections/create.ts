@@ -16,7 +16,7 @@ import { ApiError, Errors } from "../../../lib/errors";
  *
  * Auth: Requires Admin role
  * Tenant: Enforces tenant isolation
- * Validation: Template must be in 'draft' status (can't modify published templates)
+ * Validation: Container must not be archived; structure is appended to the mutable draft version.
  * Returns: Created section
  */
 export const createSectionRoute = new Elysia()
@@ -49,10 +49,10 @@ export const createSectionRoute = new Elysia()
           );
         }
 
-        if (template.status !== "draft") {
+        if (template.status === "archived") {
           throw Errors.badRequest(
-            "Cannot modify published template. Please copy the template to make changes.",
-            "TEMPLATE_PUBLISHED"
+            "Cannot modify archived template.",
+            "TEMPLATE_ARCHIVED"
           );
         }
 
@@ -62,8 +62,9 @@ export const createSectionRoute = new Elysia()
         });
 
         if (!draftVersion) {
-          throw Errors.internal(
-            "Form template has no draft version row; cannot create section"
+          throw Errors.badRequest(
+            "No draft structure available to add sections to",
+            "NO_DRAFT_STRUCTURE"
           );
         }
 

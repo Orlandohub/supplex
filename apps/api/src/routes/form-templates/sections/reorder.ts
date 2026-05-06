@@ -1,6 +1,10 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formSection, formTemplate } from "@supplex/db";
+import {
+  formSection,
+  formTemplate,
+  getDraftFormTemplateVersionForTemplate,
+} from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
@@ -42,10 +46,22 @@ export const reorderSectionsRoute = new Elysia()
           );
         }
 
-        if (template.status !== "draft") {
+        const draftVersion = await getDraftFormTemplateVersionForTemplate(db, {
+          formTemplateId: templateId,
+          tenantId,
+        });
+
+        if (!draftVersion) {
           throw Errors.badRequest(
-            "Cannot reorder sections in published template. Please copy the template to make changes.",
-            "TEMPLATE_PUBLISHED"
+            "Cannot reorder sections without an active draft structure",
+            "NO_DRAFT_STRUCTURE"
+          );
+        }
+
+        if (template.status === "archived") {
+          throw Errors.badRequest(
+            "Cannot reorder sections in an archived template",
+            "TEMPLATE_ARCHIVED"
           );
         }
 
@@ -55,6 +71,7 @@ export const reorderSectionsRoute = new Elysia()
           .where(
             and(
               eq(formSection.formTemplateId, templateId),
+              eq(formSection.formTemplateVersionId, draftVersion.id),
               eq(formSection.tenantId, tenantId),
               inArray(formSection.id, sectionIds),
               isNull(formSection.deletedAt)
@@ -63,7 +80,7 @@ export const reorderSectionsRoute = new Elysia()
 
         if (sections.length !== sectionIds.length) {
           throw Errors.badRequest(
-            "Some section IDs are invalid or don't belong to this version",
+            "Some section IDs are invalid or don't belong to the draft structure",
             "INVALID_SECTION_IDS"
           );
         }
