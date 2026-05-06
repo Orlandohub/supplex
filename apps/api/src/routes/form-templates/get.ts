@@ -1,7 +1,14 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
-import { formTemplate, formSection, formField } from "@supplex/db";
-import { eq, and, isNull, asc } from "drizzle-orm";
+import {
+  formTemplate,
+  formSection,
+  formField,
+  getDraftFormTemplateVersionForTemplate,
+  getPublishedHeadFormTemplateVersion,
+  getLatestImmutableFormTemplateVersion,
+} from "@supplex/db";
+import { eq, and, isNull, asc, inArray } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
@@ -50,12 +57,50 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
         );
       }
 
+      let structureVersionId: string | undefined;
+
+      if (user.role === UserRole.ADMIN) {
+        const draft = await getDraftFormTemplateVersionForTemplate(db, {
+          formTemplateId: templateId,
+          tenantId,
+        });
+        if (draft) {
+          structureVersionId = draft.id;
+        } else {
+          const fallback = await getLatestImmutableFormTemplateVersion(db, {
+            formTemplateId: templateId,
+            tenantId,
+          });
+          structureVersionId = fallback?.id;
+        }
+      } else {
+        const head = await getPublishedHeadFormTemplateVersion(db, {
+          formTemplateId: templateId,
+          tenantId,
+        });
+        structureVersionId =
+          head?.id ??
+          (
+            await getLatestImmutableFormTemplateVersion(db, {
+              formTemplateId: templateId,
+              tenantId,
+            })
+          )?.id;
+      }
+
+      if (!structureVersionId) {
+        throw Errors.internal(
+          "Form template exists but has no addressable structure version"
+        );
+      }
+
       const sections = await db
         .select()
         .from(formSection)
         .where(
           and(
             eq(formSection.formTemplateId, templateId),
+            eq(formSection.formTemplateVersionId, structureVersionId),
             eq(formSection.tenantId, tenantId),
             isNull(formSection.deletedAt)
           )
@@ -70,22 +115,31 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
               .from(formField)
               .where(
                 and(
+                  eq(formField.formTemplateVersionId, structureVersionId),
                   eq(formField.tenantId, tenantId),
+                  inArray(formField.formSectionId, sectionIds),
                   isNull(formField.deletedAt)
                 )
               )
               .orderBy(asc(formField.fieldOrder))
           : [];
 
-      const sectionsWithFields = sections.map((section) => {
-        const sectionFields = fields.filter(
-          (f) => f.formSectionId === section.id
-        );
-        return {
-          ...section,
-          fields: sectionFields,
-        };
-      });
+      const fieldsBySection = new Map<string, typeof fields>();
+      for (const sid of sectionIds) {
+        fieldsBySection.set(sid, []);
+      }
+      for (const f of fields) {
+        const list = fieldsBySection.get(f.formSectionId);
+        if (list) list.push(f);
+      }
+      for (const sid of sectionIds) {
+        fieldsBySection.get(sid)?.sort((a, b) => a.fieldOrder - b.fieldOrder);
+      }
+
+      const sectionsWithFields = sections.map((section) => ({
+        ...section,
+        fields: fieldsBySection.get(section.id) ?? [],
+      }));
 
       return {
         success: true,
@@ -107,7 +161,7 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
     detail: {
       summary: "Get form template by ID",
       description:
-        "Get complete form template structure with sections and fields",
+        "Get complete form template structure with nested sections and fields",
       tags: ["Form Templates"],
     },
   }

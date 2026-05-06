@@ -215,3 +215,4 @@ export type {
  */
 export * from "./helpers/tenant-context";
 export * from "./helpers/form-template-version";
+export * from "./helpers/form-template-version-lifecycle";
