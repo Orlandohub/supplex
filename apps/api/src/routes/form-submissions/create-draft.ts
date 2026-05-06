@@ -7,6 +7,7 @@ import {
   formSection,
   formField,
   processInstance,
+  resolveFormTemplateVersionIdForStructure,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -53,6 +54,14 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         );
       }
 
+      const structureVersionId = await resolveFormTemplateVersionIdForStructure(
+        db,
+        {
+          formTemplateId,
+          tenantId,
+        }
+      );
+
       if (processInstanceId) {
         const [process] = await db
           .select({
@@ -95,6 +104,7 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         .where(
           and(
             eq(formSection.formTemplateId, formTemplateId),
+            eq(formSection.formTemplateVersionId, structureVersionId),
             eq(formField.tenantId, tenantId),
             isNull(formField.deletedAt),
             isNull(formSection.deletedAt)
@@ -192,6 +202,7 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
           .values({
             tenantId,
             formTemplateId,
+            formTemplateVersionId: structureVersionId,
             processInstanceId: processInstanceId || null,
             stepInstanceId: stepInstanceId || null,
             submittedBy: userId,

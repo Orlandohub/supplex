@@ -38,6 +38,8 @@ import {
   tenants,
   users,
   formTemplate,
+  formTemplateVersion,
+  FormTemplateVersionStatus,
   formSection,
   formField,
   formSubmission,
@@ -87,6 +89,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
   let testUser: AuthContext["user"];
   let secondUser: AuthContext["user"];
   let fmTemplate: { id: string };
+  let fmVer: { id: string };
   let section: { id: string };
   let field: { id: string };
   let wfTemplate: { id: string };
@@ -136,8 +139,16 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       status: "published",
     });
 
+    fmVer = await insertOneOrThrow(db, formTemplateVersion, {
+      formTemplateId: fmTemplate.id,
+      tenantId: tenant.id,
+      versionNumber: 1,
+      status: FormTemplateVersionStatus.PUBLISHED,
+    });
+
     section = await insertOneOrThrow(db, formSection, {
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,
       title: "Section 1",
@@ -145,6 +156,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
 
     field = await insertOneOrThrow(db, formField, {
       formSectionId: section.id,
+      formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       fieldOrder: 1,
       fieldType: "text",
@@ -213,6 +225,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     const submission = await insertOneOrThrow(db, formSubmission, {
       tenantId: tenant.id,
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       processInstanceId: proc.id,
       stepInstanceId: step.id,
       submittedBy: testUser.id,
@@ -344,6 +357,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     const submission = await insertOneOrThrow(db, formSubmission, {
       tenantId: tenant.id,
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       processInstanceId: proc.id,
       stepInstanceId: step.id,
       submittedBy: secondUser.id,
@@ -391,6 +405,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     const standaloneSubmission = await insertOneOrThrow(db, formSubmission, {
       tenantId: tenant.id,
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       processInstanceId: null,
       stepInstanceId: null,
       submittedBy: testUser.id,

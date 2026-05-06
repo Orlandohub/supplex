@@ -11,7 +11,10 @@ import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { withTreatyBranch } from "~/lib/api-helpers";
+import {
+  formTemplatesIndexParamsForId,
+  withTreatyBranch,
+} from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import type { FormTemplateListItem } from "@supplex/types";
 import { useAuth } from "../hooks/useAuth";
@@ -146,10 +149,7 @@ export default function FormTemplatesPage() {
     try {
       const client = createClientEdenTreatyClient(currentToken);
       const response = await withTreatyBranch(
-        client.api["form-templates"]({
-          id: templateId,
-          templateId,
-        }),
+        client.api["form-templates"](formTemplatesIndexParamsForId(templateId)),
         "delete"
       ).delete();
 

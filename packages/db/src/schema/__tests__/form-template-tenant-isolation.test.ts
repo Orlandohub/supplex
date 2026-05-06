@@ -5,9 +5,12 @@ import {
   formTemplate,
   formSection,
   formField,
+  formTemplateVersion,
   FormTemplateStatus,
+  FormTemplateVersionStatus,
   FieldType,
 } from "../index";
+import { insertDraftFormTemplateVersion } from "../../helpers/form-template-version";
 import { eq, and, isNull } from "drizzle-orm";
 
 /**
@@ -21,6 +24,39 @@ import { eq, and, isNull } from "drizzle-orm";
 describe("Form Template Tenant Isolation", () => {
   let tenantA: { id: string };
   let tenantB: { id: string };
+
+  async function seedVersionRowForTemplate(template: {
+    id: string;
+    tenantId: string;
+    status: (typeof FormTemplateStatus)[keyof typeof FormTemplateStatus];
+  }) {
+    if (template.status === FormTemplateStatus.DRAFT) {
+      return insertDraftFormTemplateVersion(db, {
+        formTemplateId: template.id,
+        tenantId: template.tenantId,
+      });
+    }
+
+    const versionStatus =
+      template.status === FormTemplateStatus.ARCHIVED
+        ? FormTemplateVersionStatus.SUPERSEDED
+        : FormTemplateVersionStatus.PUBLISHED;
+
+    const [row] = await db
+      .insert(formTemplateVersion)
+      .values({
+        formTemplateId: template.id,
+        tenantId: template.tenantId,
+        versionNumber: 1,
+        status: versionStatus,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    if (!row) throw new Error("Failed to seed form_template_version");
+    return row;
+  }
 
   beforeAll(async () => {
     // Create two test tenants
@@ -61,6 +97,8 @@ describe("Form Template Tenant Isolation", () => {
       })
       .returning();
 
+    await seedVersionRowForTemplate(templateA);
+
     // Create form template for tenant B
     const [templateB] = await db
       .insert(formTemplate)
@@ -70,6 +108,8 @@ describe("Form Template Tenant Isolation", () => {
         status: FormTemplateStatus.DRAFT,
       })
       .returning();
+
+    await seedVersionRowForTemplate(templateB);
 
     // Query tenant A's templates
     const tenantATemplates = await db
@@ -124,11 +164,14 @@ describe("Form Template Tenant Isolation", () => {
       })
       .returning();
 
+    const draftVersion = await seedVersionRowForTemplate(template);
+
     // Create form section
     const [section] = await db
       .insert(formSection)
       .values({
         formTemplateId: template.id,
+        formTemplateVersionId: draftVersion.id,
         tenantId: testTenant.id,
         sectionOrder: 1,
         title: "Test Section",
@@ -140,6 +183,7 @@ describe("Form Template Tenant Isolation", () => {
       .insert(formField)
       .values({
         formSectionId: section.id,
+        formTemplateVersionId: draftVersion.id,
         tenantId: testTenant.id,
         fieldOrder: 1,
         fieldType: FieldType.TEXT,
@@ -188,11 +232,14 @@ describe("Form Template Tenant Isolation", () => {
       })
       .returning();
 
+    const draftVersion = await seedVersionRowForTemplate(template);
+
     // Create form section
     const [section] = await db
       .insert(formSection)
       .values({
         formTemplateId: template.id,
+        formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         sectionOrder: 1,
         title: "Test Section",
@@ -202,6 +249,7 @@ describe("Form Template Tenant Isolation", () => {
     // Create form field
     await db.insert(formField).values({
       formSectionId: section.id,
+      formTemplateVersionId: draftVersion.id,
       tenantId: tenantA.id,
       fieldOrder: 1,
       fieldType: FieldType.TEXT,
@@ -238,6 +286,8 @@ describe("Form Template Tenant Isolation", () => {
       })
       .returning();
 
+    await seedVersionRowForTemplate(template);
+
     // Verify created as draft
     expect(template.status).toBe(FormTemplateStatus.DRAFT);
     expect(template.isActive).toBe(true);
@@ -247,6 +297,22 @@ describe("Form Template Tenant Isolation", () => {
       .update(formTemplate)
       .set({ status: FormTemplateStatus.PUBLISHED })
       .where(eq(formTemplate.id, template.id));
+
+    await db
+      .update(formTemplateVersion)
+      .set({
+        versionNumber: 1,
+        status: FormTemplateVersionStatus.PUBLISHED,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(formTemplateVersion.formTemplateId, template.id),
+          eq(formTemplateVersion.tenantId, tenantA.id),
+          isNull(formTemplateVersion.versionNumber),
+          isNull(formTemplateVersion.deletedAt)
+        )
+      );
 
     const [publishedTemplate] = await db
       .select()
@@ -271,6 +337,8 @@ describe("Form Template Tenant Isolation", () => {
       })
       .returning();
 
+    await seedVersionRowForTemplate(template);
+
     // Update template name and status (database should allow this)
     await db
       .update(formTemplate)
@@ -280,6 +348,22 @@ describe("Form Template Tenant Isolation", () => {
         isActive: false,
       })
       .where(eq(formTemplate.id, template.id));
+
+    await db
+      .update(formTemplateVersion)
+      .set({
+        versionNumber: 1,
+        status: FormTemplateVersionStatus.PUBLISHED,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(formTemplateVersion.formTemplateId, template.id),
+          eq(formTemplateVersion.tenantId, tenantA.id),
+          isNull(formTemplateVersion.versionNumber),
+          isNull(formTemplateVersion.deletedAt)
+        )
+      );
 
     // Verify updates were successful
     const [updatedTemplate] = await db
@@ -306,10 +390,13 @@ describe("Form Template Tenant Isolation", () => {
       })
       .returning();
 
+    const draftVersion = await seedVersionRowForTemplate(template);
+
     const [section] = await db
       .insert(formSection)
       .values({
         formTemplateId: template.id,
+        formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         sectionOrder: 1,
         title: "JSONB Test Section",
@@ -322,6 +409,7 @@ describe("Form Template Tenant Isolation", () => {
       .insert(formField)
       .values({
         formSectionId: section.id,
+        formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         fieldOrder: 1,
         fieldType: FieldType.TEXT,
@@ -339,6 +427,7 @@ describe("Form Template Tenant Isolation", () => {
       .insert(formField)
       .values({
         formSectionId: section.id,
+        formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         fieldOrder: 2,
         fieldType: FieldType.DROPDOWN,
@@ -414,6 +503,8 @@ describe("Form Template Tenant Isolation", () => {
         status: FormTemplateStatus.PUBLISHED,
       })
       .returning();
+
+    await seedVersionRowForTemplate(template);
 
     // Execute query that should use tenant_status index
     const result = await db

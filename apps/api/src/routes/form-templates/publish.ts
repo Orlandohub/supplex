@@ -1,6 +1,12 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
-import { formTemplate, formSection, formField } from "@supplex/db";
+import {
+  formTemplate,
+  formSection,
+  formField,
+  formTemplateVersion,
+  FormTemplateVersionStatus,
+} from "@supplex/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -89,14 +95,56 @@ export const publishVersionRoute = new Elysia()
 
         const newStatus = template.status === "draft" ? "published" : "draft";
 
-        const [updatedTemplate] = await db
-          .update(formTemplate)
-          .set({
-            status: newStatus,
-            updatedAt: new Date(),
-          })
-          .where(eq(formTemplate.id, id))
-          .returning();
+        const [updatedTemplate] = await db.transaction(async (tx) => {
+          const [tpl] = await tx
+            .update(formTemplate)
+            .set({
+              status: newStatus,
+              updatedAt: new Date(),
+            })
+            .where(eq(formTemplate.id, id))
+            .returning();
+
+          if (!tpl) {
+            throw Errors.internal("Failed to toggle publish status");
+          }
+
+          if (newStatus === "published") {
+            await tx
+              .update(formTemplateVersion)
+              .set({
+                versionNumber: 1,
+                status: FormTemplateVersionStatus.PUBLISHED,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(formTemplateVersion.formTemplateId, id),
+                  eq(formTemplateVersion.tenantId, tenantId),
+                  isNull(formTemplateVersion.versionNumber),
+                  isNull(formTemplateVersion.deletedAt)
+                )
+              );
+          } else {
+            await tx
+              .update(formTemplateVersion)
+              .set({
+                versionNumber: null,
+                status: FormTemplateVersionStatus.DRAFT,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(formTemplateVersion.formTemplateId, id),
+                  eq(formTemplateVersion.tenantId, tenantId),
+                  eq(formTemplateVersion.versionNumber, 1),
+                  isNull(formTemplateVersion.deletedAt)
+                )
+              );
+          }
+
+          return [tpl];
+        });
 
         return {
           success: true,

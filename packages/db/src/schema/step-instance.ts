@@ -14,6 +14,7 @@ import { processInstance } from "./process-instance";
 import { tenants } from "./tenants";
 import { users } from "./users";
 import { workflowStepTemplate } from "./workflow-step-template";
+import { formTemplateVersion } from "./form-template-version";
 
 /**
  * Step Type Enum Values
@@ -93,6 +94,9 @@ export const stepInstance = pgTable(
       () => workflowStepTemplate.id,
       { onDelete: "set null" }
     ),
+    pinnedFormTemplateVersionId: uuid(
+      "pinned_form_template_version_id"
+    ).references(() => formTemplateVersion.id, { onDelete: "set null" }),
     status: stepInstanceStatusEnum("status")
       .notNull()
       .default(StepStatus.PENDING),
@@ -131,6 +135,13 @@ export const stepInstance = pgTable(
     processStatusIdx: index("idx_step_instance_process_status")
       .on(table.processInstanceId, table.status)
       .where(sql`${table.deletedAt} IS NULL`),
+    pinnedFormTemplateVersionIdx: index(
+      "idx_step_instance_pinned_form_template_version"
+    )
+      .on(table.pinnedFormTemplateVersionId)
+      .where(
+        sql`${table.deletedAt} IS NULL AND ${table.pinnedFormTemplateVersionId} IS NOT NULL`
+      ),
   })
 );
 
@@ -150,6 +161,10 @@ export const stepInstanceRelations = relations(stepInstance, ({ one }) => ({
   stepTemplate: one(workflowStepTemplate, {
     fields: [stepInstance.workflowStepTemplateId],
     references: [workflowStepTemplate.id],
+  }),
+  pinnedFormTemplateVersion: one(formTemplateVersion, {
+    fields: [stepInstance.pinnedFormTemplateVersionId],
+    references: [formTemplateVersion.id],
   }),
   assignedUser: one(users, {
     fields: [stepInstance.assignedTo],

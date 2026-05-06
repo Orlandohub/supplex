@@ -28,6 +28,8 @@ import {
   tenants,
   users,
   formTemplate,
+  formTemplateVersion,
+  FormTemplateVersionStatus,
   formSection,
   formField,
   formSubmission,
@@ -56,6 +58,7 @@ describe("Form submit + validation decline + resubmit", () => {
   let tenant: { id: string };
   let testUser: AuthContext["user"];
   let fmTemplate: { id: string };
+  let fmVer: { id: string };
   let fieldId: string;
   let wfVal: { id: string };
   let stepTplVal: { id: string };
@@ -88,8 +91,16 @@ describe("Form submit + validation decline + resubmit", () => {
       status: "published",
     });
 
+    fmVer = await insertOneOrThrow(db, formTemplateVersion, {
+      formTemplateId: fm.id,
+      tenantId: tenant.id,
+      versionNumber: 1,
+      status: FormTemplateVersionStatus.PUBLISHED,
+    });
+
     const section = await insertOneOrThrow(db, formSection, {
       formTemplateId: fm.id,
+      formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,
       title: "S1",
@@ -97,6 +108,7 @@ describe("Form submit + validation decline + resubmit", () => {
 
     const fld = await insertOneOrThrow(db, formField, {
       formSectionId: section.id,
+      formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       fieldOrder: 1,
       fieldType: "text",
@@ -168,6 +180,7 @@ describe("Form submit + validation decline + resubmit", () => {
     const submission = await insertOneOrThrow(db, formSubmission, {
       tenantId: tenant.id,
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       processInstanceId: proc.id,
       stepInstanceId: step.id,
       submittedBy: testUser.id,

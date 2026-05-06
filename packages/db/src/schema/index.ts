@@ -21,6 +21,7 @@ export * from "./user-notification-preferences";
 export * from "./process-instance";
 export * from "./step-instance";
 export * from "./form-template";
+export * from "./form-template-version";
 export * from "./form-section";
 export * from "./form-field";
 export * from "./form-submission";

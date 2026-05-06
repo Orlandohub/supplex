@@ -1,6 +1,10 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formSection, formTemplate } from "@supplex/db";
+import {
+  formSection,
+  formTemplate,
+  getDraftFormTemplateVersionForTemplate,
+} from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
@@ -52,10 +56,22 @@ export const createSectionRoute = new Elysia()
           );
         }
 
+        const draftVersion = await getDraftFormTemplateVersionForTemplate(db, {
+          formTemplateId: templateId,
+          tenantId,
+        });
+
+        if (!draftVersion) {
+          throw Errors.internal(
+            "Form template has no draft version row; cannot create section"
+          );
+        }
+
         const [newSection] = await db
           .insert(formSection)
           .values({
             formTemplateId: templateId,
+            formTemplateVersionId: draftVersion.id,
             tenantId,
             title,
             description: description || null,

@@ -146,6 +146,7 @@ export const createFieldRoute = new Elysia()
           .insert(formField)
           .values({
             formSectionId: sectionId,
+            formTemplateVersionId: section.section.formTemplateVersionId,
             tenantId,
             label,
             fieldType,
