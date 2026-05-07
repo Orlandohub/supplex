@@ -8,6 +8,7 @@ import {
   formField,
   users,
   taskInstance,
+  resolveFormTemplateVersionIdForStructure,
 } from "@supplex/db";
 import { eq, and, isNull, or } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -129,7 +130,26 @@ export const getSubmissionRoute = new Elysia()
         isReadOnly = true;
       }
 
-      // Fetch all answers with field metadata
+      let structureVersionId =
+        submissionRecord.submission.formTemplateVersionId;
+      if (!structureVersionId) {
+        requestLogger.warn(
+          {
+            submissionId,
+            formTemplateId: submissionRecord.submission.formTemplateId,
+          },
+          "form_submission.form_template_version_id is null; using resolveFormTemplateVersionIdForStructure (temporary fallback)"
+        );
+        structureVersionId = await resolveFormTemplateVersionIdForStructure(
+          db,
+          {
+            formTemplateId: submissionRecord.submission.formTemplateId,
+            tenantId,
+          }
+        );
+      }
+
+      // Fetch all answers with field metadata (only fields on the submission's structure version)
       const answersWithFields = await db
         .select({
           answer: formAnswer,
@@ -141,11 +161,12 @@ export const getSubmissionRoute = new Elysia()
           and(
             eq(formAnswer.formSubmissionId, submissionId),
             eq(formAnswer.tenantId, tenantId),
+            eq(formField.formTemplateVersionId, structureVersionId),
             isNull(formField.deletedAt)
           )
         );
 
-      // Fetch all sections for the form structure
+      // Form structure for rendering: only the pinned / submission version subtree (SUP-30)
       const sections = await db
         .select()
         .from(formSection)
@@ -155,13 +176,13 @@ export const getSubmissionRoute = new Elysia()
               formSection.formTemplateId,
               submissionRecord.submission.formTemplateId
             ),
+            eq(formSection.formTemplateVersionId, structureVersionId),
             eq(formSection.tenantId, tenantId),
             isNull(formSection.deletedAt)
           )
         )
         .orderBy(formSection.sectionOrder);
 
-      // Fetch all fields for complete form structure
       const allFields = await db
         .select({
           field: formField,
@@ -175,6 +196,8 @@ export const getSubmissionRoute = new Elysia()
               formSection.formTemplateId,
               submissionRecord.submission.formTemplateId
             ),
+            eq(formSection.formTemplateVersionId, structureVersionId),
+            eq(formField.formTemplateVersionId, structureVersionId),
             eq(formField.tenantId, tenantId),
             isNull(formField.deletedAt),
             isNull(formSection.deletedAt)
