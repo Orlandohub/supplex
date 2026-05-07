@@ -52,10 +52,11 @@ export const publishVersionRoute = new Elysia()
   .use(requireAdmin)
   .patch(
     "/:id/publish",
-    async ({ params, user, requestLogger }) => {
+    async ({ params, body, user, requestLogger }) => {
       try {
         const tenantId = user.tenantId;
         const { id } = params;
+        const action = body?.action;
 
         const [template] = await db
           .select()
@@ -83,110 +84,132 @@ export const publishVersionRoute = new Elysia()
           );
         }
 
-        if (template.status === "draft") {
-          const draftVersion = await getDraftFormTemplateVersionForTemplate(
-            db,
-            {
-              formTemplateId: id,
-              tenantId,
+        if (template.status === "published") {
+          if (!action) {
+            throw Errors.badRequest(
+              'Specify action: "publish" (ship draft changes) or "unpublish" (container only)',
+              "PUBLISH_ACTION_REQUIRED"
+            );
+          }
+          if (action === "unpublish") {
+            const unf = await db
+              .update(formTemplate)
+              .set({
+                status: "draft",
+                updatedAt: new Date(),
+              })
+              .where(eq(formTemplate.id, id))
+              .returning();
+
+            const [updatedTemplate] = unf;
+            if (!updatedTemplate) {
+              throw Errors.internal("Failed to toggle publish status");
             }
-          );
-
-          if (!draftVersion) {
-            throw Errors.badRequest(
-              "No draft form version found to publish",
-              "VALIDATION_ERROR"
-            );
-          }
-
-          const [sectionCount] = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(formSection)
-            .where(
-              and(
-                eq(formSection.formTemplateId, id),
-                eq(formSection.formTemplateVersionId, draftVersion.id),
-                eq(formSection.tenantId, tenantId),
-                isNull(formSection.deletedAt)
-              )
-            );
-
-          if (!sectionCount || sectionCount.count === 0) {
-            throw Errors.badRequest(
-              "Cannot publish template without sections. Please add at least one section.",
-              "VALIDATION_ERROR"
-            );
-          }
-
-          const [fieldCount] = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(formField)
-            .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-            .where(
-              and(
-                eq(formSection.formTemplateId, id),
-                eq(formSection.formTemplateVersionId, draftVersion.id),
-                eq(formField.formTemplateVersionId, draftVersion.id),
-                eq(formField.tenantId, tenantId),
-                isNull(formField.deletedAt),
-                isNull(formSection.deletedAt)
-              )
-            );
-
-          if (!fieldCount || fieldCount.count === 0) {
-            throw Errors.badRequest(
-              "Cannot publish template without fields. Please add at least one field to a section.",
-              "VALIDATION_ERROR"
-            );
-          }
-
-          try {
-            const updatedTemplate = await db.transaction(async (tx) => {
-              await publishFormTemplateFromDraft(tx, {
-                formTemplateId: id,
-                tenantId,
-              });
-              const [tpl] = await tx
-                .select()
-                .from(formTemplate)
-                .where(eq(formTemplate.id, id))
-                .limit(1);
-              if (!tpl) {
-                throw Errors.internal("Failed to load template after publish");
-              }
-              return tpl;
-            });
 
             return {
               success: true,
               data: updatedTemplate,
-              message: "Template published successfully",
+              message: "Template unpublished successfully",
             };
-          } catch (inner: unknown) {
-            const mapped = mapPublishDraftError(inner);
-            if (mapped) throw mapped;
-            throw inner;
+          }
+          if (action !== "publish") {
+            throw Errors.badRequest(
+              'Invalid action — use "publish" or "unpublish"',
+              "VALIDATION_ERROR"
+            );
+          }
+        } else {
+          if (action === "unpublish") {
+            throw Errors.badRequest(
+              "Only published templates can be unpublished",
+              "VALIDATION_ERROR"
+            );
           }
         }
 
-        const [updatedTemplate] = await db
-          .update(formTemplate)
-          .set({
-            status: "draft",
-            updatedAt: new Date(),
-          })
-          .where(eq(formTemplate.id, id))
-          .returning();
+        const draftVersion = await getDraftFormTemplateVersionForTemplate(db, {
+          formTemplateId: id,
+          tenantId,
+        });
 
-        if (!updatedTemplate) {
-          throw Errors.internal("Failed to toggle publish status");
+        if (!draftVersion) {
+          throw Errors.badRequest(
+            "No draft form version found to publish",
+            "VALIDATION_ERROR"
+          );
         }
 
-        return {
-          success: true,
-          data: updatedTemplate,
-          message: "Template unpublished successfully",
-        };
+        const [sectionCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(formSection)
+          .where(
+            and(
+              eq(formSection.formTemplateId, id),
+              eq(formSection.formTemplateVersionId, draftVersion.id),
+              eq(formSection.tenantId, tenantId),
+              isNull(formSection.deletedAt)
+            )
+          );
+
+        if (!sectionCount || sectionCount.count === 0) {
+          throw Errors.badRequest(
+            "Cannot publish template without sections. Please add at least one section.",
+            "VALIDATION_ERROR"
+          );
+        }
+
+        const [fieldCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(formField)
+          .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
+          .where(
+            and(
+              eq(formSection.formTemplateId, id),
+              eq(formSection.formTemplateVersionId, draftVersion.id),
+              eq(formField.formTemplateVersionId, draftVersion.id),
+              eq(formField.tenantId, tenantId),
+              isNull(formField.deletedAt),
+              isNull(formSection.deletedAt)
+            )
+          );
+
+        if (!fieldCount || fieldCount.count === 0) {
+          throw Errors.badRequest(
+            "Cannot publish template without fields. Please add at least one field to a section.",
+            "VALIDATION_ERROR"
+          );
+        }
+
+        try {
+          const updatedTemplate = await db.transaction(async (tx) => {
+            await publishFormTemplateFromDraft(tx, {
+              formTemplateId: id,
+              tenantId,
+            });
+            const [tpl] = await tx
+              .select()
+              .from(formTemplate)
+              .where(eq(formTemplate.id, id))
+              .limit(1);
+            if (!tpl) {
+              throw Errors.internal("Failed to load template after publish");
+            }
+            return tpl;
+          });
+
+          return {
+            success: true,
+            data: updatedTemplate,
+            message:
+              template.status === "published"
+                ? "New template version published successfully"
+                : "Template published successfully",
+          };
+        } catch (inner: unknown) {
+          const mapped = mapPublishDraftError(inner);
+          if (mapped) throw mapped;
+          throw inner;
+        }
       } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
         requestLogger.error({ err: error }, "Error toggling publish status");
@@ -197,10 +220,17 @@ export const publishVersionRoute = new Elysia()
       params: t.Object({
         id: t.String({ format: "uuid" }),
       }),
+      body: t.Optional(
+        t.Object({
+          action: t.Optional(
+            t.Union([t.Literal("publish"), t.Literal("unpublish")])
+          ),
+        })
+      ),
       detail: {
-        summary: "Toggle form template publish status",
+        summary: "Publish or unpublish form template",
         description:
-          "Publishes draft (copy-on-publish immutables + fresh draft) or unpublishes the container (Admin only)",
+          'Draft: publish creates immutable version + fresh draft. Published: body.action "publish" ships draft changes; "unpublish" sets container to draft (Admin only).',
         tags: ["Form Templates"],
       },
     }

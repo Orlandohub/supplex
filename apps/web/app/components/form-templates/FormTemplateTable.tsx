@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import { Edit, Trash2, FileText, Eye, Copy, CheckCircle } from "lucide-react";
+import { Edit, Trash2, FileText, Copy, CheckCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CopyFormTemplateDialog } from "./CopyTemplateDialog";
 import { useToast } from "~/hooks/use-toast";
@@ -84,6 +84,11 @@ export function FormTemplateTable({
     setIsPublishing(true);
 
     try {
+      const body =
+        currentStatus === "published"
+          ? JSON.stringify({ action: "unpublish" })
+          : JSON.stringify({});
+
       const response = await fetch(
         `/api/form-templates/${templateId}/publish`,
         {
@@ -92,6 +97,7 @@ export function FormTemplateTable({
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          body,
         }
       );
 
@@ -196,17 +202,9 @@ export function FormTemplateTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(template.id)}
-                        title={
-                          isPublished
-                            ? "View template (read-only)"
-                            : "Edit template"
-                        }
+                        title="Edit template"
                       >
-                        {isPublished ? (
-                          <Eye className="h-4 w-4" />
-                        ) : (
-                          <Edit className="h-4 w-4" />
-                        )}
+                        <Edit className="h-4 w-4" />
                       </Button>
 
                       <Button

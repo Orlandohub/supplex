@@ -18,13 +18,13 @@ import { publishVersionRoute } from "./publish";
 
 /**
  * Form Templates Route Aggregator
- * 
+ *
  * Registers all form template management routes with /api/form-templates prefix
- * 
+ *
  * CRITICAL: Following ElysiaJS route organization pattern:
  * - ONLY this parent aggregator has a prefix
  * - Child routes must NOT have prefixes (parent provides them)
- * 
+ *
  * Routes:
  * Template Management:
  * - GET    /api/form-templates           - List templates
@@ -34,21 +34,21 @@ import { publishVersionRoute } from "./publish";
  * - POST   /api/form-templates/:id/copy  - Copy template (deep copy)
  * - PATCH  /api/form-templates/:id       - Update template
  * - DELETE /api/form-templates/:id       - Delete template
- * 
+ *
  * Section Management:
  * - POST   /api/form-templates/:templateId/sections           - Create section
  * - PATCH  /api/form-templates/sections/:sectionId            - Update section
  * - DELETE /api/form-templates/sections/:sectionId            - Delete section
  * - POST   /api/form-templates/:templateId/sections/reorder   - Reorder sections
- * 
+ *
  * Field Management:
  * - POST   /api/form-templates/sections/:sectionId/fields         - Create field
  * - PATCH  /api/form-templates/fields/:fieldId                    - Update field
  * - DELETE /api/form-templates/fields/:fieldId                    - Delete field
  * - POST   /api/form-templates/sections/:sectionId/fields/reorder - Reorder fields
- * 
+ *
  * Publishing:
- * - PATCH  /api/form-templates/:id/publish - Publish template (status toggle)
+ * - PATCH  /api/form-templates/:id/publish - Publish draft / republish (optional body); unpublish via action
  */
 export const formTemplatesRoutes = new Elysia({ prefix: "/api/form-templates" })
   .use(listFormTemplatesRoute)
@@ -67,4 +67,3 @@ export const formTemplatesRoutes = new Elysia({ prefix: "/api/form-templates" })
   .use(deleteFieldRoute)
   .use(reorderFieldsRoute)
   .use(publishVersionRoute);
-
