@@ -57,6 +57,29 @@ export function errorBody(
 }
 
 /**
+ * Eden merges multiple first-segment patterns under `client.api["form-templates"](...)`
+ * (`/:id` for CRUD/publish vs `/:templateId/sections` for section mutations). TypeScript
+ * expects a single param object; **only pass the keys for the route you intend** — extra
+ * keys change which branch binds at runtime (e.g. both `id` and `templateId` pick `/:id`,
+ * leaving `.sections` undefined). These helpers centralize the one `as unknown` assertion
+ * at the Treaty trust boundary.
+ */
+export type FormTemplatesIndexParamBag = {
+  id: string | number;
+  templateId: string | number;
+};
+
+/** Routes: `GET|PATCH|DELETE /api/form-templates/:id`, `PATCH .../:id/publish`, etc. */
+export function formTemplatesIndexParamsForId(id: string) {
+  return { id } as unknown as FormTemplatesIndexParamBag;
+}
+
+/** Routes: `POST /api/form-templates/:templateId/sections`, reorder, etc. */
+export function formTemplatesIndexParamsForTemplateId(templateId: string) {
+  return { templateId } as unknown as FormTemplatesIndexParamBag;
+}
+
+/**
  * Narrow an Eden Treaty function-call return value to the union variant
  * exposing the property `K`.
  *
@@ -73,7 +96,7 @@ export function errorBody(
  *
  * Usage:
  * ```ts
- * const route = client.api["form-templates"]({ id, templateId: id });
+ * const route = client.api["form-templates"](formTemplatesIndexParamsForId(id));
  * const response = await withTreatyBranch(route, "publish").publish.patch();
  * ```
  */

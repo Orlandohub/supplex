@@ -9,6 +9,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { formTemplate } from "./form-template";
+import { formTemplateVersion } from "./form-template-version";
 import { users } from "./users";
 import { processInstance } from "./process-instance";
 import { stepInstance } from "./step-instance";
@@ -70,6 +71,10 @@ export const formSubmission = pgTable(
     formTemplateId: uuid("form_template_id")
       .notNull()
       .references(() => formTemplate.id, { onDelete: "restrict" }),
+    formTemplateVersionId: uuid("form_template_version_id").references(
+      () => formTemplateVersion.id,
+      { onDelete: "restrict" }
+    ),
     processInstanceId: uuid("process_instance_id"), // Nullable: for workflow integration (Story 2.2.9)
     stepInstanceId: uuid("step_instance_id").references(() => stepInstance.id, {
       onDelete: "cascade",
@@ -124,6 +129,13 @@ export const formSubmission = pgTable(
     tenantTemplateIdx: index("idx_form_submission_tenant_template")
       .on(table.tenantId, table.formTemplateId)
       .where(sql`${table.deletedAt} IS NULL`),
+    tenantTemplateVersionIdx: index(
+      "idx_form_submission_tenant_template_version"
+    )
+      .on(table.tenantId, table.formTemplateVersionId)
+      .where(
+        sql`${table.deletedAt} IS NULL AND ${table.formTemplateVersionId} IS NOT NULL`
+      ),
   })
 );
 
@@ -139,6 +151,10 @@ export const formSubmissionRelations = relations(formSubmission, ({ one }) => ({
   formTemplate: one(formTemplate, {
     fields: [formSubmission.formTemplateId],
     references: [formTemplate.id],
+  }),
+  formTemplateVersion: one(formTemplateVersion, {
+    fields: [formSubmission.formTemplateVersionId],
+    references: [formTemplateVersion.id],
   }),
   submittedByUser: one(users, {
     fields: [formSubmission.submittedBy],

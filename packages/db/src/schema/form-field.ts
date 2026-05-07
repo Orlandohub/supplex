@@ -9,11 +9,13 @@ import {
   jsonb,
   index,
   pgEnum,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import type { FieldOptions, ValidationRules } from "@supplex/types";
 import { tenants } from "./tenants";
 import { formSection } from "./form-section";
+import { formTemplateVersion } from "./form-template-version";
 
 /**
  * Field Type Enum
@@ -69,9 +71,10 @@ export const formField = pgTable(
   "form_field",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    formSectionId: uuid("form_section_id")
+    formSectionId: uuid("form_section_id").notNull(),
+    formTemplateVersionId: uuid("form_template_version_id")
       .notNull()
-      .references(() => formSection.id, { onDelete: "cascade" }),
+      .references(() => formTemplateVersion.id, { onDelete: "cascade" }),
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
@@ -97,6 +100,11 @@ export const formField = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
   },
   (table) => ({
+    sectionVersionFk: foreignKey({
+      columns: [table.formSectionId, table.formTemplateVersionId],
+      foreignColumns: [formSection.id, formSection.formTemplateVersionId],
+      name: "form_field_section_version_fkey",
+    }).onDelete("cascade"),
     // Composite index on (tenant_id, form_section_id, field_order) for ordered retrieval
     tenantSectionOrderIdx: index("idx_form_field_tenant_section_order")
       .on(table.tenantId, table.formSectionId, table.fieldOrder)
@@ -123,6 +131,10 @@ export const formFieldRelations = relations(formField, ({ one }) => ({
   formSection: one(formSection, {
     fields: [formField.formSectionId],
     references: [formSection.id],
+  }),
+  formTemplateVersion: one(formTemplateVersion, {
+    fields: [formField.formTemplateVersionId],
+    references: [formTemplateVersion.id],
   }),
   tenant: one(tenants, {
     fields: [formField.tenantId],

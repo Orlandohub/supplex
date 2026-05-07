@@ -7,6 +7,9 @@ import {
   formSection,
   formField,
   processInstance,
+  stepInstance,
+  formTemplateVersion,
+  resolveFormTemplateVersionIdForStructure,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -85,49 +88,66 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         );
       }
 
-      // Load all fields for validation
-      const fieldsData = await db
-        .select({
-          field: formField,
-        })
-        .from(formField)
-        .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-        .where(
-          and(
-            eq(formSection.formTemplateId, formTemplateId),
-            eq(formField.tenantId, tenantId),
-            isNull(formField.deletedAt),
-            isNull(formSection.deletedAt)
+      let stepPin: string | null = null;
+      if (stepInstanceId) {
+        const [stepRow] = await db
+          .select({
+            pinnedFormTemplateVersionId:
+              stepInstance.pinnedFormTemplateVersionId,
+          })
+          .from(stepInstance)
+          .where(
+            and(
+              eq(stepInstance.id, stepInstanceId),
+              eq(stepInstance.tenantId, tenantId)
+            )
           )
-        );
+          .limit(1);
 
-      const fieldMap = new Map(
-        fieldsData.map((row) => [row.field.id, row.field])
-      );
-
-      // Validate all provided answers
-      for (const answer of answers) {
-        const field = fieldMap.get(answer.formFieldId);
-
-        if (!field) {
-          throw Errors.badRequest(
-            `Field ${answer.formFieldId} does not belong to this form template`,
-            "INVALID_FIELD_ID"
-          );
+        if (!stepRow) {
+          throw Errors.notFound("Step not found", "STEP_NOT_FOUND");
         }
 
-        // Validate answer format based on field_type
-        const validationError = validateAnswerFormat(answer.answerValue, field);
-        if (validationError) {
-          throw Errors.badRequest(
-            `${field.label}: ${validationError}`,
-            "INVALID_ANSWER_FORMAT"
-          );
-        }
+        stepPin = stepRow.pinnedFormTemplateVersionId ?? null;
       }
 
-      // Check if draft submission already exists for this user + template + process + step
-      const existingDraftQuery = db
+      let resolvedForNew: string;
+      if (stepPin) {
+        const [pinVer] = await db
+          .select()
+          .from(formTemplateVersion)
+          .where(
+            and(
+              eq(formTemplateVersion.id, stepPin),
+              eq(formTemplateVersion.tenantId, tenantId),
+              isNull(formTemplateVersion.deletedAt)
+            )
+          )
+          .limit(1);
+
+        if (!pinVer) {
+          throw Errors.badRequest(
+            "Step pinned form template version is missing or inaccessible",
+            "PINNED_VERSION_INVALID"
+          );
+        }
+
+        if (pinVer.formTemplateId !== formTemplateId) {
+          throw Errors.badRequest(
+            "Form template does not match the step pinned version's template",
+            "FORM_TEMPLATE_PIN_MISMATCH"
+          );
+        }
+
+        resolvedForNew = stepPin;
+      } else {
+        resolvedForNew = await resolveFormTemplateVersionIdForStructure(db, {
+          formTemplateId,
+          tenantId,
+        });
+      }
+
+      const [existingDraft] = await db
         .select()
         .from(formSubmission)
         .where(
@@ -147,7 +167,71 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         )
         .limit(1);
 
-      const [existingDraft] = await existingDraftQuery;
+      let versionForFields: string;
+
+      if (existingDraft) {
+        if (!existingDraft.formTemplateVersionId) {
+          requestLogger.warn(
+            {
+              submissionId: existingDraft.id,
+              stepInstanceId: stepInstanceId ?? null,
+            },
+            "form_submission.form_template_version_id is null on draft; using resolved version for validation (temporary fallback)"
+          );
+          versionForFields = resolvedForNew;
+        } else {
+          versionForFields = existingDraft.formTemplateVersionId;
+        }
+
+        if (stepPin && versionForFields !== stepPin) {
+          throw Errors.badRequest(
+            "Draft submission structure version does not match this step's pinned form version",
+            "STEP_PIN_VERSION_MISMATCH"
+          );
+        }
+      } else {
+        versionForFields = resolvedForNew;
+      }
+
+      const fieldsData = await db
+        .select({
+          field: formField,
+        })
+        .from(formField)
+        .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
+        .where(
+          and(
+            eq(formSection.formTemplateId, formTemplateId),
+            eq(formSection.formTemplateVersionId, versionForFields),
+            eq(formField.formTemplateVersionId, versionForFields),
+            eq(formField.tenantId, tenantId),
+            isNull(formField.deletedAt),
+            isNull(formSection.deletedAt)
+          )
+        );
+
+      const fieldMap = new Map(
+        fieldsData.map((row) => [row.field.id, row.field])
+      );
+
+      for (const answer of answers) {
+        const field = fieldMap.get(answer.formFieldId);
+
+        if (!field) {
+          throw Errors.badRequest(
+            `Field ${answer.formFieldId} does not belong to this form template`,
+            "INVALID_FIELD_ID"
+          );
+        }
+
+        const validationError = validateAnswerFormat(answer.answerValue, field);
+        if (validationError) {
+          throw Errors.badRequest(
+            `${field.label}: ${validationError}`,
+            "INVALID_ANSWER_FORMAT"
+          );
+        }
+      }
 
       let submission: typeof formSubmission.$inferSelect | undefined;
 
@@ -192,6 +276,7 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
           .values({
             tenantId,
             formTemplateId,
+            formTemplateVersionId: resolvedForNew,
             processInstanceId: processInstanceId || null,
             stepInstanceId: stepInstanceId || null,
             submittedBy: userId,

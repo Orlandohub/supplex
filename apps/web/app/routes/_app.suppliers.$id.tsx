@@ -43,6 +43,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/hooks/use-toast";
 import { getSupplierForUser } from "~/lib/suppliers.server";
+import type { AppLoaderData } from "~/routes/_app";
 
 // Type for supplier data after Remix serialization (Dates become strings)
 type SerializedSupplier = Omit<
@@ -60,6 +61,23 @@ type SerializedSupplier = Omit<
   }>;
   createdByName?: string;
   createdByEmail?: string | null;
+};
+
+const FALLBACK_APP_PERMISSIONS: AppLoaderData["permissions"] = {
+  isAdmin: false,
+  isSupplierUser: false,
+  isViewer: true,
+  isProcurementManager: false,
+  isQualityManager: false,
+  canManageUsers: false,
+  canCreateSuppliers: false,
+  canEditSuppliers: false,
+  canDeleteSuppliers: false,
+  canViewAnalytics: false,
+  canAccessSettings: false,
+  canCreateQualifications: false,
+  canUploadDocuments: false,
+  canDeleteDocuments: false,
 };
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -436,6 +454,8 @@ export default function SupplierDetail() {
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
+  const permissions = appData?.permissions ?? FALLBACK_APP_PERMISSIONS;
   const { toast } = useToast();
 
   // Check if we're loading (only for actual route navigation, not tab switches)
@@ -506,6 +526,8 @@ export default function SupplierDetail() {
           formSubmissions={formSubmissions}
           supplierStatuses={supplierStatuses}
           token={token}
+          permissions={permissions}
+          tabFromUrl={searchParams.get("tab")}
         />
       </div>
     </div>

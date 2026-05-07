@@ -6,11 +6,9 @@ import { SupplierStatus, SupplierCategory } from "@supplex/types";
 import type * as ReactRouter from "react-router";
 
 /**
- * `SupplierDetailTabs` and the nested `StatusChangeDropdown` both pull
- * permission flags from the `routes/_app` data-router loader. We stub
- * `useRouteLoaderData` so each test can shape what permissions the
- * subtree sees without spinning up a real data router. We also mock
- * the navigation hooks the component pulls in.
+ * `StatusChangeDropdown` and other nested children use `useRouteLoaderData`.
+ * Stub that hook for tests. `SupplierDetailTabs` receives `permissions` as props
+ * from the route.
  */
 const mockUseRouteLoaderData = vi.fn();
 
@@ -122,6 +120,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -140,6 +140,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -158,6 +160,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -167,13 +171,15 @@ describe("SupplierDetailTabs", () => {
   });
 
   it("hides Edit button when user lacks edit permissions", () => {
-    setAppLoaderData({
+    const viewerPermissions = {
+      ...ADMIN_PERMISSIONS,
       isAdmin: false,
       isViewer: true,
       canEditSuppliers: false,
       canDeleteSuppliers: false,
       canCreateSuppliers: false,
-    });
+    };
+    setAppLoaderData(viewerPermissions);
 
     render(
       <MemoryRouter>
@@ -183,6 +189,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={viewerPermissions}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -199,6 +207,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -208,10 +218,12 @@ describe("SupplierDetailTabs", () => {
   });
 
   it("hides Delete button for non-Admin users", () => {
-    setAppLoaderData({
+    const nonAdminPermissions = {
+      ...ADMIN_PERMISSIONS,
       isAdmin: false,
       canDeleteSuppliers: false,
-    });
+    };
+    setAppLoaderData(nonAdminPermissions);
 
     render(
       <MemoryRouter>
@@ -221,6 +233,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={nonAdminPermissions}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -237,6 +251,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -253,6 +269,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -272,6 +290,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -288,6 +308,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -310,6 +332,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -333,6 +357,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -353,6 +379,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );
@@ -374,6 +402,8 @@ describe("SupplierDetailTabs", () => {
           workflows={[]}
           formSubmissions={[]}
           token="test-token"
+          permissions={ADMIN_PERMISSIONS}
+          tabFromUrl={null}
         />
       </MemoryRouter>
     );

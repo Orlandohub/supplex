@@ -7,10 +7,12 @@ import {
   timestamp,
   jsonb,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
 import { formTemplate } from "./form-template";
+import { formTemplateVersion } from "./form-template-version";
 
 /**
  * Form Section Table
@@ -34,6 +36,9 @@ export const formSection = pgTable(
     formTemplateId: uuid("form_template_id")
       .notNull()
       .references(() => formTemplate.id, { onDelete: "cascade" }),
+    formTemplateVersionId: uuid("form_template_version_id")
+      .notNull()
+      .references(() => formTemplateVersion.id, { onDelete: "cascade" }),
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
@@ -50,9 +55,16 @@ export const formSection = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
   },
   (table) => ({
+    sectionIdVersionUnique: unique("uq_form_section_id_template_version").on(
+      table.id,
+      table.formTemplateVersionId
+    ),
     // Composite index on (tenant_id, form_template_id, section_order) for ordered retrieval
     tenantTemplateOrderIdx: index("idx_form_section_tenant_template_order")
       .on(table.tenantId, table.formTemplateId, table.sectionOrder)
+      .where(sql`${table.deletedAt} IS NULL`),
+    tenantVersionOrderIdx: index("idx_form_section_tenant_version_order")
+      .on(table.tenantId, table.formTemplateVersionId, table.sectionOrder)
       .where(sql`${table.deletedAt} IS NULL`),
   })
 );
@@ -76,6 +88,10 @@ export const formSectionRelations = relations(formSection, ({ one }) => ({
   formTemplate: one(formTemplate, {
     fields: [formSection.formTemplateId],
     references: [formTemplate.id],
+  }),
+  formTemplateVersion: one(formTemplateVersion, {
+    fields: [formSection.formTemplateVersionId],
+    references: [formTemplateVersion.id],
   }),
   tenant: one(tenants, {
     fields: [formSection.tenantId],

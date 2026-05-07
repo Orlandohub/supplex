@@ -35,6 +35,8 @@ import {
   tenants,
   users,
   formTemplate,
+  formTemplateVersion,
+  FormTemplateVersionStatus,
   formSection,
   formField,
   formSubmission,
@@ -78,6 +80,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
   let submitterUser: AuthContext["user"];
   let validatorUser: AuthContext["user"];
   let fmTemplate: { id: string };
+  let fmVer: { id: string };
   let section: { id: string };
   let _field: { id: string };
   let wfTemplate: { id: string };
@@ -127,8 +130,16 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
       status: "published",
     });
 
+    fmVer = await insertOneOrThrow(db, formTemplateVersion, {
+      formTemplateId: fmTemplate.id,
+      tenantId: tenant.id,
+      versionNumber: 1,
+      status: FormTemplateVersionStatus.PUBLISHED,
+    });
+
     section = await insertOneOrThrow(db, formSection, {
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,
       title: "Section 1",
@@ -136,6 +147,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
 
     _field = await insertOneOrThrow(db, formField, {
       formSectionId: section.id,
+      formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       fieldOrder: 1,
       fieldType: "text",
@@ -203,6 +215,7 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     const submission = await insertOneOrThrow(db, formSubmission, {
       tenantId: tenant.id,
       formTemplateId: fmTemplate.id,
+      formTemplateVersionId: fmVer.id,
       processInstanceId: procId,
       stepInstanceId: stepId,
       submittedBy: params.submittedBy,

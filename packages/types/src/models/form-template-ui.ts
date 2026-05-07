@@ -76,6 +76,8 @@ export interface FormSectionWithFieldsUI {
 export interface FormTemplateWithStructureUI {
   id: string;
   formTemplateId: string;
+  /** Template display name when the API includes it on the structure payload. */
+  name?: string;
   version: number;
   status: string;
   isPublished: boolean;

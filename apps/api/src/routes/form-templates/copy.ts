@@ -7,14 +7,16 @@
  */
 
 import { Elysia, t } from "elysia";
-import { db } from "@supplex/db";
+import { db } from "../../lib/db";
 import {
   formTemplate,
   formSection,
   formField,
   FormTemplateStatus,
+  insertDraftFormTemplateVersion,
+  resolveSourceFormTemplateVersionIdForCopy,
 } from "@supplex/db";
-import { eq, and, isNull, asc } from "drizzle-orm";
+import { eq, and, isNull, asc, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../lib/route-plugins";
 import { ApiError, Errors } from "../../lib/errors";
@@ -62,23 +64,67 @@ export const copyFormTemplate = new Elysia()
           if (!newTemplate)
             throw new Error("Failed to create form template copy");
 
+          const draftVersion = await insertDraftFormTemplateVersion(tx, {
+            formTemplateId: newTemplate.id,
+            tenantId: user.tenantId,
+          });
+
+          const sourceVersionId =
+            await resolveSourceFormTemplateVersionIdForCopy(tx, {
+              formTemplateId: originalTemplate.id,
+              tenantId: user.tenantId,
+              templateStatus: originalTemplate.status,
+            });
+
           const sections = await tx
             .select()
             .from(formSection)
             .where(
               and(
                 eq(formSection.formTemplateId, originalTemplate.id),
+                eq(formSection.formTemplateVersionId, sourceVersionId),
                 eq(formSection.tenantId, user.tenantId),
                 isNull(formSection.deletedAt)
               )
             )
             .orderBy(asc(formSection.sectionOrder));
 
+          const sectionIds = sections.map((s) => s.id);
+          const allFields =
+            sectionIds.length > 0
+              ? await tx
+                  .select()
+                  .from(formField)
+                  .where(
+                    and(
+                      eq(formField.formTemplateVersionId, sourceVersionId),
+                      eq(formField.tenantId, user.tenantId),
+                      inArray(formField.formSectionId, sectionIds),
+                      isNull(formField.deletedAt)
+                    )
+                  )
+              : [];
+
+          const fieldsBySection = new Map<string, typeof allFields>();
+          for (const sid of sectionIds) {
+            fieldsBySection.set(sid, []);
+          }
+          for (const f of allFields) {
+            const list = fieldsBySection.get(f.formSectionId);
+            if (list) list.push(f);
+          }
+          for (const sid of sectionIds) {
+            fieldsBySection
+              .get(sid)
+              ?.sort((a, b) => a.fieldOrder - b.fieldOrder);
+          }
+
           for (const section of sections) {
             const [newSection] = await tx
               .insert(formSection)
               .values({
                 formTemplateId: newTemplate.id,
+                formTemplateVersionId: draftVersion.id,
                 tenantId: user.tenantId,
                 sectionOrder: section.sectionOrder,
                 title: section.title,
@@ -90,22 +136,13 @@ export const copyFormTemplate = new Elysia()
             if (!newSection)
               throw new Error("Failed to create form section copy");
 
-            const fields = await tx
-              .select()
-              .from(formField)
-              .where(
-                and(
-                  eq(formField.formSectionId, section.id),
-                  eq(formField.tenantId, user.tenantId),
-                  isNull(formField.deletedAt)
-                )
-              )
-              .orderBy(asc(formField.fieldOrder));
+            const fields = fieldsBySection.get(section.id) ?? [];
 
             if (fields.length > 0) {
               await tx.insert(formField).values(
                 fields.map((field) => ({
                   formSectionId: newSection.id,
+                  formTemplateVersionId: draftVersion.id,
                   tenantId: user.tenantId,
                   fieldOrder: field.fieldOrder,
                   fieldType: field.fieldType,

@@ -12,7 +12,11 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
-import { errorBody, withTreatyBranch } from "~/lib/api-helpers";
+import {
+  errorBody,
+  formTemplatesIndexParamsForId,
+  withTreatyBranch,
+} from "~/lib/api-helpers";
 import { Plus, CheckCircle, Copy } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 import { AddSectionModal } from "./AddSectionModal";
@@ -27,6 +31,8 @@ export interface FormTemplateBuilderTemplate {
   name: string;
   status: "draft" | "published" | "archived";
   sections: FormSectionWithFieldsUI[];
+  /** True when container is published and draft structure differs from live (published head). */
+  hasUnpublishedDraftChanges?: boolean;
 }
 
 interface FormTemplateBuilderProps {
@@ -46,7 +52,7 @@ export function FormTemplateBuilder({
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const canEdit = template.status === "draft";
+  const canEdit = template.status !== "archived";
   const sections = [...template.sections].sort(
     (a, b) => a.sectionOrder - b.sectionOrder
   );
@@ -55,8 +61,7 @@ export function FormTemplateBuilder({
     if (!canEdit) {
       toast({
         title: "Cannot Edit",
-        description:
-          "Published templates cannot be edited. Please copy the template to make changes.",
+        description: "Archived templates cannot be edited.",
         variant: "destructive",
       });
       return;
@@ -64,7 +69,7 @@ export function FormTemplateBuilder({
     setIsAddSectionModalOpen(true);
   };
 
-  const handleTogglePublish = async () => {
+  const patchPublish = async (action?: "publish" | "unpublish") => {
     if (isPublishing) return;
 
     if (template.status === "archived") {
@@ -76,7 +81,11 @@ export function FormTemplateBuilder({
       return;
     }
 
-    if (template.status === "draft" && sections.length === 0) {
+    if (
+      template.status === "draft" &&
+      action !== "unpublish" &&
+      sections.length === 0
+    ) {
       toast({
         title: "Cannot Publish",
         description: "Add at least one section before publishing",
@@ -88,42 +97,50 @@ export function FormTemplateBuilder({
     setIsPublishing(true);
     try {
       const client = createClientEdenTreatyClient(token);
+      const body =
+        template.status === "published"
+          ? { action: action ?? ("publish" as const) }
+          : {};
       const response = await withTreatyBranch(
-        client.api["form-templates"]({
-          id: template.id,
-          templateId: template.id,
-        }),
+        client.api["form-templates"](
+          formTemplatesIndexParamsForId(template.id)
+        ),
         "publish"
-      ).publish.patch();
+      ).publish.patch(body);
 
       if (response.error) {
         const errBody = errorBody(response.error);
         toast({
           title: "Error",
           description:
-            errBody?.error.message || "Failed to toggle publish status",
+            errBody?.error.message || "Failed to update publish status",
           variant: "destructive",
         });
         return;
       }
 
-      toast({
-        title:
-          template.status === "draft"
-            ? "Template Published"
-            : "Template Unpublished",
-        description:
-          template.status === "draft"
-            ? "Form template is now published and ready for use"
-            : "Form template returned to draft status",
-      });
+      if (action === "unpublish") {
+        toast({
+          title: "Template Unpublished",
+          description: "Form template returned to draft status",
+        });
+      } else if (template.status === "published") {
+        toast({
+          title: "Version Published",
+          description: "Draft changes are now the live published version",
+        });
+      } else {
+        toast({
+          title: "Template Published",
+          description: "Form template is now published and ready for use",
+        });
+      }
 
-      // Small delay to ensure database transaction is committed
       setTimeout(() => {
         revalidator.revalidate();
       }, 100);
     } catch (error) {
-      console.error("Error toggling publish status:", error);
+      console.error("Error updating publish status:", error);
       toast({
         title: "Error",
         description: "Failed to update template status",
@@ -144,7 +161,9 @@ export function FormTemplateBuilder({
               <CardTitle>{template.name}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 {template.status === "published"
-                  ? "This template is published and cannot be edited. Copy it to make changes."
+                  ? template.hasUnpublishedDraftChanges
+                    ? "Published — you have draft edits that are not live yet. Use Publish changes to update the published version."
+                    : "Published — the builder shows your working draft; publish again to ship changes to the live version."
                   : template.status === "draft"
                     ? "Draft template - make changes and publish when ready"
                     : "This template is archived"}
@@ -159,6 +178,10 @@ export function FormTemplateBuilder({
                 {template.status.charAt(0).toUpperCase() +
                   template.status.slice(1)}
               </Badge>
+              {template.status === "published" &&
+                template.hasUnpublishedDraftChanges && (
+                  <Badge variant="outline">Unpublished changes</Badge>
+                )}
 
               <Button
                 variant="outline"
@@ -169,22 +192,41 @@ export function FormTemplateBuilder({
                 Copy Template
               </Button>
 
-              {template.status !== "archived" && (
-                <Button
-                  variant={
-                    template.status === "published" ? "outline" : "default"
-                  }
-                  size="sm"
-                  onClick={handleTogglePublish}
-                  disabled={
-                    (template.status === "draft" && sections.length === 0) ||
-                    isPublishing
-                  }
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {template.status === "published" ? "Unpublish" : "Publish"}
-                </Button>
-              )}
+              {template.status !== "archived" &&
+                (template.status === "published" ? (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => void patchPublish("publish")}
+                      disabled={sections.length === 0 || isPublishing}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Publish changes
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void patchPublish("unpublish")}
+                      disabled={isPublishing}
+                    >
+                      Unpublish
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => void patchPublish()}
+                    disabled={
+                      (template.status === "draft" && sections.length === 0) ||
+                      isPublishing
+                    }
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Publish
+                  </Button>
+                ))}
             </div>
           </div>
         </CardHeader>

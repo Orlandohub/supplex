@@ -1,6 +1,10 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formSection, formTemplate } from "@supplex/db";
+import {
+  formSection,
+  formTemplate,
+  getDraftFormTemplateVersionForTemplate,
+} from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
@@ -12,7 +16,7 @@ import { ApiError, Errors } from "../../../lib/errors";
  *
  * Auth: Requires Admin role
  * Tenant: Enforces tenant isolation
- * Validation: Template must be in 'draft' status (can't modify published templates)
+ * Validation: Container must not be archived; structure is appended to the mutable draft version.
  * Returns: Created section
  */
 export const createSectionRoute = new Elysia()
@@ -45,10 +49,22 @@ export const createSectionRoute = new Elysia()
           );
         }
 
-        if (template.status !== "draft") {
+        if (template.status === "archived") {
           throw Errors.badRequest(
-            "Cannot modify published template. Please copy the template to make changes.",
-            "TEMPLATE_PUBLISHED"
+            "Cannot modify archived template.",
+            "TEMPLATE_ARCHIVED"
+          );
+        }
+
+        const draftVersion = await getDraftFormTemplateVersionForTemplate(db, {
+          formTemplateId: templateId,
+          tenantId,
+        });
+
+        if (!draftVersion) {
+          throw Errors.badRequest(
+            "No draft structure available to add sections to",
+            "NO_DRAFT_STRUCTURE"
           );
         }
 
@@ -56,6 +72,7 @@ export const createSectionRoute = new Elysia()
           .insert(formSection)
           .values({
             formTemplateId: templateId,
+            formTemplateVersionId: draftVersion.id,
             tenantId,
             title,
             description: description || null,

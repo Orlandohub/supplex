@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formField, formSection, formTemplate } from "@supplex/db";
+import { formField, formSection, formTemplateVersion } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
@@ -49,13 +49,16 @@ export const updateFieldRoute = new Elysia()
         const [field] = await db
           .select({
             field: formField,
-            templateStatus: formTemplate.status,
+            versionNumber: formTemplateVersion.versionNumber,
           })
           .from(formField)
           .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
           .innerJoin(
-            formTemplate,
-            eq(formSection.formTemplateId, formTemplate.id)
+            formTemplateVersion,
+            and(
+              eq(formField.formTemplateVersionId, formTemplateVersion.id),
+              eq(formTemplateVersion.tenantId, tenantId)
+            )
           )
           .where(
             and(
@@ -73,10 +76,10 @@ export const updateFieldRoute = new Elysia()
           );
         }
 
-        if (field.templateStatus !== "draft") {
+        if (field.versionNumber !== null) {
           throw Errors.badRequest(
-            "Cannot modify field in published template. Please copy the template to make changes.",
-            "TEMPLATE_PUBLISHED"
+            "Cannot modify field in an immutable published version snapshot.",
+            "IMMUTABLE_FORM_VERSION"
           );
         }
 

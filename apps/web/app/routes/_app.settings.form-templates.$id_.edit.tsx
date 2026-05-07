@@ -9,7 +9,10 @@ import { useLoaderData, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { requireAuth } from "~/lib/auth/require-auth";
 import { createEdenTreatyClient } from "~/lib/api-client";
-import { withTreatyBranch } from "~/lib/api-helpers";
+import {
+  formTemplatesIndexParamsForId,
+  withTreatyBranch,
+} from "~/lib/api-helpers";
 import { UserRole } from "@supplex/types";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -45,7 +48,7 @@ export async function loader(args: LoaderFunctionArgs) {
   try {
     // Fetch template with all versions, sections, and fields
     const templateResponse = await withTreatyBranch(
-      client.api["form-templates"]({ id, templateId: id }),
+      client.api["form-templates"](formTemplatesIndexParamsForId(id)),
       "get"
     ).get();
 
