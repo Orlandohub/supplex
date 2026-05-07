@@ -1,5 +1,4 @@
-﻿import { useState } from "react";
-import { useSearchParams, useRouteLoaderData } from "react-router";
+﻿import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { SupplierOverview } from "./SupplierOverview";
@@ -87,6 +86,10 @@ interface SupplierDetailTabsProps {
   }>;
   supplierStatuses?: Array<{ id: string; name: string }>;
   token: string;
+  /** From route useRouteLoaderData("routes/_app") — keeps router hooks in the route module. */
+  permissions: AppLoaderData["permissions"];
+  /** searchParams.get("tab") from the route. */
+  tabFromUrl: string | null;
 }
 
 /**
@@ -112,21 +115,16 @@ export function SupplierDetailTabs({
   formSubmissions,
   supplierStatuses,
   token,
+  permissions,
+  tabFromUrl,
 }: SupplierDetailTabsProps) {
-  const [searchParams] = useSearchParams();
-
-  // âœ… Get permissions from parent loader (SSR-safe, prevents flash)
-  const appData = useRouteLoaderData<AppLoaderData>("routes/_app");
-  const permissions = appData?.permissions;
-  const _currentUser = appData?.user;
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
-  // Use client-side state for instant tab switching
-  // Initialize from URL param on mount
-  const initialTab = searchParams.get("tab") || "overview";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState(() => tabFromUrl || "overview");
+  useEffect(() => {
+    setActiveTab(tabFromUrl || "overview");
+  }, [tabFromUrl]);
 
   const handleTabChange = (value: string) => {
     // Update local state immediately (instant UI update)
@@ -153,18 +151,17 @@ export function SupplierDetailTabs({
         {/* Action Buttons */}
         <div className="flex space-x-3">
           {/* Start Process Button - Only visible for Prospect status */}
-          {supplier.status === "prospect" &&
-            permissions?.canCreateSuppliers && (
-              <Button
-                onClick={() => setIsWorkflowModalOpen(true)}
-                className="flex items-center space-x-2"
-              >
-                <CheckCircle className="h-4 w-4" />
-                <span>Start Process</span>
-              </Button>
-            )}
+          {supplier.status === "prospect" && permissions.canCreateSuppliers && (
+            <Button
+              onClick={() => setIsWorkflowModalOpen(true)}
+              className="flex items-center space-x-2"
+            >
+              <CheckCircle className="h-4 w-4" />
+              <span>Start Process</span>
+            </Button>
+          )}
 
-          {permissions?.canEditSuppliers && (
+          {permissions.canEditSuppliers && (
             <Link
               to={`/suppliers/${supplier.id}/edit`}
               className={cn(
@@ -177,7 +174,7 @@ export function SupplierDetailTabs({
             </Link>
           )}
 
-          {permissions?.isAdmin && (
+          {permissions.isAdmin && (
             <Button
               variant="destructive"
               onClick={() => setIsDeleteModalOpen(true)}
@@ -238,7 +235,7 @@ export function SupplierDetailTabs({
             workflows={workflows}
             supplierId={supplier.id}
             onStartProcess={
-              supplier.status === "prospect" && permissions?.canCreateSuppliers
+              supplier.status === "prospect" && permissions.canCreateSuppliers
                 ? () => setIsWorkflowModalOpen(true)
                 : undefined
             }

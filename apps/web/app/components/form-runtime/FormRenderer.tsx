@@ -140,7 +140,7 @@ export function FormRenderer({
       {/* Form Header */}
       <div className="space-y-2">
         <h1 className="text-2xl font-bold">
-          {formVersion.sections[0]?.title || "Form"}
+          {formVersion.name?.trim() || formVersion.sections[0]?.title || "Form"}
         </h1>
         {mode === "view" && (
           <Alert>
