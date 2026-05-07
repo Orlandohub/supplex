@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "~": path.resolve(__dirname, "./app"),
     },
+    dedupe: ["react", "react-dom"],
   },
   // CRITICAL: envPrefix configuration for Supabase SSR
   // This exposes SUPABASE_* and API_* env vars to client-side code via import.meta.env

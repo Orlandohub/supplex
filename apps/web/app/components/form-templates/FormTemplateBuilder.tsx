@@ -31,6 +31,8 @@ export interface FormTemplateBuilderTemplate {
   name: string;
   status: "draft" | "published" | "archived";
   sections: FormSectionWithFieldsUI[];
+  /** True when container is published and draft structure differs from live (published head). */
+  hasUnpublishedDraftChanges?: boolean;
 }
 
 interface FormTemplateBuilderProps {
@@ -159,7 +161,9 @@ export function FormTemplateBuilder({
               <CardTitle>{template.name}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 {template.status === "published"
-                  ? "Published — the builder shows your working draft; publish again to ship changes to the live version."
+                  ? template.hasUnpublishedDraftChanges
+                    ? "Published — you have draft edits that are not live yet. Use Publish changes to update the published version."
+                    : "Published — the builder shows your working draft; publish again to ship changes to the live version."
                   : template.status === "draft"
                     ? "Draft template - make changes and publish when ready"
                     : "This template is archived"}
@@ -174,6 +178,10 @@ export function FormTemplateBuilder({
                 {template.status.charAt(0).toUpperCase() +
                   template.status.slice(1)}
               </Badge>
+              {template.status === "published" &&
+                template.hasUnpublishedDraftChanges && (
+                  <Badge variant="outline">Unpublished changes</Badge>
+                )}
 
               <Button
                 variant="outline"

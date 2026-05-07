@@ -14,6 +14,82 @@ import { UserRole } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
 
 /**
+ * Canonical snapshot of section/field structure for comparing draft vs published head.
+ * Used only for admin UI ("unpublished changes"); not a public contract for submissions.
+ */
+async function formTemplateStructureSignature(
+  templateId: string,
+  tenantId: string,
+  versionId: string
+): Promise<string> {
+  const sections = await db
+    .select({
+      id: formSection.id,
+      title: formSection.title,
+      sectionOrder: formSection.sectionOrder,
+    })
+    .from(formSection)
+    .where(
+      and(
+        eq(formSection.formTemplateId, templateId),
+        eq(formSection.formTemplateVersionId, versionId),
+        eq(formSection.tenantId, tenantId),
+        isNull(formSection.deletedAt)
+      )
+    )
+    .orderBy(asc(formSection.sectionOrder));
+
+  const sectionIds = sections.map((s) => s.id);
+  const fields =
+    sectionIds.length === 0
+      ? []
+      : await db
+          .select({
+            formSectionId: formField.formSectionId,
+            fieldOrder: formField.fieldOrder,
+            label: formField.label,
+            placeholder: formField.placeholder,
+            fieldType: formField.fieldType,
+            required: formField.required,
+            validationRules: formField.validationRules,
+            options: formField.options,
+          })
+          .from(formField)
+          .where(
+            and(
+              eq(formField.formTemplateVersionId, versionId),
+              eq(formField.tenantId, tenantId),
+              inArray(formField.formSectionId, sectionIds),
+              isNull(formField.deletedAt)
+            )
+          );
+
+  const fieldsBySection = new Map<string, typeof fields>();
+  for (const sid of sectionIds) {
+    fieldsBySection.set(sid, []);
+  }
+  for (const f of fields) {
+    fieldsBySection.get(f.formSectionId)?.push(f);
+  }
+
+  const payload = sections.map((sec) => ({
+    t: sec.title,
+    fields: (fieldsBySection.get(sec.id) ?? [])
+      .sort((a, b) => a.fieldOrder - b.fieldOrder)
+      .map((f) => ({
+        l: f.label,
+        p: f.placeholder,
+        ty: f.fieldType,
+        r: f.required,
+        v: f.validationRules,
+        o: f.options,
+      })),
+  }));
+
+  return JSON.stringify(payload);
+}
+
+/**
  * GET /api/form-templates/:id
  * Get a single form template with all sections and fields
  *
@@ -58,12 +134,16 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
       }
 
       let structureVersionId: string | undefined;
+      let adminDraftVersion:
+        | Awaited<ReturnType<typeof getDraftFormTemplateVersionForTemplate>>
+        | undefined;
 
       if (user.role === UserRole.ADMIN) {
         const draft = await getDraftFormTemplateVersionForTemplate(db, {
           formTemplateId: templateId,
           tenantId,
         });
+        adminDraftVersion = draft ?? undefined;
         if (draft) {
           structureVersionId = draft.id;
         } else {
@@ -141,11 +221,45 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
         fields: fieldsBySection.get(section.id) ?? [],
       }));
 
+      let hasUnpublishedDraftChanges = false;
+      if (
+        user.role === UserRole.ADMIN &&
+        templateRecord.status === "published" &&
+        adminDraftVersion
+      ) {
+        const publishedForCompare = await getPublishedHeadFormTemplateVersion(
+          db,
+          {
+            formTemplateId: templateId,
+            tenantId,
+          }
+        );
+        if (
+          publishedForCompare &&
+          adminDraftVersion.id !== publishedForCompare.id
+        ) {
+          const [sigDraft, sigPublished] = await Promise.all([
+            formTemplateStructureSignature(
+              templateId,
+              tenantId,
+              adminDraftVersion.id
+            ),
+            formTemplateStructureSignature(
+              templateId,
+              tenantId,
+              publishedForCompare.id
+            ),
+          ]);
+          hasUnpublishedDraftChanges = sigDraft !== sigPublished;
+        }
+      }
+
       return {
         success: true,
         data: {
           ...templateRecord,
           sections: sectionsWithFields,
+          hasUnpublishedDraftChanges,
         },
       };
     } catch (error: unknown) {
