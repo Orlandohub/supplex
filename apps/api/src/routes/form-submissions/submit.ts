@@ -7,6 +7,7 @@ import {
   formField,
   stepInstance,
   SubmissionStatus,
+  resolveFormTemplateVersionIdForStructure,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -101,7 +102,25 @@ export const submitRoute = new Elysia()
           }
         }
 
-        // 4. Load all fields for the form_template
+        let structureVersionId = submissionRecord.formTemplateVersionId;
+        if (!structureVersionId) {
+          requestLogger.warn(
+            {
+              submissionId,
+              formTemplateId: submissionRecord.formTemplateId,
+            },
+            "form_submission.form_template_version_id is null; using resolveFormTemplateVersionIdForStructure (temporary fallback)"
+          );
+          structureVersionId = await resolveFormTemplateVersionIdForStructure(
+            db,
+            {
+              formTemplateId: submissionRecord.formTemplateId,
+              tenantId,
+            }
+          );
+        }
+
+        // Load fields for validation: submission's pinned structure version only (SUP-30)
         const fieldsData = await db
           .select({
             field: formField,
@@ -111,6 +130,8 @@ export const submitRoute = new Elysia()
           .where(
             and(
               eq(formSection.formTemplateId, submissionRecord.formTemplateId),
+              eq(formSection.formTemplateVersionId, structureVersionId),
+              eq(formField.formTemplateVersionId, structureVersionId),
               eq(formField.tenantId, tenantId),
               isNull(formField.deletedAt),
               isNull(formSection.deletedAt)
