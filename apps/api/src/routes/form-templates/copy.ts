@@ -2,8 +2,14 @@
  * Copy Form Template Endpoint
  * Story: 2.2.14 - Remove Template Versioning, Add Copy Functionality
  *
- * POST /api/form-templates/:id/copy
- * Creates a deep copy of a form template with all sections and fields
+ * POST /api/form-templates/:templateId/copy
+ * Creates a deep copy of a form template with all sections and fields.
+ *
+ * Uses the `:templateId` param name (not `:id`) to colocate with
+ * sections/fields/copy on the existing `:templateId` branch of the
+ * memoirist route trie. Mixing `:id` and `:templateId` as children of the
+ * same trie node throws "different parameter name in the same location"
+ * at server compile.
  */
 
 import { Elysia, t } from "elysia";
@@ -25,10 +31,10 @@ export const copyFormTemplate = new Elysia()
   .use(authenticatedRoute)
   .use(requireAdmin)
   .post(
-    "/form-templates/:id/copy",
+    "/:templateId/copy",
     async ({ params, body, user, requestLogger }) => {
       try {
-        const { id } = params;
+        const { templateId: id } = params;
 
         const [originalTemplate] = await db
           .select()
@@ -172,7 +178,7 @@ export const copyFormTemplate = new Elysia()
     },
     {
       params: t.Object({
-        id: t.String(),
+        templateId: t.String(),
       }),
       body: t.Object({
         name: t.Optional(t.String()),

@@ -31,6 +31,12 @@ import { Edit, Trash2, FileText, Copy, CheckCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CopyFormTemplateDialog } from "./CopyTemplateDialog";
 import { useToast } from "~/hooks/use-toast";
+import { createClientEdenTreatyClient } from "~/lib/api-client";
+import {
+  errorBody,
+  formTemplatesIndexParamsForId,
+  withTreatyBranch,
+} from "~/lib/api-helpers";
 
 interface FormTemplateTableProps {
   templates: FormTemplateListItem[];
@@ -84,25 +90,19 @@ export function FormTemplateTable({
     setIsPublishing(true);
 
     try {
+      const client = createClientEdenTreatyClient(token);
+      const route = client.api["form-templates"](
+        formTemplatesIndexParamsForId(templateId)
+      );
       const body =
-        currentStatus === "published"
-          ? JSON.stringify({ action: "unpublish" })
-          : JSON.stringify({});
-
-      const response = await fetch(
-        `/api/form-templates/${templateId}/publish`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body,
-        }
+        currentStatus === "published" ? { action: "unpublish" as const } : {};
+      const response = await withTreatyBranch(route, "publish").publish.patch(
+        body
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to toggle publish status");
+      const err = errorBody(response.error);
+      if (err) {
+        throw new Error(err.error.message || "Failed to toggle publish status");
       }
 
       toast({
