@@ -19,6 +19,13 @@ import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { useToast } from "~/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { createClientEdenTreatyClient } from "~/lib/api-client";
+import {
+  errorBody,
+  getErrorMessage,
+  okBody,
+  withTreatyBranch,
+} from "~/lib/api-helpers";
 
 interface Props {
   open: boolean;
@@ -55,27 +62,25 @@ export function CopyWorkflowTemplateDialog({
 
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `/api/workflow-templates/${templateId}/copy`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim() || null,
-          }),
-        }
-      );
+      const client = createClientEdenTreatyClient(token);
+      const route = client.api["workflow-templates"]({ templateId });
+      const trimmedDescription = description.trim();
+      const response = await withTreatyBranch(route, "copy").copy.post({
+        name: name.trim(),
+        ...(trimmedDescription.length > 0
+          ? { description: trimmedDescription }
+          : {}),
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to copy template");
+      const err = errorBody(response.error);
+      if (err) {
+        throw new Error(err.error.message || "Failed to copy template");
       }
 
-      const data = await response.json();
+      const result = okBody<{ id: string }>(response.data);
+      if (!result?.success || !result.data) {
+        throw new Error("Failed to copy template");
+      }
 
       toast({
         title: "Template Copied",
@@ -83,12 +88,11 @@ export function CopyWorkflowTemplateDialog({
       });
 
       onOpenChange(false);
-      navigate(`/settings/workflow-templates/${data.id}/edit`);
+      navigate(`/settings/workflow-templates/${result.data.id}/edit`);
     } catch (error) {
       toast({
         title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to copy template",
+        description: getErrorMessage(error, "Failed to copy template"),
         variant: "destructive",
       });
     } finally {
