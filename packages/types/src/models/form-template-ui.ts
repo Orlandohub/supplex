@@ -40,6 +40,7 @@ export interface FormTemplateListItem {
 export interface FormFieldWithDetails {
   id: string;
   formSectionId: string;
+  fieldKey: string;
   label: string;
   fieldType: FieldType;
   required: boolean;
@@ -59,6 +60,7 @@ export interface FormFieldWithDetails {
 export interface FormSectionWithFieldsUI {
   id: string;
   formTemplateId: string;
+  sectionKey: string;
   title: string;
   description: string | null;
   sectionOrder: number;
@@ -125,6 +127,8 @@ export interface CreateSectionRequest {
   title: string;
   description?: string;
   sectionOrder: number;
+  sectionKey?: string;
+  slugManuallyEdited?: boolean;
 }
 
 /**
@@ -135,6 +139,8 @@ export interface UpdateSectionRequest {
   title?: string;
   description?: string;
   sectionOrder?: number;
+  sectionKey?: string;
+  slugManuallyEdited?: boolean;
 }
 
 /**
@@ -149,6 +155,8 @@ export interface CreateFieldRequest {
   options?: Record<string, unknown>;
   fieldOrder: number;
   placeholder?: string;
+  fieldKey?: string;
+  slugManuallyEdited?: boolean;
 }
 
 /**
@@ -163,6 +171,8 @@ export interface UpdateFieldRequest {
   options?: Record<string, unknown>;
   fieldOrder?: number;
   placeholder?: string;
+  fieldKey?: string;
+  slugManuallyEdited?: boolean;
 }
 
 /**

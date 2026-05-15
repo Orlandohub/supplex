@@ -4,10 +4,12 @@ import {
   varchar,
   text,
   integer,
+  boolean,
   timestamp,
   jsonb,
   index,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { tenants } from "./tenants";
@@ -43,6 +45,10 @@ export const formSection = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     sectionOrder: integer("section_order").notNull(),
+    sectionKey: varchar("section_key", { length: 64 }).notNull(),
+    slugManuallyEdited: boolean("slug_manually_edited")
+      .notNull()
+      .default(false),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     metadata: jsonb("metadata").notNull().default({}),
@@ -65,6 +71,11 @@ export const formSection = pgTable(
       .where(sql`${table.deletedAt} IS NULL`),
     tenantVersionOrderIdx: index("idx_form_section_tenant_version_order")
       .on(table.tenantId, table.formTemplateVersionId, table.sectionOrder)
+      .where(sql`${table.deletedAt} IS NULL`),
+    versionSectionKeyActiveUnique: uniqueIndex(
+      "uq_form_section_version_key_active"
+    )
+      .on(table.formTemplateVersionId, table.sectionKey)
       .where(sql`${table.deletedAt} IS NULL`),
   })
 );

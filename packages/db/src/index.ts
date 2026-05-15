@@ -231,3 +231,4 @@ export * from "./helpers/form-template-version";
 export * from "./helpers/form-template-version-lifecycle";
 export * from "./helpers/form-template-audit-event";
 export * from "./helpers/form-template-draft-hard-delete";
+export * from "./helpers/form-template-keys";

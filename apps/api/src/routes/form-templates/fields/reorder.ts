@@ -6,6 +6,11 @@ import {
   formTemplate,
   formTemplateVersion,
   getDraftFormTemplateVersionForTemplate,
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  snapshotsDifferOnTrackedKeys,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
 } from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
@@ -15,12 +20,6 @@ import { ApiError, Errors } from "../../../lib/errors";
 /**
  * POST /api/form-templates/sections/:sectionId/fields/reorder
  * Reorder fields within a section (Admin only)
- *
- * Auth: Requires Admin role
- * Tenant: Enforces tenant isolation
- * Validation: Parent template must be in 'draft' status
- * Body: Array of field IDs in desired order
- * Returns: Success response
  */
 export const reorderFieldsRoute = new Elysia()
   .use(authenticatedRoute)
@@ -90,7 +89,7 @@ export const reorderFieldsRoute = new Elysia()
           row.section.formTemplateVersionId !== draftVersion.id ||
           row.versionNumber !== null
         ) {
-          throw Errors.badRequest(
+          throw Errors.conflict(
             "Can only reorder fields on the mutable draft structure",
             "IMMUTABLE_FORM_VERSION"
           );
@@ -118,13 +117,56 @@ export const reorderFieldsRoute = new Elysia()
 
         await db.transaction(async (tx) => {
           for (const [i, fieldId] of fieldIds.entries()) {
-            await tx
+            const newOrder = i + 1;
+            const [beforeRow] = await tx
+              .select()
+              .from(formField)
+              .where(
+                and(
+                  eq(formField.id, fieldId),
+                  eq(formField.tenantId, tenantId),
+                  isNull(formField.deletedAt)
+                )
+              )
+              .limit(1);
+
+            if (!beforeRow) {
+              throw Errors.internal("Field missing during reorder");
+            }
+            if (beforeRow.fieldOrder === newOrder) continue;
+
+            const [afterRow] = await tx
               .update(formField)
               .set({
-                fieldOrder: i + 1,
+                fieldOrder: newOrder,
                 updatedAt: new Date(),
               })
-              .where(eq(formField.id, fieldId));
+              .where(eq(formField.id, fieldId))
+              .returning();
+
+            if (!afterRow) continue;
+
+            const beforeSnap = snapshotRow(beforeRow);
+            const afterSnap = snapshotRow(afterRow);
+
+            if (
+              snapshotsDifferOnTrackedKeys(beforeSnap, afterSnap, [
+                "fieldOrder",
+              ])
+            ) {
+              await insertFormTemplateAuditEvent(tx, {
+                tenantId,
+                formTemplateId: row.section.formTemplateId,
+                formTemplateVersionId: beforeRow.formTemplateVersionId,
+                actorUserId: user.id,
+                eventType: FormTemplateAuditEventType.FIELD_UPDATED,
+                subjectType: FormTemplateAuditSubject.FIELD,
+                subjectId: beforeRow.id,
+                before: beforeSnap,
+                after: afterSnap,
+                summary: `Field "${afterRow.label}" reordered`,
+              });
+            }
           }
         });
 

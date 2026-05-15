@@ -5,11 +5,20 @@ import {
   formSection,
   formTemplate,
   formTemplateVersion,
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  allocateFieldKey,
+  normalizeClientFormTemplateKeyOrThrow,
+  assertFieldKeyAvailable,
+  InvalidFormTemplateKeyError,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
+import { isPostgresUniqueViolation } from "../../../lib/pg-errors";
 
 /**
  * POST /api/form-templates/sections/:sectionId/fields
@@ -37,6 +46,8 @@ export const createFieldRoute = new Elysia()
           options,
           fieldOrder,
           placeholder,
+          fieldKey,
+          slugManuallyEdited,
         } = body;
 
         if (fieldType === "dropdown" || fieldType === "multi_select") {
@@ -156,29 +167,71 @@ export const createFieldRoute = new Elysia()
         }
 
         if (row.versionNumber !== null) {
-          throw Errors.badRequest(
+          throw Errors.conflict(
             "Cannot add field to an immutable published version snapshot.",
             "IMMUTABLE_FORM_VERSION"
           );
         }
 
-        const [newField] = await db
-          .insert(formField)
-          .values({
-            formSectionId: sectionId,
-            formTemplateVersionId: row.section.formTemplateVersionId,
+        const newField = await db.transaction(async (tx) => {
+          let resolvedKey: string;
+          let manualFlag: boolean;
+          if (fieldKey !== undefined && fieldKey.trim() !== "") {
+            resolvedKey = normalizeClientFormTemplateKeyOrThrow(fieldKey);
+            await assertFieldKeyAvailable(tx, {
+              versionId: row.section.formTemplateVersionId,
+              tenantId,
+              key: resolvedKey,
+            });
+            manualFlag = true;
+          } else {
+            resolvedKey = await allocateFieldKey(tx, {
+              versionId: row.section.formTemplateVersionId,
+              tenantId,
+              desiredBase: label,
+            });
+            manualFlag = slugManuallyEdited ?? false;
+          }
+
+          const [created] = await tx
+            .insert(formField)
+            .values({
+              formSectionId: sectionId,
+              formTemplateVersionId: row.section.formTemplateVersionId,
+              tenantId,
+              label,
+              fieldKey: resolvedKey,
+              slugManuallyEdited: manualFlag,
+              fieldType,
+              required: required || false,
+              validationRules: validationRules || {},
+              options: options || {},
+              fieldOrder,
+              placeholder: placeholder || null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .returning();
+
+          if (!created) {
+            throw Errors.internal("Failed to create field");
+          }
+
+          await insertFormTemplateAuditEvent(tx, {
             tenantId,
-            label,
-            fieldType,
-            required: required || false,
-            validationRules: validationRules || {},
-            options: options || {},
-            fieldOrder,
-            placeholder: placeholder || null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning();
+            formTemplateId: row.section.formTemplateId,
+            formTemplateVersionId: row.section.formTemplateVersionId,
+            actorUserId: user.id,
+            eventType: FormTemplateAuditEventType.FIELD_CREATED,
+            subjectType: FormTemplateAuditSubject.FIELD,
+            subjectId: created.id,
+            before: null,
+            after: snapshotRow(created),
+            summary: `Field "${created.label}" created`,
+          });
+
+          return created;
+        });
 
         set.status = 201;
         return {
@@ -189,6 +242,24 @@ export const createFieldRoute = new Elysia()
         };
       } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
+        if (error instanceof InvalidFormTemplateKeyError) {
+          throw Errors.badRequest(error.message, error.code);
+        }
+        if (
+          error instanceof Error &&
+          error.message === "FORM_TEMPLATE_FIELD_KEY_TAKEN"
+        ) {
+          throw Errors.conflict(
+            "That field key is already used in this form version.",
+            "DUPLICATE_FORM_KEY"
+          );
+        }
+        if (isPostgresUniqueViolation(error)) {
+          throw Errors.conflict(
+            "That key is already used in this form version.",
+            "DUPLICATE_FORM_KEY"
+          );
+        }
         requestLogger.error({ err: error }, "Error creating field");
         throw Errors.internal("Failed to create field");
       }
@@ -222,6 +293,8 @@ export const createFieldRoute = new Elysia()
         ),
         fieldOrder: t.Integer({ minimum: 1 }),
         placeholder: t.Optional(t.String()),
+        fieldKey: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+        slugManuallyEdited: t.Optional(t.Boolean()),
       }),
       detail: {
         summary: "Create field in section",

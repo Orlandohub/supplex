@@ -53,7 +53,7 @@ export const deleteFieldRoute = new Elysia()
           );
         }
         if (error instanceof ImmutableFormTemplateStructureError) {
-          throw Errors.badRequest(
+          throw Errors.conflict(
             "Cannot delete field in an immutable published version snapshot.",
             "IMMUTABLE_FORM_VERSION"
           );

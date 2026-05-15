@@ -9,11 +9,16 @@ import {
   snapshotsDifferOnTrackedKeys,
   FormTemplateAuditEventType,
   FormTemplateAuditSubject,
+  allocateFieldKey,
+  normalizeClientFormTemplateKeyOrThrow,
+  assertFieldKeyAvailable,
+  InvalidFormTemplateKeyError,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
+import { isPostgresUniqueViolation } from "../../../lib/pg-errors";
 import type { FieldOptions } from "@supplex/types";
 
 const FIELD_TRACKED_KEYS = [
@@ -24,17 +29,10 @@ const FIELD_TRACKED_KEYS = [
   "options",
   "fieldOrder",
   "placeholder",
+  "fieldKey",
+  "slugManuallyEdited",
 ] as const;
 
-/**
- * Type guard that narrows the JSONB `options` column to `FieldOptions`
- * (the dropdown/multi-select shape `{ choices: Array<{ value, label }> }`).
- *
- * The schema types the column as `FieldOptions | Record<string, never>` to
- * accommodate non-choice fields (where the column stores `{}`). This guard
- * lets us safely operate on the options when we know the field is a
- * choice-based type.
- */
 function hasChoices(
   options: FieldOptions | Record<string, never> | undefined | null
 ): options is FieldOptions {
@@ -49,11 +47,6 @@ function hasChoices(
 /**
  * PATCH /api/form-templates/fields/:fieldId
  * Update a field (Admin only)
- *
- * Auth: Requires Admin role
- * Tenant: Enforces tenant isolation
- * Validation: Parent template must be in 'draft' status
- * Returns: Updated field
  */
 export const updateFieldRoute = new Elysia()
   .use(authenticatedRoute)
@@ -98,7 +91,7 @@ export const updateFieldRoute = new Elysia()
           }
 
           if (field.versionNumber !== null) {
-            throw Errors.badRequest(
+            throw Errors.conflict(
               "Cannot modify field in an immutable published version snapshot.",
               "IMMUTABLE_FORM_VERSION"
             );
@@ -189,6 +182,12 @@ export const updateFieldRoute = new Elysia()
             updatedAt: new Date(),
           };
 
+          let nextSlugManual = beforeRow.slugManuallyEdited;
+          if (body.slugManuallyEdited !== undefined) {
+            updateData.slugManuallyEdited = body.slugManuallyEdited;
+            nextSlugManual = body.slugManuallyEdited;
+          }
+
           if (body.label !== undefined) {
             updateData.label = body.label;
           }
@@ -215,6 +214,32 @@ export const updateFieldRoute = new Elysia()
 
           if (body.placeholder !== undefined) {
             updateData.placeholder = body.placeholder || null;
+          }
+
+          const effectiveLabel =
+            body.label !== undefined ? body.label : beforeRow.label;
+
+          if (body.fieldKey !== undefined && body.fieldKey.trim() !== "") {
+            const k = normalizeClientFormTemplateKeyOrThrow(body.fieldKey);
+            await assertFieldKeyAvailable(tx, {
+              versionId: beforeRow.formTemplateVersionId,
+              tenantId,
+              key: k,
+              excludeFieldId: fieldId,
+            });
+            updateData.fieldKey = k;
+            updateData.slugManuallyEdited = true;
+          } else if (
+            body.label !== undefined &&
+            body.label !== beforeRow.label &&
+            !nextSlugManual
+          ) {
+            updateData.fieldKey = await allocateFieldKey(tx, {
+              versionId: beforeRow.formTemplateVersionId,
+              tenantId,
+              desiredBase: effectiveLabel,
+              excludeFieldId: fieldId,
+            });
           }
 
           const [afterRow] = await tx
@@ -262,6 +287,24 @@ export const updateFieldRoute = new Elysia()
         };
       } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
+        if (error instanceof InvalidFormTemplateKeyError) {
+          throw Errors.badRequest(error.message, error.code);
+        }
+        if (
+          error instanceof Error &&
+          error.message === "FORM_TEMPLATE_FIELD_KEY_TAKEN"
+        ) {
+          throw Errors.conflict(
+            "That field key is already used in this form version.",
+            "DUPLICATE_FORM_KEY"
+          );
+        }
+        if (isPostgresUniqueViolation(error)) {
+          throw Errors.conflict(
+            "That key is already used in this form version.",
+            "DUPLICATE_FORM_KEY"
+          );
+        }
         requestLogger.error({ err: error }, "Error updating field");
         throw Errors.internal("Failed to update field");
       }
@@ -297,6 +340,8 @@ export const updateFieldRoute = new Elysia()
         ),
         fieldOrder: t.Optional(t.Integer({ minimum: 1 })),
         placeholder: t.Optional(t.String()),
+        fieldKey: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+        slugManuallyEdited: t.Optional(t.Boolean()),
       }),
       detail: {
         summary: "Update field",

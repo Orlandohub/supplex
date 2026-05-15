@@ -81,6 +81,8 @@ describe("form template version lifecycle (SUP-26)", () => {
         formTemplateVersionId: draftV.id,
         tenantId,
         sectionOrder: 1,
+        sectionKey: "section_a",
+        slugManuallyEdited: true,
         title: "Section A",
       })
       .returning();
@@ -92,6 +94,8 @@ describe("form template version lifecycle (SUP-26)", () => {
       formTemplateVersionId: draftV.id,
       tenantId,
       fieldOrder: 1,
+      fieldKey: "field_one",
+      slugManuallyEdited: false,
       fieldType: FieldType.TEXT,
       label: "Field 1",
     });
@@ -146,6 +150,20 @@ describe("form template version lifecycle (SUP-26)", () => {
     expect(firstPubSection).toBeDefined();
     if (!firstPubSection) throw new Error("missing published section");
     expect(firstPubSection.id).not.toBe(oldSectionId);
+    expect(firstPubSection.sectionKey).toBe("section_a");
+    expect(firstPubSection.slugManuallyEdited).toBe(true);
+
+    const [pubFieldRow] = await db
+      .select()
+      .from(formField)
+      .where(
+        and(
+          eq(formField.formTemplateVersionId, pub.id),
+          isNull(formField.deletedAt)
+        )
+      );
+    expect(pubFieldRow?.fieldKey).toBe("field_one");
+    expect(pubFieldRow?.slugManuallyEdited).toBe(false);
 
     const draftSections = await db
       .select()
@@ -157,6 +175,17 @@ describe("form template version lifecycle (SUP-26)", () => {
         )
       );
     expect(draftSections.length).toBe(1);
+    expect(draftSections[0]?.sectionKey).toBe("section_a");
+    const [draftFieldRow] = await db
+      .select()
+      .from(formField)
+      .where(
+        and(
+          eq(formField.formTemplateVersionId, newDraft.id),
+          isNull(formField.deletedAt)
+        )
+      );
+    expect(draftFieldRow?.fieldKey).toBe("field_one");
 
     const resolved = await resolveFormTemplateVersionIdForStructure(db, {
       formTemplateId: tpl.id,

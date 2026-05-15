@@ -103,6 +103,7 @@ describe("Form submit + validation decline + resubmit", () => {
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "s1",
       title: "S1",
     });
 
@@ -111,6 +112,7 @@ describe("Form submit + validation decline + resubmit", () => {
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "name",
       fieldType: "text",
       label: "Name",
       required: true,

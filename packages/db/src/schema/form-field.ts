@@ -8,6 +8,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
   pgEnum,
   foreignKey,
 } from "drizzle-orm/pg-core";
@@ -79,6 +80,10 @@ export const formField = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     fieldOrder: integer("field_order").notNull(),
+    fieldKey: varchar("field_key", { length: 64 }).notNull(),
+    slugManuallyEdited: boolean("slug_manually_edited")
+      .notNull()
+      .default(false),
     fieldType: fieldTypeEnum("field_type").notNull(),
     label: varchar("label", { length: 255 }).notNull(),
     placeholder: text("placeholder"),
@@ -108,6 +113,9 @@ export const formField = pgTable(
     // Composite index on (tenant_id, form_section_id, field_order) for ordered retrieval
     tenantSectionOrderIdx: index("idx_form_field_tenant_section_order")
       .on(table.tenantId, table.formSectionId, table.fieldOrder)
+      .where(sql`${table.deletedAt} IS NULL`),
+    versionFieldKeyActiveUnique: uniqueIndex("uq_form_field_version_key_active")
+      .on(table.formTemplateVersionId, table.fieldKey)
       .where(sql`${table.deletedAt} IS NULL`),
   })
 );

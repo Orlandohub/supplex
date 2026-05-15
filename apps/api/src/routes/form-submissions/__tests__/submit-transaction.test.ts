@@ -151,6 +151,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "section_1",
       title: "Section 1",
     });
 
@@ -159,6 +160,7 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "company_name",
       fieldType: "text",
       label: "Company Name",
       required: true,

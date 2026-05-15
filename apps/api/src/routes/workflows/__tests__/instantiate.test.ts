@@ -92,6 +92,7 @@ async function createPublishedFormTemplateViaLifecycle(
     formTemplateVersionId: draft.id,
     tenantId,
     sectionOrder: 1,
+    sectionKey: "section_1",
     title: "Section 1",
   });
 
@@ -100,6 +101,7 @@ async function createPublishedFormTemplateViaLifecycle(
     formTemplateVersionId: draft.id,
     tenantId,
     fieldOrder: 1,
+    fieldKey: "field_a",
     fieldType: "text",
     label: "Field A",
     required: false,
