@@ -297,6 +297,23 @@ describe("form template audit events (SUP-27)", () => {
     expect(meta.supersededVersionId).toBeNull();
     expect(typeof meta.publishedVersionId).toBe("string");
     expect(typeof meta.newDraftVersionId).toBe("string");
+    expect(meta.structureChanged).toBe(true);
+    expect(meta.structureDiffSummary).toBeDefined();
+    const sum = meta.structureDiffSummary as {
+      addedSectionCount: number;
+      addedFieldCount: number;
+    };
+    expect(sum.addedSectionCount).toBeGreaterThanOrEqual(0);
+    expect(meta.publishImpact).toBeDefined();
+    const impact = meta.publishImpact as {
+      workflowTemplatesReferencingContainer: unknown[];
+      activeProcessesWithSupersededPin: unknown[];
+    };
+    expect(Array.isArray(impact.workflowTemplatesReferencingContainer)).toBe(
+      true
+    );
+    expect(Array.isArray(impact.activeProcessesWithSupersededPin)).toBe(true);
+    expect(impact.activeProcessesWithSupersededPin.length).toBe(0);
   });
 
   test("audit insert is rolled back when its enclosing transaction throws", async () => {

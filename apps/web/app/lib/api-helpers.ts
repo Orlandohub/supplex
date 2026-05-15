@@ -69,7 +69,7 @@ export type FormTemplatesIndexParamBag = {
   templateId: string | number;
 };
 
-/** Routes: `GET|PATCH|DELETE /api/form-templates/:id`, `PATCH .../:id/publish`, etc. */
+/** Routes: `GET|PATCH|DELETE /api/form-templates/:id`, `PATCH .../:id/publish`, `GET .../:id/publish-preview`, etc. */
 export function formTemplatesIndexParamsForId(id: string) {
   return { id } as unknown as FormTemplatesIndexParamBag;
 }

@@ -16,6 +16,13 @@ import {
   FormTemplateAuditEventType,
   FormTemplateAuditSubject,
 } from "./form-template-audit-event";
+import {
+  loadFormTemplateStructureSnapshot,
+  diffFormTemplateStructureSnapshots,
+  formTemplateStructureSignatureFromSlices,
+  summarizeFormTemplateStructureDiffAccurate,
+} from "./form-template-structure-diff";
+import { computeFormTemplatePublishImpact } from "./form-template-publish-impact";
 
 type DbLike = PostgresJsDatabase<typeof schema>;
 
@@ -248,6 +255,37 @@ export async function publishFormTemplateFromDraft(
     formTemplateId,
     tenantId,
   });
+
+  const baselineSnap = oldHead
+    ? await loadFormTemplateStructureSnapshot(tx, {
+        formTemplateId,
+        tenantId,
+        versionId: oldHead.id,
+      })
+    : [];
+
+  const draftSnap = await loadFormTemplateStructureSnapshot(tx, {
+    formTemplateId,
+    tenantId,
+    versionId: draft.id,
+  });
+
+  const structureDiff = diffFormTemplateStructureSnapshots(
+    baselineSnap,
+    draftSnap
+  );
+  const structureDiffSummary = summarizeFormTemplateStructureDiffAccurate(
+    structureDiff,
+    baselineSnap
+  );
+  const publishImpactSnapshot = await computeFormTemplatePublishImpact(tx, {
+    formTemplateId,
+    tenantId,
+    supersededPublishedVersionId: oldHead?.id ?? null,
+  });
+  const structureChanged =
+    formTemplateStructureSignatureFromSlices(baselineSnap) !==
+    formTemplateStructureSignatureFromSlices(draftSnap);
 
   const nextNum = oldHead ? (oldHead.versionNumber ?? 0) + 1 : 1;
 
@@ -524,6 +562,9 @@ export async function publishFormTemplateFromDraft(
       newDraftVersionId: newDraft.id,
       replacedDraftVersionId: draft.id,
       supersededVersionId: oldHead?.id ?? null,
+      publishImpact: publishImpactSnapshot,
+      structureDiffSummary,
+      structureChanged,
     },
     summary: `Form template version v${nextNum} published`,
   });

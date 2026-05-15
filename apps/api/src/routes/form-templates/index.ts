@@ -15,6 +15,7 @@ import { updateFieldRoute } from "./fields/update";
 import { deleteFieldRoute } from "./fields/delete";
 import { reorderFieldsRoute } from "./fields/reorder";
 import { publishVersionRoute } from "./publish";
+import { publishPreviewRoute } from "./publish-preview";
 
 /**
  * Form Templates Route Aggregator
@@ -49,6 +50,7 @@ import { publishVersionRoute } from "./publish";
  *
  * Publishing:
  * - PATCH  /api/form-templates/:id/publish - Publish draft / republish (optional body); unpublish via action
+ * - GET    /api/form-templates/:id/publish-preview - Preview diff + impact (SUP-29, admin)
  */
 export const formTemplatesRoutes = new Elysia({ prefix: "/api/form-templates" })
   .use(listFormTemplatesRoute)
@@ -58,6 +60,7 @@ export const formTemplatesRoutes = new Elysia({ prefix: "/api/form-templates" })
   .use(copyFormTemplate)
   .use(updateFormTemplateRoute)
   .use(deleteFormTemplateRoute)
+  .use(publishPreviewRoute)
   .use(createSectionRoute)
   .use(updateSectionRoute)
   .use(deleteSectionRoute)
