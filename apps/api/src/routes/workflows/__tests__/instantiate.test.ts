@@ -1,4 +1,15 @@
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  setDefaultTimeout,
+} from "bun:test";
+
+// Some tests publish a form template against the remote Supabase DB which can
+// be slow on transatlantic links — bump the default test timeout.
+setDefaultTimeout(60_000);
 import { db } from "../../../lib/db";
 import {
   tenants,
@@ -8,8 +19,18 @@ import {
   processInstance,
   stepInstance,
   taskInstance,
+  formTemplate,
+  formTemplateVersion,
+  formSection,
+  formField,
+  FormTemplateStatus,
+  FormTemplateVersionStatus,
+  insertDraftFormTemplateVersion,
+  publishFormTemplateFromDraft,
+  getPublishedHeadFormTemplateVersion,
+  getDraftFormTemplateVersionForTemplate,
 } from "@supplex/db";
-import { eq, asc } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { instantiateWorkflow } from "../../../lib/workflow-engine/instantiate-workflow";
 
 import { insertOneOrThrow } from "../../../lib/db-helpers";
@@ -17,12 +38,94 @@ import { insertOneOrThrow } from "../../../lib/db-helpers";
  * Integration Tests: Workflow Instantiation
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: Story 2.2.19 - Transaction wrapping, batch inserts, library delegation
+ * Updated: SUP-31 - Form steps pin to published_head form_template_version at instantiation
  */
+
+/**
+ * Insert a `published` form_template plus a single published head form_template_version
+ * without going through the deep-copy publish pipeline. Use when a test only needs
+ * the version row to exist so getPublishedHeadFormTemplateVersion resolves a pin.
+ */
+async function insertPublishedFormTemplateRow(
+  tenantId: string,
+  name: string
+): Promise<{ formTemplateId: string; publishedVersionId: string }> {
+  const tpl = await insertOneOrThrow(db, formTemplate, {
+    tenantId,
+    name,
+    status: FormTemplateStatus.PUBLISHED,
+  });
+
+  const ver = await insertOneOrThrow(db, formTemplateVersion, {
+    formTemplateId: tpl.id,
+    tenantId,
+    versionNumber: 1,
+    status: FormTemplateVersionStatus.PUBLISHED,
+  });
+
+  return { formTemplateId: tpl.id, publishedVersionId: ver.id };
+}
+
+/**
+ * Build a draft + section + field form template, then publish it via the real
+ * lifecycle helper. Used by the republish test which needs to mutate a draft
+ * and re-publish to mint a new head.
+ */
+async function createPublishedFormTemplateViaLifecycle(
+  tenantId: string,
+  name: string
+): Promise<{ formTemplateId: string; publishedVersionId: string }> {
+  const tpl = await insertOneOrThrow(db, formTemplate, {
+    tenantId,
+    name,
+    status: FormTemplateStatus.DRAFT,
+  });
+
+  const draft = await insertDraftFormTemplateVersion(db, {
+    formTemplateId: tpl.id,
+    tenantId,
+  });
+
+  const section = await insertOneOrThrow(db, formSection, {
+    formTemplateId: tpl.id,
+    formTemplateVersionId: draft.id,
+    tenantId,
+    sectionOrder: 1,
+    title: "Section 1",
+  });
+
+  await insertOneOrThrow(db, formField, {
+    formSectionId: section.id,
+    formTemplateVersionId: draft.id,
+    tenantId,
+    fieldOrder: 1,
+    fieldType: "text",
+    label: "Field A",
+    required: false,
+  });
+
+  await db.transaction(async (tx) => {
+    await publishFormTemplateFromDraft(tx, {
+      formTemplateId: tpl.id,
+      tenantId,
+    });
+  });
+
+  const head = await getPublishedHeadFormTemplateVersion(db, {
+    formTemplateId: tpl.id,
+    tenantId,
+  });
+  if (!head) throw new Error("expected published head after publish");
+
+  return { formTemplateId: tpl.id, publishedVersionId: head.id };
+}
 
 describe("Workflow Instantiation", () => {
   let tenantId: string;
   let userId: string;
   let workflowTemplateId: string;
+  let sharedFormTemplateId: string;
+  let sharedPublishedVersionId: string;
 
   beforeAll(async () => {
     const tenant = await insertOneOrThrow(db, tenants, {
@@ -40,6 +143,13 @@ describe("Workflow Instantiation", () => {
     });
     userId = user.id;
 
+    const ft = await insertPublishedFormTemplateRow(
+      tenantId,
+      `Inst FT ${Date.now()}`
+    );
+    sharedFormTemplateId = ft.formTemplateId;
+    sharedPublishedVersionId = ft.publishedVersionId;
+
     const template = await insertOneOrThrow(db, workflowTemplate, {
       tenantId,
       name: "Test Workflow",
@@ -56,6 +166,8 @@ describe("Workflow Instantiation", () => {
         stepOrder: 1,
         name: "Step 1: Submit Form",
         stepType: "form",
+        formTemplateId: sharedFormTemplateId,
+        formActionMode: "fill_out",
         taskTitle: "Fill out form",
         taskDescription: "Please complete the form",
         dueDays: 7,
@@ -114,10 +226,16 @@ describe("Workflow Instantiation", () => {
     const firstStep = steps.find((s) => s.stepOrder === 1);
     expect(firstStep).toBeDefined();
     expect(firstStep?.status).toBe("active");
+    // SUP-31: form steps freeze on the published head version at instantiation.
+    expect(firstStep?.pinnedFormTemplateVersionId).toBe(
+      sharedPublishedVersionId
+    );
 
     const secondStep = steps.find((s) => s.stepOrder === 2);
     expect(secondStep).toBeDefined();
     expect(secondStep?.status).toBe("blocked");
+    // Non-form steps must not carry a form pin.
+    expect(secondStep?.pinnedFormTemplateVersionId).toBeNull();
 
     // Tasks created for first step
     const tasks = await db
@@ -230,6 +348,8 @@ describe("Workflow Instantiation", () => {
         stepOrder: 2,
         name: "Originally Step 2",
         stepType: "form",
+        formTemplateId: sharedFormTemplateId,
+        formActionMode: "fill_out",
         taskTitle: "Fill out form",
         dueDays: 7,
         assigneeType: "role",
@@ -309,5 +429,285 @@ describe("Workflow Instantiation", () => {
     await db
       .delete(processInstance)
       .where(eq(processInstance.id, result.data.processInstance.id));
+  });
+
+  describe("SUP-31: form template version pinning", () => {
+    test("two form steps sharing one template both get the same pin (deduped resolution)", async () => {
+      const wf = await insertOneOrThrow(db, workflowTemplate, {
+        tenantId,
+        name: `WF shared pin ${Date.now()}`,
+        status: "published",
+        active: true,
+        createdBy: userId,
+      });
+
+      await db.insert(workflowStepTemplate).values([
+        {
+          tenantId,
+          workflowTemplateId: wf.id,
+          stepOrder: 1,
+          name: "Form A",
+          stepType: "form",
+          formTemplateId: sharedFormTemplateId,
+          formActionMode: "fill_out",
+          taskTitle: "Fill A",
+          assigneeType: "role",
+          assigneeRole: "admin",
+        },
+        {
+          tenantId,
+          workflowTemplateId: wf.id,
+          stepOrder: 2,
+          name: "Form B",
+          stepType: "form",
+          formTemplateId: sharedFormTemplateId,
+          formActionMode: "fill_out",
+          taskTitle: "Fill B",
+          assigneeType: "role",
+          assigneeRole: "admin",
+        },
+      ]);
+
+      const result = await instantiateWorkflow(db, {
+        tenantId,
+        workflowTemplateId: wf.id,
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        initiatedBy: userId,
+      });
+
+      expect(result.success).toBe(true);
+      if (!result.success) throw new Error("expected success");
+
+      const s1 = result.data.steps.find((s) => s.stepOrder === 1);
+      const s2 = result.data.steps.find((s) => s.stepOrder === 2);
+      expect(s1?.pinnedFormTemplateVersionId).toBe(sharedPublishedVersionId);
+      expect(s2?.pinnedFormTemplateVersionId).toBe(sharedPublishedVersionId);
+      expect(s1?.pinnedFormTemplateVersionId).toBe(
+        s2?.pinnedFormTemplateVersionId
+      );
+
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, result.data.processInstance.id));
+      await db
+        .delete(workflowStepTemplate)
+        .where(eq(workflowStepTemplate.workflowTemplateId, wf.id));
+      await db.delete(workflowTemplate).where(eq(workflowTemplate.id, wf.id));
+    });
+
+    test("republishing a form template after instantiation does not mutate prior step pins", async () => {
+      const ft = await createPublishedFormTemplateViaLifecycle(
+        tenantId,
+        `Republish FT ${Date.now()}`
+      );
+
+      const wf = await insertOneOrThrow(db, workflowTemplate, {
+        tenantId,
+        name: `WF republish ${Date.now()}`,
+        status: "published",
+        active: true,
+        createdBy: userId,
+      });
+
+      await db.insert(workflowStepTemplate).values({
+        tenantId,
+        workflowTemplateId: wf.id,
+        stepOrder: 1,
+        name: "Form",
+        stepType: "form",
+        formTemplateId: ft.formTemplateId,
+        formActionMode: "fill_out",
+        taskTitle: "Fill",
+        assigneeType: "role",
+        assigneeRole: "admin",
+      });
+
+      const r1 = await instantiateWorkflow(db, {
+        tenantId,
+        workflowTemplateId: wf.id,
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        initiatedBy: userId,
+      });
+      expect(r1.success).toBe(true);
+      if (!r1.success) throw new Error("expected success");
+      const oldStep = r1.data.steps[0];
+      if (!oldStep) throw new Error("expected oldStep");
+      expect(oldStep.pinnedFormTemplateVersionId).toBe(ft.publishedVersionId);
+
+      // Edit the post-publish draft and publish again to mint a new head.
+      const draft = await getDraftFormTemplateVersionForTemplate(db, {
+        formTemplateId: ft.formTemplateId,
+        tenantId,
+      });
+      if (!draft) throw new Error("expected draft after first publish");
+
+      const [draftSection] = await db
+        .select()
+        .from(formSection)
+        .where(
+          and(
+            eq(formSection.formTemplateVersionId, draft.id),
+            isNull(formSection.deletedAt)
+          )
+        );
+      if (!draftSection) throw new Error("expected draftSection");
+
+      await db
+        .update(formSection)
+        .set({ title: "Updated section v2" })
+        .where(eq(formSection.id, draftSection.id));
+
+      await db.transaction(async (tx) => {
+        await publishFormTemplateFromDraft(tx, {
+          formTemplateId: ft.formTemplateId,
+          tenantId,
+        });
+      });
+
+      const newHead = await getPublishedHeadFormTemplateVersion(db, {
+        formTemplateId: ft.formTemplateId,
+        tenantId,
+      });
+      if (!newHead) throw new Error("expected new published head");
+      expect(newHead.id).not.toBe(ft.publishedVersionId);
+
+      // The original step_instance row must still point at v1.
+      const [refreshedOld] = await db
+        .select()
+        .from(stepInstance)
+        .where(eq(stepInstance.id, oldStep.id));
+      expect(refreshedOld?.pinnedFormTemplateVersionId).toBe(
+        ft.publishedVersionId
+      );
+
+      // A fresh instantiation pins the new head.
+      const r2 = await instantiateWorkflow(db, {
+        tenantId,
+        workflowTemplateId: wf.id,
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        initiatedBy: userId,
+      });
+      expect(r2.success).toBe(true);
+      if (!r2.success) throw new Error("expected success");
+      const newStep = r2.data.steps[0];
+      expect(newStep?.pinnedFormTemplateVersionId).toBe(newHead.id);
+      expect(newStep?.pinnedFormTemplateVersionId).not.toBe(
+        oldStep.pinnedFormTemplateVersionId
+      );
+
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, r1.data.processInstance.id));
+      await db
+        .delete(processInstance)
+        .where(eq(processInstance.id, r2.data.processInstance.id));
+      await db
+        .delete(workflowStepTemplate)
+        .where(eq(workflowStepTemplate.workflowTemplateId, wf.id));
+      await db.delete(workflowTemplate).where(eq(workflowTemplate.id, wf.id));
+    });
+
+    test("fails entire instantiation when a form template has no published head and rolls back", async () => {
+      // Draft-only form template — never published.
+      const tpl = await insertOneOrThrow(db, formTemplate, {
+        tenantId,
+        name: `Draft-only ${Date.now()}`,
+        status: FormTemplateStatus.DRAFT,
+      });
+      await insertDraftFormTemplateVersion(db, {
+        formTemplateId: tpl.id,
+        tenantId,
+      });
+
+      const wf = await insertOneOrThrow(db, workflowTemplate, {
+        tenantId,
+        name: `WF no head ${Date.now()}`,
+        status: "published",
+        active: true,
+        createdBy: userId,
+      });
+      await db.insert(workflowStepTemplate).values({
+        tenantId,
+        workflowTemplateId: wf.id,
+        stepOrder: 1,
+        name: "Form (no head)",
+        stepType: "form",
+        formTemplateId: tpl.id,
+        formActionMode: "fill_out",
+        taskTitle: "Fill",
+        assigneeType: "role",
+        assigneeRole: "admin",
+      });
+
+      const result = await instantiateWorkflow(db, {
+        tenantId,
+        workflowTemplateId: wf.id,
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        initiatedBy: userId,
+      });
+
+      expect(result.success).toBe(false);
+      if (result.success) throw new Error("expected failure");
+      expect(result.error).toContain("no published version");
+
+      // No partial process_instance survived the rollback.
+      const orphans = await db
+        .select()
+        .from(processInstance)
+        .where(eq(processInstance.workflowTemplateId, wf.id));
+      expect(orphans.length).toBe(0);
+
+      await db
+        .delete(workflowStepTemplate)
+        .where(eq(workflowStepTemplate.workflowTemplateId, wf.id));
+      await db.delete(workflowTemplate).where(eq(workflowTemplate.id, wf.id));
+    });
+
+    test("fails entire instantiation when a form step is missing form_template_id", async () => {
+      const wf = await insertOneOrThrow(db, workflowTemplate, {
+        tenantId,
+        name: `WF missing form id ${Date.now()}`,
+        status: "published",
+        active: true,
+        createdBy: userId,
+      });
+      await db.insert(workflowStepTemplate).values({
+        tenantId,
+        workflowTemplateId: wf.id,
+        stepOrder: 1,
+        name: "Form (no template)",
+        stepType: "form",
+        taskTitle: "Fill",
+        assigneeType: "role",
+        assigneeRole: "admin",
+      });
+
+      const result = await instantiateWorkflow(db, {
+        tenantId,
+        workflowTemplateId: wf.id,
+        entityType: "supplier",
+        entityId: crypto.randomUUID(),
+        initiatedBy: userId,
+      });
+
+      expect(result.success).toBe(false);
+      if (result.success) throw new Error("expected failure");
+      expect(result.error).toContain("misconfigured");
+
+      const orphans = await db
+        .select()
+        .from(processInstance)
+        .where(eq(processInstance.workflowTemplateId, wf.id));
+      expect(orphans.length).toBe(0);
+
+      await db
+        .delete(workflowStepTemplate)
+        .where(eq(workflowStepTemplate.workflowTemplateId, wf.id));
+      await db.delete(workflowTemplate).where(eq(workflowTemplate.id, wf.id));
+    });
   });
 });

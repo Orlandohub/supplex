@@ -3,6 +3,7 @@
  * Story: 2.2.8 - Workflow Execution Engine
  * Updated: 2.2.14 - Remove Template Versioning
  * Updated: 2.2.19 - Transaction wrapping, batch inserts
+ * Updated: SUP-31 - Freeze form template versions on form steps via pinned_form_template_version_id
  *
  * Creates a new workflow process instance from a published workflow template
  */
@@ -14,6 +15,7 @@ import {
   workflowStepTemplate,
   processInstance,
   stepInstance,
+  getPublishedHeadFormTemplateVersion,
 } from "@supplex/db";
 import { eq, and, asc, isNull } from "drizzle-orm";
 import { WorkflowProcessStatus } from "@supplex/types";
@@ -94,6 +96,68 @@ export async function instantiateWorkflow(
         };
       }
 
+      const stepTemplates = await tx
+        .select()
+        .from(workflowStepTemplate)
+        .where(
+          and(
+            eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
+            eq(workflowStepTemplate.tenantId, tenantId),
+            isNull(workflowStepTemplate.deletedAt)
+          )
+        )
+        .orderBy(asc(workflowStepTemplate.stepOrder));
+
+      if (stepTemplates.length === 0) {
+        throw new Error("Workflow template has no steps");
+      }
+
+      // Treat the lowest-ordered template row as the canonical first step,
+      // so templates with non-contiguous step_order values (e.g. legacy data
+      // where step 1 was deleted without compaction) still instantiate cleanly.
+      const firstStepTemplate = stepTemplates[0];
+      if (!firstStepTemplate) {
+        throw new Error("Workflow template has no steps");
+      }
+
+      // SUP-31: resolve a published-head pin per distinct form template before
+      // inserting any rows so the whole transaction rolls back if a form step
+      // points at an unpublished template or is misconfigured.
+      const formStepTemplates = stepTemplates.filter(
+        (st) => st.stepType === "form"
+      );
+      const stepsMissingFormTemplate = formStepTemplates.filter(
+        (st) => !st.formTemplateId
+      );
+      if (stepsMissingFormTemplate.length > 0) {
+        const names = stepsMissingFormTemplate.map((s) => s.name).join(", ");
+        throw new Error(
+          `Workflow template is misconfigured: form step(s) without form_template_id: ${names}`
+        );
+      }
+
+      const uniqueFormTemplateIds = Array.from(
+        new Set(
+          formStepTemplates
+            .map((st) => st.formTemplateId)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+
+      const formTemplatePinMap = new Map<string, string>();
+      for (const formTemplateId of uniqueFormTemplateIds) {
+        const head = await getPublishedHeadFormTemplateVersion(tx, {
+          formTemplateId,
+          tenantId,
+        });
+        if (!head) {
+          throw new Error(
+            `Form template ${formTemplateId} has no published version; cannot instantiate workflow`
+          );
+        }
+        formTemplatePinMap.set(formTemplateId, head.id);
+      }
+
       const processType =
         typeof metadata?.processType === "string"
           ? metadata.processType
@@ -119,30 +183,6 @@ export async function instantiateWorkflow(
 
       if (!process) throw new Error("Failed to create process instance");
 
-      const stepTemplates = await tx
-        .select()
-        .from(workflowStepTemplate)
-        .where(
-          and(
-            eq(workflowStepTemplate.workflowTemplateId, workflowTemplateId),
-            eq(workflowStepTemplate.tenantId, tenantId),
-            isNull(workflowStepTemplate.deletedAt)
-          )
-        )
-        .orderBy(asc(workflowStepTemplate.stepOrder));
-
-      if (stepTemplates.length === 0) {
-        throw new Error("Workflow template has no steps");
-      }
-
-      // Treat the lowest-ordered template row as the canonical first step,
-      // so templates with non-contiguous step_order values (e.g. legacy data
-      // where step 1 was deleted without compaction) still instantiate cleanly.
-      const firstStepTemplate = stepTemplates[0];
-      if (!firstStepTemplate) {
-        throw new Error("Workflow template has no steps");
-      }
-
       // Batch insert all step instances at once
       const createdSteps = await tx
         .insert(stepInstance)
@@ -154,6 +194,10 @@ export async function instantiateWorkflow(
             stepName: st.name,
             stepType: st.stepType,
             workflowStepTemplateId: st.id,
+            pinnedFormTemplateVersionId:
+              st.stepType === "form" && st.formTemplateId
+                ? (formTemplatePinMap.get(st.formTemplateId) ?? null)
+                : null,
             status:
               st.id === firstStepTemplate.id
                 ? ("active" as const)
