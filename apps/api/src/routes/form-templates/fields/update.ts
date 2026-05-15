@@ -1,11 +1,30 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formField, formSection, formTemplateVersion } from "@supplex/db";
+import {
+  formField,
+  formSection,
+  formTemplateVersion,
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  snapshotsDifferOnTrackedKeys,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
+} from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
 import type { FieldOptions } from "@supplex/types";
+
+const FIELD_TRACKED_KEYS = [
+  "label",
+  "fieldType",
+  "required",
+  "validationRules",
+  "options",
+  "fieldOrder",
+  "placeholder",
+] as const;
 
 /**
  * Type guard that narrows the JSONB `options` column to `FieldOptions`
@@ -46,160 +65,194 @@ export const updateFieldRoute = new Elysia()
         const tenantId = user.tenantId;
         const { fieldId } = params;
 
-        const [field] = await db
-          .select({
-            field: formField,
-            versionNumber: formTemplateVersion.versionNumber,
-          })
-          .from(formField)
-          .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-          .innerJoin(
-            formTemplateVersion,
-            and(
-              eq(formField.formTemplateVersionId, formTemplateVersion.id),
-              eq(formTemplateVersion.tenantId, tenantId)
+        const updatedField = await db.transaction(async (tx) => {
+          const [field] = await tx
+            .select({
+              field: formField,
+              versionNumber: formTemplateVersion.versionNumber,
+              formTemplateId: formSection.formTemplateId,
+            })
+            .from(formField)
+            .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
+            .innerJoin(
+              formTemplateVersion,
+              and(
+                eq(formField.formTemplateVersionId, formTemplateVersion.id),
+                eq(formTemplateVersion.tenantId, tenantId)
+              )
             )
-          )
-          .where(
-            and(
-              eq(formField.id, fieldId),
-              eq(formField.tenantId, tenantId),
-              isNull(formField.deletedAt)
+            .where(
+              and(
+                eq(formField.id, fieldId),
+                eq(formField.tenantId, tenantId),
+                isNull(formField.deletedAt)
+              )
             )
-          )
-          .limit(1);
+            .limit(1);
 
-        if (!field) {
-          throw Errors.notFound(
-            "Field not found or you don't have access to it",
-            "FIELD_NOT_FOUND"
-          );
-        }
-
-        if (field.versionNumber !== null) {
-          throw Errors.badRequest(
-            "Cannot modify field in an immutable published version snapshot.",
-            "IMMUTABLE_FORM_VERSION"
-          );
-        }
-
-        const effectiveFieldType = body.fieldType || field.field.fieldType;
-
-        if (
-          effectiveFieldType === "dropdown" ||
-          effectiveFieldType === "multi_select"
-        ) {
-          const optionsToValidate: FieldOptions | undefined =
-            body.options !== undefined
-              ? body.options
-              : hasChoices(field.field.options)
-                ? field.field.options
-                : undefined;
-
-          if (!optionsToValidate) {
-            throw Errors.badRequest(
-              "Dropdown and multi-select fields must have an options object with a choices array",
-              "INVALID_OPTIONS"
+          if (!field) {
+            throw Errors.notFound(
+              "Field not found or you don't have access to it",
+              "FIELD_NOT_FOUND"
             );
           }
 
-          if (optionsToValidate.choices.length === 0) {
+          if (field.versionNumber !== null) {
             throw Errors.badRequest(
-              "Dropdown and multi-select fields must have at least one option",
-              "EMPTY_OPTIONS"
+              "Cannot modify field in an immutable published version snapshot.",
+              "IMMUTABLE_FORM_VERSION"
             );
           }
 
-          if (optionsToValidate.choices.length > 100) {
-            throw Errors.badRequest(
-              "Fields can have a maximum of 100 options",
-              "TOO_MANY_OPTIONS"
-            );
+          const beforeRow = field.field;
+          const effectiveFieldType = body.fieldType || beforeRow.fieldType;
+
+          if (
+            effectiveFieldType === "dropdown" ||
+            effectiveFieldType === "multi_select"
+          ) {
+            const optionsToValidate: FieldOptions | undefined =
+              body.options !== undefined
+                ? body.options
+                : hasChoices(beforeRow.options)
+                  ? beforeRow.options
+                  : undefined;
+
+            if (!optionsToValidate) {
+              throw Errors.badRequest(
+                "Dropdown and multi-select fields must have an options object with a choices array",
+                "INVALID_OPTIONS"
+              );
+            }
+
+            if (optionsToValidate.choices.length === 0) {
+              throw Errors.badRequest(
+                "Dropdown and multi-select fields must have at least one option",
+                "EMPTY_OPTIONS"
+              );
+            }
+
+            if (optionsToValidate.choices.length > 100) {
+              throw Errors.badRequest(
+                "Fields can have a maximum of 100 options",
+                "TOO_MANY_OPTIONS"
+              );
+            }
+
+            for (let i = 0; i < optionsToValidate.choices.length; i++) {
+              const choice = optionsToValidate.choices[i];
+
+              if (!choice || typeof choice !== "object") {
+                throw Errors.badRequest(
+                  `Option at index ${i} must be an object with value and label`,
+                  "INVALID_OPTION_FORMAT"
+                );
+              }
+
+              if (
+                typeof choice.value !== "string" ||
+                choice.value.trim() === ""
+              ) {
+                throw Errors.badRequest(
+                  `Option at index ${i} must have a non-empty value`,
+                  "INVALID_OPTION_VALUE"
+                );
+              }
+
+              if (choice.value.length > 255) {
+                throw Errors.badRequest(
+                  `Option at index ${i}: value must be 255 characters or less`,
+                  "OPTION_VALUE_TOO_LONG"
+                );
+              }
+
+              if (
+                typeof choice.label !== "string" ||
+                choice.label.trim() === ""
+              ) {
+                throw Errors.badRequest(
+                  `Option at index ${i} must have a non-empty label`,
+                  "INVALID_OPTION_LABEL"
+                );
+              }
+
+              if (choice.label.length > 255) {
+                throw Errors.badRequest(
+                  `Option at index ${i}: label must be 255 characters or less`,
+                  "OPTION_LABEL_TOO_LONG"
+                );
+              }
+            }
           }
 
-          for (let i = 0; i < optionsToValidate.choices.length; i++) {
-            const choice = optionsToValidate.choices[i];
+          const updateData: Partial<typeof formField.$inferInsert> = {
+            updatedAt: new Date(),
+          };
 
-            if (!choice || typeof choice !== "object") {
-              throw Errors.badRequest(
-                `Option at index ${i} must be an object with value and label`,
-                "INVALID_OPTION_FORMAT"
-              );
-            }
-
-            if (
-              typeof choice.value !== "string" ||
-              choice.value.trim() === ""
-            ) {
-              throw Errors.badRequest(
-                `Option at index ${i} must have a non-empty value`,
-                "INVALID_OPTION_VALUE"
-              );
-            }
-
-            if (choice.value.length > 255) {
-              throw Errors.badRequest(
-                `Option at index ${i}: value must be 255 characters or less`,
-                "OPTION_VALUE_TOO_LONG"
-              );
-            }
-
-            if (
-              typeof choice.label !== "string" ||
-              choice.label.trim() === ""
-            ) {
-              throw Errors.badRequest(
-                `Option at index ${i} must have a non-empty label`,
-                "INVALID_OPTION_LABEL"
-              );
-            }
-
-            if (choice.label.length > 255) {
-              throw Errors.badRequest(
-                `Option at index ${i}: label must be 255 characters or less`,
-                "OPTION_LABEL_TOO_LONG"
-              );
-            }
+          if (body.label !== undefined) {
+            updateData.label = body.label;
           }
-        }
 
-        const updateData: Partial<typeof formField.$inferInsert> = {
-          updatedAt: new Date(),
-        };
+          if (body.fieldType !== undefined) {
+            updateData.fieldType = body.fieldType;
+          }
 
-        if (body.label !== undefined) {
-          updateData.label = body.label;
-        }
+          if (body.required !== undefined) {
+            updateData.required = body.required;
+          }
 
-        if (body.fieldType !== undefined) {
-          updateData.fieldType = body.fieldType;
-        }
+          if (body.validationRules !== undefined) {
+            updateData.validationRules = body.validationRules;
+          }
 
-        if (body.required !== undefined) {
-          updateData.required = body.required;
-        }
+          if (body.options !== undefined) {
+            updateData.options = body.options;
+          }
 
-        if (body.validationRules !== undefined) {
-          updateData.validationRules = body.validationRules;
-        }
+          if (body.fieldOrder !== undefined) {
+            updateData.fieldOrder = body.fieldOrder;
+          }
 
-        if (body.options !== undefined) {
-          updateData.options = body.options;
-        }
+          if (body.placeholder !== undefined) {
+            updateData.placeholder = body.placeholder || null;
+          }
 
-        if (body.fieldOrder !== undefined) {
-          updateData.fieldOrder = body.fieldOrder;
-        }
+          const [afterRow] = await tx
+            .update(formField)
+            .set(updateData)
+            .where(eq(formField.id, fieldId))
+            .returning();
 
-        if (body.placeholder !== undefined) {
-          updateData.placeholder = body.placeholder || null;
-        }
+          if (!afterRow) {
+            throw Errors.internal("Failed to update field");
+          }
 
-        const [updatedField] = await db
-          .update(formField)
-          .set(updateData)
-          .where(eq(formField.id, fieldId))
-          .returning();
+          const beforeSnap = snapshotRow(beforeRow);
+          const afterSnap = snapshotRow(afterRow);
+
+          if (
+            snapshotsDifferOnTrackedKeys(
+              beforeSnap,
+              afterSnap,
+              FIELD_TRACKED_KEYS
+            )
+          ) {
+            await insertFormTemplateAuditEvent(tx, {
+              tenantId,
+              formTemplateId: field.formTemplateId,
+              formTemplateVersionId: beforeRow.formTemplateVersionId,
+              actorUserId: user.id,
+              eventType: FormTemplateAuditEventType.FIELD_UPDATED,
+              subjectType: FormTemplateAuditSubject.FIELD,
+              subjectId: beforeRow.id,
+              before: beforeSnap,
+              after: afterSnap,
+              summary: `Field "${afterRow.label}" updated`,
+            });
+          }
+
+          return afterRow;
+        });
 
         return {
           success: true,

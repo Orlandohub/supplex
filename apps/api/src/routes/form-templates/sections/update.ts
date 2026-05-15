@@ -1,10 +1,20 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formSection, formTemplateVersion } from "@supplex/db";
+import {
+  formSection,
+  formTemplateVersion,
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  snapshotsDifferOnTrackedKeys,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
+} from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
+
+const SECTION_TRACKED_KEYS = ["title", "description", "sectionOrder"] as const;
 
 /**
  * PATCH /api/form-templates/sections/:sectionId
@@ -25,63 +35,97 @@ export const updateSectionRoute = new Elysia()
         const tenantId = user.tenantId;
         const { sectionId } = params;
 
-        const [section] = await db
-          .select({
-            section: formSection,
-            versionNumber: formTemplateVersion.versionNumber,
-          })
-          .from(formSection)
-          .innerJoin(
-            formTemplateVersion,
-            and(
-              eq(formSection.formTemplateVersionId, formTemplateVersion.id),
-              eq(formTemplateVersion.tenantId, tenantId)
+        const updatedSection = await db.transaction(async (tx) => {
+          const [section] = await tx
+            .select({
+              section: formSection,
+              versionNumber: formTemplateVersion.versionNumber,
+            })
+            .from(formSection)
+            .innerJoin(
+              formTemplateVersion,
+              and(
+                eq(formSection.formTemplateVersionId, formTemplateVersion.id),
+                eq(formTemplateVersion.tenantId, tenantId)
+              )
             )
-          )
-          .where(
-            and(
-              eq(formSection.id, sectionId),
-              eq(formSection.tenantId, tenantId),
-              isNull(formSection.deletedAt)
+            .where(
+              and(
+                eq(formSection.id, sectionId),
+                eq(formSection.tenantId, tenantId),
+                isNull(formSection.deletedAt)
+              )
             )
-          )
-          .limit(1);
+            .limit(1);
 
-        if (!section) {
-          throw Errors.notFound(
-            "Section not found or you don't have access to it",
-            "SECTION_NOT_FOUND"
-          );
-        }
+          if (!section) {
+            throw Errors.notFound(
+              "Section not found or you don't have access to it",
+              "SECTION_NOT_FOUND"
+            );
+          }
 
-        if (section.versionNumber !== null) {
-          throw Errors.badRequest(
-            "Cannot modify section in an immutable published version snapshot.",
-            "IMMUTABLE_FORM_VERSION"
-          );
-        }
+          if (section.versionNumber !== null) {
+            throw Errors.badRequest(
+              "Cannot modify section in an immutable published version snapshot.",
+              "IMMUTABLE_FORM_VERSION"
+            );
+          }
 
-        const updateData: Partial<typeof formSection.$inferInsert> = {
-          updatedAt: new Date(),
-        };
+          const beforeRow = section.section;
 
-        if (body.title !== undefined) {
-          updateData.title = body.title;
-        }
+          const updateData: Partial<typeof formSection.$inferInsert> = {
+            updatedAt: new Date(),
+          };
 
-        if (body.description !== undefined) {
-          updateData.description = body.description || null;
-        }
+          if (body.title !== undefined) {
+            updateData.title = body.title;
+          }
 
-        if (body.sectionOrder !== undefined) {
-          updateData.sectionOrder = body.sectionOrder;
-        }
+          if (body.description !== undefined) {
+            updateData.description = body.description || null;
+          }
 
-        const [updatedSection] = await db
-          .update(formSection)
-          .set(updateData)
-          .where(eq(formSection.id, sectionId))
-          .returning();
+          if (body.sectionOrder !== undefined) {
+            updateData.sectionOrder = body.sectionOrder;
+          }
+
+          const [afterRow] = await tx
+            .update(formSection)
+            .set(updateData)
+            .where(eq(formSection.id, sectionId))
+            .returning();
+
+          if (!afterRow) {
+            throw Errors.internal("Failed to update section");
+          }
+
+          const beforeSnap = snapshotRow(beforeRow);
+          const afterSnap = snapshotRow(afterRow);
+
+          if (
+            snapshotsDifferOnTrackedKeys(
+              beforeSnap,
+              afterSnap,
+              SECTION_TRACKED_KEYS
+            )
+          ) {
+            await insertFormTemplateAuditEvent(tx, {
+              tenantId,
+              formTemplateId: beforeRow.formTemplateId,
+              formTemplateVersionId: beforeRow.formTemplateVersionId,
+              actorUserId: user.id,
+              eventType: FormTemplateAuditEventType.SECTION_UPDATED,
+              subjectType: FormTemplateAuditSubject.SECTION,
+              subjectId: beforeRow.id,
+              before: beforeSnap,
+              after: afterSnap,
+              summary: `Section "${afterRow.title}" updated`,
+            });
+          }
+
+          return afterRow;
+        });
 
         return {
           success: true,

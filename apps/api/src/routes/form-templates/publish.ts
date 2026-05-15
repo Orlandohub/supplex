@@ -185,6 +185,7 @@ export const publishVersionRoute = new Elysia()
             await publishFormTemplateFromDraft(tx, {
               formTemplateId: id,
               tenantId,
+              actorUserId: user.id,
             });
             const [tpl] = await tx
               .select()

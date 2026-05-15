@@ -73,7 +73,8 @@ async function insertPublishedFormTemplateRow(
  */
 async function createPublishedFormTemplateViaLifecycle(
   tenantId: string,
-  name: string
+  name: string,
+  actorUserId: string
 ): Promise<{ formTemplateId: string; publishedVersionId: string }> {
   const tpl = await insertOneOrThrow(db, formTemplate, {
     tenantId,
@@ -108,6 +109,7 @@ async function createPublishedFormTemplateViaLifecycle(
     await publishFormTemplateFromDraft(tx, {
       formTemplateId: tpl.id,
       tenantId,
+      actorUserId,
     });
   });
 
@@ -499,7 +501,8 @@ describe("Workflow Instantiation", () => {
     test("republishing a form template after instantiation does not mutate prior step pins", async () => {
       const ft = await createPublishedFormTemplateViaLifecycle(
         tenantId,
-        `Republish FT ${Date.now()}`
+        `Republish FT ${Date.now()}`,
+        userId
       );
 
       const wf = await insertOneOrThrow(db, workflowTemplate, {
@@ -563,6 +566,7 @@ describe("Workflow Instantiation", () => {
         await publishFormTemplateFromDraft(tx, {
           formTemplateId: ft.formTemplateId,
           tenantId,
+          actorUserId: userId,
         });
       });
 

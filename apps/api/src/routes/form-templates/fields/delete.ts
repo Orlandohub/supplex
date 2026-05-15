@@ -1,18 +1,23 @@
 import { Elysia, t } from "elysia";
 import { db } from "../../../lib/db";
-import { formField, formSection, formTemplateVersion } from "@supplex/db";
-import { eq, and, isNull } from "drizzle-orm";
+import {
+  hardDeleteDraftFormField,
+  FormTemplateRowNotFoundError,
+  ImmutableFormTemplateStructureError,
+} from "@supplex/db";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
 
 /**
  * DELETE /api/form-templates/fields/:fieldId
- * Soft delete a field (Admin only)
+ * Hard delete a draft field with audit snapshot (Admin only)
  *
  * Auth: Requires Admin role
  * Tenant: Enforces tenant isolation
- * Validation: Parent template must be in 'draft' status
+ * Validation: Parent template version must be the mutable draft (versionNumber NULL)
+ * Audit: Persists a full `before` row snapshot to form_template_audit_event
+ *        in the same transaction as the DELETE (SUP-27).
  * Returns: Success response
  */
 export const deleteFieldRoute = new Elysia()
@@ -25,50 +30,13 @@ export const deleteFieldRoute = new Elysia()
         const tenantId = user.tenantId;
         const { fieldId } = params;
 
-        const [field] = await db
-          .select({
-            field: formField,
-            versionNumber: formTemplateVersion.versionNumber,
-          })
-          .from(formField)
-          .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-          .innerJoin(
-            formTemplateVersion,
-            and(
-              eq(formField.formTemplateVersionId, formTemplateVersion.id),
-              eq(formTemplateVersion.tenantId, tenantId)
-            )
-          )
-          .where(
-            and(
-              eq(formField.id, fieldId),
-              eq(formField.tenantId, tenantId),
-              isNull(formField.deletedAt)
-            )
-          )
-          .limit(1);
-
-        if (!field) {
-          throw Errors.notFound(
-            "Field not found or you don't have access to it",
-            "FIELD_NOT_FOUND"
-          );
-        }
-
-        if (field.versionNumber !== null) {
-          throw Errors.badRequest(
-            "Cannot delete field in an immutable published version snapshot.",
-            "IMMUTABLE_FORM_VERSION"
-          );
-        }
-
-        await db
-          .update(formField)
-          .set({
-            deletedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(formField.id, fieldId));
+        await db.transaction(async (tx) => {
+          await hardDeleteDraftFormField(tx, {
+            tenantId,
+            fieldId,
+            actorUserId: user.id,
+          });
+        });
 
         return {
           success: true,
@@ -78,6 +46,18 @@ export const deleteFieldRoute = new Elysia()
         };
       } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
+        if (error instanceof FormTemplateRowNotFoundError) {
+          throw Errors.notFound(
+            "Field not found or you don't have access to it",
+            "FIELD_NOT_FOUND"
+          );
+        }
+        if (error instanceof ImmutableFormTemplateStructureError) {
+          throw Errors.badRequest(
+            "Cannot delete field in an immutable published version snapshot.",
+            "IMMUTABLE_FORM_VERSION"
+          );
+        }
         requestLogger.error({ err: error }, "Error deleting field");
         throw Errors.internal("Failed to delete field");
       }
@@ -89,7 +69,7 @@ export const deleteFieldRoute = new Elysia()
       detail: {
         summary: "Delete field",
         description:
-          "Soft deletes a field in a draft form template version (Admin only)",
+          "Hard deletes a field in a draft form template version with audit snapshot (Admin only)",
         tags: ["Form Templates - Fields"],
       },
     }
