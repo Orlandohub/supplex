@@ -3,6 +3,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import {
   db,
   tenants,
+  users,
   formTemplate,
   formSection,
   formField,
@@ -25,6 +26,7 @@ import {
  */
 describe("form template version lifecycle (SUP-26)", () => {
   let tenantId: string;
+  let actorUserId: string;
 
   beforeAll(async () => {
     const [t] = await db
@@ -36,6 +38,19 @@ describe("form template version lifecycle (SUP-26)", () => {
       .returning();
     if (!t) throw new Error("failed to insert tenant");
     tenantId = t.id;
+
+    const [u] = await db
+      .insert(users)
+      .values({
+        id: crypto.randomUUID(),
+        tenantId,
+        email: `lifecycle-${Date.now()}@test.com`,
+        fullName: "Lifecycle Test User",
+        role: "admin",
+      })
+      .returning();
+    if (!u) throw new Error("failed to insert user");
+    actorUserId = u.id;
   });
 
   afterAll(async () => {
@@ -88,6 +103,7 @@ describe("form template version lifecycle (SUP-26)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId,
+        actorUserId,
       });
     });
 
@@ -159,6 +175,7 @@ describe("form template version lifecycle (SUP-26)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId,
+        actorUserId,
       });
     });
 

@@ -10,6 +10,12 @@ import {
 } from "../schema";
 import { FormTemplateVersionStatus } from "../schema/form-template-version";
 import { getDraftFormTemplateVersionForTemplate } from "./form-template-version";
+import {
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
+} from "./form-template-audit-event";
 
 type DbLike = PostgresJsDatabase<typeof schema>;
 
@@ -130,18 +136,29 @@ export type PublishFormTemplateFromDraftResult = {
   publishedVersionId: string;
   draftVersionId: string;
   publishedVersionNumber: number;
+  supersededVersionId: string | null;
+  replacedDraftVersionId: string;
+  publishAuditEventId: string;
 };
 
 /**
  * Deep-copy draft → new immutable published row (new subtree UUIDs), supersede previous
  * published head, delete draft + subtree, then create a fresh draft copied from the new
  * published snapshot (new subtree UUIDs). Sets container status to `published`.
+ *
+ * SUP-27: Per-row audit events are emitted for every draft section/field row removed
+ * during teardown, followed by a `version_published` summary event so the changelog
+ * captures both the granular before-snapshots and the lifecycle transition.
  */
 export async function publishFormTemplateFromDraft(
   tx: DbLike,
-  params: { formTemplateId: string; tenantId: string }
+  params: {
+    formTemplateId: string;
+    tenantId: string;
+    actorUserId: string;
+  }
 ): Promise<PublishFormTemplateFromDraftResult> {
-  const { formTemplateId, tenantId } = params;
+  const { formTemplateId, tenantId, actorUserId } = params;
 
   const [template] = await tx
     .select()
@@ -311,6 +328,58 @@ export async function publishFormTemplateFromDraft(
       .where(eq(formTemplateVersion.id, oldHead.id));
   }
 
+  // SUP-27: Audit + hard-delete each draft field, then each draft section, before
+  // removing the draft version row itself. Iterating the rows we already loaded
+  // keeps ordering stable and lets cascade serve only as a safety net.
+  for (const sec of draftSections) {
+    const fields = fieldsBySection.get(sec.id) ?? [];
+    for (const field of fields) {
+      await insertFormTemplateAuditEvent(tx, {
+        tenantId,
+        formTemplateId,
+        formTemplateVersionId: draft.id,
+        actorUserId,
+        eventType: FormTemplateAuditEventType.FIELD_HARD_DELETED,
+        subjectType: FormTemplateAuditSubject.FIELD,
+        subjectId: field.id,
+        before: snapshotRow(field),
+        summary: `Field "${field.label}" removed when draft was replaced on publish`,
+      });
+      await tx.delete(formField).where(eq(formField.id, field.id));
+    }
+  }
+
+  for (const sec of draftSections) {
+    await insertFormTemplateAuditEvent(tx, {
+      tenantId,
+      formTemplateId,
+      formTemplateVersionId: draft.id,
+      actorUserId,
+      eventType: FormTemplateAuditEventType.SECTION_HARD_DELETED,
+      subjectType: FormTemplateAuditSubject.SECTION,
+      subjectId: sec.id,
+      before: snapshotRow(sec),
+      summary: `Section "${sec.title}" removed when draft was replaced on publish`,
+    });
+    await tx.delete(formSection).where(eq(formSection.id, sec.id));
+  }
+
+  await insertFormTemplateAuditEvent(tx, {
+    tenantId,
+    formTemplateId,
+    formTemplateVersionId: draft.id,
+    actorUserId,
+    eventType: FormTemplateAuditEventType.DRAFT_SUBTREE_REPLACED_ON_PUBLISH,
+    subjectType: FormTemplateAuditSubject.VERSION,
+    subjectId: draft.id,
+    before: snapshotRow(draft),
+    metadata: {
+      publishedVersionId: pubVer.id,
+      publishedVersionNumber: nextNum,
+    },
+    summary: `Draft version replaced on publish (v${nextNum})`,
+  });
+
   await tx
     .delete(formTemplateVersion)
     .where(eq(formTemplateVersion.id, draft.id));
@@ -432,10 +501,32 @@ export async function publishFormTemplateFromDraft(
     })
     .where(eq(formTemplate.id, formTemplateId));
 
+  const publishAudit = await insertFormTemplateAuditEvent(tx, {
+    tenantId,
+    formTemplateId,
+    formTemplateVersionId: pubVer.id,
+    actorUserId,
+    eventType: FormTemplateAuditEventType.VERSION_PUBLISHED,
+    subjectType: FormTemplateAuditSubject.VERSION,
+    subjectId: pubVer.id,
+    after: snapshotRow(pubVer),
+    metadata: {
+      publishedVersionId: pubVer.id,
+      publishedVersionNumber: nextNum,
+      newDraftVersionId: newDraft.id,
+      replacedDraftVersionId: draft.id,
+      supersededVersionId: oldHead?.id ?? null,
+    },
+    summary: `Form template version v${nextNum} published`,
+  });
+
   return {
     publishedVersionId: pubVer.id,
     draftVersionId: newDraft.id,
     publishedVersionNumber: nextNum,
+    supersededVersionId: oldHead?.id ?? null,
+    replacedDraftVersionId: draft.id,
+    publishAuditEventId: publishAudit.id,
   };
 }
 

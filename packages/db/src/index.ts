@@ -86,6 +86,13 @@ export {
   formTemplateVersionStatusEnum,
   FormTemplateVersionStatus,
 } from "./schema/form-template-version";
+export {
+  formTemplateAuditEvent,
+  formTemplateAuditEventTypeEnum,
+  formTemplateAuditSubjectEnum,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
+} from "./schema/form-template-audit-event";
 export { formSection } from "./schema/form-section";
 export { formField, fieldTypeEnum, FieldType } from "./schema/form-field";
 export {
@@ -166,6 +173,12 @@ export type {
   SelectFormTemplateVersion,
 } from "./schema/form-template-version";
 export type {
+  InsertFormTemplateAuditEvent,
+  SelectFormTemplateAuditEvent,
+  FormTemplateAuditEventTypeValue,
+  FormTemplateAuditSubjectValue,
+} from "./schema/form-template-audit-event";
+export type {
   InsertFormSection,
   SelectFormSection,
 } from "./schema/form-section";
@@ -216,3 +229,5 @@ export type {
 export * from "./helpers/tenant-context";
 export * from "./helpers/form-template-version";
 export * from "./helpers/form-template-version-lifecycle";
+export * from "./helpers/form-template-audit-event";
+export * from "./helpers/form-template-draft-hard-delete";

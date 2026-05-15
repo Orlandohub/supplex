@@ -147,6 +147,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -188,6 +189,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -262,6 +264,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -321,6 +324,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -402,6 +406,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -444,6 +449,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -520,6 +526,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
@@ -578,6 +585,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       await publishFormTemplateFromDraft(tx, {
         formTemplateId: tpl.id,
         tenantId: tenant.id,
+        actorUserId: testUser.id,
       });
     });
 
