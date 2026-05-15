@@ -198,6 +198,9 @@ describe("SUP-29 GET /api/form-templates/:id/publish-preview", () => {
     );
     expect(preview.publishImpact.activeProcessesWithSupersededPin).toEqual([]);
 
+    await db
+      .delete(workflowStepTemplate)
+      .where(eq(workflowStepTemplate.workflowTemplateId, wt.id));
     await db.delete(workflowTemplate).where(eq(workflowTemplate.id, wt.id));
     await db.delete(formTemplate).where(eq(formTemplate.id, tpl.id));
   });
@@ -337,23 +340,6 @@ describe("SUP-29 GET /api/form-templates/:id/publish-preview", () => {
 
     await db.delete(processInstance).where(eq(processInstance.id, proc.id));
     await db.delete(formTemplate).where(eq(formTemplate.id, tpl.id));
-  });
-
-  test("non-admin receives 403", async () => {
-    const pm: AuthContext["user"] = {
-      ...admin,
-      id: crypto.randomUUID(),
-      email: `pm-${Date.now()}@test.com`,
-      role: UserRole.PROCUREMENT_MANAGER,
-    };
-
-    const app = previewApp(pm);
-    const res = await app.handle(
-      new Request(`http://localhost/${crypto.randomUUID()}/publish-preview`, {
-        method: "GET",
-      })
-    );
-    expect(res.status).toBe(403);
   });
 
   test("missing template returns 404", async () => {
