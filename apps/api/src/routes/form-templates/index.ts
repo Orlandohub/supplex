@@ -31,7 +31,7 @@ import { publishVersionRoute } from "./publish";
  * - GET    /api/form-templates/published - Get published templates for dropdown
  * - GET    /api/form-templates/:id       - Get template by ID
  * - POST   /api/form-templates           - Create template
- * - POST   /api/form-templates/:id/copy  - Copy template (deep copy)
+ * - POST   /api/form-templates/:templateId/copy - Copy template (deep copy)
  * - PATCH  /api/form-templates/:id       - Update template
  * - DELETE /api/form-templates/:id       - Delete template
  *
