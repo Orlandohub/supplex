@@ -84,6 +84,7 @@ describe("form template audit events (SUP-27)", () => {
         formTemplateVersionId: draft.id,
         tenantId,
         sectionOrder: 1,
+        sectionKey: "section_a",
         title: "Section A",
       })
       .returning();
@@ -96,6 +97,7 @@ describe("form template audit events (SUP-27)", () => {
         formTemplateVersionId: draft.id,
         tenantId,
         fieldOrder: 1,
+        fieldKey: "field_1",
         fieldType: FieldType.TEXT,
         label: "Field 1",
       })
@@ -169,6 +171,7 @@ describe("form template audit events (SUP-27)", () => {
         formTemplateVersionId: seeded.draft.id,
         tenantId,
         fieldOrder: 2,
+        fieldKey: "field_2",
         fieldType: FieldType.TEXT,
         label: "Field 2",
       })

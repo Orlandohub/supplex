@@ -130,6 +130,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "original_section",
       title: "Original Section",
     });
 
@@ -138,6 +139,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "a",
       fieldType: "text",
       label: "A",
       required: false,
@@ -237,6 +239,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "s",
       title: "S",
     });
 
@@ -245,6 +248,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "keep",
       fieldType: "text",
       label: "Keep",
       required: false,
@@ -255,6 +259,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       fieldOrder: 2,
+      fieldKey: "removeme",
       fieldType: "text",
       label: "RemoveMe",
       required: false,
@@ -379,6 +384,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "s",
       title: "S",
     });
 
@@ -387,6 +393,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "onlyv1required",
       fieldType: "text",
       label: "OnlyV1Required",
       required: true,
@@ -397,6 +404,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       fieldOrder: 2,
+      fieldKey: "opt",
       fieldType: "text",
       label: "Opt",
       required: false,
@@ -440,6 +448,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft1.id,
       tenantId: tenant.id,
       fieldOrder: 99,
+      fieldKey: "v2onlyrequired",
       fieldType: "text",
       label: "V2OnlyRequired",
       required: true,
@@ -509,6 +518,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "s",
       title: "S",
     });
 
@@ -517,6 +527,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "f1",
       fieldType: "text",
       label: "F1",
       required: false,
@@ -576,6 +587,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: draft1.id,
       tenantId: tenant.id,
       fieldOrder: 2,
+      fieldKey: "onlyonv2draft",
       fieldType: "text",
       label: "OnlyOnV2Draft",
       required: false,
@@ -769,6 +781,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: ver1.id,
       tenantId: tenant.id,
       sectionOrder: 1,
+      sectionKey: "s",
       title: "S",
     });
 
@@ -777,6 +790,7 @@ describe("Form submissions — version pin (SUP-30)", () => {
       formTemplateVersionId: ver1.id,
       tenantId: tenant.id,
       fieldOrder: 1,
+      fieldKey: "legacy",
       fieldType: "text",
       label: "Legacy",
       required: false,

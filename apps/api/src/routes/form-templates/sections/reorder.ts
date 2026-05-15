@@ -4,6 +4,11 @@ import {
   formSection,
   formTemplate,
   getDraftFormTemplateVersionForTemplate,
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  snapshotsDifferOnTrackedKeys,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
 } from "@supplex/db";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
@@ -13,12 +18,6 @@ import { ApiError, Errors } from "../../../lib/errors";
 /**
  * POST /api/form-templates/:templateId/sections/reorder
  * Reorder sections within a form template (Admin only)
- *
- * Auth: Requires Admin role
- * Tenant: Enforces tenant isolation
- * Validation: Template must be in 'draft' status
- * Body: Array of section IDs in desired order
- * Returns: Success response
  */
 export const reorderSectionsRoute = new Elysia()
   .use(authenticatedRoute)
@@ -87,13 +86,56 @@ export const reorderSectionsRoute = new Elysia()
 
         await db.transaction(async (tx) => {
           for (const [i, sectionId] of sectionIds.entries()) {
-            await tx
+            const newOrder = i + 1;
+            const [beforeRow] = await tx
+              .select()
+              .from(formSection)
+              .where(
+                and(
+                  eq(formSection.id, sectionId),
+                  eq(formSection.tenantId, tenantId),
+                  isNull(formSection.deletedAt)
+                )
+              )
+              .limit(1);
+
+            if (!beforeRow) {
+              throw Errors.internal("Section missing during reorder");
+            }
+            if (beforeRow.sectionOrder === newOrder) continue;
+
+            const [afterRow] = await tx
               .update(formSection)
               .set({
-                sectionOrder: i + 1,
+                sectionOrder: newOrder,
                 updatedAt: new Date(),
               })
-              .where(eq(formSection.id, sectionId));
+              .where(eq(formSection.id, sectionId))
+              .returning();
+
+            if (!afterRow) continue;
+
+            const beforeSnap = snapshotRow(beforeRow);
+            const afterSnap = snapshotRow(afterRow);
+
+            if (
+              snapshotsDifferOnTrackedKeys(beforeSnap, afterSnap, [
+                "sectionOrder",
+              ])
+            ) {
+              await insertFormTemplateAuditEvent(tx, {
+                tenantId,
+                formTemplateId: beforeRow.formTemplateId,
+                formTemplateVersionId: beforeRow.formTemplateVersionId,
+                actorUserId: user.id,
+                eventType: FormTemplateAuditEventType.SECTION_UPDATED,
+                subjectType: FormTemplateAuditSubject.SECTION,
+                subjectId: beforeRow.id,
+                before: beforeSnap,
+                after: afterSnap,
+                summary: `Section "${afterRow.title}" reordered`,
+              });
+            }
           }
         });
 

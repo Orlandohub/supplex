@@ -174,6 +174,7 @@ describe("Form Template Tenant Isolation", () => {
         formTemplateVersionId: draftVersion.id,
         tenantId: testTenant.id,
         sectionOrder: 1,
+        sectionKey: "test_section",
         title: "Test Section",
       })
       .returning();
@@ -186,6 +187,7 @@ describe("Form Template Tenant Isolation", () => {
         formTemplateVersionId: draftVersion.id,
         tenantId: testTenant.id,
         fieldOrder: 1,
+        fieldKey: "test_field",
         fieldType: FieldType.TEXT,
         label: "Test Field",
         required: true,
@@ -242,6 +244,7 @@ describe("Form Template Tenant Isolation", () => {
         formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         sectionOrder: 1,
+        sectionKey: "cascade_section",
         title: "Test Section",
       })
       .returning();
@@ -252,6 +255,7 @@ describe("Form Template Tenant Isolation", () => {
       formTemplateVersionId: draftVersion.id,
       tenantId: tenantA.id,
       fieldOrder: 1,
+      fieldKey: "cascade_field",
       fieldType: FieldType.TEXT,
       label: "Test Field",
       required: true,
@@ -399,6 +403,7 @@ describe("Form Template Tenant Isolation", () => {
         formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         sectionOrder: 1,
+        sectionKey: "jsonb_test_section",
         title: "JSONB Test Section",
         metadata: { icon: "form", conditional: true },
       })
@@ -412,6 +417,7 @@ describe("Form Template Tenant Isolation", () => {
         formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         fieldOrder: 1,
+        fieldKey: "email_address",
         fieldType: FieldType.TEXT,
         label: "Email Address",
         required: true,
@@ -430,6 +436,7 @@ describe("Form Template Tenant Isolation", () => {
         formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         fieldOrder: 2,
+        fieldKey: "certification_type",
         fieldType: FieldType.DROPDOWN,
         label: "Certification Type",
         required: true,

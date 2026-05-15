@@ -26,6 +26,7 @@ async function formTemplateStructureSignature(
     .select({
       id: formSection.id,
       title: formSection.title,
+      sectionKey: formSection.sectionKey,
       sectionOrder: formSection.sectionOrder,
     })
     .from(formSection)
@@ -47,6 +48,7 @@ async function formTemplateStructureSignature(
           .select({
             formSectionId: formField.formSectionId,
             fieldOrder: formField.fieldOrder,
+            fieldKey: formField.fieldKey,
             label: formField.label,
             placeholder: formField.placeholder,
             fieldType: formField.fieldType,
@@ -73,10 +75,12 @@ async function formTemplateStructureSignature(
   }
 
   const payload = sections.map((sec) => ({
+    k: sec.sectionKey,
     t: sec.title,
     fields: (fieldsBySection.get(sec.id) ?? [])
       .sort((a, b) => a.fieldOrder - b.fieldOrder)
       .map((f) => ({
+        fk: f.fieldKey,
         l: f.label,
         p: f.placeholder,
         ty: f.fieldType,

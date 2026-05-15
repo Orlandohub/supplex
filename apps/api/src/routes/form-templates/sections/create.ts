@@ -4,11 +4,20 @@ import {
   formSection,
   formTemplate,
   getDraftFormTemplateVersionForTemplate,
+  insertFormTemplateAuditEvent,
+  snapshotRow,
+  allocateSectionKey,
+  normalizeClientFormTemplateKeyOrThrow,
+  assertSectionKeyAvailable,
+  InvalidFormTemplateKeyError,
+  FormTemplateAuditEventType,
+  FormTemplateAuditSubject,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "../../../lib/rbac/middleware";
 import { authenticatedRoute } from "../../../lib/route-plugins";
 import { ApiError, Errors } from "../../../lib/errors";
+import { isPostgresUniqueViolation } from "../../../lib/pg-errors";
 
 /**
  * POST /api/form-templates/:templateId/sections
@@ -28,7 +37,13 @@ export const createSectionRoute = new Elysia()
       try {
         const tenantId = user.tenantId;
         const { templateId } = params;
-        const { title, description, sectionOrder } = body;
+        const {
+          title,
+          description,
+          sectionOrder,
+          sectionKey,
+          slugManuallyEdited,
+        } = body;
 
         const [template] = await db
           .select()
@@ -68,20 +83,62 @@ export const createSectionRoute = new Elysia()
           );
         }
 
-        const [newSection] = await db
-          .insert(formSection)
-          .values({
+        const newSection = await db.transaction(async (tx) => {
+          let resolvedKey: string;
+          let manualFlag: boolean;
+          if (sectionKey !== undefined && sectionKey.trim() !== "") {
+            resolvedKey = normalizeClientFormTemplateKeyOrThrow(sectionKey);
+            await assertSectionKeyAvailable(tx, {
+              versionId: draftVersion.id,
+              tenantId,
+              key: resolvedKey,
+            });
+            manualFlag = true;
+          } else {
+            resolvedKey = await allocateSectionKey(tx, {
+              versionId: draftVersion.id,
+              tenantId,
+              desiredBase: title,
+            });
+            manualFlag = slugManuallyEdited ?? false;
+          }
+
+          const [row] = await tx
+            .insert(formSection)
+            .values({
+              formTemplateId: templateId,
+              formTemplateVersionId: draftVersion.id,
+              tenantId,
+              title,
+              sectionKey: resolvedKey,
+              slugManuallyEdited: manualFlag,
+              description: description || null,
+              sectionOrder,
+              metadata: {},
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .returning();
+
+          if (!row) {
+            throw Errors.internal("Failed to create section");
+          }
+
+          await insertFormTemplateAuditEvent(tx, {
+            tenantId,
             formTemplateId: templateId,
             formTemplateVersionId: draftVersion.id,
-            tenantId,
-            title,
-            description: description || null,
-            sectionOrder,
-            metadata: {},
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning();
+            actorUserId: user.id,
+            eventType: FormTemplateAuditEventType.SECTION_CREATED,
+            subjectType: FormTemplateAuditSubject.SECTION,
+            subjectId: row.id,
+            before: null,
+            after: snapshotRow(row),
+            summary: `Section "${row.title}" created`,
+          });
+
+          return row;
+        });
 
         set.status = 201;
         return {
@@ -92,6 +149,24 @@ export const createSectionRoute = new Elysia()
         };
       } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
+        if (error instanceof InvalidFormTemplateKeyError) {
+          throw Errors.badRequest(error.message, error.code);
+        }
+        if (
+          error instanceof Error &&
+          error.message === "FORM_TEMPLATE_SECTION_KEY_TAKEN"
+        ) {
+          throw Errors.conflict(
+            "That section key is already used in this form version.",
+            "DUPLICATE_FORM_KEY"
+          );
+        }
+        if (isPostgresUniqueViolation(error)) {
+          throw Errors.conflict(
+            "That key is already used in this form version.",
+            "DUPLICATE_FORM_KEY"
+          );
+        }
         requestLogger.error({ err: error }, "Error creating section");
         throw Errors.internal("Failed to create section");
       }
@@ -104,6 +179,8 @@ export const createSectionRoute = new Elysia()
         title: t.String({ minLength: 1, maxLength: 255 }),
         description: t.Optional(t.String()),
         sectionOrder: t.Integer({ minimum: 1 }),
+        sectionKey: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+        slugManuallyEdited: t.Optional(t.Boolean()),
       }),
       detail: {
         summary: "Create section in form template",

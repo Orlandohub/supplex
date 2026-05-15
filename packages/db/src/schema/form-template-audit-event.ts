@@ -27,6 +27,8 @@ export const formTemplateAuditEventTypeEnum = pgEnum(
     "field_hard_deleted",
     "draft_subtree_replaced_on_publish",
     "version_published",
+    "section_created",
+    "field_created",
   ]
 );
 
@@ -37,6 +39,8 @@ export const FormTemplateAuditEventType = {
   FIELD_HARD_DELETED: "field_hard_deleted",
   DRAFT_SUBTREE_REPLACED_ON_PUBLISH: "draft_subtree_replaced_on_publish",
   VERSION_PUBLISHED: "version_published",
+  SECTION_CREATED: "section_created",
+  FIELD_CREATED: "field_created",
 } as const;
 
 export type FormTemplateAuditEventTypeValue =
