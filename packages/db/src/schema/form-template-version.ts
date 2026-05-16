@@ -1,3 +1,4 @@
+import type { FormTemplateCompiledJson } from "@supplex/types";
 import {
   pgTable,
   uuid,
@@ -46,7 +47,9 @@ export const formTemplateVersion = pgTable(
       (): AnyPgColumn => formTemplateVersion.id,
       { onDelete: "set null" }
     ),
-    compiledJson: jsonb("compiled_json"),
+    compiledJson: jsonb(
+      "compiled_json"
+    ).$type<FormTemplateCompiledJson | null>(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

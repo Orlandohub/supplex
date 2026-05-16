@@ -25,6 +25,11 @@ function mapPublishDraftError(error: unknown): ApiError | null {
         "Cannot publish template without fields. Please add at least one field to a section.",
         "VALIDATION_ERROR"
       );
+    case "FORM_TEMPLATE_COMPILE_FAILED":
+      return Errors.badRequest(
+        "Publishing failed while building the template compile cache. Please retry or contact support if the problem persists.",
+        "VALIDATION_ERROR"
+      );
     case "FORM_TEMPLATE_DRAFT_VERSION_MISSING":
       return Errors.badRequest(
         "No draft form version found to publish",

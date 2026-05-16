@@ -23,6 +23,7 @@ import {
   summarizeFormTemplateStructureDiffAccurate,
 } from "./form-template-structure-diff";
 import { computeFormTemplatePublishImpact } from "./form-template-publish-impact";
+import { compilePublishedFormTemplateVersion } from "./form-template-compile-published";
 
 type DbLike = PostgresJsDatabase<typeof schema>;
 
@@ -359,6 +360,22 @@ export async function publishFormTemplateFromDraft(
       }))
     );
   }
+
+  const compiledJson = await compilePublishedFormTemplateVersion(tx, {
+    formTemplateId,
+    tenantId,
+    versionId: pubVer.id,
+  });
+
+  await tx
+    .update(formTemplateVersion)
+    .set({
+      compiledJson,
+      updatedAt: now,
+    })
+    .where(eq(formTemplateVersion.id, pubVer.id));
+
+  Object.assign(pubVer, { compiledJson, updatedAt: now });
 
   if (oldHead) {
     await tx

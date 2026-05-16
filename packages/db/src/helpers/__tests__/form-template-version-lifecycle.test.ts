@@ -19,6 +19,7 @@ import {
   assertFormTemplateVersionIsDraftStructure,
   ImmutableFormTemplateStructureError,
 } from "../../index";
+import type { FormTemplateCompiledJson } from "@supplex/types";
 
 /**
  * Integration: SUP-26 copy-on-publish, supersede, draft reset, immutable guard.
@@ -164,6 +165,19 @@ describe("form template version lifecycle (SUP-26)", () => {
       );
     expect(pubFieldRow?.fieldKey).toBe("field_one");
     expect(pubFieldRow?.slugManuallyEdited).toBe(false);
+
+    const compiled = pub.compiledJson as FormTemplateCompiledJson | null;
+    expect(compiled).not.toBeNull();
+    expect(compiled?.schemaVersion).toBe(1);
+    expect(compiled?.validationPlan).toEqual({ placeholder: true });
+    expect(compiled?.fieldByKey.field_one).toBeDefined();
+    expect(compiled?.fieldByKey.field_one.id).toBe(pubFieldRow?.id);
+    expect(compiled?.fieldByKey.field_one.sectionKey).toBe("section_a");
+    expect(compiled?.orderedWalk).toHaveLength(1);
+    expect(compiled?.orderedWalk[0]?.sectionKey).toBe("section_a");
+    expect(compiled?.orderedWalk[0]?.fields.map((f) => f.fieldKey)).toEqual([
+      "field_one",
+    ]);
 
     const draftSections = await db
       .select()
