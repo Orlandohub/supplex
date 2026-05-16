@@ -80,6 +80,7 @@ export * from "./models/workflow-engine";
 export * from "./models/form-template";
 export * from "./models/form-template-ui";
 export * from "./models/form-template-publish-preview";
+export * from "./models/form-template-compiled-json";
 
 // Form Submissions (Story 2.2.4)
 export * from "./models/form-submission";

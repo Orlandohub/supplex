@@ -233,4 +233,5 @@ export * from "./helpers/form-template-audit-event";
 export * from "./helpers/form-template-draft-hard-delete";
 export * from "./helpers/form-template-keys";
 export * from "./helpers/form-template-structure-diff";
+export * from "./helpers/form-template-compile-published";
 export * from "./helpers/form-template-publish-impact";
