@@ -4,11 +4,11 @@ import {
   formSubmission,
   formAnswer,
   formTemplate,
-  formSection,
   formField,
   users,
   taskInstance,
   resolveFormTemplateVersionIdForStructure,
+  loadFormStructureForVersion,
 } from "@supplex/db";
 import { eq, and, isNull, or } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -149,7 +149,34 @@ export const getSubmissionRoute = new Elysia()
         );
       }
 
-      // Fetch all answers with field metadata (only fields on the submission's structure version)
+      // SUP-38: prefer publish-time compiled_json for the pinned (immutable) version;
+      // helper transparently falls back to relational if cache is missing / malformed
+      // / on an unsupported schemaVersion.
+      const structureLoad = await loadFormStructureForVersion(db, {
+        formTemplateId: submissionRecord.submission.formTemplateId,
+        formTemplateVersionId: structureVersionId,
+        tenantId,
+      });
+
+      if (
+        structureLoad.source === "relational" &&
+        structureLoad.fallbackReason !== null
+      ) {
+        requestLogger.warn(
+          {
+            event: "form_submission_get_compiled_json_fallback",
+            submissionId,
+            formTemplateId: submissionRecord.submission.formTemplateId,
+            formTemplateVersionId: structureVersionId,
+            reason: structureLoad.fallbackReason,
+          },
+          "compiled_json fast path unavailable; falling back to relational structure"
+        );
+      }
+
+      // Fetch all answers with field metadata. The compiled fast path materializes
+      // field rows in-process, so the formField join here is still relational but is
+      // independent of structure rendering.
       const answersWithFields = await db
         .select({
           answer: formAnswer,
@@ -166,44 +193,15 @@ export const getSubmissionRoute = new Elysia()
           )
         );
 
-      // Form structure for rendering: only the pinned / submission version subtree (SUP-30)
-      const sections = await db
-        .select()
-        .from(formSection)
-        .where(
-          and(
-            eq(
-              formSection.formTemplateId,
-              submissionRecord.submission.formTemplateId
-            ),
-            eq(formSection.formTemplateVersionId, structureVersionId),
-            eq(formSection.tenantId, tenantId),
-            isNull(formSection.deletedAt)
-          )
-        )
-        .orderBy(formSection.sectionOrder);
-
-      const allFields = await db
-        .select({
-          field: formField,
-          section: formSection,
-        })
-        .from(formField)
-        .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-        .where(
-          and(
-            eq(
-              formSection.formTemplateId,
-              submissionRecord.submission.formTemplateId
-            ),
-            eq(formSection.formTemplateVersionId, structureVersionId),
-            eq(formField.formTemplateVersionId, structureVersionId),
-            eq(formField.tenantId, tenantId),
-            isNull(formField.deletedAt),
-            isNull(formSection.deletedAt)
-          )
-        )
-        .orderBy(formSection.sectionOrder, formField.fieldOrder);
+      const fieldsBySection = new Map<string, typeof structureLoad.fields>();
+      for (const f of structureLoad.fields) {
+        const list = fieldsBySection.get(f.formSectionId);
+        if (list) {
+          list.push(f);
+        } else {
+          fieldsBySection.set(f.formSectionId, [f]);
+        }
+      }
 
       set.status = 200;
       return {
@@ -219,11 +217,9 @@ export const getSubmissionRoute = new Elysia()
             field: row.field,
           })),
           formStructure: {
-            sections: sections.map((section) => ({
+            sections: structureLoad.sections.map((section) => ({
               ...section,
-              fields: allFields
-                .filter((f) => f.section.id === section.id)
-                .map((f) => f.field),
+              fields: fieldsBySection.get(section.id) ?? [],
             })),
           },
         },

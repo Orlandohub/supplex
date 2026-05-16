@@ -234,4 +234,6 @@ export * from "./helpers/form-template-draft-hard-delete";
 export * from "./helpers/form-template-keys";
 export * from "./helpers/form-template-structure-diff";
 export * from "./helpers/form-template-compile-published";
+export * from "./helpers/form-template-compiled-json-parse";
+export * from "./helpers/form-template-structure-loader";
 export * from "./helpers/form-template-publish-impact";
