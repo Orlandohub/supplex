@@ -3,11 +3,10 @@ import { db } from "../../lib/db";
 import {
   formSubmission,
   formAnswer,
-  formSection,
-  formField,
   stepInstance,
   SubmissionStatus,
   resolveFormTemplateVersionIdForStructure,
+  loadFormStructureForVersion,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -120,25 +119,33 @@ export const submitRoute = new Elysia()
           );
         }
 
-        // Load fields for validation: submission's pinned structure version only (SUP-30)
-        const fieldsData = await db
-          .select({
-            field: formField,
-          })
-          .from(formField)
-          .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-          .where(
-            and(
-              eq(formSection.formTemplateId, submissionRecord.formTemplateId),
-              eq(formSection.formTemplateVersionId, structureVersionId),
-              eq(formField.formTemplateVersionId, structureVersionId),
-              eq(formField.tenantId, tenantId),
-              isNull(formField.deletedAt),
-              isNull(formSection.deletedAt)
-            )
-          );
+        // SUP-38: prefer publish-time compiled_json for validation rules; the helper
+        // falls back to the relational `form_field` rows for unsupported / missing /
+        // malformed payloads. Either way the resulting field list is scoped to the
+        // submission's pinned structure version (SUP-30).
+        const structureLoad = await loadFormStructureForVersion(db, {
+          formTemplateId: submissionRecord.formTemplateId,
+          formTemplateVersionId: structureVersionId,
+          tenantId,
+        });
 
-        const allFields = fieldsData.map((row) => row.field);
+        if (
+          structureLoad.source === "relational" &&
+          structureLoad.fallbackReason !== null
+        ) {
+          requestLogger.warn(
+            {
+              event: "form_submission_submit_compiled_json_fallback",
+              submissionId,
+              formTemplateId: submissionRecord.formTemplateId,
+              formTemplateVersionId: structureVersionId,
+              reason: structureLoad.fallbackReason,
+            },
+            "compiled_json fast path unavailable; falling back to relational fields"
+          );
+        }
+
+        const allFields = structureLoad.fields;
         const requiredFields = allFields.filter((f) => f.required);
 
         // 5. Load all answers for this submission

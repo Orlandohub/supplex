@@ -2,15 +2,17 @@ import { Elysia, t } from "elysia";
 import { db } from "../../lib/db";
 import {
   formTemplate,
-  formSection,
-  formField,
   getDraftFormTemplateVersionForTemplate,
   getPublishedHeadFormTemplateVersion,
   getLatestImmutableFormTemplateVersion,
   loadFormTemplateStructureSnapshot,
   formTemplateStructureSignatureFromSlices,
+  loadFormStructureForVersion,
+  type SelectFormField,
+  type SelectFormSection,
+  type SelectFormTemplateVersion,
 } from "@supplex/db";
-import { eq, and, isNull, asc, inArray } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
 import { UserRole } from "@supplex/types";
 import { ApiError, Errors } from "../../lib/errors";
@@ -22,6 +24,12 @@ import { ApiError, Errors } from "../../lib/errors";
  * Auth: Requires authenticated user
  * Tenant: Enforces tenant isolation - returns 403 for cross-tenant access
  * Returns: Complete template structure with nested sections and fields
+ *
+ * SUP-38: Immutable (published / superseded) versions are served from the publish-time
+ * `compiled_json` cache when it carries a supported schemaVersion. Drafts always go
+ * through the relational subtree because compiled_json is not emitted for drafts
+ * (see SUP-33). Cache misses / malformed payloads / unsupported schema versions
+ * transparently fall back to the relational subtree and emit a structured warn log.
  */
 export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
   "/:id",
@@ -63,6 +71,7 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
       let adminDraftVersion:
         | Awaited<ReturnType<typeof getDraftFormTemplateVersionForTemplate>>
         | undefined;
+      let resolvedImmutableVersionRow: SelectFormTemplateVersion | null = null;
 
       if (user.role === UserRole.ADMIN) {
         const draft = await getDraftFormTemplateVersionForTemplate(db, {
@@ -78,20 +87,24 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
             tenantId,
           });
           structureVersionId = fallback?.id;
+          resolvedImmutableVersionRow = fallback ?? null;
         }
       } else {
         const head = await getPublishedHeadFormTemplateVersion(db, {
           formTemplateId: templateId,
           tenantId,
         });
-        structureVersionId =
-          head?.id ??
-          (
-            await getLatestImmutableFormTemplateVersion(db, {
-              formTemplateId: templateId,
-              tenantId,
-            })
-          )?.id;
+        if (head) {
+          structureVersionId = head.id;
+          resolvedImmutableVersionRow = head;
+        } else {
+          const latest = await getLatestImmutableFormTemplateVersion(db, {
+            formTemplateId: templateId,
+            tenantId,
+          });
+          structureVersionId = latest?.id;
+          resolvedImmutableVersionRow = latest ?? null;
+        }
       }
 
       if (!structureVersionId) {
@@ -100,52 +113,51 @@ export const getFormTemplateRoute = new Elysia().use(authenticatedRoute).get(
         );
       }
 
-      const sections = await db
-        .select()
-        .from(formSection)
-        .where(
-          and(
-            eq(formSection.formTemplateId, templateId),
-            eq(formSection.formTemplateVersionId, structureVersionId),
-            eq(formSection.tenantId, tenantId),
-            isNull(formSection.deletedAt)
-          )
-        )
-        .orderBy(asc(formSection.sectionOrder));
+      const structureLoad = await loadFormStructureForVersion(db, {
+        formTemplateId: templateId,
+        formTemplateVersionId: structureVersionId,
+        tenantId,
+        preferCompiled: resolvedImmutableVersionRow !== null,
+        compiledJsonOverride: resolvedImmutableVersionRow?.compiledJson,
+      });
 
-      const sectionIds = sections.map((s) => s.id);
-      const fields =
-        sectionIds.length > 0
-          ? await db
-              .select()
-              .from(formField)
-              .where(
-                and(
-                  eq(formField.formTemplateVersionId, structureVersionId),
-                  eq(formField.tenantId, tenantId),
-                  inArray(formField.formSectionId, sectionIds),
-                  isNull(formField.deletedAt)
-                )
-              )
-              .orderBy(asc(formField.fieldOrder))
-          : [];
-
-      const fieldsBySection = new Map<string, typeof fields>();
-      for (const sid of sectionIds) {
-        fieldsBySection.set(sid, []);
+      if (
+        structureLoad.source === "relational" &&
+        resolvedImmutableVersionRow !== null &&
+        structureLoad.fallbackReason !== null
+      ) {
+        requestLogger.warn(
+          {
+            event: "form_template_get_compiled_json_fallback",
+            formTemplateId: templateId,
+            formTemplateVersionId: structureVersionId,
+            reason: structureLoad.fallbackReason,
+          },
+          "compiled_json fast path unavailable; falling back to relational structure"
+        );
       }
-      for (const f of fields) {
+
+      const fieldsBySection = new Map<string, SelectFormField[]>();
+      for (const f of structureLoad.fields) {
         const list = fieldsBySection.get(f.formSectionId);
-        if (list) list.push(f);
+        if (list) {
+          list.push(f);
+        } else {
+          fieldsBySection.set(f.formSectionId, [f]);
+        }
       }
-      for (const sid of sectionIds) {
-        fieldsBySection.get(sid)?.sort((a, b) => a.fieldOrder - b.fieldOrder);
+      for (const [, list] of fieldsBySection) {
+        list.sort((a, b) => a.fieldOrder - b.fieldOrder);
       }
 
-      const sectionsWithFields = sections.map((section) => ({
-        ...section,
-        fields: fieldsBySection.get(section.id) ?? [],
-      }));
+      type SectionWithFields = SelectFormSection & {
+        fields: SelectFormField[];
+      };
+      const sectionsWithFields: SectionWithFields[] =
+        structureLoad.sections.map((section) => ({
+          ...section,
+          fields: fieldsBySection.get(section.id) ?? [],
+        }));
 
       let hasUnpublishedDraftChanges = false;
       if (

@@ -168,7 +168,7 @@ describe("form template version lifecycle (SUP-26)", () => {
 
     const compiled = pub.compiledJson as FormTemplateCompiledJson | null;
     expect(compiled).not.toBeNull();
-    expect(compiled?.schemaVersion).toBe(1);
+    expect(compiled?.schemaVersion).toBe(2);
     expect(compiled?.validationPlan).toEqual({ placeholder: true });
     expect(compiled?.fieldByKey.field_one).toBeDefined();
     expect(compiled?.fieldByKey.field_one.id).toBe(pubFieldRow?.id);
@@ -178,6 +178,17 @@ describe("form template version lifecycle (SUP-26)", () => {
     expect(compiled?.orderedWalk[0]?.fields.map((f) => f.fieldKey)).toEqual([
       "field_one",
     ]);
+    if (compiled?.schemaVersion === 2) {
+      expect(compiled.sections).toHaveLength(1);
+      const compiledSec = compiled.sections[0];
+      expect(compiledSec?.sectionKey).toBe("section_a");
+      expect(compiledSec?.slugManuallyEdited).toBe(true);
+      expect(compiledSec?.fields).toHaveLength(1);
+      expect(compiledSec?.fields[0]?.fieldKey).toBe("field_one");
+      expect(compiledSec?.fields[0]?.id).toBe(pubFieldRow?.id);
+      expect(typeof compiledSec?.createdAt).toBe("string");
+      expect(typeof compiledSec?.fields[0]?.createdAt).toBe("string");
+    }
 
     const draftSections = await db
       .select()

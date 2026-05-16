@@ -4,12 +4,11 @@ import {
   formSubmission,
   formAnswer,
   formTemplate,
-  formSection,
-  formField,
   processInstance,
   stepInstance,
   formTemplateVersion,
   resolveFormTemplateVersionIdForStructure,
+  loadFormStructureForVersion,
 } from "@supplex/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { authenticatedRoute } from "../../lib/route-plugins";
@@ -193,25 +192,49 @@ export const createDraftRoute = new Elysia().use(authenticatedRoute).post(
         versionForFields = resolvedForNew;
       }
 
-      const fieldsData = await db
-        .select({
-          field: formField,
-        })
-        .from(formField)
-        .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
-        .where(
-          and(
-            eq(formSection.formTemplateId, formTemplateId),
-            eq(formSection.formTemplateVersionId, versionForFields),
-            eq(formField.formTemplateVersionId, versionForFields),
-            eq(formField.tenantId, tenantId),
-            isNull(formField.deletedAt),
-            isNull(formSection.deletedAt)
-          )
+      // SUP-38: prefer publish-time compiled_json when validating answer formats.
+      // Pass `pinVer.compiledJson` directly when we already loaded the version row
+      // for stepPin to avoid an extra round-trip. Fallbacks log the reason.
+      const compiledOverride =
+        stepPin && versionForFields === stepPin
+          ? await db
+              .select({ compiledJson: formTemplateVersion.compiledJson })
+              .from(formTemplateVersion)
+              .where(
+                and(
+                  eq(formTemplateVersion.id, versionForFields),
+                  eq(formTemplateVersion.tenantId, tenantId),
+                  isNull(formTemplateVersion.deletedAt)
+                )
+              )
+              .limit(1)
+              .then((rows) => rows[0]?.compiledJson ?? null)
+          : undefined;
+
+      const structureLoad = await loadFormStructureForVersion(db, {
+        formTemplateId,
+        formTemplateVersionId: versionForFields,
+        tenantId,
+        compiledJsonOverride: compiledOverride,
+      });
+
+      if (
+        structureLoad.source === "relational" &&
+        structureLoad.fallbackReason !== null
+      ) {
+        requestLogger.warn(
+          {
+            event: "form_submission_create_draft_compiled_json_fallback",
+            formTemplateId,
+            formTemplateVersionId: versionForFields,
+            reason: structureLoad.fallbackReason,
+          },
+          "compiled_json fast path unavailable; falling back to relational fields"
         );
+      }
 
       const fieldMap = new Map(
-        fieldsData.map((row) => [row.field.id, row.field])
+        structureLoad.fields.map((field) => [field.id, field])
       );
 
       for (const answer of answers) {
