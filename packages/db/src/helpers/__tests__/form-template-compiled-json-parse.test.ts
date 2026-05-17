@@ -58,7 +58,6 @@ function buildSample(): FormTemplateCompiledJsonV2 {
 
 const ctx = {
   tenantId: "tenant-uuid",
-  formTemplateId: "template-uuid",
   formTemplateVersionId: "version-uuid",
 };
 
@@ -145,7 +144,6 @@ describe("tryReadStructureFromCompiledJson (SUP-38)", () => {
     if (!sec) throw new Error("missing section row");
     expect(sec.id).toBe(section.id);
     expect(sec.tenantId).toBe(ctx.tenantId);
-    expect(sec.formTemplateId).toBe(ctx.formTemplateId);
     expect(sec.formTemplateVersionId).toBe(ctx.formTemplateVersionId);
     expect(sec.deletedAt).toBeNull();
     expect(sec.createdAt instanceof Date).toBe(true);

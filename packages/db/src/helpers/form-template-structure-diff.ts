@@ -73,7 +73,7 @@ export async function loadFormTemplateStructureSnapshot(
     versionId: string;
   }
 ): Promise<FormTemplateSectionStructureSlice[]> {
-  const { formTemplateId, tenantId, versionId } = params;
+  const { tenantId, versionId } = params;
 
   const sectionRowIds = await db
     .select({
@@ -85,7 +85,6 @@ export async function loadFormTemplateStructureSnapshot(
     .from(formSection)
     .where(
       and(
-        eq(formSection.formTemplateId, formTemplateId),
         eq(formSection.formTemplateVersionId, versionId),
         eq(formSection.tenantId, tenantId),
         isNull(formSection.deletedAt)

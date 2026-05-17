@@ -78,7 +78,6 @@ describe("form template version lifecycle (SUP-26)", () => {
     const [sec] = await db
       .insert(formSection)
       .values({
-        formTemplateId: tpl.id,
         formTemplateVersionId: draftV.id,
         tenantId,
         sectionOrder: 1,

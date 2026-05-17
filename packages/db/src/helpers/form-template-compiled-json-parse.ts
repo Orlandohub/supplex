@@ -41,7 +41,6 @@ export interface TryReadStructureFromCompiledJsonResult {
 
 interface MaterializeContext {
   tenantId: string;
-  formTemplateId: string;
   formTemplateVersionId: string;
 }
 
@@ -65,9 +64,7 @@ function isObjectLike(value: unknown): value is Record<string, unknown> {
  * still untrusted at the byte boundary, so we re-check the discriminant + array shapes
  * before trusting any field. Returns `null` when the payload can't be classified.
  */
-export function parseFormTemplateCompiledJson(
-  raw: unknown
-):
+export function parseFormTemplateCompiledJson(raw: unknown):
   | { ok: true; payload: FormTemplateCompiledJsonV1; schemaVersion: 1 }
   | { ok: true; payload: FormTemplateCompiledJsonV2; schemaVersion: 2 }
   | {
@@ -181,7 +178,7 @@ function isCompiledSectionV2(
 /**
  * Fully materialize a v2 compiled payload into the same shape Drizzle returns for
  * `formSection` / `formField` (`SelectFormSection` / `SelectFormField`). Context columns
- * (`tenantId`, `formTemplateId`, `formTemplateVersionId`, `deletedAt`) are constant for
+ * (`tenantId`, `formTemplateVersionId`, `deletedAt`) are constant for
  * a published version and are filled from the caller — they're intentionally excluded
  * from the cache to keep it small and avoid stale duplication.
  */
@@ -199,7 +196,6 @@ export function materializeRelationalSubtreeFromCompiledV2(
   for (const sec of sortedSections) {
     sections.push({
       id: sec.id,
-      formTemplateId: ctx.formTemplateId,
       formTemplateVersionId: ctx.formTemplateVersionId,
       tenantId: ctx.tenantId,
       sectionOrder: sec.sectionOrder,

@@ -147,7 +147,6 @@ describe("Form Submit — Transaction Safety (WFH-002)", () => {
     });
 
     section = await insertOneOrThrow(db, formSection, {
-      formTemplateId: fmTemplate.id,
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,

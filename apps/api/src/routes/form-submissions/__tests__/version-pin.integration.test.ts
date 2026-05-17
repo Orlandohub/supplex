@@ -126,7 +126,6 @@ describe("Form submissions — version pin (SUP-30)", () => {
     });
 
     const section0 = await insertOneOrThrow(db, formSection, {
-      formTemplateId: tpl.id,
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
@@ -235,7 +234,6 @@ describe("Form submissions — version pin (SUP-30)", () => {
     });
 
     const section0 = await insertOneOrThrow(db, formSection, {
-      formTemplateId: tpl.id,
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
@@ -380,7 +378,6 @@ describe("Form submissions — version pin (SUP-30)", () => {
     });
 
     const section0 = await insertOneOrThrow(db, formSection, {
-      formTemplateId: tpl.id,
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
@@ -514,7 +511,6 @@ describe("Form submissions — version pin (SUP-30)", () => {
     });
 
     const section0 = await insertOneOrThrow(db, formSection, {
-      formTemplateId: tpl.id,
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
@@ -777,7 +773,6 @@ describe("Form submissions — version pin (SUP-30)", () => {
     });
 
     const sectionV1 = await insertOneOrThrow(db, formSection, {
-      formTemplateId: tpl.id,
       formTemplateVersionId: ver1.id,
       tenantId: tenant.id,
       sectionOrder: 1,

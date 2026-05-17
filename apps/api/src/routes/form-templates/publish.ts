@@ -149,7 +149,6 @@ export const publishVersionRoute = new Elysia()
           .from(formSection)
           .where(
             and(
-              eq(formSection.formTemplateId, id),
               eq(formSection.formTemplateVersionId, draftVersion.id),
               eq(formSection.tenantId, tenantId),
               isNull(formSection.deletedAt)
@@ -169,7 +168,6 @@ export const publishVersionRoute = new Elysia()
           .innerJoin(formSection, eq(formField.formSectionId, formSection.id))
           .where(
             and(
-              eq(formSection.formTemplateId, id),
               eq(formSection.formTemplateVersionId, draftVersion.id),
               eq(formField.formTemplateVersionId, draftVersion.id),
               eq(formField.tenantId, tenantId),

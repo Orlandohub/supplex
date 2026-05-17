@@ -36,6 +36,7 @@ type FieldRowWithVersion = {
 type SectionRowWithVersion = {
   section: SelectFormSection;
   versionNumber: number | null;
+  formTemplateId: string;
 };
 
 async function loadDraftField(
@@ -45,7 +46,7 @@ async function loadDraftField(
   const [row] = await tx
     .select({
       field: formField,
-      formTemplateId: formSection.formTemplateId,
+      formTemplateId: formTemplateVersion.formTemplateId,
       versionNumber: formTemplateVersion.versionNumber,
     })
     .from(formField)
@@ -85,6 +86,7 @@ async function loadDraftSection(
     .select({
       section: formSection,
       versionNumber: formTemplateVersion.versionNumber,
+      formTemplateId: formTemplateVersion.formTemplateId,
     })
     .from(formSection)
     .innerJoin(
@@ -175,7 +177,7 @@ export async function hardDeleteDraftFormSection(
   for (const field of fields) {
     const audit = await insertFormTemplateAuditEvent(tx, {
       tenantId: params.tenantId,
-      formTemplateId: loaded.section.formTemplateId,
+      formTemplateId: loaded.formTemplateId,
       formTemplateVersionId: field.formTemplateVersionId,
       actorUserId: params.actorUserId,
       eventType: FormTemplateAuditEventType.FIELD_HARD_DELETED,
@@ -190,7 +192,7 @@ export async function hardDeleteDraftFormSection(
 
   const sectionAudit = await insertFormTemplateAuditEvent(tx, {
     tenantId: params.tenantId,
-    formTemplateId: loaded.section.formTemplateId,
+    formTemplateId: loaded.formTemplateId,
     formTemplateVersionId: loaded.section.formTemplateVersionId,
     actorUserId: params.actorUserId,
     eventType: FormTemplateAuditEventType.SECTION_HARD_DELETED,

@@ -12,7 +12,7 @@
  *  - 1: SUP-33 publish-time write only (no read consumers). Lookup-friendly subset.
  *  - 2: SUP-38 read path. Adds full section/field rehydration payloads matching the
  *       Drizzle `SelectFormSection` / `SelectFormField` shape (minus per-row tenant /
- *       template / version IDs and `deletedAt`, which the materializer fills from
+ *       version linkage columns and `deletedAt`, which the materializer fills from
  *       caller context — those are constant for every row in a given immutable version).
  */
 export type FormTemplateCompiledJsonSchemaVersion = 1 | 2;
@@ -61,7 +61,7 @@ export interface FormTemplateCompiledValidationPlaceholder {
 
 /**
  * v2-only: section payload mirroring `SelectFormSection` minus context columns
- * (`tenantId`, `formTemplateId`, `formTemplateVersionId`, `deletedAt`).
+ * (`tenantId`, `formTemplateVersionId`, `deletedAt`).
  *
  * `createdAt` / `updatedAt` are ISO-8601 strings because JSONB persistence loses Date types.
  * Materializers convert them back to `Date` to match Drizzle row outputs.
