@@ -16,6 +16,10 @@ import { deleteFieldRoute } from "./fields/delete";
 import { reorderFieldsRoute } from "./fields/reorder";
 import { publishVersionRoute } from "./publish";
 import { publishPreviewRoute } from "./publish-preview";
+import { versionsRoute } from "./versions";
+import { auditEventsRoute } from "./audit-events";
+import { versionDiffRoute } from "./version-diff";
+import { usageRoute } from "./usage";
 
 /**
  * Form Templates Route Aggregator
@@ -51,6 +55,16 @@ import { publishPreviewRoute } from "./publish-preview";
  * Publishing:
  * - PATCH  /api/form-templates/:id/publish - Publish draft / republish (optional body); unpublish via action
  * - GET    /api/form-templates/:id/publish-preview - Preview diff + impact (SUP-29, admin)
+ *
+ * Admin Read APIs (SUP-32):
+ * - GET    /api/form-templates/:id/versions       - List versions for admin Versions tab
+ * - GET    /api/form-templates/:id/audit-events   - Paginated changelog timeline
+ * - GET    /api/form-templates/:id/version-diff   - Structural diff between two versions
+ * - GET    /api/form-templates/:id/usage          - Workflow + active process usage
+ *
+ * Registration order: literal `/:id/<segment>` routes are registered with
+ * the other `/:id/...` siblings BEFORE the `/:templateId/...` family so
+ * memoirist resolves literal-prefix matches first.
  */
 export const formTemplatesRoutes = new Elysia({ prefix: "/api/form-templates" })
   .use(listFormTemplatesRoute)
@@ -61,6 +75,10 @@ export const formTemplatesRoutes = new Elysia({ prefix: "/api/form-templates" })
   .use(updateFormTemplateRoute)
   .use(deleteFormTemplateRoute)
   .use(publishPreviewRoute)
+  .use(versionsRoute)
+  .use(auditEventsRoute)
+  .use(versionDiffRoute)
+  .use(usageRoute)
   .use(createSectionRoute)
   .use(updateSectionRoute)
   .use(deleteSectionRoute)

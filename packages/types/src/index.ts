@@ -81,6 +81,8 @@ export * from "./models/form-template";
 export * from "./models/form-template-ui";
 export * from "./models/form-template-publish-preview";
 export * from "./models/form-template-compiled-json";
+// Form Template admin read APIs (SUP-32)
+export * from "./models/form-template-admin";
 
 // Form Submissions (Story 2.2.4)
 export * from "./models/form-submission";

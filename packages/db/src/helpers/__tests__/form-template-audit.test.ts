@@ -274,22 +274,18 @@ describe("form template audit events (SUP-27)", () => {
 
     const events = await listAuditEventsForTemplate(seeded.tpl.id);
 
-    // 1 field delete + 1 section delete + 1 draft replaced + 1 version published
-    expect(events.length).toBe(4);
+    // Publish teardown no longer emits per-field/section hard-delete audit rows.
+    // Admin changelog API also hides `draft_subtree_replaced_on_publish`; only
+    // `version_published` is user-meaningful in the UI timeline.
+    expect(events.length).toBe(2);
     expect(events[0]?.eventType).toBe(
-      FormTemplateAuditEventType.FIELD_HARD_DELETED
-    );
-    expect(events[1]?.eventType).toBe(
-      FormTemplateAuditEventType.SECTION_HARD_DELETED
-    );
-    expect(events[2]?.eventType).toBe(
       FormTemplateAuditEventType.DRAFT_SUBTREE_REPLACED_ON_PUBLISH
     );
-    expect(events[3]?.eventType).toBe(
+    expect(events[1]?.eventType).toBe(
       FormTemplateAuditEventType.VERSION_PUBLISHED
     );
 
-    const summary = events[3];
+    const summary = events[1];
     if (!summary) throw new Error("expected publish summary event");
     const meta = summary.metadata as Record<string, unknown>;
     expect(meta.publishedVersionNumber).toBe(1);

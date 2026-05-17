@@ -387,39 +387,21 @@ export async function publishFormTemplateFromDraft(
       .where(eq(formTemplateVersion.id, oldHead.id));
   }
 
-  // SUP-27: Audit + hard-delete each draft field, then each draft section, before
+  // SUP-27: Hard-delete each draft field, then each draft section, before
   // removing the draft version row itself. Iterating the rows we already loaded
   // keeps ordering stable and lets cascade serve only as a safety net.
+  //
+  // We intentionally do not emit per-row FIELD_HARD_DELETED / SECTION_HARD_DELETED
+  // audit events here — those read like manual deletes in the admin changelog.
+  // `draft_subtree_replaced_on_publish` + `version_published` cover publish.
   for (const sec of draftSections) {
     const fields = fieldsBySection.get(sec.id) ?? [];
     for (const field of fields) {
-      await insertFormTemplateAuditEvent(tx, {
-        tenantId,
-        formTemplateId,
-        formTemplateVersionId: draft.id,
-        actorUserId,
-        eventType: FormTemplateAuditEventType.FIELD_HARD_DELETED,
-        subjectType: FormTemplateAuditSubject.FIELD,
-        subjectId: field.id,
-        before: snapshotRow(field),
-        summary: `Field "${field.label}" removed when draft was replaced on publish`,
-      });
       await tx.delete(formField).where(eq(formField.id, field.id));
     }
   }
 
   for (const sec of draftSections) {
-    await insertFormTemplateAuditEvent(tx, {
-      tenantId,
-      formTemplateId,
-      formTemplateVersionId: draft.id,
-      actorUserId,
-      eventType: FormTemplateAuditEventType.SECTION_HARD_DELETED,
-      subjectType: FormTemplateAuditSubject.SECTION,
-      subjectId: sec.id,
-      before: snapshotRow(sec),
-      summary: `Section "${sec.title}" removed when draft was replaced on publish`,
-    });
     await tx.delete(formSection).where(eq(formSection.id, sec.id));
   }
 
