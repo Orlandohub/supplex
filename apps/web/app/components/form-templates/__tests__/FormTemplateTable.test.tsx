@@ -1,10 +1,9 @@
 /**
  * Frontend Component Tests: FormTemplateTable publish toggle
  *
- * Regression for the browser-relative `/api/...` bug. The publish toggle used
- * `fetch("/api/form-templates/${id}/publish", { method: "PATCH" })`, which
- * landed on the React Router dev server. We mock Eden Treaty so any future
- * revert to a raw fetch will fail these tests.
+ * Regression for the browser-relative `/api/...` bug. The publish toggle uses
+ * Eden Treaty rather than `fetch("/api/...")`. SUP-32 added a confirmation
+ * dialog in front of the publish path; unpublish remains one-click.
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -25,11 +24,36 @@ vi.mock("~/hooks/use-toast", () => ({
 }));
 
 const mockPublishPatch = vi.fn();
+const mockPreviewGet = vi.fn();
 const mockFormTemplatesCallable = vi.fn();
+
+const EMPTY_PREVIEW_OK = {
+  data: {
+    success: true,
+    data: {
+      structureChanged: false,
+      structureDiffSummary: {
+        addedSectionCount: 0,
+        removedSectionCount: 0,
+        modifiedSectionCount: 0,
+        addedFieldCount: 0,
+        removedFieldCount: 0,
+        modifiedFieldCount: 0,
+      },
+      diff: { addedSections: [], removedSections: [], modifiedSections: [] },
+      publishImpact: {
+        workflowTemplatesReferencingContainer: [],
+        activeProcessesWithSupersededPin: [],
+      },
+    },
+  },
+  error: null,
+};
 
 function buildClient() {
   mockFormTemplatesCallable.mockImplementation(() => ({
     publish: { patch: mockPublishPatch },
+    "publish-preview": { get: mockPreviewGet },
   }));
   return {
     api: {
@@ -49,6 +73,7 @@ beforeEach(() => {
   vi.mocked(createClientEdenTreatyClient).mockImplementation(() =>
     buildClient()
   );
+  mockPreviewGet.mockResolvedValue(EMPTY_PREVIEW_OK);
   Object.defineProperty(window, "location", {
     configurable: true,
     value: { ...originalLocation, reload: reloadSpy },
@@ -90,7 +115,7 @@ function renderTable(template: FormTemplateListItem) {
 }
 
 describe("FormTemplateTable publish toggle", () => {
-  test("publishes a draft template through Eden Treaty with an empty body", async () => {
+  test("publishes a draft template through the confirmation dialog with an empty body", async () => {
     mockPublishPatch.mockResolvedValue({
       data: { success: true, data: { id: "tpl-1" } },
       error: null,
@@ -100,7 +125,20 @@ describe("FormTemplateTable publish toggle", () => {
       makeTemplate({ id: "tpl-1", status: FormTemplateStatus.DRAFT })
     );
 
+    // SUP-32: clicking the row's publish icon opens the confirmation
+    // dialog rather than firing PATCH publish directly.
     fireEvent.click(screen.getByTitle("Publish template"));
+
+    await waitFor(() => {
+      expect(mockPreviewGet).toHaveBeenCalledTimes(1);
+    });
+    expect(mockPublishPatch).not.toHaveBeenCalled();
+
+    // Confirm in the dialog
+    const confirmBtn = await screen.findByRole("button", {
+      name: /^publish$/i,
+    });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(mockPublishPatch).toHaveBeenCalledTimes(1);
@@ -111,13 +149,15 @@ describe("FormTemplateTable publish toggle", () => {
       expect.objectContaining({ id: "tpl-1" })
     );
     expect(mockPublishPatch).toHaveBeenCalledWith({});
-    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
     expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Template Published" })
+      expect.objectContaining({ title: "Template published" })
     );
   });
 
-  test("unpublishes a published template through Eden Treaty with action='unpublish'", async () => {
+  test("unpublishes a published template through Eden Treaty with action='unpublish' (no dialog)", async () => {
     mockPublishPatch.mockResolvedValue({
       data: { success: true, data: { id: "tpl-2" } },
       error: null,
@@ -143,7 +183,7 @@ describe("FormTemplateTable publish toggle", () => {
     );
   });
 
-  test("shows a destructive toast and does not reload when Treaty returns an error", async () => {
+  test("shows a destructive toast and does not reload when the publish confirm returns an error", async () => {
     mockPublishPatch.mockResolvedValue({
       data: null,
       error: {
@@ -161,6 +201,15 @@ describe("FormTemplateTable publish toggle", () => {
     fireEvent.click(screen.getByTitle("Publish template"));
 
     await waitFor(() => {
+      expect(mockPreviewGet).toHaveBeenCalledTimes(1);
+    });
+
+    const confirmBtn = await screen.findByRole("button", {
+      name: /^publish$/i,
+    });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
       expect(mockPublishPatch).toHaveBeenCalledTimes(1);
     });
 
@@ -168,7 +217,7 @@ describe("FormTemplateTable publish toggle", () => {
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: "destructive",
-        title: "Error",
+        title: "Publish failed",
       })
     );
   });

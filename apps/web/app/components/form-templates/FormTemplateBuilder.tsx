@@ -21,6 +21,7 @@ import { Plus, CheckCircle, Copy } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 import { AddSectionModal } from "./AddSectionModal";
 import { CopyFormTemplateDialog } from "./CopyTemplateDialog";
+import { PublishConfirmationDialog } from "./PublishConfirmationDialog";
 
 // Self-contained loader shape for the form-template edit page.
 // The serialized payload here does not fit any single canonical domain type
@@ -51,6 +52,7 @@ export function FormTemplateBuilder({
   const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
 
   const canEdit = template.status !== "archived";
   const sections = [...template.sections].sort(
@@ -198,7 +200,7 @@ export function FormTemplateBuilder({
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => void patchPublish("publish")}
+                      onClick={() => setIsPublishDialogOpen(true)}
                       disabled={sections.length === 0 || isPublishing}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
@@ -217,7 +219,7 @@ export function FormTemplateBuilder({
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={() => void patchPublish()}
+                    onClick={() => setIsPublishDialogOpen(true)}
                     disabled={
                       (template.status === "draft" && sections.length === 0) ||
                       isPublishing
@@ -290,6 +292,18 @@ export function FormTemplateBuilder({
         templateId={template.id}
         templateName={template.name}
         token={token}
+      />
+
+      {/* Publish Confirmation Dialog (SUP-32) */}
+      <PublishConfirmationDialog
+        open={isPublishDialogOpen}
+        onOpenChange={setIsPublishDialogOpen}
+        templateId={template.id}
+        templateStatus={template.status}
+        token={token}
+        onPublished={() => {
+          setTimeout(() => revalidator.revalidate(), 100);
+        }}
       />
     </div>
   );

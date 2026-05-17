@@ -30,6 +30,7 @@ import {
 import { Edit, Trash2, FileText, Copy, CheckCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CopyFormTemplateDialog } from "./CopyTemplateDialog";
+import { PublishConfirmationDialog } from "./PublishConfirmationDialog";
 import { useToast } from "~/hooks/use-toast";
 import { createClientEdenTreatyClient } from "~/lib/api-client";
 import {
@@ -58,6 +59,12 @@ export function FormTemplateTable({
   } | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // SUP-32: publish from the table now goes through the same confirmation
+  // dialog as the builder. Unpublish remains a single click below.
+  const [publishTarget, setPublishTarget] = useState<{
+    id: string;
+    status: "draft" | "published" | "archived";
+  } | null>(null);
 
   const handleEdit = (templateId: string) => {
     navigate(`/settings/form-templates/${templateId}/edit`);
@@ -80,25 +87,28 @@ export function FormTemplateTable({
     }
   };
 
-  const handleTogglePublish = async (
+  const handlePublishClick = (
     templateId: string,
-    currentStatus: string,
+    currentStatus: "draft" | "published" | "archived",
     e: React.MouseEvent
   ) => {
     e.stopPropagation();
+    if (currentStatus === "archived" || isPublishing) return;
+    setPublishTarget({ id: templateId, status: currentStatus });
+  };
+
+  const handleUnpublish = async (templateId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isPublishing) return;
     setIsPublishing(true);
-
     try {
       const client = createClientEdenTreatyClient(token);
       const route = client.api["form-templates"](
         formTemplatesIndexParamsForId(templateId)
       );
-      const body =
-        currentStatus === "published" ? { action: "unpublish" as const } : {};
-      const response = await withTreatyBranch(route, "publish").publish.patch(
-        body
-      );
+      const response = await withTreatyBranch(route, "publish").publish.patch({
+        action: "unpublish" as const,
+      });
 
       const err = errorBody(response.error);
       if (err) {
@@ -106,18 +116,12 @@ export function FormTemplateTable({
       }
 
       toast({
-        title:
-          currentStatus === "draft"
-            ? "Template Published"
-            : "Template Unpublished",
-        description:
-          currentStatus === "draft"
-            ? "Template is now published and ready for use"
-            : "Template returned to draft status",
+        title: "Template Unpublished",
+        description: "Template returned to draft status",
       });
 
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update template status",
@@ -225,7 +229,16 @@ export function FormTemplateTable({
                         variant="ghost"
                         size="sm"
                         onClick={(e) =>
-                          handleTogglePublish(template.id, template.status, e)
+                          isPublished
+                            ? void handleUnpublish(template.id, e)
+                            : handlePublishClick(
+                                template.id,
+                                template.status as
+                                  | "draft"
+                                  | "published"
+                                  | "archived",
+                                e
+                              )
                         }
                         title={
                           isPublished
@@ -268,6 +281,21 @@ export function FormTemplateTable({
           token={token}
         />
       )}
+
+      {/* Publish confirmation — always mounted so Radix / effect lifecycle matches builder. */}
+      <PublishConfirmationDialog
+        open={publishTarget !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPublishTarget(null);
+        }}
+        templateId={publishTarget?.id ?? ""}
+        templateStatus={publishTarget?.status ?? "draft"}
+        token={token}
+        onPublished={() => {
+          setPublishTarget(null);
+          window.location.reload();
+        }}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog
