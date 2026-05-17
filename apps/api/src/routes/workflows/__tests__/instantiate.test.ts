@@ -88,7 +88,6 @@ async function createPublishedFormTemplateViaLifecycle(
   });
 
   const section = await insertOneOrThrow(db, formSection, {
-    formTemplateId: tpl.id,
     formTemplateVersionId: draft.id,
     tenantId,
     sectionOrder: 1,

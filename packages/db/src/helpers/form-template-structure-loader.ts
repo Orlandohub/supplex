@@ -55,7 +55,6 @@ export async function loadFormStructureForVersion(
   }
 ): Promise<FormStructureLoadResult> {
   const {
-    formTemplateId,
     formTemplateVersionId,
     tenantId,
     preferCompiled = true,
@@ -84,7 +83,6 @@ export async function loadFormStructureForVersion(
 
     const fast = tryReadStructureFromCompiledJson(compiledRaw, {
       tenantId,
-      formTemplateId,
       formTemplateVersionId,
     });
 
@@ -104,7 +102,6 @@ export async function loadFormStructureForVersion(
     .from(formSection)
     .where(
       and(
-        eq(formSection.formTemplateId, formTemplateId),
         eq(formSection.formTemplateVersionId, formTemplateVersionId),
         eq(formSection.tenantId, tenantId),
         isNull(formSection.deletedAt)

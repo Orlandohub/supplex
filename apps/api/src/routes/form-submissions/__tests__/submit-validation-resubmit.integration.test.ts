@@ -99,7 +99,6 @@ describe("Form submit + validation decline + resubmit", () => {
     });
 
     const section = await insertOneOrThrow(db, formSection, {
-      formTemplateId: fm.id,
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,

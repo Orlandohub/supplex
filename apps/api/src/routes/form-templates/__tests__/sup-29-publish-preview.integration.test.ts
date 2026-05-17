@@ -131,7 +131,6 @@ describe("SUP-29 GET /api/form-templates/:id/publish-preview", () => {
     });
 
     await db.insert(formSection).values({
-      formTemplateId: tpl.id,
       formTemplateVersionId: draft0.id,
       tenantId: tenant.id,
       sectionOrder: 1,
@@ -224,7 +223,6 @@ describe("SUP-29 GET /api/form-templates/:id/publish-preview", () => {
     const [secA] = await db
       .insert(formSection)
       .values({
-        formTemplateId: tpl.id,
         formTemplateVersionId: initialDraft.id,
         tenantId: tenant.id,
         sectionOrder: 1,
@@ -289,7 +287,6 @@ describe("SUP-29 GET /api/form-templates/:id/publish-preview", () => {
     if (!draftAfter) throw new Error("draft after publish");
 
     await db.insert(formSection).values({
-      formTemplateId: tpl.id,
       formTemplateVersionId: draftAfter.id,
       tenantId: tenant.id,
       sectionOrder: 2,

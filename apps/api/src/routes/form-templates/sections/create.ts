@@ -106,7 +106,6 @@ export const createSectionRoute = new Elysia()
           const [row] = await tx
             .insert(formSection)
             .values({
-              formTemplateId: templateId,
               formTemplateVersionId: draftVersion.id,
               tenantId,
               title,

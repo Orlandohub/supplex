@@ -178,12 +178,11 @@ export function buildFormTemplateCompiledJsonFromRelationalSubtree(
 export async function compilePublishedFormTemplateVersion(
   db: DbLike,
   params: {
-    formTemplateId: string;
     tenantId: string;
     versionId: string;
   }
 ): Promise<FormTemplateCompiledJson> {
-  const { formTemplateId, tenantId, versionId } = params;
+  const { tenantId, versionId } = params;
 
   const sectionRows = await db
     .select({
@@ -200,7 +199,6 @@ export async function compilePublishedFormTemplateVersion(
     .from(formSection)
     .where(
       and(
-        eq(formSection.formTemplateId, formTemplateId),
         eq(formSection.formTemplateVersionId, versionId),
         eq(formSection.tenantId, tenantId),
         isNull(formSection.deletedAt)

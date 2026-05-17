@@ -63,7 +63,7 @@ export const updateFieldRoute = new Elysia()
             .select({
               field: formField,
               versionNumber: formTemplateVersion.versionNumber,
-              formTemplateId: formSection.formTemplateId,
+              formTemplateId: formTemplateVersion.formTemplateId,
             })
             .from(formField)
             .innerJoin(formSection, eq(formField.formSectionId, formSection.id))

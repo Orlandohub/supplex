@@ -130,6 +130,7 @@ export const createFieldRoute = new Elysia()
             section: formSection,
             versionNumber: formTemplateVersion.versionNumber,
             templateStatus: formTemplate.status,
+            formTemplateId: formTemplateVersion.formTemplateId,
           })
           .from(formSection)
           .innerJoin(
@@ -141,7 +142,7 @@ export const createFieldRoute = new Elysia()
           )
           .innerJoin(
             formTemplate,
-            eq(formSection.formTemplateId, formTemplate.id)
+            eq(formTemplateVersion.formTemplateId, formTemplate.id)
           )
           .where(
             and(
@@ -219,7 +220,7 @@ export const createFieldRoute = new Elysia()
 
           await insertFormTemplateAuditEvent(tx, {
             tenantId,
-            formTemplateId: row.section.formTemplateId,
+            formTemplateId: row.formTemplateId,
             formTemplateVersionId: row.section.formTemplateVersionId,
             actorUserId: user.id,
             eventType: FormTemplateAuditEventType.FIELD_CREATED,

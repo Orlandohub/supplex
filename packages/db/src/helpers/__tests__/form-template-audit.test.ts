@@ -80,7 +80,6 @@ describe("form template audit events (SUP-27)", () => {
     const [section] = await db
       .insert(formSection)
       .values({
-        formTemplateId: tpl.id,
         formTemplateVersionId: draft.id,
         tenantId,
         sectionOrder: 1,

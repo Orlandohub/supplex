@@ -87,7 +87,6 @@ export const copyFormTemplate = new Elysia()
             .from(formSection)
             .where(
               and(
-                eq(formSection.formTemplateId, originalTemplate.id),
                 eq(formSection.formTemplateVersionId, sourceVersionId),
                 eq(formSection.tenantId, user.tenantId),
                 isNull(formSection.deletedAt)
@@ -129,7 +128,6 @@ export const copyFormTemplate = new Elysia()
             const [newSection] = await tx
               .insert(formSection)
               .values({
-                formTemplateId: newTemplate.id,
                 formTemplateVersionId: draftVersion.id,
                 tenantId: user.tenantId,
                 sectionOrder: section.sectionOrder,

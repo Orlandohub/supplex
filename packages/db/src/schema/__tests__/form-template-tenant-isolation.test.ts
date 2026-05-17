@@ -170,7 +170,6 @@ describe("Form Template Tenant Isolation", () => {
     const [section] = await db
       .insert(formSection)
       .values({
-        formTemplateId: template.id,
         formTemplateVersionId: draftVersion.id,
         tenantId: testTenant.id,
         sectionOrder: 1,
@@ -240,7 +239,6 @@ describe("Form Template Tenant Isolation", () => {
     const [section] = await db
       .insert(formSection)
       .values({
-        formTemplateId: template.id,
         formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         sectionOrder: 1,
@@ -266,9 +264,13 @@ describe("Form Template Tenant Isolation", () => {
 
     // Verify all related data is deleted
     const sectionsAfter = await db
-      .select()
+      .select({ id: formSection.id })
       .from(formSection)
-      .where(eq(formSection.formTemplateId, template.id));
+      .innerJoin(
+        formTemplateVersion,
+        eq(formSection.formTemplateVersionId, formTemplateVersion.id)
+      )
+      .where(eq(formTemplateVersion.formTemplateId, template.id));
     const fieldsAfter = await db
       .select()
       .from(formField)
@@ -399,7 +401,6 @@ describe("Form Template Tenant Isolation", () => {
     const [section] = await db
       .insert(formSection)
       .values({
-        formTemplateId: template.id,
         formTemplateVersionId: draftVersion.id,
         tenantId: tenantA.id,
         sectionOrder: 1,

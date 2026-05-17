@@ -123,7 +123,6 @@ describe("computeFormTemplatePublishImpact (SUP-29)", () => {
     const [sec] = await db
       .insert(formSection)
       .values({
-        formTemplateId: tpl.id,
         formTemplateVersionId: draft0.id,
         tenantId,
         sectionOrder: 1,

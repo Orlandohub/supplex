@@ -69,7 +69,6 @@ export const reorderSectionsRoute = new Elysia()
           .from(formSection)
           .where(
             and(
-              eq(formSection.formTemplateId, templateId),
               eq(formSection.formTemplateVersionId, draftVersion.id),
               eq(formSection.tenantId, tenantId),
               inArray(formSection.id, sectionIds),
@@ -125,7 +124,7 @@ export const reorderSectionsRoute = new Elysia()
             ) {
               await insertFormTemplateAuditEvent(tx, {
                 tenantId,
-                formTemplateId: beforeRow.formTemplateId,
+                formTemplateId: templateId,
                 formTemplateVersionId: beforeRow.formTemplateVersionId,
                 actorUserId: user.id,
                 eventType: FormTemplateAuditEventType.SECTION_UPDATED,

@@ -198,7 +198,6 @@ export async function publishFormTemplateFromDraft(
     .from(formSection)
     .where(
       and(
-        eq(formSection.formTemplateId, formTemplateId),
         eq(formSection.formTemplateVersionId, draft.id),
         eq(formSection.tenantId, tenantId),
         isNull(formSection.deletedAt)
@@ -315,7 +314,6 @@ export async function publishFormTemplateFromDraft(
     const [newSection] = await tx
       .insert(formSection)
       .values({
-        formTemplateId,
         formTemplateVersionId: pubVer.id,
         tenantId,
         sectionOrder: sec.sectionOrder,
@@ -362,7 +360,6 @@ export async function publishFormTemplateFromDraft(
   }
 
   const compiledJson = await compilePublishedFormTemplateVersion(tx, {
-    formTemplateId,
     tenantId,
     versionId: pubVer.id,
   });
@@ -447,7 +444,6 @@ export async function publishFormTemplateFromDraft(
     .from(formSection)
     .where(
       and(
-        eq(formSection.formTemplateId, formTemplateId),
         eq(formSection.formTemplateVersionId, pubVer.id),
         eq(formSection.tenantId, tenantId),
         isNull(formSection.deletedAt)
@@ -492,7 +488,6 @@ export async function publishFormTemplateFromDraft(
     const [newSection] = await tx
       .insert(formSection)
       .values({
-        formTemplateId,
         formTemplateVersionId: newDraft.id,
         tenantId,
         sectionOrder: sec.sectionOrder,

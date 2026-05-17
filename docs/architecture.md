@@ -79,6 +79,7 @@ The source of truth for all of these is `packages/db/src/schema/`, not secondary
 - The system uses a practical backend-for-frontend shape: React Router (Framework mode) handles page delivery and user-facing route composition, while the API owns cross-cutting business logic and deeper workflow behavior.
 - Tenant isolation is preserved through a mix of database-level and application-level controls, depending on the execution path.
 - Workflow execution is centered on runtime process and step instances rather than legacy qualification-only tables.
+- **Form templates** use `form_template_version` as the anchor for sections and fields; published versions may serve structure from `compiled_json` with relational fallback (see [ADR 0008](./adr/0008-form-template-versioning-compiled-json.md)).
 - Shared types and schema-backed contracts are intended to reduce drift between web and API behavior.
 
 ## Infrastructure Shape
@@ -122,6 +123,7 @@ Current accepted ADRs:
 - [`0005-deployment-topology.md`](./adr/0005-deployment-topology.md)
 - [`0006-documentation-architecture.md`](./adr/0006-documentation-architecture.md)
 - [`0007-react-router-v7.md`](./adr/0007-react-router-v7.md)
+- [`0008-form-template-versioning-compiled-json.md`](./adr/0008-form-template-versioning-compiled-json.md)
 
 Supporting ADR docs:
 

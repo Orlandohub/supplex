@@ -51,6 +51,7 @@ export const updateSectionRoute = new Elysia()
             .select({
               section: formSection,
               versionNumber: formTemplateVersion.versionNumber,
+              formTemplateId: formTemplateVersion.formTemplateId,
             })
             .from(formSection)
             .innerJoin(
@@ -155,7 +156,7 @@ export const updateSectionRoute = new Elysia()
           ) {
             await insertFormTemplateAuditEvent(tx, {
               tenantId,
-              formTemplateId: beforeRow.formTemplateId,
+              formTemplateId: section.formTemplateId,
               formTemplateVersionId: beforeRow.formTemplateVersionId,
               actorUserId: user.id,
               eventType: FormTemplateAuditEventType.SECTION_UPDATED,

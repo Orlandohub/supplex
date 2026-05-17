@@ -215,7 +215,6 @@ describe("SUP-32 form-template admin read APIs", () => {
     const [sec] = await db
       .insert(formSection)
       .values({
-        formTemplateId: tpl.id,
         formTemplateVersionId: initialDraft.id,
         tenantId: opts.tenantId,
         sectionOrder: 1,
@@ -483,7 +482,6 @@ describe("SUP-32 form-template admin read APIs", () => {
       const [secB] = await db
         .insert(formSection)
         .values({
-          formTemplateId: tpl.id,
           formTemplateVersionId: draft.id,
           tenantId: tenant.id,
           sectionOrder: 2,

@@ -138,7 +138,6 @@ describe("Form Submissions — GET :submissionId (access control & canValidate)"
     });
 
     section = await insertOneOrThrow(db, formSection, {
-      formTemplateId: fmTemplate.id,
       formTemplateVersionId: fmVer.id,
       tenantId: tenant.id,
       sectionOrder: 1,

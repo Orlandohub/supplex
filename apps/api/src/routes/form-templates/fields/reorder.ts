@@ -37,6 +37,7 @@ export const reorderFieldsRoute = new Elysia()
             section: formSection,
             versionNumber: formTemplateVersion.versionNumber,
             templateStatus: formTemplate.status,
+            formTemplateId: formTemplateVersion.formTemplateId,
           })
           .from(formSection)
           .innerJoin(
@@ -48,7 +49,7 @@ export const reorderFieldsRoute = new Elysia()
           )
           .innerJoin(
             formTemplate,
-            eq(formSection.formTemplateId, formTemplate.id)
+            eq(formTemplateVersion.formTemplateId, formTemplate.id)
           )
           .where(
             and(
@@ -74,7 +75,7 @@ export const reorderFieldsRoute = new Elysia()
         }
 
         const draftVersion = await getDraftFormTemplateVersionForTemplate(db, {
-          formTemplateId: row.section.formTemplateId,
+          formTemplateId: row.formTemplateId,
           tenantId,
         });
 
@@ -156,7 +157,7 @@ export const reorderFieldsRoute = new Elysia()
             ) {
               await insertFormTemplateAuditEvent(tx, {
                 tenantId,
-                formTemplateId: row.section.formTemplateId,
+                formTemplateId: row.formTemplateId,
                 formTemplateVersionId: beforeRow.formTemplateVersionId,
                 actorUserId: user.id,
                 eventType: FormTemplateAuditEventType.FIELD_UPDATED,

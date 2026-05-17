@@ -181,7 +181,6 @@ describe("SUP-28 form template sections — keys & conflicts", () => {
     const [sec] = await db
       .insert(formSection)
       .values({
-        formTemplateId: tpl.id,
         formTemplateVersionId: draft.id,
         tenantId: tenant.id,
         sectionOrder: 1,
